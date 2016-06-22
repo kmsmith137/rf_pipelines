@@ -29,8 +29,6 @@
 	} \
     } while (0)
 
-#define rf_assert_close(x,y,epsilon) rf_assert2(fabs((x)-(y)) <= epsilon, __LINE__)
-
 
 namespace rf_pipelines {
 #if 0
@@ -57,9 +55,14 @@ inline int randint(int lo, int hi)
     return ret;
 }
 
-inline bool is_close(double x, double y)
+inline double dist(double x, double y)
 {
-    return fabs(x-y) <= 1.0e-5 * (fabs(x) + fabs(y));
+    return fabs(x-y);
+}
+
+inline double reldist(double x, double y)
+{
+    return fabs(x-y) / (fabs(x) + fabs(y));
 }
 
 // round up m to nearest multiple of n 

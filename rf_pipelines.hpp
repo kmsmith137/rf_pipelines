@@ -88,7 +88,7 @@ struct wraparound_buf {
     // specified at construction
     int nfreq;
     int nt_contig;
-    int nt_logical_size;
+    int nt_ring;
 
     // 2d arrays of shape (nfreq, nt_tot)
     std::vector<float> intensity;
@@ -98,17 +98,20 @@ struct wraparound_buf {
     int ipos;
 
     // Main constructor syntax
-    wraparound_buf(int nfreq, int nt_contig, int nt_logical_size);
+    wraparound_buf(int nfreq, int nt_contig, int nt_ring);
 
     // Alternate syntax: use default constuctor, then call construct()
     wraparound_buf();
 
-    void construct(int nfreq, int nt_contig, int nt_logical_size);
+    void construct(int nfreq, int nt_contig, int nt_ring);
     void reset();
 
-    void setup_read(int it0, int nt, float* &intensityp, float* &weightp, int &stride);
-    void setup_write(int it0, int nt, float* &intensityp, float* &weightp, int &stride, bool zero_flag);
+    void setup_write(int it0, int nt, float* &intensityp, float* &weightp, int &stride);
+    void setup_append(int nt, float* &intensityp, float* &weightp, int &stride, bool zero_flag);
+    void append_zeros(int nt);
+
     void finalize_write(int it0, int nt);
+    void finalize_append(int nt);
 
     void _copy(int it_dst, int it_src, int nt);
     void _check_integrity();
