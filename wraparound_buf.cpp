@@ -45,7 +45,20 @@ void wraparound_buf::construct(int nfreq_, int nt_contig_, int nt_logical_size_)
 }
 
 
-void wraparound_buf::setup_read(int it0, int nt, const float* &intensityp, const float* &weightp, int &stride) const
+void wraparound_buf::reset()
+{
+    this->nfreq = 0;
+    this->nt_contig = 0;
+    this->nt_logical_size = 0;
+    this->nt_tot = 0;
+    this->ipos = 0;
+
+    deallocate(this->intensity);
+    deallocate(this->weights);
+}
+
+
+void wraparound_buf::setup_read(int it0, int nt, float* &intensityp, float* &weightp, int &stride)
 {
     if ((nt <= 0) || (nt > this->nt_contig))
 	throw runtime_error("wraparound_buf::setup_read(): invalid value of nt");
@@ -175,8 +188,8 @@ void wraparound_buf::run_unit_tests()
 	    int it0_read = randint(it0_min, ipos);
 	    int nt_read = randint(1, ipos-it0_read+1);
 	    
-	    const float *intensity2 = nullptr;
-	    const float *weight2 = nullptr;
+	    float *intensity2 = nullptr;
+	    float *weight2 = nullptr;
 	    stride = 0;
 	    
 	    wbuf.setup_read(it0_read, nt_read, intensity2, weight2, stride);

@@ -57,6 +57,42 @@ inline int randint(int lo, int hi)
     return ret;
 }
 
+inline bool is_close(double x, double y)
+{
+    return fabs(x-y) <= 1.0e-5 * (fabs(x) + fabs(y));
+}
+
+// round up m to nearest multiple of n 
+inline int round_up(int m, int n)
+{
+    rf_assert(m >= 0);
+    rf_assert(n > 0);
+    return ((m+n-1)/n) * n;
+}
+
+inline int gcd(int m, int n)
+{
+    if (m < n)
+	std::swap(m, n);
+    if (n < 0)
+	throw std::runtime_error("gcd() called with negative argument");
+
+    while (n > 0) {
+	int d = m % n;
+	m = n;
+	n = d;
+    }
+
+    return m;
+}
+
+// std::vector doesn't provide a member function which guarantees deallocation!
+template<typename T> static inline void deallocate(std::vector<T> &v)
+{
+    std::vector<T> w;
+    v.swap(w);
+}
+
 
 }  // namespace rf_pipelines
 
