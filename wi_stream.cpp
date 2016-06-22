@@ -8,50 +8,43 @@ namespace rf_pipelines {
 #endif
 
 
-wi_stream::wi_stream()
-{
-    this->nfreq = 0;
-    this->freq_lo_MHz = 0.0;
-    this->freq_hi_MHz = 0.0;
-    this->dt_sample = 0.0;
-    this->nt_maxwrite = 0;
-}
+wi_stream::wi_stream() :
+    nfreq(0), freq_lo_MHz(0.), freq_hi_MHz(0.), dt_sample(0.), nt_maxwrite(0)
+{ }
 
 
 wi_stream::wi_stream(int nfreq_, double freq_lo_MHz_, double freq_hi_MHz_, double dt_sample_, int nt_maxwrite_) :
-    wi_stream()
+    nfreq(nfreq_), freq_lo_MHz(freq_lo_MHz_), freq_hi_MHz(freq_hi_MHz_), dt_sample(dt_sample_), nt_maxwrite(nt_maxwrite_)
 {
-    this->construct(nfreq_, freq_lo_MHz_, freq_hi_MHz_, dt_sample_, nt_maxwrite_);
+    this->check_invariants();
 }
 
 
-void wi_stream::construct(int nfreq_, double freq_lo_MHz_, double freq_hi_MHz_, double dt_sample_, int nt_maxwrite_)
+void wi_stream::check_invariants() const
 {
-    this->nfreq = nfreq_;
-    this->freq_lo_MHz = freq_lo_MHz_;
-    this->freq_hi_MHz = freq_hi_MHz_;
-    this->dt_sample = dt_sample_;
-    this->nt_maxwrite = nt_maxwrite_;
-
     if (nfreq <= 0)
-	throw runtime_error("wi_stream::construct(): expected nfreq > 0");
+	throw runtime_error("wi_stream: nfreq is non-positive or uninitialized");
     if (freq_lo_MHz <= 0.0)
-	throw runtime_error("wi_stream::construct(): expected freq_lo_MHz > 0.0");
+	throw runtime_error("wi_stream: frequency range is invalid or uninitialized");
     if (freq_lo_MHz >= freq_hi_MHz)
-	throw runtime_error("wi_stream::construct(): expected freq_lo_MHz < freq_hi_MHz");
+	throw runtime_error("wi_stream: frequency range is invalid or uninitialized");
     if (dt_sample <= 0.0)
-	throw runtime_error("wi_stream::construct(): expected dt_sample > 0.0");
+	throw runtime_error("wi_stream: dt_sample is non-positive or uninitialized");	
     if (nt_maxwrite <= 0)
-	throw runtime_error("wi_stream::construct(): expected nt_maxwrite > 0");
+	throw runtime_error("wi_stream: nt_maxwrite is non-positive or uninitialized");
 }
 
 
-void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transforms)
+void wi_stream::run_transforms(const std::vector<std::shared_ptr<wi_transform> > &transforms)
 {
-    wi_run_state rstate(*this, transforms);
+    this->check_invariants();
 
-    // Delegate to pure virtual run() method implemented in subclass
-    this->run(rstate);
+    // Delegate to run_stream() method implemented in subclass
+    wi_run_state rstate(*this, transforms);
+    this->run_stream(rstate);
+
+    if (rstate.is_running)
+	throw runtime_error("rf_pipelines: stream is still in \"running\" state after run_stream() returns (maybe you forgot to call wi_run_state::end_stream() in wi_stream::run_stream()?)");
 }
 
 

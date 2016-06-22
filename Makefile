@@ -10,6 +10,11 @@ include Makefile.local
 
 INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp
 
+OFILES=wi_run_state.o \
+	wi_stream.o \
+	wi_transform.o \
+	wraparound_buf.o
+
 all: librf_pipelines.so run-unit-tests
 
 install: librf_pipelines.so
@@ -26,8 +31,8 @@ clean:
 %.o: %.cpp $(INCFILES)
 	$(CPP) -c -o $@ $<
 
-librf_pipelines.so: wraparound_buf.o
-	$(CPP) $(CPP_LFLAGS) -shared -o $@ $<
+librf_pipelines.so: $(OFILES)
+	$(CPP) $(CPP_LFLAGS) -shared -o $@ $^
 
 run-unit-tests: run-unit-tests.o librf_pipelines.so
 	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines

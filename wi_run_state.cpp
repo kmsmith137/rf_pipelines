@@ -30,10 +30,12 @@ wi_run_state::wi_run_state(const wi_stream &stream, const std::vector<std::share
 void wi_run_state::start_stream()
 {
     if (this->is_running)
-	throw runtime_error("wi_run_state::start_stream() called on already-running stream (maybe a bug in wi_stream::run()?)");
+	throw runtime_error("wi_run_state::start_stream() called on already-running stream (maybe a call to end_stream() is missing somewhere?)");
    
-    for (int it = 0; it < ntransforms; it++)
+    for (int it = 0; it < ntransforms; it++) {
 	transforms[it]->start_stream(nfreq, freq_lo_MHz, freq_hi_MHz, dt_sample);
+	transforms[it]->check_invariants();
+    }
 
     // Allocate main buffer
 

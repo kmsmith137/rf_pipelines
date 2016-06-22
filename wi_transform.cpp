@@ -8,39 +8,26 @@ namespace rf_pipelines {
 #endif
 
 
-wi_transform::wi_transform()
-{
-    this->reset_nt();
-}
+wi_transform::wi_transform() :
+    nt_chunk(0), nt_prepad(0), nt_postpad(0)
+{ }
 
 
 wi_transform::wi_transform(int nt_chunk_, int nt_prepad_, int nt_postpad_) :
-    wi_transform()
+    nt_chunk(nt_chunk_), nt_prepad(nt_prepad_), nt_postpad(nt_postpad_)
 {
-    this->set_nt(nt_chunk_, nt_prepad_, nt_postpad_);
+    this->check_invariants();
 }
 
 
-void wi_transform::set_nt(int nt_chunk_, int nt_prepad_, int nt_postpad_)
+void wi_transform::check_invariants() const
 {
-    this->nt_chunk = nt_chunk_;
-    this->nt_prepad = nt_prepad_;
-    this->nt_postpad = nt_postpad_;
-
     if (nt_chunk <= 0)
-	throw runtime_error("wi_transform::set_nt(): expected nt_chunk > 0");
+	throw runtime_error("wi_transform: nt_chunk is non-positive or uninitialized");
     if (nt_prepad < 0)
-	throw runtime_error("wi_transform::set_nt(): expected nt_prepad >= 0");
+	throw runtime_error("wi_transform: nt_prepad is negative");
     if (nt_postpad < 0)
-	throw runtime_error("wi_transform::set_nt(): expected nt_postpad >= 0");    
-}
-
-
-void wi_transform::reset_nt()
-{
-    this->nt_chunk = 0;
-    this->nt_prepad = 0;
-    this->nt_postpad = 0;
+	throw runtime_error("wi_transform: nt_postpad is negative");
 }
 
 
