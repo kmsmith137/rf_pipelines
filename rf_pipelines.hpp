@@ -14,7 +14,7 @@ namespace rf_pipelines {
 #endif
 
 struct wi_transform;
-struct wi_run_state;
+class wi_run_state;
 
 
 struct wi_stream {

@@ -1,8 +1,8 @@
 # Makefile.local must define the following variables
 #   LIBDIR      install dir for C++ libraries
 #   INCDIR      install dir for C++ headers
-#   PYDIR       install dir for python/cython modules
-#   CPP         g++ compiler command line
+#   CPP         C++ compiler command line
+#   CPP_LFLAGS  extra linker flags when creating a .so or executable file from .o files
 #
 # See site/Makefile.local.* for examples.
 
@@ -27,7 +27,7 @@ clean:
 	$(CPP) -c -o $@ $<
 
 librf_pipelines.so: wraparound_buf.o
-	$(CPP) -shared -o $@ $<
+	$(CPP) $(CPP_LFLAGS) -shared -o $@ $<
 
 run-unit-tests: run-unit-tests.o librf_pipelines.so
-	$(CPP) -o $@ $< -lrf_pipelines
+	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines
