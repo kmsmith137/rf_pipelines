@@ -89,6 +89,11 @@ inline int gcd(int m, int n)
     return m;
 }
 
+inline bool endswith(const std::string &str, const std::string &suffix)
+{
+    return std::equal(suffix.rbegin(), suffix.rend(), str.rbegin());
+}
+
 // std::vector doesn't provide a member function which guarantees deallocation!
 template<typename T> static inline void deallocate(std::vector<T> &v)
 {

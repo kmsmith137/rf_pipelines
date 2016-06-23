@@ -10,9 +10,18 @@ include Makefile.local
 
 INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp
 
-OFILES=detrenders.o \
+OFILES=chime_file_stream.o \
+	detrenders.o \
+	misc.o \
 	wi_run.o \
 	wraparound_buf.o
+
+LIBS=
+
+ifeq ($(HAVE_CH_FRB_IO),y)
+	CPP += -DHAVE_CH_FRB_IO
+	LIBS += -lch_frb_io -lhdf5
+endif
 
 all: librf_pipelines.so run-unit-tests
 
@@ -31,7 +40,7 @@ clean:
 	$(CPP) -c -o $@ $<
 
 librf_pipelines.so: $(OFILES)
-	$(CPP) $(CPP_LFLAGS) -shared -o $@ $^
+	$(CPP) $(CPP_LFLAGS) -shared -o $@ $^ $(LIBS)
 
 run-unit-tests: run-unit-tests.o librf_pipelines.so
 	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines

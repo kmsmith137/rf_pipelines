@@ -1,3 +1,6 @@
+HAVE_PSRFITS=n
+HAVE_CH_FRB_IO=y
+
 # Directory where C++ libraries will be installed
 LIBDIR=$(HOME)/lib
 
@@ -10,10 +13,10 @@ INCDIR=$(HOME)/include
 # Don't forget to put -L. and -L$(LIBDIR) on the command line (in this order)
 # Don't forget to add $(PYDIR) to your PYTHONPATH environment variable
 #
-CPP=clang -std=c++11 -Wall -O3 -ffast-math -funroll-loops -I$(INCDIR)
+CPP=clang++ -std=c++11 -Wall -O3 -ffast-math -funroll-loops -I$(INCDIR)
 
 # Extra linker flags when creating a shared library or exectutable from .o files
 # Don't forget to add . and $(LIBDIR) in your LD_LIBRARY_PATH environment variable (in this order)
 # Don't forget -fPIC
-CPP_LFLAGS=-fPIC -L. -L$(LIBDIR) -lc++
+CPP_LFLAGS=-fPIC -L. -L$(LIBDIR)
 

@@ -13,8 +13,42 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
+struct wi_stream;
 struct wi_transform;
 class wi_run_state;
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// First, the library of built-in streams and transforms.
+//
+// The C++ syntax for applying a sequence of transforms to a stream is something like this:
+//
+//   shared_ptr<wi_stream> stream = make_chime_stream(...);
+//
+//   vector<shared_ptr<wi_transform> > transform_list;
+//   transform_list.push_back(make_simple_detrender(...));
+//   transform_list.push_back(make_bonsai_dedispserser(...));  // in rf_pipelines_bonsai.hpp
+//
+//   stream->run(transform_list);
+//
+
+
+// CHIME 
+extern std::shared_ptr<wi_stream> make_chime_stream_from_file(const std::string &filename, int nt_chunk=0);
+extern std::shared_ptr<wi_stream> make_chime_stream_from_acqdir(const std::string &filename, int nt_chunk=0);
+extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std::vector<std::string> &filename_list, int nt_chunk=0);
+
+
+// Misc helper functions (more to come?)
+extern void listdir(std::vector<std::string> &filenames, const std::string &dirname);
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// Second, the 'wi_stream' and 'wi_transform' virtual base classes.
+//
+// These define the API that you'll need to implement, in order to make new steams and transforms.
 
 
 struct wi_stream {
@@ -89,7 +123,7 @@ struct wi_transform {
 
 // -------------------------------------------------------------------------------------------------
 //
-// These low-level classes are probably not needed from the "outside world".
+// Third: low-level classes which are probably not needed from the outside world.
 //
 // Exception: if you're implementing a new wi_stream, then you'll probably want to look at the
 // definition of wi_run_state.
@@ -172,7 +206,6 @@ public:
     void finalize_write(int nt);
     void end_substream();
 };
-
 
 
 }  // namespace rf_pipelines
