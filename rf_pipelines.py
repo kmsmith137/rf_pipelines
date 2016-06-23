@@ -3,8 +3,13 @@
 
 import rf_pipelines_cython
 
+
 def psrfits_stream(filename):
     return wi_stream(rf_pipelines_cython.make_psrfits_stream(filename))
+
+
+def simple_detrender(nt_chunk):
+    return wi_transform(rf_pipelines_cython.make_simple_detrender(nt_chunk))
 
 
 ####################################################################################################
@@ -41,5 +46,19 @@ class wi_stream(object):
         return self.p.get_nt_maxwrite()
 
     def run(self, transforms):
-        """The 'transforms' argument can be either a single object of class xxx_transform, or a list of transforms."""
-        pass
+        """The 'transforms' arg should be a list of objects of class wi_transform."""
+
+        self.p.clear_transforms()
+
+        for t in transforms:
+            assert isinstance(t, wi_transform)
+            self.p.add_transform(t.p)
+            
+        self.p.run()
+        self.p.clear_transforms()
+
+
+class wi_transform(object):
+    def __init__(self, p):
+        assert isinstance(p, rf_pipelines_cython.wi_transform)
+        self.p = p

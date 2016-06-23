@@ -203,7 +203,7 @@ void psrfits_stream::stream_body(wi_run_state &run_state)
 	float *weights;
 	int stride;
 	bool zero_flag = false;
-	run_state.setup_write(this->nt_maxwrite, intensity, weights, stride, zero_flag);
+	run_state.setup_write(nt_maxwrite, intensity, weights, stride, zero_flag);
 
 	// Transpose and convert uint8 -> float
 	for (int it = 0; it < nt_maxwrite; it++)
@@ -220,6 +220,7 @@ void psrfits_stream::stream_body(wi_run_state &run_state)
 		weights[ifreq*stride + it] = w;
 	}
 
+	run_state.finalize_write(nt_maxwrite);
 	p->read_next_row();
     }
 
