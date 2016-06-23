@@ -52,13 +52,30 @@ class wi_stream(object):
 
         for t in transforms:
             assert isinstance(t, wi_transform)
-            self.p.add_transform(t.p)
+
+            if hasattr(t,'p'):
+                self.p.add_transform(t.p)
+            else:
+                self.p.add_transform(rf_pipelines_cython.make_upcalling_transform(t))
             
         self.p.run()
         self.p.clear_transforms()
 
 
 class wi_transform(object):
-    def __init__(self, p):
-        assert isinstance(p, rf_pipelines_cython.wi_transform)
-        self.p = p
+    def __init__(self, p=None):
+        if p is not None:
+            assert isinstance(p, rf_pipelines_cython.wi_transform)
+            self.p = p
+
+    def set_stream(self):
+        raise RuntimeError("wi_transform subclass didn't define set_stream()")
+
+    def start_substream(self, t0):
+        raise RuntimeError("wi_transform subclass didn't define start_substream()")
+
+    def process_chunk(self, intensity, weight, pp_intensity, pp_weight):
+        raise RuntimeError("wi_transform subclass didn't define process_chunk()")        
+
+    def end_substream(self):
+        raise RuntimeError("wi_transform subclass didn't define end_substream()")

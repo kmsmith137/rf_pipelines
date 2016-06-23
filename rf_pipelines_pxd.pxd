@@ -1,6 +1,8 @@
 # This file is Cython boilerplate.
 
+cimport cpython
 from libcpp.string cimport string
+
 
 cdef extern from "rf_pipelines_cython.hpp":
     cdef cppclass _wi_transform:
@@ -19,3 +21,4 @@ cdef extern from "rf_pipelines_cython.hpp":
 
     _wi_stream *_make_psrfits_stream(string s)
     _wi_transform *_make_simple_detrender(int nt_chunk)
+    _wi_transform *_make_upcalling_transform(cpython.PyObject *pyobj)

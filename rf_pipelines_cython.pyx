@@ -1,3 +1,4 @@
+cimport cpython
 cimport rf_pipelines_pxd
 
 
@@ -53,4 +54,9 @@ def make_psrfits_stream(filename):
 def make_simple_detrender(nt_chunk):
     ret = wi_transform()
     ret.p = rf_pipelines_pxd._make_simple_detrender(nt_chunk)
+    return ret
+
+def make_upcalling_transform(pyobj):
+    ret = wi_transform()
+    ret.p = rf_pipelines_pxd._make_upcalling_transform(<cpython.PyObject *> pyobj)
     return ret
