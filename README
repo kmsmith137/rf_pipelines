@@ -1,0 +1,34 @@
+DEPENDENCIES
+------------
+
+  - A gcc which is recent enough that C++11 and AVX2 are supported.  
+    I know that gcc 4.8.1 works, and that 4.4.7 is too old.
+
+  - libhdf5 (https://www.hdfgroup.org/HDF5/release/obtain5.html)
+    Note that this is a link to HDF5 v1.8.  I imagine v1.10 also works but haven't tested it yet.
+
+  - Optional: ch_frb_io (https://github.com/CHIMEFRB/ch_frb_io)
+    There is a y/n flag in Makefile.local to indicate whether you have this.
+    You'll need this if you want to use CHIME data streams.  Note that you only need to 
+    compile the C++ part of ch_frb_io (see installation instructions in the ch_frb_io README).
+
+  - Optional: psrfits_utils (https://github.com/scottransom/psrfits_utils)
+    There is a y/n flag in Makefile.local to indicate whether you have this.
+    You'll need this if you want to use a psrfits stream (e.g. for analyzing gbncc).
+
+    Note: if psrfits_utils installation fails due to autoconf warnings which don't look 
+          serious, it may help to edit configure.ac and remove the "-Werror" in the line 
+          AM_INIT_AUTOMAKE([-Wall -Werror foreign])
+
+
+INSTALLATION
+------------
+
+  - Create a file ./Makefile.local containing compiler flags, library locations, etc.
+    The format is defined in Makefile, but it will probably be easiest to copy one of
+    the examples in site/ and customize.
+
+  - make all install
+
+  - For some quick unit tests, do 
+      ./run-unit-tests
