@@ -34,11 +34,13 @@ class wi_run_state;
 //
 
 
-// CHIME 
+// CHIME file streams
 extern std::shared_ptr<wi_stream> make_chime_stream_from_file(const std::string &filename, int nt_chunk=0);
 extern std::shared_ptr<wi_stream> make_chime_stream_from_acqdir(const std::string &filename, int nt_chunk=0);
 extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std::vector<std::string> &filename_list, int nt_chunk=0);
 
+// Simplest possible detrender: just divides the data into chunks and subtracts the mean in each chunk
+extern std::shared_ptr<wi_transform> make_simple_detrender(int nt_chunk);
 
 // Misc helper functions (more to come?)
 extern void listdir(std::vector<std::string> &filenames, const std::string &dirname);
