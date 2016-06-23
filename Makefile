@@ -34,7 +34,7 @@ uninstall:
 	rm -f $(LIBDIR)/librf_pipelines.so
 
 clean:
-	rm -f *~ *.o *.so
+	rm -f *~ *.o *.so run-unit-tests
 
 %.o: %.cpp $(INCFILES)
 	$(CPP) -c -o $@ $<
