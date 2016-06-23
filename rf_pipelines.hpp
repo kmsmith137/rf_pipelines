@@ -34,6 +34,9 @@ class wi_run_state;
 //
 
 
+// PSRFITS file stream (e.g. gbncc)
+extern std::shared_ptr<wi_stream> make_psrfits_stream(const std::string &filename);
+
 // CHIME file streams
 extern std::shared_ptr<wi_stream> make_chime_stream_from_file(const std::string &filename, int nt_chunk=0);
 extern std::shared_ptr<wi_stream> make_chime_stream_from_acqdir(const std::string &filename, int nt_chunk=0);

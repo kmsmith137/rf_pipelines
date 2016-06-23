@@ -13,10 +13,16 @@ INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp
 OFILES=chime_file_stream.o \
 	detrenders.o \
 	misc.o \
+	psrfits_stream.o \
 	wi_run.o \
 	wraparound_buf.o
 
 LIBS=
+
+ifeq ($(HAVE_PSRFITS),y)
+	CPP += -DHAVE_PSRFITS
+	LIBS += -lpsrfits_utils -lcfitsio
+endif
 
 ifeq ($(HAVE_CH_FRB_IO),y)
 	CPP += -DHAVE_CH_FRB_IO

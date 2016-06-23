@@ -94,6 +94,21 @@ inline bool endswith(const std::string &str, const std::string &suffix)
     return std::equal(suffix.rbegin(), suffix.rend(), str.rbegin());
 }
 
+template<typename T>
+inline T *aligned_alloc(size_t nelts)
+{
+    if (nelts == 0)
+	return NULL;
+
+    // align to 64-byte cache lines
+    void *p = NULL;
+    if (posix_memalign(&p, 64, nelts * sizeof(T)) != 0)
+	throw std::runtime_error("couldn't allocate memory");
+
+    memset(p, 0, nelts * sizeof(T));
+    return reinterpret_cast<T *> (p);
+}
+
 // std::vector doesn't provide a member function which guarantees deallocation!
 template<typename T> static inline void deallocate(std::vector<T> &v)
 {
