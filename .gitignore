@@ -1,6 +1,8 @@
 *~
 *.o
 *.so
+*.pyc
+rf_pipelines_cython.cpp
 run-unit-tests
 Makefile.local
 TODO
