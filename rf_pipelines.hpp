@@ -13,6 +13,7 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
+struct wi_stream;
 struct wi_transform;
 class wi_run_state;
 
@@ -55,14 +56,16 @@ struct wi_stream {
 
 
 struct wi_transform {
+    int nfreq;
     int nt_chunk;
     int nt_prepad;
     int nt_postpad;
-
-    // If the default constructor is used, then the subclass is responsible for initializing the
-    // fields { nt_chunk, nt_prepad, nt_postpad } either in the constructor or start_stream().
-    explicit wi_transform(int nt_chunk, int nt_prepad=0, int nt_postpad=0);
-    wi_transform();
+    
+    // The subclass is responsible for initializing the fields { nfreq, nt_chunk, nt_prepad, nt_postpad },
+    // either in the constructor, or in start_stream().
+    wi_transform() : 
+	nfreq(0), nt_chunk(0), nt_prepad(0), nt_postpad(0)
+    { }
 
     virtual ~wi_transform() { }
 

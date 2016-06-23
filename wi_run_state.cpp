@@ -35,7 +35,15 @@ void wi_run_state::start_stream()
    
     for (int it = 0; it < ntransforms; it++) {
 	transforms[it]->start_stream(nfreq, freq_lo_MHz, freq_hi_MHz, dt_sample);
-	transforms[it]->check_invariants();
+
+	if (transforms[it]->nfreq != this->nfreq)
+	    throw runtime_error("wi_transform::nt_chunk does not match stream nfreq");
+	if (transforms[it]->nt_chunk <= 0)
+	    throw runtime_error("wi_transform::nt_chunk is non-positive or uninitialized");
+	if (transforms[it]->nt_prepad < 0)
+	    throw runtime_error("wi_transform::nt_prepad is negative");
+	if (transforms[it]->nt_postpad < 0)
+	    throw runtime_error("wi_transform::nt_postpad is negative");
     }
 
     // Allocate main buffer

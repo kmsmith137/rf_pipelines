@@ -117,7 +117,6 @@ struct test_wi_transform : public wi_transform {
     affine_map1 out_imap, out_wmap;
     affine_map2 stream_imap, stream_wmap;
 
-    int nfreq;
     int nt_stream;
     int curr_it;
 

@@ -12,7 +12,6 @@ INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp
 
 OFILES=wi_run_state.o \
 	wi_stream.o \
-	wi_transform.o \
 	wraparound_buf.o
 
 all: librf_pipelines.so run-unit-tests
