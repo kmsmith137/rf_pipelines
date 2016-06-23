@@ -10,7 +10,7 @@ include Makefile.local
 
 INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp
 
-OFILES=wi_run_state.o \
+OFILES=wi_run.o \
 	wraparound_buf.o
 
 all: librf_pipelines.so run-unit-tests
