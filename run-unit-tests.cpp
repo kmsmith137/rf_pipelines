@@ -79,9 +79,12 @@ struct test_wi_stream : public wi_stream {
 	this->dt_sample = 1.0e-3;
     }
 
-    virtual void run_stream(wi_run_state &rstate)
+    virtual void stream_body(wi_run_state &run_state)
     {
-	rstate.start_stream();
+	// arbitrary
+	double t0 = 0.0;
+	run_state.start_substream(t0);
+
 	int ipos = 0;
 
 	while (ipos < nt_stream) {
@@ -93,7 +96,7 @@ struct test_wi_stream : public wi_stream {
 	    int stride;
 	    
 	    bool zero_flag = true;
-	    rstate.setup_write(nt, intensity, weights, stride, zero_flag);
+	    run_state.setup_write(nt, intensity, weights, stride, zero_flag);
 	    
 	    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
 		for (int it = 0; it < nt; it++) {
@@ -102,11 +105,11 @@ struct test_wi_stream : public wi_stream {
 		}
 	    }
 
-	    rstate.finalize_write(nt);
+	    run_state.finalize_write(nt);
 	    ipos += nt;
 	}
 
-	rstate.end_stream();
+	run_state.end_substream();
     }
 };
 
@@ -123,8 +126,8 @@ struct test_wi_transform : public wi_transform {
  
     test_wi_transform(const test_wi_stream &stream, const std::shared_ptr<test_wi_transform> &prev_transform)
     {
+	// initialize fields in base class
 	this->nfreq = stream.nfreq;
-	this->nt_stream = stream.nt_stream;
 	this->nt_chunk = randint(1, 21);
 	this->nt_prepad = max(randint(-15,21), 0);    // order-one probability of zero
 	this->nt_postpad = max(randint(-15,21), 0);   // order-one probability of zero
@@ -142,14 +145,14 @@ struct test_wi_transform : public wi_transform {
 
 	this->stream_imap = stream.intensity_map;
 	this->stream_wmap = stream.weight_map;
-    }
 
-    
-    virtual void start_stream(int nfreq_, double freq_lo_MHz, double freq_hi_MHz, double dt_sample)
-    {
-	rf_assert(this->nfreq == nfreq_);
+	this->nt_stream = stream.nt_stream;
 	this->curr_it = 0;
     }
+
+    virtual void set_stream(const wi_stream &stream) { return; }
+    virtual void start_substream(double t0) { return; }
+    virtual void end_substream() { return; }
 
     virtual void process_chunk(float *intensity, float *weight, int stride, float *pp_intensity, float *pp_weight, int pp_stride)
     {
@@ -199,8 +202,6 @@ struct test_wi_transform : public wi_transform {
 
 	this->curr_it += nt_chunk;
     }
-
-    virtual void end_stream() { }
 };
 
 
@@ -224,7 +225,7 @@ static void run_pipeline_unit_tests()
 	for (int itr = 0; itr < ntransforms; itr++)
 	    transforms[itr] = prev = make_shared<test_wi_transform> (stream, prev);
 
-	stream.run_transforms(transforms);
+	stream.run(transforms);
     }
 
     cerr << "done\n";

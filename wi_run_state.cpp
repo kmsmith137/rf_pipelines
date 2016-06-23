@@ -10,41 +10,29 @@ namespace rf_pipelines {
 
 wi_run_state::wi_run_state(const wi_stream &stream, const std::vector<std::shared_ptr<wi_transform> > &transforms_) :
     nfreq(stream.nfreq),
-    freq_lo_MHz(stream.freq_lo_MHz),
-    freq_hi_MHz(stream.freq_hi_MHz),
-    dt_sample(stream.dt_sample),
     nt_stream_maxwrite(stream.nt_maxwrite),
     ntransforms(transforms_.size()),
     transforms(transforms_),
     transform_ipos(transforms_.size(), 0),
     stream_ipos(0),
-    prepad_buffers(transforms_.size()),
-    is_running(false)
+    state(0),
+    nt_pending(0),
+    prepad_buffers(transforms_.size())
 {
     if (!nfreq)
-	throw runtime_error("rf_pipelines: run() called on uninitialized stream (did you forget to call wi_stream::construct()?)");
+	throw runtime_error("wi_run_state constructor called on uninitialized stream");
     if (ntransforms < 1)
-	throw runtime_error("rf_pipelines: run() called on empty transform list");
+	throw runtime_error("wi_run_state constructor called on empty transform list");
 }
 
 
-void wi_run_state::start_stream()
+void wi_run_state::start_substream(double t0)
 {
-    if (this->is_running)
-	throw runtime_error("wi_run_state::start_stream() called on already-running stream (maybe a call to end_stream() is missing somewhere?)");
+    if ((this->state > 0) && (this->state < 4))
+	throw runtime_error("rf_transforms: logic error in stream: double call to start_substream() (maybe a call to end_substream() is missing somewhere?)");
    
-    for (int it = 0; it < ntransforms; it++) {
-	transforms[it]->start_stream(nfreq, freq_lo_MHz, freq_hi_MHz, dt_sample);
-
-	if (transforms[it]->nfreq != this->nfreq)
-	    throw runtime_error("wi_transform::nt_chunk does not match stream nfreq");
-	if (transforms[it]->nt_chunk <= 0)
-	    throw runtime_error("wi_transform::nt_chunk is non-positive or uninitialized");
-	if (transforms[it]->nt_prepad < 0)
-	    throw runtime_error("wi_transform::nt_prepad is negative");
-	if (transforms[it]->nt_postpad < 0)
-	    throw runtime_error("wi_transform::nt_postpad is negative");
-    }
+    for (int it = 0; it < ntransforms; it++)
+	transforms[it]->start_substream(t0);
 
     // Allocate main buffer
 
@@ -87,27 +75,37 @@ void wi_run_state::start_stream()
 	this->prepad_buffers[it].append_zeros(n0);
     }
 
-    this->is_running = true;
+    this->state = 1;
 }
 
 
 void wi_run_state::setup_write(int nt, float* &intensityp, float* &weightp, int &stride, bool zero_flag)
 {
-    if (!this->is_running)
-	throw runtime_error("wi_run_state::setup_write() called on non-running stream (did you forget a call to wi_run_state::start_stream()?)");
+    // states 1,3 are OK
+    if ((this->state == 0) || (this->state == 4))
+	throw runtime_error("rf_transforms: logic error in stream: setup_write() was called without prior call to start_substream()");
+    if (this->state == 2)
+	throw runtime_error("rf_transforms: logic error in stream: double call to setup_write(), without call to finalize_write() in between");
+
     if (nt <= 0)
-	throw runtime_error("wi_run_state::setup_write(): expected nt > 0");
+	throw runtime_error("rf_transforms: logic error in stream: setup_write() was called with nt <= 0");
     if (nt > this->nt_stream_maxwrite)
-	throw runtime_error("wi_run_state::setup_write(): expected nt <= nt_stream_maxwrite");
+	throw runtime_error("rf_transforms: logic error in stream: setup_write() was called with nt > nt_maxwrite");
 
     this->main_buffer.setup_append(nt, intensityp, weightp, stride, zero_flag);
+    this->state = 2;
+    this->nt_pending = nt;
 }
 
 
 void wi_run_state::finalize_write(int nt)
 {
-    if (!this->is_running)
-	throw runtime_error("wi_run_state::finalize_write() called on non-running stream");
+    if (this->state == 3)
+	throw runtime_error("rf_transforms: logic error in stream: double call to finalize_write()");
+    if (this->state != 2)
+	throw runtime_error("rf_transforms: logic error in stream: finalize_write() was called without prior call to setup_write()");
+    if (nt != this->nt_pending)
+	throw runtime_error("rf_transforms: logic error in stream: values of 'nt' in setup_write() and finalize_write() don't match");
 
     this->main_buffer.finalize_append(nt);
     this->stream_ipos += nt;
@@ -163,13 +161,18 @@ void wi_run_state::finalize_write(int nt)
 	
 	curr_ipos = transform_ipos[it];
     }
+
+    this->state = 3;
+    this->nt_pending = 0;
 }
 
 
-void wi_run_state::end_stream()
+void wi_run_state::end_substream()
 {
-    if (!this->is_running)
-	throw runtime_error("wi_run_state::end_stream() called on non-running stream");
+    if (this->state == 4)
+	throw runtime_error("rf_transforms: logic error in stream: double call to end_substream()");
+    if (this->state != 3)
+	throw runtime_error("rf_transforms: logic error in stream: call to end_substream() without prior call to start_substream()");
 
     // We pad the stream with fake weight-zero data, until every transform has "seen"
     // every sample of real data.  First we need to compute the needed amount of padding.
@@ -200,13 +203,15 @@ void wi_run_state::end_stream()
     // Check on padding calculation
     rf_assert(transform_ipos[ntransforms-1] >= save_ipos);
 
-    for (int it = 0; it < ntransforms; it++) {
-	transforms[it]->end_stream();
-	prepad_buffers[it].reset();
-    }
+    for (int it = 0; it < ntransforms; it++)
+	transforms[it]->end_substream();
 
+    // Deallocate buffers
     this->main_buffer.reset();
-    this->is_running = false;
+    for (int it = 0; it < ntransforms; it++)
+	this->prepad_buffers[it].reset();
+
+    this->state = 4;
 }
 
 

@@ -13,78 +13,86 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
-struct wi_stream;
 struct wi_transform;
 class wi_run_state;
 
 
 struct wi_stream {
+    //
+    // The subclass is responsible for initializing the fields { nfreq, ..., nt_maxwrite }
+    // in its constructor.  (As a detail, we don't require this initialization to be done 
+    // via a base class constructor, since the subclass constructor sometimes needs to do 
+    // a little processing first, e.g. opening the first file in a sequence.)
+    //
+    // Note: don't set nt_maxwrite to an excessively large value, since there is an internal
+    // buffer of approximate size (24 bytes) * nfreq * nt_maxwrite.
+    //
     int nfreq;
     double freq_lo_MHz;
     double freq_hi_MHz;
-    double dt_sample;
+    double dt_sample;     // in seconds
+    int nt_maxwrite;      // max number of time samples per call to setup_write()
 
-    // Max number of time samples per chunk emitted by stream
-    // (Shouldn't be too large, since it determines an internal buffer size)
-    int nt_maxwrite;
-    
-    // If the default constructor is used, then the subclass is responsible for initializing the
-    // fields { nfreq, freq_lo_MHz, freq_hi_MHz, dt_sample, nt_mawrite } before the first call to run().
-    wi_stream();
-    wi_stream(int nfreq, double freq_lo_MHz, double freq_hi_MHz, double dt_sample, int nt_maxwrite);
+    wi_stream() :
+	nfreq(0), freq_lo_MHz(0.), freq_hi_MHz(0.), dt_sample(0.), nt_maxwrite(0)
+    { }
 
     virtual ~wi_stream() { }
 
-    // Helper function
-    void check_invariants() const;
-
-    // run_transforms() is intended to be the main interface for running a sequence of transforms on a stream
-    void run_transforms(const std::vector<std::shared_ptr<wi_transform> > &transforms);
+    // run() is intended to be the main interface for running a sequence of transforms on a stream
+    void run(const std::vector<std::shared_ptr<wi_transform> > &transforms);
     
     //
-    // Schematically, the run_stream() method should look something like this:
+    // This is the function which must be implemented to define a stream. 
+    // Schematically it should look something like this:
     //
-    //    rstate.start_stream()
-    //    while (cond) {
-    //        rstate.setup_write();
-    //        rstate.finalize_write();
-    //    }
-    //    rstate.end_stream()
+    //   for (...) {   // loop over substreams
+    //      run_state.start_substream();
+    //      while (cond) {
+    //          run_state.setup_write();
+    //          run_state.finalize_write();
+    //      }
+    //      run_state.end_substream()
+    //   }
     //
-    virtual void run_stream(wi_run_state &rstate) = 0;
+    // See below for the definition of 'class wi_run_state'.
+    //
+    virtual void stream_body(wi_run_state &run_state) = 0;
 };
 
 
 struct wi_transform {
+    //
+    // The subclass is responsible for initializing the fields { nfreq, ..., nt_postpad },
+    // but the initialization can either be done in the subclass constructor, or in the member 
+    // function set_stream() below.  The latter option may be more convenient since the value
+    // of wi_stream::nfreq can be used to initialize wi_transform::nfreq.
+    //
     int nfreq;
     int nt_chunk;
     int nt_prepad;
     int nt_postpad;
     
-    // The subclass is responsible for initializing the fields { nfreq, nt_chunk, nt_prepad, nt_postpad },
-    // either in the constructor, or in start_stream().
     wi_transform() : 
 	nfreq(0), nt_chunk(0), nt_prepad(0), nt_postpad(0)
     { }
 
     virtual ~wi_transform() { }
 
-    // Helper function
-    void check_invariants() const;
-
-    // Note: OK if call to set_nt() doesn't get called until initialize_transform().
-    virtual void start_stream(int nfreq, double freq_lo_MHz, double freq_hi_MHz, double dt_sample) = 0;
+    // This is the API which must be implemented to define a transform.
+    virtual void set_stream(const wi_stream &stream) = 0;
+    virtual void start_substream(double t0) = 0;
     virtual void process_chunk(float *intensity, float *weight, int stride, float *pp_intensity, float *pp_weight, int pp_stride) = 0;
-    virtual void end_stream() = 0;
+    virtual void end_substream() = 0;
 };
 
 
 // -------------------------------------------------------------------------------------------------
 //
-// Helper classes which are probably not needed from the "outside world"
+// These low-level classes are probably not needed from the "outside world".
 //
-// Exception: implementations of 
-//
+// Exception: if you're implementing a new wi_stream, then you'll probably want to look at the
+// definition of wi_run_state.
 
 
 struct wraparound_buf {
@@ -125,15 +133,14 @@ struct wraparound_buf {
 
 class wi_run_state {
 protected:
+    friend void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transforms);
+
     // make noncopyable
     wi_run_state(const wi_run_state &) = delete;
     wi_run_state& operator=(const wi_run_state &) = delete;
 
     // stream data
     const int nfreq;
-    const double freq_lo_MHz;
-    const double freq_hi_MHz;
-    const double dt_sample;
     const int nt_stream_maxwrite;
     
     // transform data
@@ -143,6 +150,14 @@ protected:
     // timeline
     std::vector<int> transform_ipos;   // satisfies transform_ipos[0] >= transform_ipos[1] >= ...
     int stream_ipos;
+    
+    // state=0: initialized
+    // state=1: start_substream() called, but first call to setup_write() hasn't happened yet
+    // state=2: setup_write(), matching call to finalize_write() hasn't happened yet
+    // state=3: finalize_write() called
+    // state=4: end_substream() called
+    int state;
+    int nt_pending;  // only valid in state 2
 
     // buffers
     wraparound_buf main_buffer;
@@ -152,12 +167,10 @@ public:
     wi_run_state(const wi_stream &stream, const std::vector<std::shared_ptr<wi_transform> > &transforms);
 
     // Called by wi_stream::run()
-    void start_stream();
+    void start_substream(double t0);
     void setup_write(int nt, float* &intensityp, float* &weightp, int &stride, bool zero_flag);
     void finalize_write(int nt);
-    void end_stream();
-
-    bool is_running;
+    void end_substream();
 };
 
 
