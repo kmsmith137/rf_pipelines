@@ -1,4 +1,4 @@
-#include <Python.h>
+#include "python_extension_helpers.hpp"
 #include "rf_pipelines.hpp"
 
 using namespace std;
@@ -12,29 +12,22 @@ using namespace std;
 // "Upcalling" transform whose virtual functions are implemented by python upcalls.
 struct upcalling_wi_transform : public rf_pipelines::wi_transform
 {
-    PyObject *weakref;
+    object weakref;
 
-    upcalling_wi_transform(PyObject *self)
-    {
-	this->weakref = PyWeakref_NewRef(self, NULL);
-	if (!weakref)
-	    throw std::runtime_error("PyWeakref_NewRef() failed?!");
-    }
+    upcalling_wi_transform(PyObject *self) :
+	weakref(PyWeakref_NewRef(self,NULL), false)
+    { }
 
-    virtual ~upcalling_wi_transform()
-    {
-	Py_XDECREF(weakref);
-	weakref = nullptr;
-    }
+    virtual ~upcalling_wi_transform() { }
 
-    // Note: returns borrowed reference
+    // returns borrowed reference
     PyObject *get_pyobj()
     {
-	PyObject *ret = PyWeakref_GetObject(weakref);
+	PyObject *ret = PyWeakref_GetObject(weakref.ptr);
 	if (!ret)
-	    throw std::runtime_error("PyWeakref_GetObject() failed?!");    
+	    throw python_exception();
 	if (ret == Py_None)
-	    throw std::runtime_error("Weak reference expired");
+	    throw runtime_error("rf_pipelines: internal error: weak reference expired [should never happen]");
 	return ret;
     }
 
@@ -55,10 +48,8 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 
     virtual void end_substream()
     {
-	PyObject *ret = PyObject_CallMethod(this->get_pyobj(), (char *)"end_substream", NULL);
-	if (!ret)
-	    throw runtime_error("end_substream() threw exception");  // XXX definitely need to improve this
-	Py_XDECREF(ret);
+	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"end_substream", NULL);
+	object ret(p, false);
     }
 };
 
@@ -66,7 +57,6 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 struct wi_transform_object {
     PyObject_HEAD
 
-    rf_pipelines::wi_transform *pbare;
     shared_ptr<rf_pipelines::wi_transform> *pshared;
 
     // Note: no tp_alloc() function is necessary, since the default (PyType_GenericAlloc()) calls memset().    
@@ -75,8 +65,6 @@ struct wi_transform_object {
 	wi_transform_object *self = (wi_transform_object *)self_;
 
 	delete self->pshared;
-
-	self->pbare = nullptr;
 	self->pshared = nullptr;
 	Py_TYPE(self)->tp_free((PyObject*) self);
     }
@@ -89,146 +77,97 @@ struct wi_transform_object {
 
     // Helper for get_pshared(): get a pointer-to-shared-ptr from a (PyObject *) which is known to be a wi_transform object.
     // This is the where the upcalling transform gets created, if it doesn't already exist.
-    static inline shared_ptr<rf_pipelines::wi_transform> *_get_pshared(PyObject *obj)
+    static inline shared_ptr<rf_pipelines::wi_transform> get_pshared(PyObject *obj)
     {
 	wi_transform_object *t = (wi_transform_object *) obj;
 
 	if (t->pshared)
-	    return t->pshared;
+	    return *(t->pshared);
 
-	try {
-	    shared_ptr<rf_pipelines::wi_transform> p = make_shared<upcalling_wi_transform> (obj);
-	    t->pshared = new shared_ptr<rf_pipelines::wi_transform> (p);
-	    return t->pshared;
-	} 
-	catch (...) {
-	    PyErr_NoMemory();
-	    return nullptr;
-	}
-    }
-
-    // Get a shared_ptr from a (PyObject *) which is known to be a wi_transform_object
-    static inline shared_ptr<rf_pipelines::wi_transform> get_pshared(PyObject *obj)
-    {
-	shared_ptr<rf_pipelines::wi_transform> *ret = _get_pshared(obj);
-	
-	if (!ret) {
-	    PyErr_NoMemory();
-	    return shared_ptr<rf_pipelines::wi_transform> ();	    
-	}
-
-	if (!*ret)
-	    PyErr_SetString(PyExc_RuntimeError, "rf_pipelines: internal error: unexpected NULL pointer");
-
-	return *ret;
+	shared_ptr<rf_pipelines::wi_transform> p = make_shared<upcalling_wi_transform> (obj);
+	t->pshared = new shared_ptr<rf_pipelines::wi_transform> (p);
+	return p;
     }
 
     // Get a bare pointer from a (PyObject *) which is known to be a wi_transform_object
     static inline rf_pipelines::wi_transform *get_pbare(PyObject *obj)
     {
-	wi_transform_object *t = (wi_transform_object *) obj;
+	shared_ptr<rf_pipelines::wi_transform> p = get_pshared(obj);
+	
+	if (!p)
+	    throw runtime_error("rf_pipelines: internal error: empty shared_ptr<> in wi_transform_object [should never happen]");
 
-	if (t->pbare)
-	    return t->pbare;
-	
-	shared_ptr<rf_pipelines::wi_transform> ret = get_pshared(obj);
-	if (ret)
-	    t->pbare = ret.get();
-	
-	return t->pbare;
+	return p.get();
     }
 
 
     static PyObject *nfreq_getter(PyObject *self, void *closure)
     {
-	rf_pipelines::wi_transform *p = get_pbare(self);
-	return p ? Py_BuildValue("i", p->nfreq) : NULL;
+	return Py_BuildValue("i", get_pbare(self)->nfreq);
     }
 
     static int nfreq_setter(PyObject *self, PyObject *value, void *closure)
     {
-	long n = PyInt_AsLong(value);
-	if ((n == -1) && PyErr_Occurred())
-	    return -1;
-
-	rf_pipelines::wi_transform *p = get_pbare(self);
-	if (!p)
-	    return -1;
-
-	p->nfreq = n;
+	get_pbare(self)->nfreq = int_from_python(value);
 	return 0;
     }
 
-
     static PyObject *nt_chunk_getter(PyObject *self, void *closure)
     {
-	rf_pipelines::wi_transform *p = get_pbare(self);
-	return p ? Py_BuildValue("i", p->nt_chunk) : NULL;
+	return Py_BuildValue("i", get_pbare(self)->nt_chunk);
     }
 
     static int nt_chunk_setter(PyObject *self, PyObject *value, void *closure)
     {
-	long n = PyInt_AsLong(value);
-	if ((n == -1) && PyErr_Occurred())
-	    return -1;
-
-	rf_pipelines::wi_transform *p = get_pbare(self);
-	if (!p)
-	    return -1;
-
-	p->nt_chunk = n;
+	get_pbare(self)->nt_chunk = int_from_python(value);
 	return 0;
     }
 
-
     static PyObject *nt_prepad_getter(PyObject *self, void *closure)
     {
-	rf_pipelines::wi_transform *p = get_pbare(self);
-	return p ? Py_BuildValue("i", p->nt_prepad) : NULL;
+	return Py_BuildValue("i", get_pbare(self)->nt_prepad);
     }
 
     static int nt_prepad_setter(PyObject *self, PyObject *value, void *closure)
     {
-	long n = PyInt_AsLong(value);
-	if ((n == -1) && PyErr_Occurred())
-	    return -1;
-
-	rf_pipelines::wi_transform *p = get_pbare(self);
-	if (!p)
-	    return -1;
-
-	p->nt_prepad = n;
+	get_pbare(self)->nt_prepad = int_from_python(value);
 	return 0;
     }
 
-
     static PyObject *nt_postpad_getter(PyObject *self, void *closure)
     {
-	rf_pipelines::wi_transform *p = get_pbare(self);
-	return p ? Py_BuildValue("i", p->nt_postpad) : NULL;
+	return Py_BuildValue("i", get_pbare(self)->nt_postpad);
     }
 
     static int nt_postpad_setter(PyObject *self, PyObject *value, void *closure)
     {
-	long n = PyInt_AsLong(value);
-	if ((n == -1) && PyErr_Occurred())
-	    return -1;
-
-	rf_pipelines::wi_transform *p = get_pbare(self);
-	if (!p)
-	    return -1;
-
-	p->nt_postpad = n;
+	get_pbare(self)->nt_postpad = int_from_python(value);
 	return 0;
     }
 };
 
 
 static PyGetSetDef wi_transform_getseters[] = {
-    { (char *)"nfreq", wi_transform_object::nfreq_getter, wi_transform_object::nfreq_setter, NULL, NULL },
-    { (char *)"nt_chunk", wi_transform_object::nt_chunk_getter, wi_transform_object::nt_chunk_setter, NULL, NULL },
-    { (char *)"nt_prepad", wi_transform_object::nt_prepad_getter, wi_transform_object::nt_prepad_setter, NULL, NULL },
-    { (char *)"nt_postpad", wi_transform_object::nt_postpad_getter, wi_transform_object::nt_postpad_setter, NULL, NULL },
+    { (char *)"nfreq", 
+      tc_wrap_getter<wi_transform_object::nfreq_getter>, 
+      tc_wrap_setter<wi_transform_object::nfreq_setter>, 
+      NULL, NULL },
+
+    { (char *)"nt_chunk", 
+      tc_wrap_getter<wi_transform_object::nt_chunk_getter>, 
+      tc_wrap_setter<wi_transform_object::nt_chunk_setter>,
+      NULL, NULL },
+
+    { (char *)"nt_prepad", 
+      tc_wrap_getter<wi_transform_object::nt_prepad_getter>, 
+      tc_wrap_setter<wi_transform_object::nt_prepad_setter>,
+      NULL, NULL },
+
+    { (char *)"nt_postpad", 
+      tc_wrap_getter<wi_transform_object::nt_postpad_getter>, 
+      tc_wrap_setter<wi_transform_object::nt_postpad_setter>,
+      NULL, NULL },
+
     { NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -281,26 +220,16 @@ static PyTypeObject wi_transform_type = {
 
 
 // make new python object (for factory functions)
-// can return NULL if something goes wrong
 static PyObject *make_wi_transform(const shared_ptr<rf_pipelines::wi_transform> &ptr)
 {
-    if (!ptr) {
-	PyErr_SetString(PyExc_RuntimeError, "rf_pipelines: internal error: empty pointer passed to make_wi_transform()");
-	return NULL;
-    }
+    if (!ptr)
+	throw runtime_error("rf_pipelines: internal error: empty pointer passed to make_wi_transform()");
 
     wi_transform_object *ret = PyObject_New(wi_transform_object, &wi_transform_type);
     if (!ret)
 	return NULL;
 
-    try {
-	ret->pshared = new shared_ptr<rf_pipelines::wi_transform> (ptr);
-    }
-    catch (...) {
-	Py_XDECREF(ret);
-	return PyErr_NoMemory();
-    }
-
+    ret->pshared = new shared_ptr<rf_pipelines::wi_transform> (ptr);
     return (PyObject *) ret;
 }
 
@@ -309,6 +238,8 @@ static PyObject *make_wi_transform(const shared_ptr<rf_pipelines::wi_transform> 
 //
 // wi_stream wrapper class
 
+
+#if 0
 
 struct wi_stream_object {
     PyObject_HEAD
@@ -388,6 +319,9 @@ struct wi_stream_object {
 	}	
 
 	stream->run(transform_list);
+	
+	Py_INCREF(Py_None);
+	return Py_None;
     }
 
 
@@ -494,11 +428,15 @@ static PyObject *make_wi_stream(const shared_ptr<rf_pipelines::wi_stream> &ptr)
     return (PyObject *) ret;
 }
 
+#endif
+
 
 // -------------------------------------------------------------------------------------------------
 //
 // Library
 
+
+#if 0
 
 static PyObject *make_psrfits_stream(PyObject *self, PyObject *args)
 {
@@ -518,6 +456,8 @@ static PyObject *make_psrfits_stream(PyObject *self, PyObject *args)
 	return NULL;
     }
 }
+
+#endif
 
 
 static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
@@ -544,7 +484,7 @@ static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
 
 
 static PyMethodDef module_methods[] = {
-    { "make_psrfits_stream", make_psrfits_stream, METH_VARARGS, "XXX" },
+    // { "make_psrfits_stream", make_psrfits_stream, METH_VARARGS, "XXX" },
     { "make_simple_detrender", make_simple_detrender, METH_VARARGS, "XXX" },
     { NULL, NULL, 0, NULL }
 };
@@ -552,8 +492,10 @@ static PyMethodDef module_methods[] = {
 
 PyMODINIT_FUNC initrf_pipelines_c(void)
 {
+#if 0
     if (PyType_Ready(&wi_stream_type) < 0)
         return;
+#endif
     if (PyType_Ready(&wi_transform_type) < 0)
         return;
 
@@ -561,8 +503,10 @@ PyMODINIT_FUNC initrf_pipelines_c(void)
     if (!m)
 	return;
 
+#if 0
     Py_INCREF(&wi_stream_type);
     PyModule_AddObject(m, "wi_stream", (PyObject *)&wi_stream_type);
+#endif
 
     Py_INCREF(&wi_transform_type);
     PyModule_AddObject(m, "wi_transform", (PyObject *)&wi_transform_type);
