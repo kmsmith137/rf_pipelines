@@ -239,8 +239,6 @@ static PyObject *make_wi_transform(const shared_ptr<rf_pipelines::wi_transform> 
 // wi_stream wrapper class
 
 
-#if 0
-
 struct wi_stream_object {
     PyObject_HEAD
 
@@ -267,56 +265,40 @@ struct wi_stream_object {
     {
 	wi_stream_object *s = (wi_stream_object *) obj;
 
-	if (s->pbare)
-	    return s->pbare;
+	if (!s->pbare)
+	    throw runtime_error("rf_pipelines: internal error: unexpected NULL pointer in wi_stream [should never happen]");
 
-	PyErr_SetString(PyExc_RuntimeError, "rf_pipelines: internal error: unexpected NULL pointer");
-	return NULL;	
+	return s->pbare;
     }
-
-    
-    // The run() method!
     
     static PyObject *run(PyObject *self, PyObject *arg)
     {
-	if (!PyIter_Check(arg)) {
-	    PyErr_SetString(PyExc_RuntimeError, "rf_pipelines: expected argument to wi_stream.run() to be a list/iterator of wi_transform objects");
-	    return NULL;
-	}
-
 	rf_pipelines::wi_stream *stream = get_pbare(self);
-	if (!stream)
-	    return NULL;
 
+	if (!PyIter_Check(arg))
+	    throw runtime_error("rf_pipelines: expected argument to wi_stream.run() to be a list/iterator of wi_transform objects");
+
+	vector<object> item_list;   // for hanging on to references
 	vector<shared_ptr<rf_pipelines::wi_transform> > transform_list;
 
 	for (;;) {
 	    cerr << "XXX calling PyIter_Next()!\n";
 
-	    PyObject *item = PyIter_Next(arg);
-	    if (!item)
+	    PyObject *item_ptr = PyIter_Next(arg);
+	    if (!item_ptr)
 		break;
 
-	    if (!PyObject_IsInstance(item, (PyObject *) &wi_transform_type)) {
-		PyErr_SetString(PyExc_RuntimeError, "rf_pipelines: expected argument to wi_stream.run() to be a list/iterator of wi_transform objects");
-		Py_DECREF(item);
-		return NULL;
-	    }
+	    item_list.push_back(object(item_ptr,false));
 
-	    // FIXME this logic actually has a small hole: if the run() argument is a generator,
-	    // then the python reference to the transform isn't retained throughout the call to run,
-	    // leading to an exception ("weak reference expired").
+	    if (!PyObject_IsInstance(item_ptr, (PyObject *) &wi_transform_type))
+		throw runtime_error("rf_pipelines: expected argument to wi_stream.run() to be a list/iterator of wi_transform objects");
+
 	    cerr << "XXX extracting transform!\n";
-	    shared_ptr<rf_pipelines::wi_transform> transform = wi_transform_object::get_pshared(item);
-
-	    if (!transform) {
-		Py_DECREF(item);
-		return NULL;
-	    }
-
-	    transform_list.push_back(transform);
-	    Py_DECREF(item);
+	    transform_list.push_back(wi_transform_object::get_pshared(item_ptr));
 	}	
+
+	if (PyErr_Occurred())
+	    throw python_exception();
 
 	stream->run(transform_list);
 	
@@ -324,47 +306,46 @@ struct wi_stream_object {
 	return Py_None;
     }
 
-
     // Properties
 
     static PyObject *nfreq_getter(PyObject *self, void *closure)
     {
-	rf_pipelines::wi_stream *p = wi_stream_object::get_pbare(self);
-	return p ? Py_BuildValue("i", p->nfreq) : NULL;
+	return Py_BuildValue("i", get_pbare(self)->nfreq);
     }
 
     static PyObject *nt_maxwrite_getter(PyObject *self, void *closure)
     {
-	rf_pipelines::wi_stream *p = wi_stream_object::get_pbare(self);
-	return p ? Py_BuildValue("i", p->nt_maxwrite) : NULL;
+	return Py_BuildValue("i", get_pbare(self)->nt_maxwrite);
     }
 
     static PyObject *freq_lo_MHz_getter(PyObject *self, void *closure)
     {
-	rf_pipelines::wi_stream *p = wi_stream_object::get_pbare(self);
-	return p ? Py_BuildValue("d", p->freq_lo_MHz) : NULL;
+	return Py_BuildValue("d", get_pbare(self)->freq_lo_MHz);
     }
 
     static PyObject *freq_hi_MHz_getter(PyObject *self, void *closure)
     {
-	rf_pipelines::wi_stream *p = wi_stream_object::get_pbare(self);
-	return p ? Py_BuildValue("d", p->freq_hi_MHz) : NULL;
+	return Py_BuildValue("d", get_pbare(self)->freq_hi_MHz);
     }
 
     static PyObject *dt_sample_getter(PyObject *self, void *closure)
     {
-	rf_pipelines::wi_stream *p = wi_stream_object::get_pbare(self);
-	return p ? Py_BuildValue("d", p->dt_sample) : NULL;
+	return Py_BuildValue("d", get_pbare(self)->dt_sample);
     }
 };
 
 
+static PyMethodDef wi_stream_methods[] = {
+    { "run", tc_wrap2<wi_stream_object::run>, METH_O, NULL },
+    { NULL, NULL, 0, NULL }
+};
+
 static PyGetSetDef wi_stream_getseters[] = {
-    { (char *)"nfreq", wi_stream_object::nfreq_getter, NULL, NULL, NULL },
-    { (char *)"nt_maxwrite", wi_stream_object::nt_maxwrite_getter, NULL, NULL, NULL },
-    { (char *)"freq_lo_MHz", wi_stream_object::freq_lo_MHz_getter, NULL, NULL, NULL },
-    { (char *)"freq_hi_MHz", wi_stream_object::freq_hi_MHz_getter, NULL, NULL, NULL },
-    { (char *)"dt_sample", wi_stream_object::dt_sample_getter, NULL, (char *)"sample length in seconds", NULL },
+    { (char *)"nfreq", tc_wrap_getter<wi_stream_object::nfreq_getter>, NULL, NULL, NULL },
+    { (char *)"nt_maxwrite", tc_wrap_getter<wi_stream_object::nt_maxwrite_getter>, NULL, NULL, NULL },
+    { (char *)"freq_lo_MHz", tc_wrap_getter<wi_stream_object::freq_lo_MHz_getter>, NULL, NULL, NULL },
+    { (char *)"freq_hi_MHz", tc_wrap_getter<wi_stream_object::freq_hi_MHz_getter>, NULL, NULL, NULL },
+    { (char *)"dt_sample", tc_wrap_getter<wi_stream_object::dt_sample_getter>, NULL, (char *)"sample length in seconds", NULL },
     { NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -397,38 +378,26 @@ static PyTypeObject wi_stream_type = {
     0,                         /* tp_weaklistoffset */
     0,                         /* tp_iter */
     0,                         /* tp_iternext */
-    0,                         /* tp_methods */
+    wi_stream_methods,         /* tp_methods */
     0,                         /* tp_members */
     wi_stream_getseters,       /* tp_getset */
 };
 
 
 // make new python object (for factory functions)
-// can return NULL if something goes wrong
 static PyObject *make_wi_stream(const shared_ptr<rf_pipelines::wi_stream> &ptr)
 {
-    if (!ptr) {
-	PyErr_SetString(PyExc_RuntimeError, "rf_pipelines: internal error: empty pointer passed to make_wi_stream()");
-	return NULL;
-    }
+    if (!ptr)
+	throw runtime_error("rf_pipelines: internal error: empty pointer passed to make_wi_stream()");
 
     wi_stream_object *ret = PyObject_New(wi_stream_object, &wi_stream_type);
     if (!ret)
 	return NULL;
 
-    try {
-	ret->pbare = ptr.get();
-	ret->pshared = new shared_ptr<rf_pipelines::wi_stream> (ptr);
-    }
-    catch (...) {
-	Py_XDECREF(ret);
-	return PyErr_NoMemory();
-    }
-
+    ret->pbare = ptr.get();
+    ret->pshared = new shared_ptr<rf_pipelines::wi_stream> (ptr);
     return (PyObject *) ret;
 }
-
-#endif
 
 
 // -------------------------------------------------------------------------------------------------
@@ -436,28 +405,14 @@ static PyObject *make_wi_stream(const shared_ptr<rf_pipelines::wi_stream> &ptr)
 // Library
 
 
-#if 0
-
 static PyObject *make_psrfits_stream(PyObject *self, PyObject *args)
 {
     const char *filename = nullptr;
     if (!PyArg_ParseTuple(args, "s", &filename))
 	return NULL;
 
-    try {
-	shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_psrfits_stream(filename);
-	return make_wi_stream(ret);
-    }
-    catch (std::exception &e) {
-	PyErr_SetString(PyExc_RuntimeError, e.what());
-	return NULL;
-    }
-    catch (...) {
-	return NULL;
-    }
+    return make_wi_stream(rf_pipelines::make_psrfits_stream(filename));
 }
-
-#endif
 
 
 static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
@@ -466,17 +421,7 @@ static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "i", &nt_chunk))
 	return NULL;
 
-    try {
-	shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_simple_detrender(nt_chunk);
-	return make_wi_transform(ret);
-    }
-    catch (std::exception &e) {
-	PyErr_SetString(PyExc_RuntimeError, e.what());
-	return NULL;
-    }
-    catch (...) {
-	return NULL;
-    }
+    return make_wi_transform(rf_pipelines::make_simple_detrender(nt_chunk));
 }
 
 
@@ -484,18 +429,16 @@ static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
 
 
 static PyMethodDef module_methods[] = {
-    // { "make_psrfits_stream", make_psrfits_stream, METH_VARARGS, "XXX" },
-    { "make_simple_detrender", make_simple_detrender, METH_VARARGS, "XXX" },
+    { "make_psrfits_stream", tc_wrap2<make_psrfits_stream>, METH_VARARGS, "XXX" },
+    { "make_simple_detrender", tc_wrap2<make_simple_detrender>, METH_VARARGS, "XXX" },
     { NULL, NULL, 0, NULL }
 };
 
 
 PyMODINIT_FUNC initrf_pipelines_c(void)
 {
-#if 0
     if (PyType_Ready(&wi_stream_type) < 0)
         return;
-#endif
     if (PyType_Ready(&wi_transform_type) < 0)
         return;
 
@@ -503,10 +446,8 @@ PyMODINIT_FUNC initrf_pipelines_c(void)
     if (!m)
 	return;
 
-#if 0
     Py_INCREF(&wi_stream_type);
     PyModule_AddObject(m, "wi_stream", (PyObject *)&wi_stream_type);
-#endif
 
     Py_INCREF(&wi_transform_type);
     PyModule_AddObject(m, "wi_transform", (PyObject *)&wi_transform_type);
