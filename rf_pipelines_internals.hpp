@@ -7,7 +7,6 @@
 
 #include <cmath>
 #include <cstring>
-#include <iostream>
 #include <stdexcept>
 
 #include "rf_pipelines.hpp"

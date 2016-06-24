@@ -5,6 +5,7 @@
 #error "This source file needs to be compiled with C++0x support (g++ -std=c++0x)"
 #endif
 
+#include <iostream>
 #include <vector>
 #include <memory>
 
