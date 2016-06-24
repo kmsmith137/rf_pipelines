@@ -220,6 +220,7 @@ void psrfits_stream::stream_body(wi_run_state &run_state)
 		weights[ifreq*stride + it] = w;
 	}
 
+	run_state.finalize_write(this->nt_maxwrite);
 	p->read_next_row();
     }
 
