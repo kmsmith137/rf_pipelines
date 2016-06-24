@@ -30,13 +30,13 @@ void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transform
 	transforms[it]->set_stream(*this);
 
 	if (transforms[it]->nfreq != this->nfreq)
-	    throw runtime_error("wi_transform::nt_chunk does not match stream nfreq");
+	    throw runtime_error("rf_pipelines: transform's value of 'nfreq' does not match stream's value of 'nfreq'");
 	if (transforms[it]->nt_chunk <= 0)
-	    throw runtime_error("wi_transform::nt_chunk is non-positive or uninitialized");
+	    throw runtime_error("rf_piptlines: transform's value of 'nt_chunk' is non-positive or uninitialized");
 	if (transforms[it]->nt_prepad < 0)
-	    throw runtime_error("wi_transform::nt_prepad is negative");
+	    throw runtime_error("rf_pipelines: wi_transform::nt_prepad is negative");
 	if (transforms[it]->nt_postpad < 0)
-	    throw runtime_error("wi_transform::nt_postpad is negative");
+	    throw runtime_error("rf_pipelines: wi_transform::nt_postpad is negative");
     }
 
     // Delegate to stream_body() method implemented in subclass

@@ -3,6 +3,8 @@
 
 using namespace std;
 
+static PyObject *make_dummy_stream(const rf_pipelines::wi_stream &s);
+
 
 // -------------------------------------------------------------------------------------------------
 //
@@ -33,7 +35,9 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 
     virtual void set_stream(const rf_pipelines::wi_stream &stream)
     {
-	throw runtime_error("oops no set_stream");
+	object s(make_dummy_stream(stream), false);
+	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"set_stream", (char *)"O", s.ptr);
+	object ret(p, false);
     }
 
     virtual void start_substream(double t0)
@@ -275,25 +279,26 @@ struct wi_stream_object {
     {
 	rf_pipelines::wi_stream *stream = get_pbare(self);
 
-	if (!PyIter_Check(arg))
-	    throw runtime_error("rf_pipelines: expected argument to wi_stream.run() to be a list/iterator of wi_transform objects");
+	PyObject *iter = PyObject_GetIter(arg);
+	if (!iter) {
+	    PyErr_SetString(PyExc_RuntimeError, "rf_pipelines: expected argument to wi_stream.run() to be a list/iterator of wi_transform objects");	    
+	    return NULL;
+	}
 
-	vector<object> item_list;   // for hanging on to references
+	object iter_reference(iter, false);
+	vector<object> item_references;
 	vector<shared_ptr<rf_pipelines::wi_transform> > transform_list;
 
 	for (;;) {
-	    cerr << "XXX calling PyIter_Next()!\n";
-
-	    PyObject *item_ptr = PyIter_Next(arg);
+	    PyObject *item_ptr = PyIter_Next(iter);
 	    if (!item_ptr)
 		break;
 
-	    item_list.push_back(object(item_ptr,false));
+	    item_references.push_back(object(item_ptr,false));
 
 	    if (!PyObject_IsInstance(item_ptr, (PyObject *) &wi_transform_type))
 		throw runtime_error("rf_pipelines: expected argument to wi_stream.run() to be a list/iterator of wi_transform objects");
 
-	    cerr << "XXX extracting transform!\n";
 	    transform_list.push_back(wi_transform_object::get_pshared(item_ptr));
 	}	
 
@@ -397,6 +402,29 @@ static PyObject *make_wi_stream(const shared_ptr<rf_pipelines::wi_stream> &ptr)
     ret->pbare = ptr.get();
     ret->pshared = new shared_ptr<rf_pipelines::wi_stream> (ptr);
     return (PyObject *) ret;
+}
+
+
+struct dummy_stream : public rf_pipelines::wi_stream
+{
+    dummy_stream(const rf_pipelines::wi_stream &s)
+    {
+	this->nfreq = s.nfreq;
+	this->nt_maxwrite = s.nt_maxwrite;
+	this->freq_lo_MHz = s.freq_lo_MHz;
+	this->freq_hi_MHz = s.freq_hi_MHz;
+	this->dt_sample = s.dt_sample;
+    }
+    
+    virtual void stream_body(rf_pipelines::wi_run_state &run_state)
+    {
+	throw runtime_error("rf_pipelines: attempt to call run() on 'dummy' stream used as argument to stream_start()");
+    }
+};
+
+static PyObject *make_dummy_stream(const rf_pipelines::wi_stream &s)
+{
+    return make_wi_stream(make_shared<dummy_stream> (s));
 }
 
 
