@@ -23,11 +23,10 @@ struct wi_stream_object {
     {
 	wi_stream_object *self = (wi_stream_object *)self_;
 
-	if (self->pshared) {
-	    delete self->pshared;
-	    self->pshared = NULL;
-	}
+	delete self->pshared;
 
+	self->pbare = nullptr;
+	self->pshared = nullptr;
 	Py_TYPE(self)->tp_free((PyObject*) self);
     }
 
@@ -153,6 +152,32 @@ static PyObject *make_wi_stream(const shared_ptr<rf_pipelines::wi_stream> &ptr)
 // "Upcalling" transform whose virtual functions are implemented by python upcalls.
 struct upcalling_wi_transform : public rf_pipelines::wi_transform
 {
+    PyObject *weakref;
+
+    upcalling_wi_transform(PyObject *self)
+    {
+	this->weakref = PyWeakref_NewRef(self, NULL);
+	if (!weakref)
+	    throw std::runtime_error("PyWeakref_NewRef() failed?!");
+    }
+
+    virtual ~upcalling_wi_transform()
+    {
+	Py_XDECREF(weakref);
+	weakref = nullptr;
+    }
+
+    // Note: returns borrowed reference
+    PyObject *get_pyobj()
+    {
+	PyObject *ret = PyWeakref_GetObject(weakref);
+	if (!ret)
+	    throw std::runtime_error("PyWeakref_GetObject() failed?!");    
+	if (ret == Py_None)
+	    throw std::runtime_error("Weak reference expired");
+	return ret;
+    }
+
     virtual void set_stream(const rf_pipelines::wi_stream &stream)
     {
 	throw runtime_error("oops no set_stream");
@@ -170,7 +195,10 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 
     virtual void end_substream()
     {
-	throw runtime_error("oops no end_substream");
+	PyObject *ret = PyObject_CallMethod(this->get_pyobj(), (char *)"end_substream", NULL);
+	if (!ret)
+	    throw runtime_error("end_substream() threw exception");  // XXX definitely need to improve this
+	Py_XDECREF(ret);
     }
 };
 
@@ -178,56 +206,78 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 struct wi_transform_object {
     PyObject_HEAD
 
+    rf_pipelines::wi_transform *pbare;
     shared_ptr<rf_pipelines::wi_transform> *pshared;
 
-    // note: no tp_alloc() function is necessary, since the default (PyType_GenericAlloc()) calls memset().    
+    // Note: no tp_alloc() function is necessary, since the default (PyType_GenericAlloc()) calls memset().    
     static void tp_dealloc(PyObject *self_)
     {
 	wi_transform_object *self = (wi_transform_object *)self_;
 
-	if (self->pshared) {
-	    delete self->pshared;
-	    self->pshared = NULL;
-	}
+	delete self->pshared;
 
+	self->pbare = nullptr;
+	self->pshared = nullptr;
 	Py_TYPE(self)->tp_free((PyObject*) self);
     }
 
-    // we do need tp_new() in order to define subclasses from Python
+    // We do need tp_new() in order to define subclasses from Python
     static PyObject *tp_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     {
 	return type->tp_alloc(type, 0);
     }
 
-    // Get a shared_ptr from a (PyObject *) which is known to be a wi_transform_object
-    static inline shared_ptr<rf_pipelines::wi_transform> get_pshared(PyObject *obj)
+    // Helper for get_pshared(): get a pointer-to-shared-ptr from a (PyObject *) which is known to be a wi_transform object.
+    // This is the where the upcalling transform gets created, if it doesn't already exist.
+    static inline shared_ptr<rf_pipelines::wi_transform> *_get_pshared(PyObject *obj)
     {
 	wi_transform_object *t = (wi_transform_object *) obj;
 
-	if (!t->pshared) {
-	    try {
-		shared_ptr<rf_pipelines::wi_transform> p = make_shared<upcalling_wi_transform> ();
-		t->pshared = new shared_ptr<rf_pipelines::wi_transform> (p);
-	    } 
-	    catch (...) {
-		PyErr_NoMemory();
-		return shared_ptr<rf_pipelines::wi_transform> ();
-	    }
+	if (t->pshared)
+	    return t->pshared;
+
+	try {
+	    shared_ptr<rf_pipelines::wi_transform> p = make_shared<upcalling_wi_transform> (obj);
+	    t->pshared = new shared_ptr<rf_pipelines::wi_transform> (p);
+	    return t->pshared;
+	} 
+	catch (...) {
+	    PyErr_NoMemory();
+	    return nullptr;
+	}
+    }
+
+    // Get a shared_ptr from a (PyObject *) which is known to be a wi_transform_object
+    static inline shared_ptr<rf_pipelines::wi_transform> get_pshared(PyObject *obj)
+    {
+	shared_ptr<rf_pipelines::wi_transform> *ret = _get_pshared(obj);
+	
+	if (!ret) {
+	    PyErr_NoMemory();
+	    return shared_ptr<rf_pipelines::wi_transform> ();	    
 	}
 
-	shared_ptr<rf_pipelines::wi_transform> ret = *(t->pshared);
-	if (!ret)
+	if (!*ret)
 	    PyErr_SetString(PyExc_RuntimeError, "rf_pipelines: internal error: unexpected NULL pointer");
 
-	return ret;
+	return *ret;
     }
 
     // Get a bare pointer from a (PyObject *) which is known to be a wi_transform_object
     static inline rf_pipelines::wi_transform *get_pbare(PyObject *obj)
     {
-	shared_ptr<rf_pipelines::wi_transform> p = get_pshared(obj);
-	return p ? p.get() : NULL;
+	wi_transform_object *t = (wi_transform_object *) obj;
+
+	if (t->pbare)
+	    return t->pbare;
+	
+	shared_ptr<rf_pipelines::wi_transform> ret = get_pshared(obj);
+	if (ret)
+	    t->pbare = ret.get();
+	
+	return t->pbare;
     }
+
 
     static PyObject *nfreq_getter(PyObject *self, void *closure)
     {
@@ -317,7 +367,14 @@ struct wi_transform_object {
 static PyGetSetDef wi_transform_getseters[] = {
     { (char *)"nfreq", wi_transform_object::nfreq_getter, wi_transform_object::nfreq_setter, NULL, NULL },
     { (char *)"nt_chunk", wi_transform_object::nt_chunk_getter, wi_transform_object::nt_chunk_setter, NULL, NULL },
+    { (char *)"nt_prepad", wi_transform_object::nt_prepad_getter, wi_transform_object::nt_prepad_setter, NULL, NULL },
+    { (char *)"nt_postpad", wi_transform_object::nt_postpad_getter, wi_transform_object::nt_postpad_setter, NULL, NULL },
     { NULL, NULL, NULL, NULL, NULL }
+};
+
+
+static PyMethodDef wi_transform_methods[] = {
+    { NULL, NULL, 0, NULL }
 };
 
 
@@ -349,7 +406,7 @@ static PyTypeObject wi_transform_type = {
     0,                         /* tp_weaklistoffset */
     0,                         /* tp_iter */
     0,                         /* tp_iternext */
-    0,                         /* tp_methods */
+    wi_transform_methods,      /* tp_methods */
     0,                         /* tp_members */
     wi_transform_getseters,    /* tp_getset */
     0,                         /* tp_base */

@@ -20,7 +20,7 @@ struct simple_detrender : public wi_transform {
 
     virtual void set_stream(const wi_stream &stream);
     virtual void start_substream(double t0) { }
-    virtual void end_substream() { }
+    virtual void end_substream() { cerr << "simple_detrender::end_substream() called!\n"; }
 
     virtual void process_chunk(float *intensity, float *weight, int stride, float *pp_intensity, float *pp_weight, int pp_stride);
 };
