@@ -443,7 +443,7 @@ static PyMethodDef module_methods[] = {
 };
 
 
-extern "C" PyMODINIT_FUNC initrf_pipelines_c(void)
+PyMODINIT_FUNC initrf_pipelines_c(void)
 {
     if (PyType_Ready(&wi_stream_type) < 0)
         return;

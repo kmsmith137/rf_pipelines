@@ -7,13 +7,19 @@ LIBDIR=$(HOME)/lib
 # Directory where C++ header files will be installed
 INCDIR=$(HOME)/include
 
+# Directory where Python modules will be installed
+PYDIR=$(HOME)/lib/python2.7/site-packages
+
+# Read-only location of python header files
+PYTHON_INCDIR=/usr/include/python2.7
+
 #
 # C++ command line
 # Must support c++0x
 # Don't forget to put -L. and -L$(LIBDIR) on the command line (in this order)
 # Don't forget to add $(PYDIR) to your PYTHONPATH environment variable
 #
-CPP=clang++ -std=c++11 -Wall -O3 -ffast-math -funroll-loops -I$(INCDIR)
+CPP=clang++ -std=c++11 -Wall -O3 -ffast-math -funroll-loops -I$(INCDIR) -I$(PYTHON_INCDIR)
 
 # Extra linker flags when creating a shared library or exectutable from .o files
 # Don't forget to add . and $(LIBDIR) in your LD_LIBRARY_PATH environment variable (in this order)
