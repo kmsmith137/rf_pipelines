@@ -343,6 +343,56 @@ struct wi_stream_object {
 	return NULL;	
     }
 
+    
+    // The run() method!
+    
+    static PyObject *run(PyObject *self, PyObject *arg)
+    {
+	if (!PyIter_Check(arg)) {
+	    PyErr_SetString(PyExc_RuntimeError, "rf_pipelines: expected argument to wi_stream.run() to be a list/iterator of wi_transform objects");
+	    return NULL;
+	}
+
+	rf_pipelines::wi_stream *stream = get_pbare(self);
+	if (!stream)
+	    return NULL;
+
+	vector<shared_ptr<rf_pipelines::wi_transform> > transform_list;
+
+	for (;;) {
+	    cerr << "XXX calling PyIter_Next()!\n";
+
+	    PyObject *item = PyIter_Next(arg);
+	    if (!item)
+		break;
+
+	    if (!PyObject_IsInstance(item, (PyObject *) &wi_transform_type)) {
+		PyErr_SetString(PyExc_RuntimeError, "rf_pipelines: expected argument to wi_stream.run() to be a list/iterator of wi_transform objects");
+		Py_DECREF(item);
+		return NULL;
+	    }
+
+	    // FIXME this logic actually has a small hole: if the run() argument is a generator,
+	    // then the python reference to the transform isn't retained throughout the call to run,
+	    // leading to an exception ("weak reference expired").
+	    cerr << "XXX extracting transform!\n";
+	    shared_ptr<rf_pipelines::wi_transform> transform = wi_transform_object::get_pshared(item);
+
+	    if (!transform) {
+		Py_DECREF(item);
+		return NULL;
+	    }
+
+	    transform_list.push_back(transform);
+	    Py_DECREF(item);
+	}	
+
+	stream->run(transform_list);
+    }
+
+
+    // Properties
+
     static PyObject *nfreq_getter(PyObject *self, void *closure)
     {
 	rf_pipelines::wi_stream *p = wi_stream_object::get_pbare(self);
