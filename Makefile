@@ -21,6 +21,8 @@ OFILES=chime_file_stream.o \
 	wi_run.o \
 	wraparound_buf.o
 
+PYFILES=rf_pipelines_c.so rf_pipelines.py
+
 LIBS=
 
 ifeq ($(HAVE_PSRFITS),y)
@@ -37,13 +39,13 @@ all: librf_pipelines.so rf_pipelines_c.so run-unit-tests
 
 install: librf_pipelines.so rf_pipelines_c.so
 	cp -f $(INCFILES) $(INCDIR)/
+	cp -f $(PYFILES) $(PYDIR)/
 	cp -f librf_pipelines.so $(LIBDIR)/
-	cp -f rf_pipelines_c.so $(PYDIR)/
 
 uninstall:
 	for f in $(INCFILES); do rm -f $(INCDIR)/$$f; done
+	for f in $(PYFILES); do rm -f $(PYDIR)/$$f; done
 	rm -f $(LIBDIR)/librf_pipelines.so
-	rm -f $(PYDIR)/rf_pipelines_c.so
 
 clean:
 	rm -f *~ *.o *.so run-unit-tests
