@@ -51,7 +51,7 @@ librf_pipelines.so: $(OFILES)
 	$(CPP) $(CPP_LFLAGS) -shared -o $@ $^ $(LIBS)
 
 rf_pipelines_c.so: rf_pipelines_c.cpp $(INCFILES) python_extension_helpers.hpp librf_pipelines.so
-	$(CPP) $(CPP_LFLAGS) -Wno-strict-aliasing -shared -o $@ $< -lrf_pipelines $(LIBS)
+	$(CPP) $(CPP_LFLAGS) -Wno-strict-aliasing -DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION -shared -o $@ $< -lrf_pipelines $(LIBS)
 
 run-unit-tests: run-unit-tests.o librf_pipelines.so
 	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines

@@ -33,6 +33,46 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	return ret;
     }
 
+    // helper function
+    static object array2d_to_python(int m, int n, const float *src, int src_stride)
+    {
+	if ((m <= 0) || (n <= 0) || !src)
+	    throw runtime_error("rf_pipelines: array2d_to_python: internal checks failed [should never happen]");
+
+	npy_intp dims[2] = { m, n };
+	object ret(PyArray_SimpleNew(2,dims,NPY_FLOAT), false);
+	PyArrayObject *arr = (PyArrayObject *) ret.ptr;
+	
+	if (!PyArray_Check(ret.ptr) || (PyArray_NDIM(arr) != 2) 
+	    || (PyArray_DIM(arr,0) != m) || (PyArray_DIM(arr,1) != n)
+	    || (PyArray_STRIDE(arr,0) != (int)(n*sizeof(float))) 
+	    || (PyArray_STRIDE(arr,1) != sizeof(float)))
+	    throw runtime_error("rf_pipelines: array2d_to_python: internal checks failed [should never happen]");
+
+	float *dst = (float *) PyArray_DATA(arr);
+
+	for (int i = 0; i < m; i++)
+	    memcpy(dst + i*n, src + i*src_stride, n * sizeof(float));
+
+	return ret;
+    }
+
+    static void array2d_from_python(const object &obj, int m, int n, float *dst, int dst_stride)
+    {
+	PyArrayObject *arr = (PyArrayObject *) obj.ptr;
+	
+	if (!PyArray_Check(obj.ptr) || (PyArray_NDIM(arr) != 2) 
+	    || (PyArray_DIM(arr,0) != m) || (PyArray_DIM(arr,1) != n)
+	    || (PyArray_STRIDE(arr,0) != (int)(n*sizeof(float))) 
+	    || (PyArray_STRIDE(arr,1) != sizeof(float)))
+	    throw runtime_error("rf_pipelines: array2d_to_python: internal checks failed [should never happen]");
+
+	const float *src = (float *) PyArray_DATA(arr);
+
+	for (int i = 0; i < m; i++)
+	    memcpy(dst + i*dst_stride, src + i*n, n * sizeof(float));
+    }
+
     virtual void set_stream(const rf_pipelines::wi_stream &stream)
     {
 	object s(make_dummy_stream(stream), false);
@@ -41,13 +81,30 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
     }
 
     virtual void start_substream(double t0)
-    {
-	throw runtime_error("oops no start_substream");
+    {	
+	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"start_substream", (char *)"d", t0);
+	object ret(p, false);
     }
 
-    virtual void process_chunk(float *intensity, float *weight, int stride, float *pp_intensity, float *pp_weight, int pp_stride)
+    virtual void process_chunk(float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride)
     {
-	throw runtime_error("oops no process_chunk");
+	object np_intensity = array2d_to_python(nfreq, nt_chunk, intensity, stride);
+	object np_weights = array2d_to_python(nfreq, nt_chunk, weights, stride);
+	object np_pp_intensity;
+	object np_pp_weights;
+
+	if (nt_prepad > 0) {
+	    np_pp_intensity = array2d_to_python(nfreq, nt_prepad, pp_intensity, pp_stride);
+	    np_pp_weights = array2d_to_python(nfreq, nt_prepad, pp_weights, pp_stride);
+	}
+
+	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"process_chunk", (char *)"OOOO", 
+					  np_intensity.ptr, np_weights.ptr, np_pp_intensity.ptr, np_pp_weights.ptr);
+	
+	object ret(p, false);
+
+	array2d_from_python(np_intensity, nfreq, nt_chunk, intensity, stride);
+	array2d_from_python(np_weights, nfreq, nt_chunk, weights, stride);
     }
 
     virtual void end_substream()
@@ -306,7 +363,7 @@ struct wi_stream_object {
 	    throw python_exception();
 
 	stream->run(transform_list);
-	
+
 	Py_INCREF(Py_None);
 	return Py_None;
     }
@@ -465,6 +522,8 @@ static PyMethodDef module_methods[] = {
 
 PyMODINIT_FUNC initrf_pipelines_c(void)
 {
+    import_array();
+
     if (PyType_Ready(&wi_stream_type) < 0)
         return;
     if (PyType_Ready(&wi_transform_type) < 0)

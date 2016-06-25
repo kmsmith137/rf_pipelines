@@ -2,6 +2,8 @@
 #define _PYTHON_EXTENSION_HELPERS_HPP
 
 #include <Python.h>
+#include <numpy/arrayobject.h>
+
 #include <cstdlib>
 #include <stdexcept>
 
@@ -228,6 +230,13 @@ struct object {
 	    throw python_exception();
 	if (!increment_refcount)
 	    Py_INCREF(p);
+    }
+
+    // if an 'object' is default-constructed, it points to Py_None
+    object()
+    {
+	Py_INCREF(Py_None);
+	this->ptr = Py_None;
     }
 
     ~object()
