@@ -12,6 +12,7 @@ PYDIR=$(HOME)/lib/python2.7/site-packages
 
 # Read-only location of python header files
 PYTHON_INCDIR=/usr/include/python2.7
+NUMPY_INCDIR=/System/Library/Frameworks/Python.framework/Versions/2.7/Extras/lib/python/numpy/core/include
 
 #
 # C++ command line
@@ -19,10 +20,12 @@ PYTHON_INCDIR=/usr/include/python2.7
 # Don't forget to put -L. and -L$(LIBDIR) on the command line (in this order)
 # Don't forget to add $(PYDIR) to your PYTHONPATH environment variable
 #
-CPP=clang++ -std=c++11 -Wall -O3 -ffast-math -funroll-loops -I$(INCDIR) -I$(PYTHON_INCDIR)
+CPP=clang++ -std=c++11 -Wall -O3 -ffast-math -funroll-loops -I$(INCDIR) -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR)
 
 # Extra linker flags when creating a shared library or exectutable from .o files
 # Don't forget to add . and $(LIBDIR) in your LD_LIBRARY_PATH environment variable (in this order)
 # Don't forget -fPIC
 CPP_LFLAGS=-fPIC -L. -L$(LIBDIR)
 
+# osx/clang needs -lPython to link python extension modules
+LIBS_PYMODULE=-lPython
