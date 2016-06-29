@@ -63,6 +63,9 @@ wi_run_state::wi_run_state(const wi_stream &stream, const std::vector<std::share
     nt_stream_maxwrite(stream.nt_maxwrite),
     ntransforms(transforms_.size()),
     transforms(transforms_),
+    dt_sample(stream.dt_sample),
+    substream_start_time(0.0),
+    stream_curr_time(0.0),
     transform_ipos(transforms_.size(), 0),
     stream_ipos(0),
     state(0),
@@ -80,7 +83,10 @@ void wi_run_state::start_substream(double t0)
 {
     if ((this->state > 0) && (this->state < 4))
 	throw runtime_error("rf_transforms: logic error in stream: double call to start_substream() (maybe a call to end_substream() is missing somewhere?)");
-   
+
+    this->substream_start_time = t0;
+    this->stream_curr_time = t0;
+
     for (int it = 0; it < ntransforms; it++)
 	transforms[it]->start_substream(t0);
 
@@ -129,7 +135,7 @@ void wi_run_state::start_substream(double t0)
 }
 
 
-void wi_run_state::setup_write(int nt, float* &intensityp, float* &weightp, int &stride, bool zero_flag)
+void wi_run_state::setup_write(int nt, float* &intensityp, float* &weightp, int &stride, bool zero_flag, double t0)
 {
     // states 1,3 are OK
     if ((this->state == 0) || (this->state == 4))
@@ -142,9 +148,20 @@ void wi_run_state::setup_write(int nt, float* &intensityp, float* &weightp, int 
     if (nt > this->nt_stream_maxwrite)
 	throw runtime_error("rf_transforms: logic error in stream: setup_write() was called with nt > nt_maxwrite");
 
+    if (fabs(t0 - stream_curr_time) >= 1.0e-2 * dt_sample)
+	throw runtime_error("rf_transforms: timestamp jitter is not allowed to exceed 1% of the sample length");
+
     this->main_buffer.setup_append(nt, intensityp, weightp, stride, zero_flag);
+    this->stream_curr_time = t0;
     this->state = 2;
     this->nt_pending = nt;
+}
+
+
+void wi_run_state::setup_write(int nt, float* &intensityp, float* &weightp, int &stride, bool zero_flag)
+{
+    double t0 = stream_curr_time;
+    this->setup_write(nt, intensityp, weightp, stride, zero_flag, t0);
 }
 
 
@@ -157,10 +174,10 @@ void wi_run_state::finalize_write(int nt)
     if (nt != this->nt_pending)
 	throw runtime_error("rf_transforms: logic error in stream: values of 'nt' in setup_write() and finalize_write() don't match");
 
+    // stream_ipos and stream_curr_time get updated at the end
     this->main_buffer.finalize_append(nt);
-    this->stream_ipos += nt;
 
-    int curr_ipos = stream_ipos;
+    int curr_ipos = this->stream_ipos + nt;
 
     for (int it = 0; it < ntransforms; it++) {
 	int n0 = transforms[it]->nt_prepad;
@@ -202,7 +219,8 @@ void wi_run_state::finalize_write(int nt)
 	    }
 
 	    // Transform is called here.
-	    transforms[it]->process_chunk(intensity, weights, stride, pp_intensity, pp_weights, pp_stride);
+	    double t0 = this->stream_curr_time + dt_sample * (transform_ipos[it] - stream_ipos);
+	    transforms[it]->process_chunk(t0, intensity, weights, stride, pp_intensity, pp_weights, pp_stride);
 
 	    // Note (n1) here, versus (n1+n2) in call to finalize_write() below.
 	    main_buffer.finalize_write(transform_ipos[it], n1);
@@ -212,6 +230,8 @@ void wi_run_state::finalize_write(int nt)
 	curr_ipos = transform_ipos[it];
     }
 
+    this->stream_curr_time += dt_sample * nt;
+    this->stream_ipos += nt;
     this->state = 3;
     this->nt_pending = 0;
 }

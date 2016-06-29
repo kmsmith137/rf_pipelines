@@ -119,6 +119,9 @@ struct test_wi_transform : public wi_transform {
     affine_map1 in_imap, in_wmap;
     affine_map1 out_imap, out_wmap;
     affine_map2 stream_imap, stream_wmap;
+    
+    double t0_substream;
+    double dt_sample;
 
     int nt_stream;
     int curr_it;
@@ -146,16 +149,21 @@ struct test_wi_transform : public wi_transform {
 	this->stream_imap = stream.intensity_map;
 	this->stream_wmap = stream.weight_map;
 
+	this->t0_substream = 0.0;
+	this->dt_sample = stream.dt_sample;
 	this->nt_stream = stream.nt_stream;
 	this->curr_it = 0;
     }
 
     virtual void set_stream(const wi_stream &stream) { return; }
-    virtual void start_substream(double t0) { return; }
+    virtual void start_substream(double t0) { this->t0_substream = t0; }
     virtual void end_substream() { return; }
 
-    virtual void process_chunk(float *intensity, float *weight, int stride, float *pp_intensity, float *pp_weight, int pp_stride)
+    virtual void process_chunk(double t0, float *intensity, float *weight, int stride, float *pp_intensity, float *pp_weight, int pp_stride)
     {
+	double t0_expected = t0_substream + curr_it * dt_sample;
+	rf_assert(fabs(t0 - t0_expected) < 1.0e-3 * dt_sample);
+
 	//
 	// Check chunk + postpadded region
 	//

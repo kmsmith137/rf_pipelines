@@ -118,7 +118,7 @@ class plotter_transform(wi_transform):
         pass
 
 
-    def process_chunk(self, intensity, weights, pp_intensity, pp_weight):
+    def process_chunk(self, t0, intensity, weights, pp_intensity, pp_weight):
         prefix = self.img_prefix if (self.substream_ix == 0) else ('%s%d' % (self.img_prefix,self.substream_ix+1))
         filename = '%s_%d.png' % (prefix, self.chunk_ix)
         self.chunk_ix += 1

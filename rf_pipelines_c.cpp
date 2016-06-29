@@ -86,7 +86,7 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	object ret(p, false);
     }
 
-    virtual void process_chunk(float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride)
+    virtual void process_chunk(double t0, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride)
     {
 	object np_intensity = array2d_to_python(nfreq, nt_chunk, intensity, stride);
 	object np_weights = array2d_to_python(nfreq, nt_chunk, weights, stride);
@@ -98,8 +98,8 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	    np_pp_weights = array2d_to_python(nfreq, nt_prepad, pp_weights, pp_stride);
 	}
 
-	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"process_chunk", (char *)"OOOO", 
-					  np_intensity.ptr, np_weights.ptr, np_pp_intensity.ptr, np_pp_weights.ptr);
+	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"process_chunk", (char *)"dOOOO", 
+					  t0, np_intensity.ptr, np_weights.ptr, np_pp_intensity.ptr, np_pp_weights.ptr);
 	
 	object ret(p, false);
 

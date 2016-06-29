@@ -123,7 +123,7 @@ struct wi_transform {
     // This is the API which must be implemented to define a transform.
     virtual void set_stream(const wi_stream &stream) = 0;
     virtual void start_substream(double t0) = 0;
-    virtual void process_chunk(float *intensity, float *weight, int stride, float *pp_intensity, float *pp_weight, int pp_stride) = 0;
+    virtual void process_chunk(double t0, float *intensity, float *weight, int stride, float *pp_intensity, float *pp_weight, int pp_stride) = 0;
     virtual void end_substream() = 0;
 };
 
@@ -180,15 +180,20 @@ protected:
     wi_run_state(const wi_run_state &) = delete;
     wi_run_state& operator=(const wi_run_state &) = delete;
 
-    // stream data
+    // stream params
     const int nfreq;
     const int nt_stream_maxwrite;
-    
-    // transform data
+
+    // transform list
     const int ntransforms;
     const std::vector<std::shared_ptr<wi_transform> > transforms;
 
-    // timeline
+    // timeline (times are in seconds, relative to arbitrary stream-defined origin)
+    double dt_sample;                  // initialized in constructor
+    double substream_start_time;       // initialized in start_substream()
+    double stream_curr_time;           // set in every call to setup_write()
+
+    // sample counts
     std::vector<int> transform_ipos;   // satisfies transform_ipos[0] >= transform_ipos[1] >= ...
     int stream_ipos;
     
@@ -210,6 +215,7 @@ public:
     // Called by wi_stream::run()
     void start_substream(double t0);
     void setup_write(int nt, float* &intensityp, float* &weightp, int &stride, bool zero_flag);
+    void setup_write(int nt, float* &intensityp, float* &weightp, int &stride, bool zero_flag, double t0);
     void finalize_write(int nt);
     void end_substream();
 };
