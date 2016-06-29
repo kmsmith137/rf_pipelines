@@ -35,6 +35,11 @@ namespace rf_pipelines {
 #endif
 
 
+// Non-inline helper functions (more to come?)
+extern void listdir(std::vector<std::string> &filenames, const std::string &dirname);
+
+
+// Inlines follow...
 inline double uniform_rand()
 {
     return (rand() + 0.5) / (RAND_MAX + 1.0);

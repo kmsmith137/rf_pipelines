@@ -500,6 +500,19 @@ static PyObject *make_psrfits_stream(PyObject *self, PyObject *args)
 }
 
 
+static PyObject *make_gaussian_noise_stream(PyObject *self, PyObject *args)
+{
+    int nfreq, nt_chunk, nt_tot;
+    double freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms;
+
+    if (!PyArg_ParseTuple(args, "iiidddd", &nfreq, &nt_chunk, &nt_tot, &freq_lo_MHz, &freq_hi_MHz, &dt_sample, &sample_rms))
+	return NULL;
+
+    return make_wi_stream(rf_pipelines::make_gaussian_noise_stream(nfreq, nt_chunk, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms));
+}
+
+
+
 static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
 {
     int nt_chunk = 0;
@@ -515,6 +528,7 @@ static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
 
 static PyMethodDef module_methods[] = {
     { "make_psrfits_stream", tc_wrap2<make_psrfits_stream>, METH_VARARGS, "XXX" },
+    { "make_gaussian_noise_stream", tc_wrap2<make_gaussian_noise_stream>, METH_VARARGS, "XXX" },
     { "make_simple_detrender", tc_wrap2<make_simple_detrender>, METH_VARARGS, "XXX" },
     { NULL, NULL, 0, NULL }
 };

@@ -16,6 +16,7 @@ INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp
 
 OFILES=chime_file_stream.o \
 	detrenders.o \
+	gaussian_noise_stream.o \
 	misc.o \
 	psrfits_stream.o \
 	wi_run.o \

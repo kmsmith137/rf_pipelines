@@ -43,11 +43,12 @@ extern std::shared_ptr<wi_stream> make_chime_stream_from_file(const std::string 
 extern std::shared_ptr<wi_stream> make_chime_stream_from_acqdir(const std::string &filename, int nt_chunk=0);
 extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std::vector<std::string> &filename_list, int nt_chunk=0);
 
+// Simple stream which simulates Gaussian random noise
+extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(int nfreq, int nt_chunk, int nt_tot, double freq_lo_MHz, double freq_hi_MHz, double dt_sample, double sample_rms);
+
+
 // Simplest possible detrender: just divides the data into chunks and subtracts the mean in each chunk
 extern std::shared_ptr<wi_transform> make_simple_detrender(int nt_chunk);
-
-// Misc helper functions (more to come?)
-extern void listdir(std::vector<std::string> &filenames, const std::string &dirname);
 
 
 // -------------------------------------------------------------------------------------------------
