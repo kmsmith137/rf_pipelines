@@ -8,11 +8,7 @@ namespace rf_pipelines {
 #endif
 
 
-// ------------------------------------------------------------------------------------------------
-//
-// simple_detrender
-//
-// Simplest possible detrender: just divides the data into chunks and subtracts the mean in each chunk
+// simple_detrender: just divides the data into chunks and subtracts the mean in each chunk
 
 
 struct simple_detrender : public wi_transform {
@@ -70,7 +66,5 @@ shared_ptr<wi_transform> make_simple_detrender(int nt_chunk)
     return make_shared<simple_detrender> (nt_chunk);
 }
 
-
-// More detrenders to come!
 
 }  // namespace rf_pipelines
