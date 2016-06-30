@@ -16,10 +16,10 @@ INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp
 
 OFILES=bonsai_dedisperser.o \
 	chime_file_stream.o \
-	detrenders.o \
 	gaussian_noise_stream.o \
 	misc.o \
 	psrfits_stream.o \
+	simple_detrender.o \
 	wi_run.o \
 	wraparound_buf.o
 
