@@ -523,6 +523,19 @@ static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
 }
 
 
+static PyObject *make_bonsai_dedisperser(PyObject *self, PyObject *args)
+{
+    const char *config_hdf5_filename = nullptr;
+    const char *output_hdf5_filename = nullptr;
+    int ibeam = 0;   // FIXME for now, we don't support the 'ibeam' argument from python
+
+    if (!PyArg_ParseTuple(args, "ss", &config_hdf5_filename, &output_hdf5_filename))
+	return NULL;
+
+    return make_wi_transform(rf_pipelines::make_bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, ibeam));
+}
+
+
 // -------------------------------------------------------------------------------------------------
 
 
@@ -530,6 +543,7 @@ static PyMethodDef module_methods[] = {
     { "make_psrfits_stream", tc_wrap2<make_psrfits_stream>, METH_VARARGS, "XXX" },
     { "make_gaussian_noise_stream", tc_wrap2<make_gaussian_noise_stream>, METH_VARARGS, "XXX" },
     { "make_simple_detrender", tc_wrap2<make_simple_detrender>, METH_VARARGS, "XXX" },
+    { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, "XXX" },
     { NULL, NULL, 0, NULL }
 };
 

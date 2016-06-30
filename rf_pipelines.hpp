@@ -50,6 +50,14 @@ extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(int nfreq, int nt_c
 // Simplest possible detrender: just divides the data into chunks and subtracts the mean in each chunk
 extern std::shared_ptr<wi_transform> make_simple_detrender(int nt_chunk);
 
+//
+// FIXME eventually we'll want to generalize this interface!
+//
+// For now, the bonsai_dedisperser is always initialized from an hdf5 config file (created using bonsai-mkweight)
+// and coarse-grained triggers are "processed" by writing them to an hdf5 output file for later analysis.
+//
+extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_filename, const std::string &output_hdf5_filename, int ibeam=0);
+
 
 // -------------------------------------------------------------------------------------------------
 //

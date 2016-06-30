@@ -6,7 +6,14 @@ try:
 except ImportError:
     print >>sys.stderr, "rf_pipelines: import PIL.Image failed; many things will work but plotting will fail"
 
-from rf_pipelines_c import wi_stream, wi_transform, make_psrfits_stream, make_gaussian_noise_stream, make_simple_detrender
+
+from rf_pipelines_c import \
+   wi_stream, \
+   wi_transform, \
+   make_psrfits_stream, \
+   make_gaussian_noise_stream, \
+   make_simple_detrender, \
+   make_bonsai_dedisperser
 
 
 ####################################################################################################

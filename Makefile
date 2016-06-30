@@ -14,7 +14,8 @@ include Makefile.local
 
 INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp
 
-OFILES=chime_file_stream.o \
+OFILES=bonsai_dedisperser.o \
+	chime_file_stream.o \
 	detrenders.o \
 	gaussian_noise_stream.o \
 	misc.o \
@@ -25,6 +26,11 @@ OFILES=chime_file_stream.o \
 PYFILES=rf_pipelines_c.so rf_pipelines.py
 
 LIBS=
+
+ifeq ($(HAVE_BONSAI),y)
+	CPP += -DHAVE_BONSAI
+	LIBS += -lbonsai -lhdf5
+endif
 
 ifeq ($(HAVE_PSRFITS),y)
 	CPP += -DHAVE_PSRFITS
