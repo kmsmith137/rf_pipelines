@@ -22,19 +22,6 @@ shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_
 #else  // HAVE_BONSAI
 
 
-struct my_dedisperser : public bonsai::dedisperser
-{
-    my_dedisperser(const bonsai::config_params &p, int ibeam, bool init_weights) :
-	bonsai::dedisperser(p, ibeam, init_weights)
-    { }
-
-    virtual ~my_dedisperser() { }
-    virtual void preprocess_data(float *data, float *weights, int data_stride) { }
-    virtual void process_triggers(int itree, const bonsai::trigger_set &ts) { }
-    virtual void finalize() { }
-};
-
-
 struct bonsai_dedisperser : public wi_transform {
     shared_ptr<bonsai::dedisperser> base;
     string trigger_filename;
@@ -59,7 +46,7 @@ bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const
     bool init_weights = true;
     bonsai::config_params cp(config_hdf5_filename, init_weights);
 
-    this->base = make_shared<my_dedisperser> (cp, ibeam, init_weights);
+    this->base = make_shared<bonsai::dedisperser> (cp, ibeam, init_weights);
     this->trigger_filename = output_hdf5_filename;
     this->substream_count = 0;
 
