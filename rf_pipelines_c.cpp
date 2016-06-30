@@ -77,13 +77,14 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
     {
 	object s(make_dummy_stream(stream), false);
 	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"set_stream", (char *)"O", s.ptr);
-	object ret(p, false);
+	s.die_unless_refcount1("fatal: wi_transform.set_stream() callback kept a reference to the stream");
+	object(p, false);  // a convenient way to ensure Py_DECREF gets called, and throw an exception on failure
     }
 
     virtual void start_substream(double t0)
     {	
 	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"start_substream", (char *)"d", t0);
-	object ret(p, false);
+	object ret(p, false);  // a convenient way to ensure Py_DECREF gets called, and throw an exception on failure
     }
 
     virtual void process_chunk(double t0, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride)
@@ -101,7 +102,7 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"process_chunk", (char *)"dOOOO", 
 					  t0, np_intensity.ptr, np_weights.ptr, np_pp_intensity.ptr, np_pp_weights.ptr);
 	
-	object ret(p, false);
+	object ret(p, false);  // a convenient way to ensure Py_DECREF gets called, and throw an exception on failure
 
 	array2d_from_python(np_intensity, nfreq, nt_chunk, intensity, stride);
 	array2d_from_python(np_weights, nfreq, nt_chunk, weights, stride);
@@ -462,26 +463,14 @@ static PyObject *make_wi_stream(const shared_ptr<rf_pipelines::wi_stream> &ptr)
 }
 
 
-struct dummy_stream : public rf_pipelines::wi_stream
-{
-    dummy_stream(const rf_pipelines::wi_stream &s)
-    {
-	this->nfreq = s.nfreq;
-	this->nt_maxwrite = s.nt_maxwrite;
-	this->freq_lo_MHz = s.freq_lo_MHz;
-	this->freq_hi_MHz = s.freq_hi_MHz;
-	this->dt_sample = s.dt_sample;
-    }
-    
-    virtual void stream_body(rf_pipelines::wi_run_state &run_state)
-    {
-	throw runtime_error("rf_pipelines: attempt to call run() on 'dummy' stream used as argument to stream_start()");
-    }
-};
-
 static PyObject *make_dummy_stream(const rf_pipelines::wi_stream &s)
 {
-    return make_wi_stream(make_shared<dummy_stream> (s));
+    wi_stream_object *ret = PyObject_New(wi_stream_object, &wi_stream_type);
+    if (!ret)
+	return NULL;
+
+    ret->pbare = const_cast<rf_pipelines::wi_stream *> (&s);
+    return (PyObject *) ret;
 }
 
 

@@ -417,6 +417,14 @@ struct object {
     }
 
     ssize_t get_refcount() const { return Py_REFCNT(ptr); }
+
+    void die_unless_refcount1(const char *msg)
+    {
+	if (this->get_refcount() > 1) {
+	    std::cerr << msg << "\nThis is such a grievous sin that this process will be terminated now, without even throwing an exception!\n";
+	    exit(1);
+	}
+    }
 };
 
 
