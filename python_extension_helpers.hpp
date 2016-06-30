@@ -388,7 +388,7 @@ struct object {
 
 	if (!p)
 	    throw python_exception();
-	if (!increment_refcount)
+	if (increment_refcount)
 	    Py_INCREF(p);
     }
 
@@ -415,6 +415,8 @@ struct object {
 	this->ptr = x.ptr;
 	return *this;
     }
+
+    ssize_t get_refcount() const { return Py_REFCNT(ptr); }
 };
 
 
