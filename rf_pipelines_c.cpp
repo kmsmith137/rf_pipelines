@@ -77,8 +77,10 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
     {
 	object s(make_dummy_stream(stream), false);
 	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"set_stream", (char *)"O", s.ptr);
-	s.die_unless_refcount1("fatal: wi_transform.set_stream() callback kept a reference to the stream");
-	object(p, false);  // a convenient way to ensure Py_DECREF gets called, and throw an exception on failure
+	object ret(p, false);  // a convenient way to ensure Py_DECREF gets called, and throw an exception on failure
+
+	if (s.get_refcount() > 1)
+	    throw runtime_error("fatal: wi_transform.set_stream() callback kept a reference to the stream");
     }
 
     virtual void start_substream(double t0)
@@ -99,10 +101,22 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	    np_pp_weights = array2d_to_python(nfreq, nt_prepad, pp_weights, pp_stride);
 	}
 
+	// FIXME: a weird corner case that I'd like to understand more generally: control-C can
+	// cause the np_intensity refcount to equal 2 when PyObject_CallMethod() returns.  Does
+	// this means it leaks memory?
 	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"process_chunk", (char *)"dOOOO", 
 					  t0, np_intensity.ptr, np_weights.ptr, np_pp_intensity.ptr, np_pp_weights.ptr);
-	
+
 	object ret(p, false);  // a convenient way to ensure Py_DECREF gets called, and throw an exception on failure
+
+	if (np_intensity.get_refcount() > 1)
+	    throw runtime_error("fatal: wi_transform.process_chunk() callback kept a reference to the 'intensity' array");
+	if (np_weights.get_refcount() > 1)
+	    throw runtime_error("fatal: wi_transform.process_chunk() callback kept a reference to the 'weights' array");
+	if ((nt_prepad > 0) && (np_pp_intensity.get_refcount() > 1))
+	    throw runtime_error("fatal: wi_transform.process_chunk() callback kept a reference to the 'pp_intensity' array");
+	if ((nt_prepad > 0) && (np_pp_weights.get_refcount() > 1))
+	    throw runtime_error("fatal: wi_transform.process_chunk() callback kept a reference to the 'pp_weights' array");
 
 	array2d_from_python(np_intensity, nfreq, nt_chunk, intensity, stride);
 	array2d_from_python(np_weights, nfreq, nt_chunk, weights, stride);

@@ -418,6 +418,8 @@ struct object {
 
     ssize_t get_refcount() const { return Py_REFCNT(ptr); }
 
+    // FIXME not currently using this, since there are corner cases I don't understand (e.g. control-C can cause callback to 
+    // keep the reference, maybe it's in the traceback stack?)
     void die_unless_refcount1(const char *msg)
     {
 	if (this->get_refcount() > 1) {
