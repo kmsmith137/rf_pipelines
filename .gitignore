@@ -1,6 +1,7 @@
 *~
 *.o
 *.so
+*.pyc
 run-unit-tests
 Makefile.local
 TODO
