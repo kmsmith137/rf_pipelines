@@ -27,6 +27,9 @@ void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transform
 	throw runtime_error("wi_stream::nt_maxwrite is non-positive or uninitialized");
 
     for (unsigned int it = 0; it < transforms.size(); it++) {
+	if (!transforms[it])
+	    throw runtime_error("rf_pipelines: empty transform pointer passed to wi_stream::run()");
+
 	transforms[it]->set_stream(*this);
 
 	if (transforms[it]->nfreq != this->nfreq)
