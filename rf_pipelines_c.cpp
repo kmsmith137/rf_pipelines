@@ -302,6 +302,38 @@ bool wi_transform_object::isinstance(PyObject *obj)
 
 // -------------------------------------------------------------------------------------------------
 //
+// exception_monitor: a dummy transform which regularly checks the python exception state
+//   whenever process_chunk() is called.  This ensures that control-C always gets caught,
+//   in the case where we're running rf_pipelines through the python interpreter, but all 
+//   streams and transforms are C++ classes.
+
+
+struct exception_monitor : public rf_pipelines::wi_transform
+{
+    exception_monitor(int nt_chunk_)
+    {
+	this->nt_chunk = nt_chunk_;
+    }
+
+    virtual ~exception_monitor() { }
+    virtual void start_substream(double t0) { }
+    virtual void end_substream() { }
+
+    virtual void set_stream(const rf_pipelines::wi_stream &stream)
+    {
+	this->nfreq = stream.nfreq;
+    }
+
+    virtual void process_chunk(double t0, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride)
+    {
+	if (PyErr_Occurred() || PyErr_CheckSignals())
+	    throw python_exception();
+    }
+};
+
+
+// -------------------------------------------------------------------------------------------------
+//
 // wi_stream wrapper class
 
 
@@ -356,7 +388,9 @@ struct wi_stream_object {
 
 	object iter_reference(iter, false);
 	vector<object> item_references;
+
 	vector<shared_ptr<rf_pipelines::wi_transform> > transform_list;
+	transform_list.push_back(make_shared<exception_monitor> (stream->nt_maxwrite));
 
 	for (;;) {
 	    PyObject *item_ptr = PyIter_Next(iter);
