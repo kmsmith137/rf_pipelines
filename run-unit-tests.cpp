@@ -156,7 +156,7 @@ struct test_wi_transform : public wi_transform {
     }
 
     virtual void set_stream(const wi_stream &stream) { return; }
-    virtual void start_substream(double t0) { this->t0_substream = t0; }
+    virtual void start_substream(int isubstream, double t0) { this->t0_substream = t0; }
     virtual void end_substream() { return; }
 
     virtual void process_chunk(double t0, double t1, float *intensity, float *weight, int stride, float *pp_intensity, float *pp_weight, int pp_stride)

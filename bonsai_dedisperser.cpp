@@ -25,12 +25,11 @@ shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_
 struct bonsai_dedisperser : public wi_transform {
     shared_ptr<bonsai::dedisperser> base;
     string trigger_filename;
-    int substream_count;
 
     bonsai_dedisperser(const string &config_hdf5_filename, const string &output_hdf5_filename, int ibeam);
 
     virtual void set_stream(const wi_stream &stream);
-    virtual void start_substream(double t0);
+    virtual void start_substream(int isubstream, double t0);
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride);
     virtual void end_substream();
 };
@@ -48,7 +47,6 @@ bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const
 
     this->base = make_shared<bonsai::dedisperser> (cp, ibeam, init_weights);
     this->trigger_filename = output_hdf5_filename;
-    this->substream_count = 0;
 
     // initialize members of wi_transform base class
     this->nfreq = base->nchan;
@@ -73,9 +71,9 @@ void bonsai_dedisperser::set_stream(const wi_stream &stream)
 }
 
 
-void bonsai_dedisperser::start_substream(double t0)
+void bonsai_dedisperser::start_substream(int isubstream, double t0)
 {
-    if (substream_count > 0)
+    if (isubstream > 0)
 	throw runtime_error("bonsai_dedisperser: currently can't process a stream which defines multiple substreams");
 
     bool clobber = true;
@@ -83,7 +81,6 @@ void bonsai_dedisperser::start_substream(double t0)
 	base->start_trigger_file(trigger_filename, clobber);
 
     base->spawn_slave_threads();
-    this->substream_count++;
 }
 
 

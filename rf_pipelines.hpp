@@ -132,7 +132,7 @@ struct wi_transform {
 
     // This is the API which must be implemented to define a transform.
     virtual void set_stream(const wi_stream &stream) = 0;
-    virtual void start_substream(double t0) = 0;
+    virtual void start_substream(int isubstream, double t0) = 0;
     virtual void process_chunk(double t0, double t1, float *intensity, float *weight, int stride, float *pp_intensity, float *pp_weight, int pp_stride) = 0;
     virtual void end_substream() = 0;
 };
@@ -214,6 +214,7 @@ protected:
     // state=4: end_substream() called
     int state;
     int nt_pending;  // only valid in state 2
+    int isubstream;
 
     // buffers
     wraparound_buf main_buffer;

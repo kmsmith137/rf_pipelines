@@ -73,6 +73,7 @@ wi_run_state::wi_run_state(const wi_stream &stream, const std::vector<std::share
     stream_ipos(0),
     state(0),
     nt_pending(0),
+    isubstream(0),
     prepad_buffers(transforms_.size())
 {
     if (!nfreq)
@@ -91,7 +92,7 @@ void wi_run_state::start_substream(double t0)
     this->stream_curr_time = t0;
 
     for (int it = 0; it < ntransforms; it++)
-	transforms[it]->start_substream(t0);
+	transforms[it]->start_substream(this->isubstream, t0);
 
     // Allocate main buffer
 
@@ -286,6 +287,7 @@ void wi_run_state::end_substream()
 	this->prepad_buffers[it].reset();
 
     this->state = 4;
+    this->isubstream++;
 }
 
 

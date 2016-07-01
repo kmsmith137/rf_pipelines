@@ -121,7 +121,7 @@ class plotter_transform(wi_transform):
         assert s.nfreq % self.img_nfreq == 0
 
 
-    def start_substream(self, t0):
+    def start_substream(self, isubstream, t0):
         pass
 
 
@@ -187,7 +187,7 @@ class frb_injector_transform(wi_transform):
         self.pulse.fluence = self.snr / snr0
 
     
-    def start_substream(self, t0):
+    def start_substream(self, isubstream, t0):
         # We keep track of the time range spanned by the stream, so that we can print a warning
         # in end_substream() if the substream doesn't span the pulse.
         self.substream_t0 = t0

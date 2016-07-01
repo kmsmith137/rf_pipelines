@@ -60,9 +60,9 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	    throw runtime_error("fatal: wi_transform.set_stream() callback kept a reference to the stream");
     }
 
-    virtual void start_substream(double t0)
+    virtual void start_substream(int isubstream, double t0)
     {	
-	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"start_substream", (char *)"d", t0);
+	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"start_substream", (char *)"id", isubstream, t0);
 	object ret(p, false);  // a convenient way to ensure Py_DECREF gets called, and throw an exception on failure
     }
 
@@ -316,7 +316,7 @@ struct exception_monitor : public rf_pipelines::wi_transform
     }
 
     virtual ~exception_monitor() { }
-    virtual void start_substream(double t0) { }
+    virtual void start_substream(int isubstream, double t0) { }
     virtual void end_substream() { }
 
     virtual void set_stream(const rf_pipelines::wi_stream &stream)
