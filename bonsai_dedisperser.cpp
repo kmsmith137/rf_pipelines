@@ -31,7 +31,7 @@ struct bonsai_dedisperser : public wi_transform {
 
     virtual void set_stream(const wi_stream &stream);
     virtual void start_substream(double t0);
-    virtual void process_chunk(double t0, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride);
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride);
     virtual void end_substream();
 };
 
@@ -87,7 +87,7 @@ void bonsai_dedisperser::start_substream(double t0)
 }
 
 
-void bonsai_dedisperser::process_chunk(double t0, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride)
+void bonsai_dedisperser::process_chunk(double t0, double t1, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride)
 {
     // Note: rf_pipelines and bonsai use the same frequency channel ordering (highest-to-lowest), so we can pass the arrays and stride "as is"
     base->run(intensity, weights, stride);

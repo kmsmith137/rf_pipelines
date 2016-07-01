@@ -66,7 +66,7 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	object ret(p, false);  // a convenient way to ensure Py_DECREF gets called, and throw an exception on failure
     }
 
-    virtual void process_chunk(double t0, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride)
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride)
     {
 	object np_intensity = array2d_to_python(nfreq, nt_chunk, intensity, stride);
 	object np_weights = array2d_to_python(nfreq, nt_chunk, weights, stride);
@@ -81,8 +81,8 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	// FIXME: a weird corner case that I'd like to understand more generally: control-C can
 	// cause the np_intensity refcount to equal 2 when PyObject_CallMethod() returns.  Does
 	// this means it leaks memory?
-	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"process_chunk", (char *)"dOOOO", 
-					  t0, np_intensity.ptr, np_weights.ptr, np_pp_intensity.ptr, np_pp_weights.ptr);
+	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"process_chunk", (char *)"ddOOOO", t0, t1,
+					  np_intensity.ptr, np_weights.ptr, np_pp_intensity.ptr, np_pp_weights.ptr);
 
 	object ret(p, false);  // a convenient way to ensure Py_DECREF gets called, and throw an exception on failure
 
@@ -324,7 +324,7 @@ struct exception_monitor : public rf_pipelines::wi_transform
 	this->nfreq = stream.nfreq;
     }
 
-    virtual void process_chunk(double t0, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride)
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride)
     {
 	if (PyErr_Occurred() || PyErr_CheckSignals())
 	    throw python_exception();

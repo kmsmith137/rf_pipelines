@@ -159,10 +159,12 @@ struct test_wi_transform : public wi_transform {
     virtual void start_substream(double t0) { this->t0_substream = t0; }
     virtual void end_substream() { return; }
 
-    virtual void process_chunk(double t0, float *intensity, float *weight, int stride, float *pp_intensity, float *pp_weight, int pp_stride)
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weight, int stride, float *pp_intensity, float *pp_weight, int pp_stride)
     {
 	double t0_expected = t0_substream + curr_it * dt_sample;
+	double t1_expected = t0_substream + (curr_it + nt_chunk) * dt_sample;
 	rf_assert(fabs(t0 - t0_expected) < 1.0e-3 * dt_sample);
+	rf_assert(fabs(t1 - t1_expected) < 1.0e-3 * dt_sample);	
 
 	//
 	// Check chunk + postpadded region

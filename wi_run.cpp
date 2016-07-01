@@ -223,7 +223,8 @@ void wi_run_state::finalize_write(int nt)
 
 	    // Transform is called here.
 	    double t0 = this->stream_curr_time + dt_sample * (transform_ipos[it] - stream_ipos);
-	    transforms[it]->process_chunk(t0, intensity, weights, stride, pp_intensity, pp_weights, pp_stride);
+	    double t1 = this->stream_curr_time + dt_sample * (transform_ipos[it] - stream_ipos + n1);
+	    transforms[it]->process_chunk(t0, t1, intensity, weights, stride, pp_intensity, pp_weights, pp_stride);
 
 	    // Note (n1) here, versus (n1+n2) in call to finalize_write() below.
 	    main_buffer.finalize_write(transform_ipos[it], n1);
