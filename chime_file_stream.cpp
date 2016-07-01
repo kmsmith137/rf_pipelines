@@ -79,7 +79,7 @@ void chime_file_stream::stream_body(wi_run_state &run_state)
     bool zero_flag = true;
 
     run_state.start_substream(curr_file->time_lo);
-    run_state.setup_write(nt_maxwrite, intensity, weights, stride, zero_flag);
+    run_state.setup_write(nt_maxwrite, intensity, weights, stride, zero_flag, curr_file->time_lo);
 
     for (;;) {
 	//
@@ -140,7 +140,7 @@ void chime_file_stream::stream_body(wi_run_state &run_state)
 	else if (it_chunk >= nt_maxwrite) {
 	    // Write chunk
 	    run_state.finalize_write(nt_maxwrite);
-	    run_state.setup_write(nt_maxwrite, intensity, weights, stride, zero_flag);	    
+	    run_state.setup_write(nt_maxwrite, intensity, weights, stride, zero_flag, curr_file->time_lo + it_file * dt_sample); 
 	    it_chunk = 0;
 	}
 	else if (it_file < 0) {
