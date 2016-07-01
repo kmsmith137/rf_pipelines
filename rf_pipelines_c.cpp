@@ -40,37 +40,12 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	    throw runtime_error("rf_pipelines: array2d_to_python: internal checks failed [should never happen]");
 
 	npy_intp dims[2] = { m, n };
-	object ret(PyArray_SimpleNew(2,dims,NPY_FLOAT), false);
-	PyArrayObject *arr = (PyArrayObject *) ret.ptr;
-	
-	if (!PyArray_Check(ret.ptr) || (PyArray_NDIM(arr) != 2) 
-	    || (PyArray_DIM(arr,0) != m) || (PyArray_DIM(arr,1) != n)
-	    || (PyArray_STRIDE(arr,0) != (int)(n*sizeof(float))) 
-	    || (PyArray_STRIDE(arr,1) != sizeof(float)))
-	    throw runtime_error("rf_pipelines: array2d_to_python: internal checks failed [should never happen]");
+	npy_intp strides[2] = { src_stride * (int)sizeof(float), (int)sizeof(float) };
 
-	float *dst = (float *) PyArray_DATA(arr);
+	// PyArray_New(subtype, nd, dims, type_num, npy_intp* strides, void* data, int itemsize, int flags, PyObject* obj)
+	PyObject *p = PyArray_New(&PyArray_Type, 2, dims, NPY_FLOAT, strides, (void *)src, 0, NPY_ARRAY_WRITEABLE, NULL);
 
-	for (int i = 0; i < m; i++)
-	    memcpy(dst + i*n, src + i*src_stride, n * sizeof(float));
-
-	return ret;
-    }
-
-    static void array2d_from_python(const object &obj, int m, int n, float *dst, int dst_stride)
-    {
-	PyArrayObject *arr = (PyArrayObject *) obj.ptr;
-	
-	if (!PyArray_Check(obj.ptr) || (PyArray_NDIM(arr) != 2) 
-	    || (PyArray_DIM(arr,0) != m) || (PyArray_DIM(arr,1) != n)
-	    || (PyArray_STRIDE(arr,0) != (int)(n*sizeof(float))) 
-	    || (PyArray_STRIDE(arr,1) != sizeof(float)))
-	    throw runtime_error("rf_pipelines: array2d_to_python: internal checks failed [should never happen]");
-
-	const float *src = (float *) PyArray_DATA(arr);
-
-	for (int i = 0; i < m; i++)
-	    memcpy(dst + i*dst_stride, src + i*n, n * sizeof(float));
+	return object(p, false);
     }
 
     virtual void set_stream(const rf_pipelines::wi_stream &stream)
@@ -117,9 +92,6 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	    throw runtime_error("fatal: wi_transform.process_chunk() callback kept a reference to the 'pp_intensity' array");
 	if ((nt_prepad > 0) && (np_pp_weights.get_refcount() > 1))
 	    throw runtime_error("fatal: wi_transform.process_chunk() callback kept a reference to the 'pp_weights' array");
-
-	array2d_from_python(np_intensity, nfreq, nt_chunk, intensity, stride);
-	array2d_from_python(np_weights, nfreq, nt_chunk, weights, stride);
     }
 
     virtual void end_substream()
