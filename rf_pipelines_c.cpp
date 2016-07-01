@@ -107,6 +107,11 @@ struct wi_transform_object {
 
     shared_ptr<rf_pipelines::wi_transform> *pshared;
 
+    // forward declarations (these guys need to come after 'wi_transform_type'
+    static PyObject *make(const shared_ptr<rf_pipelines::wi_transform> &p);
+    static bool isinstance(PyObject *obj);
+    
+
     // Note: no tp_alloc() function is necessary, since the default (PyType_GenericAlloc()) calls memset().    
     static void tp_dealloc(PyObject *self_)
     {
@@ -125,22 +130,27 @@ struct wi_transform_object {
 
     // Helper for get_pshared(): get a pointer-to-shared-ptr from a (PyObject *) which is known to be a wi_transform object.
     // This is the where the upcalling transform gets created, if it doesn't already exist.
-    static inline shared_ptr<rf_pipelines::wi_transform> get_pshared(PyObject *obj)
+    static inline shared_ptr<rf_pipelines::wi_transform> get_pshared(PyObject *self)
     {
-	wi_transform_object *t = (wi_transform_object *) obj;
+	if (!wi_transform_object::isinstance(self))
+	    throw runtime_error("rf_pipelines: 'self' argument to wi_transform method was not an object of type wi_transform");
+
+	wi_transform_object *t = (wi_transform_object *) self;
 
 	if (t->pshared)
 	    return *(t->pshared);
 
-	shared_ptr<rf_pipelines::wi_transform> p = make_shared<upcalling_wi_transform> (obj);
+	// FIXME this way of instantiating the upcalling transform is awkward and could be improved
+	shared_ptr<rf_pipelines::wi_transform> p = make_shared<upcalling_wi_transform> (self);
 	t->pshared = new shared_ptr<rf_pipelines::wi_transform> (p);
 	return p;
     }
 
     // Get a bare pointer from a (PyObject *) which is known to be a wi_transform_object
-    static inline rf_pipelines::wi_transform *get_pbare(PyObject *obj)
+    static inline rf_pipelines::wi_transform *get_pbare(PyObject *self)
     {
-	shared_ptr<rf_pipelines::wi_transform> p = get_pshared(obj);
+	// note: get_pshared() checks that object is a wi_transform
+	shared_ptr<rf_pipelines::wi_transform> p = get_pshared(self);
 	
 	if (!p)
 	    throw runtime_error("rf_pipelines: internal error: empty shared_ptr<> in wi_transform_object [should never happen]");
@@ -267,8 +277,8 @@ static PyTypeObject wi_transform_type = {
 };
 
 
-// make new python object (for factory functions)
-static PyObject *make_wi_transform(const shared_ptr<rf_pipelines::wi_transform> &ptr)
+// static member function
+PyObject *wi_transform_object::make(const shared_ptr<rf_pipelines::wi_transform> &ptr)
 {
     if (!ptr)
 	throw runtime_error("rf_pipelines: internal error: empty pointer passed to make_wi_transform()");
@@ -279,6 +289,12 @@ static PyObject *make_wi_transform(const shared_ptr<rf_pipelines::wi_transform> 
 
     ret->pshared = new shared_ptr<rf_pipelines::wi_transform> (ptr);
     return (PyObject *) ret;
+}
+
+// static member function
+bool wi_transform_object::isinstance(PyObject *obj)
+{
+    return PyObject_IsInstance(obj, (PyObject *) &wi_transform_type);
 }
 
 
@@ -493,8 +509,9 @@ static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
     int nt_chunk = 0;
     if (!PyArg_ParseTuple(args, "i", &nt_chunk))
 	return NULL;
-
-    return make_wi_transform(rf_pipelines::make_simple_detrender(nt_chunk));
+    
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_simple_detrender(nt_chunk);
+    return wi_transform_object::make(ret);
 }
 
 
@@ -507,7 +524,8 @@ static PyObject *make_bonsai_dedisperser(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "ss", &config_hdf5_filename, &output_hdf5_filename))
 	return NULL;
 
-    return make_wi_transform(rf_pipelines::make_bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, ibeam));
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, ibeam);
+    return wi_transform_object::make(ret);
 }
 
 

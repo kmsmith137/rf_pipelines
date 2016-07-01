@@ -161,7 +161,6 @@ class frb_injector_transform(wi_transform):
         except ImportError:
             # Print an installation hint...
             print >>sys.stderr, "\n*** Note: If you don't have the 'simpulse' library, it can be downloaded at https://github.com/kmsmith137/simpulse ***\n"
-
             # ...then print an error message and exit
             raise
 
