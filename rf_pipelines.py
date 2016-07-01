@@ -125,7 +125,7 @@ class plotter_transform(wi_transform):
         pass
 
 
-    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weight):
+    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         prefix = self.img_prefix if (self.substream_ix == 0) else ('%s%d' % (self.img_prefix,self.substream_ix+1))
         filename = '%s_%d.png' % (prefix, self.chunk_ix)
         self.chunk_ix += 1
@@ -194,7 +194,7 @@ class frb_injector_transform(wi_transform):
         self.substream_t1 = t0
 
 
-    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weight):
+    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         nt_chunk = intensity.shape[1]
         t1 = t0 + nt_chunk * self.dt_sample
 

@@ -181,7 +181,7 @@ void wraparound_buf::run_unit_tests()
 
 	for (;;) {
 	    float *intensity;
-	    float *weight;
+	    float *weights;
 	    int stride;
 	    
 	    // Appending write
@@ -191,7 +191,7 @@ void wraparound_buf::run_unit_tests()
 		break;
 
 	    bool zero_flag = true;
-	    wrap_buf.setup_append(nt_append, intensity, weight, stride, zero_flag);
+	    wrap_buf.setup_append(nt_append, intensity, weights, stride, zero_flag);
 
 	    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
 		for (int it = 0; it < nt_append; it++) {
@@ -199,7 +199,7 @@ void wraparound_buf::run_unit_tests()
 		    int slin = ifreq*nt_linear + ipos + it;
 
 		    intensity[swrap] = linear_ibuf[slin] = uniform_rand();
-		    weight[swrap] = linear_wbuf[slin] = uniform_rand();
+		    weights[swrap] = linear_wbuf[slin] = uniform_rand();
 		}
 	    }
 	
@@ -214,7 +214,7 @@ void wraparound_buf::run_unit_tests()
 		int it1_write = randint(it0_write+1, ipos+1);
 		int nt_write = it1_write - it0_write;
 	    
-		wrap_buf.setup_write(it0_write, nt_write, intensity, weight, stride);
+		wrap_buf.setup_write(it0_write, nt_write, intensity, weights, stride);
 	    
 		for (int ifreq = 0; ifreq < nfreq; ifreq++) {
 		    for (int it = 0; it < nt_write; it++) {
@@ -222,10 +222,10 @@ void wraparound_buf::run_unit_tests()
 			int slin = ifreq*nt_linear + it0_write + it;
 
 			rf_assert(intensity[swrap] == linear_ibuf[slin]);
-			rf_assert(weight[swrap] == linear_wbuf[slin]);
+			rf_assert(weights[swrap] == linear_wbuf[slin]);
 
 			intensity[swrap] = linear_ibuf[slin] = uniform_rand();
-			weight[swrap] = linear_wbuf[slin] = uniform_rand();
+			weights[swrap] = linear_wbuf[slin] = uniform_rand();
 		    }
 		}
 

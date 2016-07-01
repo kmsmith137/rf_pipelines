@@ -159,7 +159,7 @@ struct test_wi_transform : public wi_transform {
     virtual void start_substream(int isubstream, double t0) { this->t0_substream = t0; }
     virtual void end_substream() { return; }
 
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weight, int stride, float *pp_intensity, float *pp_weight, int pp_stride)
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride)
     {
 	double t0_expected = t0_substream + curr_it * dt_sample;
 	double t1_expected = t0_substream + (curr_it + nt_chunk) * dt_sample;
@@ -176,7 +176,7 @@ struct test_wi_transform : public wi_transform {
 		double s_wt = (it2 < nt_stream) ? stream_wmap.apply(ifreq,it2) : 0.0;
 
 		rf_assert(reldist(intensity[ifreq*stride+it], in_imap.apply(s_int)) < 1.0e-5);
-		rf_assert(reldist(weight[ifreq*stride+it], in_wmap.apply(s_wt)) < 1.0e-5);
+		rf_assert(reldist(weights[ifreq*stride+it], in_wmap.apply(s_wt)) < 1.0e-5);
 	    }
 	}
 
@@ -198,7 +198,7 @@ struct test_wi_transform : public wi_transform {
 		}
 
 		rf_assert(reldist(pp_intensity[ifreq*pp_stride+it], expected_intensity) < 1.0e-5);
-		rf_assert(reldist(pp_weight[ifreq*pp_stride+it], expected_weight) < 1.0e-5);
+		rf_assert(reldist(pp_weights[ifreq*pp_stride+it], expected_weight) < 1.0e-5);
 	    }
 	}
 	
@@ -206,7 +206,7 @@ struct test_wi_transform : public wi_transform {
 	for (int ifreq = 0; ifreq < nfreq; ifreq++) {
 	    for (int it = 0; it < nt_chunk; it++) {
 		intensity[ifreq*stride+it] = my_imap.apply(intensity[ifreq*stride+it]);
-		weight[ifreq*stride+it] = my_wmap.apply(weight[ifreq*stride+it]);
+		weights[ifreq*stride+it] = my_wmap.apply(weights[ifreq*stride+it]);
 	    }
 	}
 

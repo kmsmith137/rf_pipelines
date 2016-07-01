@@ -18,7 +18,7 @@ struct simple_detrender : public wi_transform {
     virtual void start_substream(int isubstream, double t0) { }
     virtual void end_substream() { cerr << "simple_detrender::end_substream() called!\n"; }
 
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weight, int stride, float *pp_intensity, float *pp_weight, int pp_stride);
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride);
 };
 
 
@@ -39,15 +39,15 @@ void simple_detrender::set_stream(const wi_stream &stream)
 }
 
 
-void simple_detrender::process_chunk(double t0, double t1, float *intensity, float *weight, int stride, float *pp_intensity, float *pp_weight, int pp_stride)
+void simple_detrender::process_chunk(double t0, double t1, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride)
 {
     for (int ifreq = 0; ifreq < this->nfreq; ifreq++) {
 	float num = 0.0;  // sum of weighted intensities
 	float den = 0.0;  // sum of weights
 
 	for (int it = 0; it < this->nt_chunk; it++) {
-	    num += weight[ifreq*stride + it] * intensity[ifreq*stride + it];
-	    den += weight[ifreq*stride + it];
+	    num += weights[ifreq*stride + it] * intensity[ifreq*stride + it];
+	    den += weights[ifreq*stride + it];
 	}
 	
 	// Avoid division by zero (which can happen if a chunk is entirely masked, i.e. weight zero)
