@@ -40,7 +40,7 @@ bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const
 {
     if (!endswith(config_hdf5_filename,".hdf5") && !endswith(config_hdf5_filename,".h5"))
 	cerr << "rf_pipelines: warning: bonsai config filename doesn't end with .h5 or .hdf5, note that the bonsai_dedisperser requires an hdf5 file created with bonsai-mkweight\n";
-    if (!endswith(output_hdf5_filename,".hdf5") && !endswith(output_hdf5_filename,".h5"))
+    if (output_hdf5_filename.size() &&  !endswith(output_hdf5_filename,".hdf5") && !endswith(output_hdf5_filename,".h5"))
 	cerr << "rf_pipelines: warning: bonsai output filename doesn't end with .h5 or .hdf5\n";
 
     bool init_weights = true;
@@ -79,8 +79,10 @@ void bonsai_dedisperser::start_substream(double t0)
 	throw runtime_error("bonsai_dedisperser: currently can't process a stream which defines multiple substreams");
 
     bool clobber = true;
+    if (trigger_filename.size())
+	base->start_trigger_file(trigger_filename, clobber);
+
     base->spawn_slave_threads();
-    base->start_trigger_file(trigger_filename, clobber);
     this->substream_count++;
 }
 
@@ -94,7 +96,9 @@ void bonsai_dedisperser::process_chunk(double t0, float *intensity, float *weigh
 
 void bonsai_dedisperser::end_substream()
 {
-    base->end_trigger_file();
+    if (trigger_filename.size())
+	base->end_trigger_file();
+
     base->terminate();
 }
 

@@ -51,10 +51,12 @@ extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(int nfreq, int nt_c
 extern std::shared_ptr<wi_transform> make_simple_detrender(int nt_chunk);
 
 //
-// FIXME eventually we'll want to generalize this interface!
+// For now, the bonsai_dedisperser must be initialized from an hdf5 config file (created using bonsai-mkweight)
 //
-// For now, the bonsai_dedisperser is always initialized from an hdf5 config file (created using bonsai-mkweight)
-// and coarse-grained triggers are "processed" by writing them to an hdf5 output file for later analysis.
+// Coarse-grained triggers are "processed" by writing them to an hdf5 output file for later analysis 
+// (to disable the output file, use an empty string as filename)
+//
+// FIXME eventually we'll want to generalize this interface!
 //
 extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_filename, const std::string &output_hdf5_filename, int ibeam=0);
 
