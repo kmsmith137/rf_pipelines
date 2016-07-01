@@ -3,7 +3,7 @@
 
 using namespace std;
 
-static PyObject *make_dummy_stream(const rf_pipelines::wi_stream &s);
+static PyObject *make_temporary_stream(const rf_pipelines::wi_stream &s);
 
 
 // -------------------------------------------------------------------------------------------------
@@ -50,9 +50,11 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 
     virtual void set_stream(const rf_pipelines::wi_stream &stream)
     {
-	object s(make_dummy_stream(stream), false);
-	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"set_stream", (char *)"O", s.ptr);
-	object ret(p, false);  // a convenient way to ensure Py_DECREF gets called, and throw an exception on failure
+	PyObject *sp = make_temporary_stream(stream);
+	object s(sp, false);
+
+	PyObject *retp = PyObject_CallMethod(this->get_pyobj(), (char *)"set_stream", (char *)"O", s.ptr);
+	object ret(retp, false);  // a convenient way to ensure Py_DECREF gets called, and throw an exception on failure
 
 	if (s.get_refcount() > 1)
 	    throw runtime_error("fatal: wi_transform.set_stream() callback kept a reference to the stream");
@@ -312,6 +314,10 @@ struct wi_stream_object {
     // Reference held through shared_ptr.  Using a pointer-to-a-shared pointer was least awkward here.
     shared_ptr<rf_pipelines::wi_stream> *pshared;
 
+    // forward declarations (these guys need to come after 'wi_stream_type'
+    static PyObject *make(const shared_ptr<rf_pipelines::wi_stream> &p);
+    static bool isinstance(PyObject *obj);
+
     // note: no tp_alloc function is necessary, since the default (PyType_GenericAlloc()) calls memset().    
     static void tp_dealloc(PyObject *self_)
     {
@@ -325,9 +331,12 @@ struct wi_stream_object {
     }
 
     // Get a bare pointer from a (PyObject *) which is known to be a wi_stream_object
-    static inline rf_pipelines::wi_stream *get_pbare(PyObject *obj)
+    static inline rf_pipelines::wi_stream *get_pbare(PyObject *self)
     {
-	wi_stream_object *s = (wi_stream_object *) obj;
+	if (!wi_stream_object::isinstance(self))
+	    throw runtime_error("rf_pipelines: 'self' argument to wi_stream method was not an object of type wi_stream");
+
+	wi_stream_object *s = (wi_stream_object *) self;
 
 	if (!s->pbare)
 	    throw runtime_error("rf_pipelines: internal error: unexpected NULL pointer in wi_stream [should never happen]");
@@ -356,7 +365,7 @@ struct wi_stream_object {
 
 	    item_references.push_back(object(item_ptr,false));
 
-	    if (!PyObject_IsInstance(item_ptr, (PyObject *) &wi_transform_type))
+	    if (!wi_transform_object::isinstance(item_ptr))
 		throw runtime_error("rf_pipelines: expected argument to wi_stream.run() to be a list/iterator of wi_transform objects");
 
 	    transform_list.push_back(wi_transform_object::get_pshared(item_ptr));
@@ -449,8 +458,8 @@ static PyTypeObject wi_stream_type = {
 };
 
 
-// make new python object (for factory functions)
-static PyObject *make_wi_stream(const shared_ptr<rf_pipelines::wi_stream> &ptr)
+// static member function
+PyObject *wi_stream_object::make(const shared_ptr<rf_pipelines::wi_stream> &ptr)
 {
     if (!ptr)
 	throw runtime_error("rf_pipelines: internal error: empty pointer passed to make_wi_stream()");
@@ -464,8 +473,8 @@ static PyObject *make_wi_stream(const shared_ptr<rf_pipelines::wi_stream> &ptr)
     return (PyObject *) ret;
 }
 
-
-static PyObject *make_dummy_stream(const rf_pipelines::wi_stream &s)
+// FIXME I'd like to make this a static member function
+static PyObject *make_temporary_stream(const rf_pipelines::wi_stream &s)
 {
     wi_stream_object *ret = PyObject_New(wi_stream_object, &wi_stream_type);
     if (!ret)
@@ -473,6 +482,12 @@ static PyObject *make_dummy_stream(const rf_pipelines::wi_stream &s)
 
     ret->pbare = const_cast<rf_pipelines::wi_stream *> (&s);
     return (PyObject *) ret;
+}
+
+// static member function
+bool wi_stream_object::isinstance(PyObject *obj)
+{
+    return PyObject_IsInstance(obj, (PyObject *) &wi_stream_type);
 }
 
 
@@ -487,7 +502,8 @@ static PyObject *make_psrfits_stream(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s", &filename))
 	return NULL;
 
-    return make_wi_stream(rf_pipelines::make_psrfits_stream(filename));
+    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_psrfits_stream(filename);
+    return wi_stream_object::make(ret);
 }
 
 
@@ -499,7 +515,8 @@ static PyObject *make_gaussian_noise_stream(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "iiidddd", &nfreq, &nt_chunk, &nt_tot, &freq_lo_MHz, &freq_hi_MHz, &dt_sample, &sample_rms))
 	return NULL;
 
-    return make_wi_stream(rf_pipelines::make_gaussian_noise_stream(nfreq, nt_chunk, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms));
+    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_gaussian_noise_stream(nfreq, nt_chunk, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms);    
+    return wi_stream_object::make(ret);
 }
 
 
