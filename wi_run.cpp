@@ -288,6 +288,7 @@ void wi_run_state::end_substream()
 
     this->state = 4;
     this->isubstream++;
+    cerr << ("rf_pipelines: processed " + to_string(save_ipos) + " samples\n");
 }
 
 
