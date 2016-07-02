@@ -91,7 +91,7 @@ struct wi_stream {
     virtual ~wi_stream() { }
 
     // run() is intended to be the main interface for running a sequence of transforms on a stream
-    void run(const std::vector<std::shared_ptr<wi_transform> > &transforms);
+    void run(const std::vector<std::shared_ptr<wi_transform> > &transforms, bool noisy=true);
     
     //
     // This is the function which must be implemented to define a stream. 
@@ -184,7 +184,7 @@ struct wraparound_buf {
 
 class wi_run_state {
 protected:
-    friend void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transforms);
+    friend void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transforms, bool noisy);
 
     // make noncopyable
     wi_run_state(const wi_run_state &) = delete;
@@ -215,13 +215,14 @@ protected:
     int state;
     int isubstream;
     ssize_t nt_pending;  // only valid in state 2
+    bool noisy;
 
     // buffers
     wraparound_buf main_buffer;
     std::vector<wraparound_buf> prepad_buffers;
 
 public:
-    wi_run_state(const wi_stream &stream, const std::vector<std::shared_ptr<wi_transform> > &transforms);
+    wi_run_state(const wi_stream &stream, const std::vector<std::shared_ptr<wi_transform> > &transforms, bool noisy);
 
     // Called by wi_stream::run()
     void start_substream(double t0);

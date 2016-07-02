@@ -408,7 +408,8 @@ struct wi_stream_object {
 	if (PyErr_Occurred())
 	    throw python_exception();
 
-	stream->run(transform_list);
+	bool noisy=true;  // FIXME make this selectable from python
+	stream->run(transform_list, noisy);
 
 	Py_INCREF(Py_None);
 	return Py_None;

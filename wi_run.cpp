@@ -8,7 +8,7 @@ namespace rf_pipelines {
 #endif
 
 
-void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transforms)
+void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transforms, bool noisy)
 {
     if (transforms.size() == 0)
 	throw runtime_error("wi_stream::run() called on empty transform list");
@@ -43,7 +43,7 @@ void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transform
     }
 
     // Delegate to stream_body() method implemented in subclass
-    wi_run_state run_state(*this, transforms);
+    wi_run_state run_state(*this, transforms, noisy);
     this->stream_body(run_state);
 
     // Only state=4 is OK, otherwise we complain!
@@ -61,7 +61,7 @@ void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transform
 // -------------------------------------------------------------------------------------------------
 
 
-wi_run_state::wi_run_state(const wi_stream &stream, const std::vector<std::shared_ptr<wi_transform> > &transforms_) :
+wi_run_state::wi_run_state(const wi_stream &stream, const std::vector<std::shared_ptr<wi_transform> > &transforms_, bool noisy_) :
     nfreq(stream.nfreq),
     nt_stream_maxwrite(stream.nt_maxwrite),
     ntransforms(transforms_.size()),
@@ -74,6 +74,7 @@ wi_run_state::wi_run_state(const wi_stream &stream, const std::vector<std::share
     state(0),
     isubstream(0),
     nt_pending(0),
+    noisy(noisy_),
     prepad_buffers(transforms_.size())
 {
     if (!nfreq)
@@ -288,7 +289,9 @@ void wi_run_state::end_substream()
 
     this->state = 4;
     this->isubstream++;
-    cerr << ("rf_pipelines: processed " + to_string(save_ipos) + " samples\n");
+
+    if (noisy)
+	cerr << ("rf_pipelines: processed " + to_string(save_ipos) + " samples\n");
 }
 
 
