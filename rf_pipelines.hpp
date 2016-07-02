@@ -39,16 +39,16 @@ class wi_run_state;
 extern std::shared_ptr<wi_stream> make_psrfits_stream(const std::string &filename);
 
 // CHIME file streams
-extern std::shared_ptr<wi_stream> make_chime_stream_from_file(const std::string &filename, int nt_chunk=0);
-extern std::shared_ptr<wi_stream> make_chime_stream_from_acqdir(const std::string &filename, int nt_chunk=0);
-extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std::vector<std::string> &filename_list, int nt_chunk=0);
+extern std::shared_ptr<wi_stream> make_chime_stream_from_file(const std::string &filename, ssize_t nt_chunk=0);
+extern std::shared_ptr<wi_stream> make_chime_stream_from_acqdir(const std::string &filename, ssize_t nt_chunk=0);
+extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std::vector<std::string> &filename_list, ssize_t nt_chunk=0);
 
 // Simple stream which simulates Gaussian random noise
-extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(int nfreq, int nt_chunk, int nt_tot, double freq_lo_MHz, double freq_hi_MHz, double dt_sample, double sample_rms);
+extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssize_t nt_chunk, ssize_t nt_tot, double freq_lo_MHz, double freq_hi_MHz, double dt_sample, double sample_rms);
 
 
 // Simplest possible detrender: just divides the data into chunks and subtracts the mean in each chunk
-extern std::shared_ptr<wi_transform> make_simple_detrender(int nt_chunk);
+extern std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_chunk);
 
 //
 // For now, the bonsai_dedisperser must be initialized from an hdf5 config file (created using bonsai-mkweight)
@@ -78,11 +78,11 @@ struct wi_stream {
     // Note: don't set nt_maxwrite to an excessively large value, since there is an internal
     // buffer of approximate size (24 bytes) * nfreq * nt_maxwrite.
     //
-    int nfreq;
+    ssize_t nfreq;
     double freq_lo_MHz;
     double freq_hi_MHz;
     double dt_sample;     // in seconds
-    int nt_maxwrite;      // max number of time samples per call to setup_write()
+    ssize_t nt_maxwrite;      // max number of time samples per call to setup_write()
 
     wi_stream() :
 	nfreq(0), freq_lo_MHz(0.), freq_hi_MHz(0.), dt_sample(0.), nt_maxwrite(0)
@@ -119,10 +119,10 @@ struct wi_transform {
     // function set_stream() below.  The latter option may be more convenient since the value
     // of wi_stream::nfreq can be used to initialize wi_transform::nfreq.
     //
-    int nfreq;
-    int nt_chunk;
-    int nt_prepad;
-    int nt_postpad;
+    ssize_t nfreq;
+    ssize_t nt_chunk;
+    ssize_t nt_prepad;
+    ssize_t nt_postpad;
     
     wi_transform() : 
 	nfreq(0), nt_chunk(0), nt_prepad(0), nt_postpad(0)
@@ -133,7 +133,7 @@ struct wi_transform {
     // This is the API which must be implemented to define a transform.
     virtual void set_stream(const wi_stream &stream) = 0;
     virtual void start_substream(int isubstream, double t0) = 0;
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride) = 0;
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) = 0;
     virtual void end_substream() = 0;
 };
 
@@ -148,34 +148,34 @@ struct wi_transform {
 
 struct wraparound_buf {
     // specified at construction
-    int nfreq;
-    int nt_contig;
-    int nt_ring;
+    ssize_t nfreq;
+    ssize_t nt_contig;
+    ssize_t nt_ring;
 
     // 2d arrays of shape (nfreq, nt_tot)
     std::vector<float> intensity;
     std::vector<float> weights;
-    int nt_tot;
+    ssize_t nt_tot;
 
-    int ipos;
+    ssize_t ipos;
 
     // Main constructor syntax
-    wraparound_buf(int nfreq, int nt_contig, int nt_ring);
+    wraparound_buf(ssize_t nfreq, ssize_t nt_contig, ssize_t nt_ring);
 
     // Alternate syntax: use default constuctor, then call construct()
     wraparound_buf();
 
-    void construct(int nfreq, int nt_contig, int nt_ring);
+    void construct(ssize_t nfreq, ssize_t nt_contig, ssize_t nt_ring);
     void reset();
 
-    void setup_write(int it0, int nt, float* &intensityp, float* &weightp, int &stride);
-    void setup_append(int nt, float* &intensityp, float* &weightp, int &stride, bool zero_flag);
-    void append_zeros(int nt);
+    void setup_write(ssize_t it0, ssize_t nt, float* &intensityp, float* &weightp, ssize_t &stride);
+    void setup_append(ssize_t nt, float* &intensityp, float* &weightp, ssize_t &stride, bool zero_flag);
+    void append_zeros(ssize_t nt);
 
-    void finalize_write(int it0, int nt);
-    void finalize_append(int nt);
+    void finalize_write(ssize_t it0, ssize_t nt);
+    void finalize_append(ssize_t nt);
 
-    void _copy(int it_dst, int it_src, int nt);
+    void _copy(ssize_t it_dst, ssize_t it_src, ssize_t nt);
     void _check_integrity();
 
     static void run_unit_tests();
@@ -191,8 +191,8 @@ protected:
     wi_run_state& operator=(const wi_run_state &) = delete;
 
     // stream params
-    const int nfreq;
-    const int nt_stream_maxwrite;
+    const ssize_t nfreq;
+    const ssize_t nt_stream_maxwrite;
 
     // transform list
     const int ntransforms;
@@ -204,8 +204,8 @@ protected:
     double stream_curr_time;           // set in every call to setup_write()
 
     // sample counts
-    std::vector<int> transform_ipos;   // satisfies transform_ipos[0] >= transform_ipos[1] >= ...
-    int stream_ipos;
+    std::vector<ssize_t> transform_ipos;   // satisfies transform_ipos[0] >= transform_ipos[1] >= ...
+    ssize_t stream_ipos;
     
     // state=0: initialized
     // state=1: start_substream() called, but first call to setup_write() hasn't happened yet
@@ -213,8 +213,8 @@ protected:
     // state=3: finalize_write() called
     // state=4: end_substream() called
     int state;
-    int nt_pending;  // only valid in state 2
     int isubstream;
+    ssize_t nt_pending;  // only valid in state 2
 
     // buffers
     wraparound_buf main_buffer;
@@ -225,9 +225,9 @@ public:
 
     // Called by wi_stream::run()
     void start_substream(double t0);
-    void setup_write(int nt, float* &intensityp, float* &weightp, int &stride, bool zero_flag);
-    void setup_write(int nt, float* &intensityp, float* &weightp, int &stride, bool zero_flag, double t0);
-    void finalize_write(int nt);
+    void setup_write(ssize_t nt, float* &intensityp, float* &weightp, ssize_t &stride, bool zero_flag);
+    void setup_write(ssize_t nt, float* &intensityp, float* &weightp, ssize_t &stride, bool zero_flag, double t0);
+    void finalize_write(ssize_t nt);
     void end_substream();
 };
 

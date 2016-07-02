@@ -50,10 +50,10 @@ inline double uniform_rand(double lo, double hi)
     return lo + (hi-lo)*uniform_rand();
 }
 
-inline int randint(int lo, int hi)
+inline ssize_t randint(ssize_t lo, ssize_t hi)
 {
     rf_assert(lo < hi);
-    int ret = lo + (int)((hi-lo)*uniform_rand());
+    ssize_t ret = lo + (ssize_t)((hi-lo)*uniform_rand());
     ret = std::max(ret, lo);    // should be redundant
     ret = std::min(ret, hi-1);  // should be redundant
     return ret;
@@ -70,14 +70,14 @@ inline double reldist(double x, double y)
 }
 
 // round up m to nearest multiple of n 
-inline int round_up(int m, int n)
+inline ssize_t round_up(ssize_t m, ssize_t n)
 {
     rf_assert(m >= 0);
     rf_assert(n > 0);
     return ((m+n-1)/n) * n;
 }
 
-inline int gcd(int m, int n)
+inline ssize_t gcd(ssize_t m, ssize_t n)
 {
     if (m < n)
 	std::swap(m, n);
@@ -85,7 +85,7 @@ inline int gcd(int m, int n)
 	throw std::runtime_error("gcd() called with negative argument");
 
     while (n > 0) {
-	int d = m % n;
+	ssize_t d = m % n;
 	m = n;
 	n = d;
     }

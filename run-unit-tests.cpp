@@ -61,7 +61,7 @@ struct affine_map1 {
 //   (sw_f*ifreq + sw_t*it + sw0)    [ weights ]
 //
 struct test_wi_stream : public wi_stream {
-    int nt_stream;
+    ssize_t nt_stream;
     affine_map2 intensity_map;
     affine_map2 weight_map;
 
@@ -85,21 +85,21 @@ struct test_wi_stream : public wi_stream {
 	double t0 = 0.0;
 	run_state.start_substream(t0);
 
-	int ipos = 0;
+	ssize_t ipos = 0;
 
 	while (ipos < nt_stream) {
-	    int nt = randint(1, nt_maxwrite+1);
+	    ssize_t nt = randint(1, nt_maxwrite+1);
 	    nt = min(nt, nt_stream - ipos);
 
 	    float *intensity;
 	    float *weights;
-	    int stride;
+	    ssize_t stride;
 	    
 	    bool zero_flag = true;
 	    run_state.setup_write(nt, intensity, weights, stride, zero_flag);
 	    
-	    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-		for (int it = 0; it < nt; it++) {
+	    for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++) {
+		for (ssize_t it = 0; it < nt; it++) {
 		    intensity[ifreq*stride + it] = intensity_map.apply(ifreq, ipos+it);
 		    weights[ifreq*stride + it] = weight_map.apply(ifreq, ipos+it);
 		}
@@ -123,8 +123,8 @@ struct test_wi_transform : public wi_transform {
     double t0_substream;
     double dt_sample;
 
-    int nt_stream;
-    int curr_it;
+    ssize_t nt_stream;
+    ssize_t curr_it;
 
  
     test_wi_transform(const test_wi_stream &stream, const std::shared_ptr<test_wi_transform> &prev_transform)
@@ -132,8 +132,8 @@ struct test_wi_transform : public wi_transform {
 	// initialize fields in base class
 	this->nfreq = stream.nfreq;
 	this->nt_chunk = randint(1, 21);
-	this->nt_prepad = max(randint(-15,21), 0);    // order-one probability of zero
-	this->nt_postpad = max(randint(-15,21), 0);   // order-one probability of zero
+	this->nt_prepad = max(randint(-15,21), (ssize_t)0);    // order-one probability of zero
+	this->nt_postpad = max(randint(-15,21), (ssize_t)0);   // order-one probability of zero
 
 	this->my_imap = affine_map1::make_random();
 	this->my_wmap = affine_map1::make_random();
@@ -159,7 +159,7 @@ struct test_wi_transform : public wi_transform {
     virtual void start_substream(int isubstream, double t0) { this->t0_substream = t0; }
     virtual void end_substream() { return; }
 
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride)
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
     {
 	double t0_expected = t0_substream + curr_it * dt_sample;
 	double t1_expected = t0_substream + (curr_it + nt_chunk) * dt_sample;
@@ -169,9 +169,9 @@ struct test_wi_transform : public wi_transform {
 	//
 	// Check chunk + postpadded region
 	//
-	for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	    for (int it = 0; it < nt_chunk+nt_postpad; it++) {
-		int it2 = curr_it + it;
+	for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++) {
+	    for (ssize_t it = 0; it < nt_chunk+nt_postpad; it++) {
+		ssize_t it2 = curr_it + it;
 		double s_int = (it2 < nt_stream) ? stream_imap.apply(ifreq,it2) : 0.0;
 		double s_wt = (it2 < nt_stream) ? stream_wmap.apply(ifreq,it2) : 0.0;
 
@@ -183,9 +183,9 @@ struct test_wi_transform : public wi_transform {
 	//
 	// Check prepadded region
 	//
-	for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	    for (int it = 0; it < nt_prepad; it++) {
-		int it2 = curr_it - nt_prepad + it;
+	for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++) {
+	    for (ssize_t it = 0; it < nt_prepad; it++) {
+		ssize_t it2 = curr_it - nt_prepad + it;
 		double expected_intensity = 0.0;
 		double expected_weight = 0.0;
 
@@ -203,8 +203,8 @@ struct test_wi_transform : public wi_transform {
 	}
 	
 	// apply transform
-	for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	    for (int it = 0; it < nt_chunk; it++) {
+	for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++) {
+	    for (ssize_t it = 0; it < nt_chunk; it++) {
 		intensity[ifreq*stride+it] = my_imap.apply(intensity[ifreq*stride+it]);
 		weights[ifreq*stride+it] = my_wmap.apply(weights[ifreq*stride+it]);
 	    }

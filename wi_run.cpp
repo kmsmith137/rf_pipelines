@@ -72,8 +72,8 @@ wi_run_state::wi_run_state(const wi_stream &stream, const std::vector<std::share
     transform_ipos(transforms_.size(), 0),
     stream_ipos(0),
     state(0),
-    nt_pending(0),
     isubstream(0),
+    nt_pending(0),
     prepad_buffers(transforms_.size())
 {
     if (!nfreq)
@@ -96,14 +96,14 @@ void wi_run_state::start_substream(double t0)
 
     // Allocate main buffer
 
-    int nt_contig = nt_stream_maxwrite;
-    for (int it = 0; it < ntransforms; it++)
+    ssize_t nt_contig = nt_stream_maxwrite;
+    for (ssize_t it = 0; it < ntransforms; it++)
 	nt_contig = max(nt_contig, transforms[it]->nt_chunk + transforms[it]->nt_postpad);
 
-    int nt_ring = transforms[0]->nt_chunk + transforms[0]->nt_postpad + nt_stream_maxwrite;
+    ssize_t nt_ring = transforms[0]->nt_chunk + transforms[0]->nt_postpad + nt_stream_maxwrite;
 
     for (int it = 1; it < ntransforms; it++) {
-	int g = transforms[it-1]->nt_chunk;
+	ssize_t g = transforms[it-1]->nt_chunk;
 	g = gcd(g, transforms[it]->nt_chunk);
 	g = gcd(g, transforms[it]->nt_postpad);
 	nt_ring += transforms[it]->nt_chunk + transforms[it]->nt_postpad - g;
@@ -121,14 +121,14 @@ void wi_run_state::start_substream(double t0)
     // as something to fix in the future since I doubt the suboptimality is very important.
     //
     for (int it = 0; it < ntransforms; it++) {
-	int n0 = transforms[it]->nt_prepad;
-	int n1 = transforms[it]->nt_chunk;
+	ssize_t n0 = transforms[it]->nt_prepad;
+	ssize_t n1 = transforms[it]->nt_chunk;
 
 	if (!n0)
 	    continue;
 
-	int nt_contig = max(n0, n1);
-	int nt_ring = n0 + n1;
+	ssize_t nt_contig = max(n0, n1);
+	ssize_t nt_ring = n0 + n1;
 	this->prepad_buffers[it].construct(nfreq, nt_contig, nt_ring);
 
 	// shift prepad buffer by n0 as noted above
@@ -139,7 +139,7 @@ void wi_run_state::start_substream(double t0)
 }
 
 
-void wi_run_state::setup_write(int nt, float* &intensityp, float* &weightp, int &stride, bool zero_flag, double t0)
+void wi_run_state::setup_write(ssize_t nt, float* &intensityp, float* &weightp, ssize_t &stride, bool zero_flag, double t0)
 {
     // states 1,3 are OK
     if ((this->state == 0) || (this->state == 4))
@@ -162,14 +162,14 @@ void wi_run_state::setup_write(int nt, float* &intensityp, float* &weightp, int 
 }
 
 
-void wi_run_state::setup_write(int nt, float* &intensityp, float* &weightp, int &stride, bool zero_flag)
+void wi_run_state::setup_write(ssize_t nt, float* &intensityp, float* &weightp, ssize_t &stride, bool zero_flag)
 {
     double t0 = stream_curr_time;
     this->setup_write(nt, intensityp, weightp, stride, zero_flag, t0);
 }
 
 
-void wi_run_state::finalize_write(int nt)
+void wi_run_state::finalize_write(ssize_t nt)
 {
     if (this->state == 3)
 	throw runtime_error("rf_transforms: logic error in stream: double call to finalize_write()");
@@ -181,12 +181,12 @@ void wi_run_state::finalize_write(int nt)
     // stream_ipos and stream_curr_time get updated at the end
     this->main_buffer.finalize_append(nt);
 
-    int curr_ipos = this->stream_ipos + nt;
+    ssize_t curr_ipos = this->stream_ipos + nt;
 
     for (int it = 0; it < ntransforms; it++) {
-	int n0 = transforms[it]->nt_prepad;
-	int n1 = transforms[it]->nt_chunk;
-	int n2 = transforms[it]->nt_postpad;
+	ssize_t n0 = transforms[it]->nt_prepad;
+	ssize_t n1 = transforms[it]->nt_chunk;
+	ssize_t n2 = transforms[it]->nt_postpad;
 
 	while (transform_ipos[it] + n1 + n2 <= curr_ipos) {
 
@@ -194,11 +194,11 @@ void wi_run_state::finalize_write(int nt)
 
 	    float *intensity = nullptr;
 	    float *weights = nullptr;
-	    int stride = 0;
+	    ssize_t stride = 0;
 
 	    float *pp_intensity = nullptr;
 	    float *pp_weights = nullptr;
-	    int pp_stride = 0;
+	    ssize_t pp_stride = 0;
 
 	    // Note (n1+n2) here, versus (n1) in call to finalize_write() below.
 	    main_buffer.setup_write(transform_ipos[it], n1+n2, intensity, weights, stride);
@@ -211,7 +211,7 @@ void wi_run_state::finalize_write(int nt)
 		bool zero_flag = false;
 		prepad_buffers[it].setup_append(n1, pp_intensity, pp_weights, pp_stride, zero_flag);
 
-		for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+		for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++) {
 		    memcpy(pp_intensity + ifreq*pp_stride, intensity + ifreq*stride, n1 * sizeof(float));
 		    memcpy(pp_weights + ifreq*pp_stride, weights + ifreq*stride, n1 * sizeof(float));
 		}
@@ -252,12 +252,12 @@ void wi_run_state::end_substream()
     // We pad the stream with fake weight-zero data, until every transform has "seen"
     // every sample of real data.  First we need to compute the needed amount of padding.
     
-    int save_ipos = stream_ipos;
-    int target_ipos = stream_ipos;
+    ssize_t save_ipos = stream_ipos;
+    ssize_t target_ipos = stream_ipos;
 
     for (int it = ntransforms-1; it >= 0; it--) {
-	int n1 = round_up(target_ipos - transform_ipos[it], transforms[it]->nt_chunk);
-	int n2 = transforms[it]->nt_postpad;
+	ssize_t n1 = round_up(target_ipos - transform_ipos[it], transforms[it]->nt_chunk);
+	ssize_t n2 = transforms[it]->nt_postpad;
 
 	// target for (it-1)-th transform
 	target_ipos = transform_ipos[it] + n1 + n2;
@@ -266,11 +266,11 @@ void wi_run_state::end_substream()
     while (stream_ipos < target_ipos) {
 	float *dummy_intensity;
 	float *dummy_weights;
-	int dummy_stride;
+	ssize_t dummy_stride;
 	
 	// To add fake weight-zero data to the stream, we call setup_write() with
 	// zero_flag=true, followed by finalize_write().
-	int nt = min(target_ipos - stream_ipos, nt_stream_maxwrite);
+	ssize_t nt = min(target_ipos - stream_ipos, nt_stream_maxwrite);
 	this->setup_write(nt, dummy_intensity, dummy_weights, dummy_stride, true);
 	this->finalize_write(nt);
     }

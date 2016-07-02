@@ -34,13 +34,13 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
     }
 
     // helper function
-    static object array2d_to_python(int m, int n, const float *src, int src_stride)
+    static object array2d_to_python(ssize_t m, ssize_t n, const float *src, ssize_t src_stride)
     {
 	if ((m <= 0) || (n <= 0) || !src)
 	    throw runtime_error("rf_pipelines: array2d_to_python: internal checks failed [should never happen]");
 
 	npy_intp dims[2] = { m, n };
-	npy_intp strides[2] = { src_stride * (int)sizeof(float), (int)sizeof(float) };
+	npy_intp strides[2] = { src_stride * (ssize_t)sizeof(float), (ssize_t)sizeof(float) };
 
 	// PyArray_New(subtype, nd, dims, type_num, npy_intp* strides, void* data, int itemsize, int flags, PyObject* obj)
 	PyObject *p = PyArray_New(&PyArray_Type, 2, dims, NPY_FLOAT, strides, (void *)src, 0, NPY_ARRAY_WRITEABLE, NULL);
@@ -66,7 +66,7 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	object ret(p, false);  // a convenient way to ensure Py_DECREF gets called, and throw an exception on failure
     }
 
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride)
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
     {
 	object np_intensity = array2d_to_python(nfreq, nt_chunk, intensity, stride);
 	object np_weights = array2d_to_python(nfreq, nt_chunk, weights, stride);
@@ -168,7 +168,7 @@ struct wi_transform_object {
 
     static int nfreq_setter(PyObject *self, PyObject *value, void *closure)
     {
-	get_pbare(self)->nfreq = int_from_python(value);
+	get_pbare(self)->nfreq = ssize_t_from_python(value);
 	return 0;
     }
 
@@ -179,7 +179,7 @@ struct wi_transform_object {
 
     static int nt_chunk_setter(PyObject *self, PyObject *value, void *closure)
     {
-	get_pbare(self)->nt_chunk = int_from_python(value);
+	get_pbare(self)->nt_chunk = ssize_t_from_python(value);
 	return 0;
     }
 
@@ -190,7 +190,7 @@ struct wi_transform_object {
 
     static int nt_prepad_setter(PyObject *self, PyObject *value, void *closure)
     {
-	get_pbare(self)->nt_prepad = int_from_python(value);
+	get_pbare(self)->nt_prepad = ssize_t_from_python(value);
 	return 0;
     }
 
@@ -201,7 +201,7 @@ struct wi_transform_object {
 
     static int nt_postpad_setter(PyObject *self, PyObject *value, void *closure)
     {
-	get_pbare(self)->nt_postpad = int_from_python(value);
+	get_pbare(self)->nt_postpad = ssize_t_from_python(value);
 	return 0;
     }
 };
@@ -310,7 +310,7 @@ bool wi_transform_object::isinstance(PyObject *obj)
 
 struct exception_monitor : public rf_pipelines::wi_transform
 {
-    exception_monitor(int nt_chunk_)
+    exception_monitor(ssize_t nt_chunk_)
     {
 	this->nt_chunk = nt_chunk_;
     }
@@ -324,7 +324,7 @@ struct exception_monitor : public rf_pipelines::wi_transform
 	this->nfreq = stream.nfreq;
     }
 
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, int stride, float *pp_intensity, float *pp_weights, int pp_stride)
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
     {
 	if (PyErr_Occurred() || PyErr_CheckSignals())
 	    throw python_exception();
@@ -543,10 +543,10 @@ static PyObject *make_psrfits_stream(PyObject *self, PyObject *args)
 
 static PyObject *make_gaussian_noise_stream(PyObject *self, PyObject *args)
 {
-    int nfreq, nt_chunk, nt_tot;
+    ssize_t nfreq, nt_chunk, nt_tot;
     double freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms;
 
-    if (!PyArg_ParseTuple(args, "iiidddd", &nfreq, &nt_chunk, &nt_tot, &freq_lo_MHz, &freq_hi_MHz, &dt_sample, &sample_rms))
+    if (!PyArg_ParseTuple(args, "nnndddd", &nfreq, &nt_chunk, &nt_tot, &freq_lo_MHz, &freq_hi_MHz, &dt_sample, &sample_rms))
 	return NULL;
 
     shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_gaussian_noise_stream(nfreq, nt_chunk, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms);    
@@ -557,8 +557,8 @@ static PyObject *make_gaussian_noise_stream(PyObject *self, PyObject *args)
 
 static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
 {
-    int nt_chunk = 0;
-    if (!PyArg_ParseTuple(args, "i", &nt_chunk))
+    ssize_t nt_chunk = 0;
+    if (!PyArg_ParseTuple(args, "n", &nt_chunk))
 	return NULL;
     
     shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_simple_detrender(nt_chunk);

@@ -15,17 +15,17 @@ namespace rf_pipelines {
 
 #ifndef HAVE_CH_FRB_IO
 
-shared_ptr<wi_stream> make_chime_stream_from_file(const string &filename, int nt_chunk)
+shared_ptr<wi_stream> make_chime_stream_from_file(const string &filename, ssize_t nt_chunk)
 {
     throw runtime_error("rf_pipelines::make_chime_stream_from_file() was called, but rf_pipelines was compiled without ch_frb_io");
 }
 
-shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &filename, int nt_chunk)
+shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &filename, ssize_t nt_chunk)
 {
     throw runtime_error("rf_pipelines::make_chime_stream_from_acqdir() was called, but rf_pipelines was compiled without ch_frb_io");
 }
 
-shared_ptr<wi_stream> make_chime_stream_from_filename_list(const vector<string> &filename_list, int nt_chunk)
+shared_ptr<wi_stream> make_chime_stream_from_filename_list(const vector<string> &filename_list, ssize_t nt_chunk)
 {
     throw runtime_error("rf_pipelines::make_chime_stream_from_filename_list() was called, but rf_pipelines was compiled without ch_frb_io");
 }
@@ -43,14 +43,14 @@ protected:
     int curr_ifile;  // index of current file in filename_list
 
 public:
-    chime_file_stream(const vector<string> &filename_list_, int nt_chunk);
+    chime_file_stream(const vector<string> &filename_list_, ssize_t nt_chunk);
     virtual ~chime_file_stream() { }
 
     virtual void stream_body(wi_run_state &run_state);
 };
 
     
-chime_file_stream::chime_file_stream(const vector<string> &filename_list_, int nt_chunk) :
+chime_file_stream::chime_file_stream(const vector<string> &filename_list_, ssize_t nt_chunk) :
     filename_list(filename_list_)
 {
     rf_assert(filename_list.size() > 0);
@@ -69,13 +69,13 @@ chime_file_stream::chime_file_stream(const vector<string> &filename_list_, int n
 // virtual
 void chime_file_stream::stream_body(wi_run_state &run_state)
 {
-    int it_file = 0;    // time index in current file.  Can be negative!  This means there is a time gap between files.
-    int it_chunk = 0;
+    ssize_t it_file = 0;    // time index in current file.  Can be negative!  This means there is a time gap between files.
+    ssize_t it_chunk = 0;
     int nfiles = filename_list.size();
 
     float *intensity;
     float *weights;
-    int stride;
+    ssize_t stride;
     bool zero_flag = true;
 
     run_state.start_substream(curr_file->time_lo);
@@ -129,7 +129,7 @@ void chime_file_stream::stream_body(wi_run_state &run_state)
 	    if (gap > 10000.01)
 		throw runtime_error("chime_file_stream: excessively long gap in acquisition");
 
-	    int ngap = (int)(gap + 0.5);  // round to integer
+	    ssize_t ngap = (ssize_t)(gap + 0.5);  // round to integer
 	    rf_assert(ngap >= 0);
 
 	    if (fabs(gap-ngap) > 0.01)
@@ -145,13 +145,13 @@ void chime_file_stream::stream_body(wi_run_state &run_state)
 	}
 	else if (it_file < 0) {
 	    // Skip gap between files.
-	    int n = min(-it_file, nt_maxwrite-it_chunk);
+	    ssize_t n = min(-it_file, nt_maxwrite-it_chunk);
 	    it_file += n;
 	    it_chunk += n;
 	}
 	else {
 	    // Read data from file
-	    int n = min(curr_file->nt_logical - it_file, nt_maxwrite - it_chunk);
+	    ssize_t n = min(curr_file->nt_logical - it_file, nt_maxwrite - it_chunk);
 	    
 	    //
 	    // A note on frequency channel ordering.  In rf_pipelines, frequencies must 
@@ -162,7 +162,7 @@ void chime_file_stream::stream_body(wi_run_state &run_state)
 	    bool incflag = curr_file->frequencies_are_increasing;
 	    float *dst_int = incflag ? (intensity + (nfreq-1)*stride + it_chunk) : (intensity + it_chunk);
 	    float *dst_wt = incflag ? (weights + (nfreq-1)*stride + it_chunk) : (weights + it_chunk);
-	    int dst_stride = incflag ? (-stride) : stride;
+	    ssize_t dst_stride = incflag ? (-stride) : stride;
 
 	    curr_file->get_unpolarized_intensity(dst_int, dst_wt, it_file, n, dst_stride);
 	    it_file += n;
@@ -215,7 +215,7 @@ static void list_chime_acqdir(vector<string> &chime_files, const string &dirname
 }
 
 
-shared_ptr<wi_stream> make_chime_stream_from_filename(const string &filename, int nt_chunk)
+shared_ptr<wi_stream> make_chime_stream_from_filename(const string &filename, ssize_t nt_chunk)
 {
     vector<string> filename_list;
     filename_list.push_back(filename);
@@ -223,7 +223,7 @@ shared_ptr<wi_stream> make_chime_stream_from_filename(const string &filename, in
     return make_chime_stream_from_filename_list(filename_list, nt_chunk);    
 }
 
-shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &dirname, int nt_chunk)
+shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &dirname, ssize_t nt_chunk)
 {
     bool allow_empty = false;
     vector<string> filename_list;
@@ -232,7 +232,7 @@ shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &dirname, int n
     return make_chime_stream_from_filename_list(filename_list, nt_chunk);
 }
 
-shared_ptr<wi_stream> make_chime_stream_from_filename_list(const vector<string> &filename_list, int nt_chunk)
+shared_ptr<wi_stream> make_chime_stream_from_filename_list(const vector<string> &filename_list, ssize_t nt_chunk)
 {
     if (filename_list.size() == 0)
 	throw runtime_error("empty filename_list in make_chime_stream()");

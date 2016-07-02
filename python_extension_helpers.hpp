@@ -435,9 +435,9 @@ struct object {
 // Misc
 
 
-inline int int_from_python(PyObject *obj)
+inline ssize_t ssize_t_from_python(PyObject *obj)
 {
-    int n = PyInt_AsLong(obj);
+    ssize_t n = PyInt_AsSsize_t(obj);
     if ((n == -1) && PyErr_Occurred())
 	throw python_exception();
     return n;

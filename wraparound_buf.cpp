@@ -13,14 +13,14 @@ wraparound_buf::wraparound_buf() :
 { }
 
 
-wraparound_buf::wraparound_buf(int nfreq_, int nt_contig_, int nt_ring_) :
+wraparound_buf::wraparound_buf(ssize_t nfreq_, ssize_t nt_contig_, ssize_t nt_ring_) :
     wraparound_buf()
 {
     this->construct(nfreq_, nt_contig_, nt_ring_);
 }
 
 
-void wraparound_buf::construct(int nfreq_, int nt_contig_, int nt_ring_)
+void wraparound_buf::construct(ssize_t nfreq_, ssize_t nt_contig_, ssize_t nt_ring_)
 {
     if (this->nfreq != 0)
 	throw runtime_error("double call to wraparound_buf::construct()");
@@ -58,7 +58,7 @@ void wraparound_buf::reset()
 }
 
 
-void wraparound_buf::setup_write(int it0, int nt, float* &intensityp, float* &weightp, int &stride)
+void wraparound_buf::setup_write(ssize_t it0, ssize_t nt, float* &intensityp, float* &weightp, ssize_t &stride)
 {
     if ((nt <= 0) || (nt > nt_contig))
 	throw runtime_error("wraparound_buf::setup_write(): invalid value of nt");
@@ -71,7 +71,7 @@ void wraparound_buf::setup_write(int it0, int nt, float* &intensityp, float* &we
 }
 
 
-void wraparound_buf::finalize_write(int it0, int nt)
+void wraparound_buf::finalize_write(ssize_t it0, ssize_t nt)
 {
     if ((nt <= 0) || (nt > nt_contig))
 	throw runtime_error("wraparound_buf::setup_write(): invalid value of nt");
@@ -79,7 +79,7 @@ void wraparound_buf::finalize_write(int it0, int nt)
 	throw runtime_error("wraparound_buf::setup_write(): invalid value of it0");
 
     it0 %= nt_ring;
-    int it1 = it0 + nt;
+    ssize_t it1 = it0 + nt;
 
     if (it0 < nt_contig)
 	this->_copy(it0 + nt_ring, it0, min(nt_contig,it1) - it0);
@@ -88,7 +88,7 @@ void wraparound_buf::finalize_write(int it0, int nt)
 }
 
 
-void wraparound_buf::setup_append(int nt, float* &intensityp, float* &weightp, int &stride, bool zero_flag)
+void wraparound_buf::setup_append(ssize_t nt, float* &intensityp, float* &weightp, ssize_t &stride, bool zero_flag)
 {
     if ((nt <= 0) || (nt > nt_contig))
 	throw runtime_error("wraparound_buf::setup_append(): invalid value of nt");
@@ -99,14 +99,14 @@ void wraparound_buf::setup_append(int nt, float* &intensityp, float* &weightp, i
     if (!zero_flag)
 	return;
 
-    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+    for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++) {
 	memset(intensityp + ifreq*nt_tot, 0, nt * sizeof(float));
 	memset(weightp + ifreq*nt_tot, 0, nt * sizeof(float));
     }
 }
 
 
-void wraparound_buf::finalize_append(int nt)
+void wraparound_buf::finalize_append(ssize_t nt)
 {
     if ((nt <= 0) || (nt > nt_contig) || (nt > ipos))
 	throw runtime_error("wraparound_buf::finalize_append(): invalid value of nt");
@@ -115,14 +115,14 @@ void wraparound_buf::finalize_append(int nt)
 }
 
 
-void wraparound_buf::append_zeros(int nt)
+void wraparound_buf::append_zeros(ssize_t nt)
 {
     if ((nt <= 0) || (nt > nt_contig))
 	throw runtime_error("wraparound_buf::append_zeros(): invalid value of nt");
     
     float *dummy_intensity;
     float *dummy_weights;
-    int dummy_stride;
+    ssize_t dummy_stride;
     bool zero_flag = true;
 
     this->setup_append(nt, dummy_intensity, dummy_weights, dummy_stride, zero_flag);
@@ -132,9 +132,9 @@ void wraparound_buf::append_zeros(int nt)
 
 void wraparound_buf::_check_integrity()
 {
-    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	int s1 = ifreq*nt_tot;
-	int s2 = ifreq*nt_tot + nt_ring;
+    for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++) {
+	ssize_t s1 = ifreq*nt_tot;
+	ssize_t s2 = ifreq*nt_tot + nt_ring;
 
 	rf_assert(!memcmp(&intensity[s1], &intensity[s2], nt_contig * sizeof(float)));
 	rf_assert(!memcmp(&weights[s1], &weights[s2], nt_contig * sizeof(float)));
@@ -142,10 +142,10 @@ void wraparound_buf::_check_integrity()
 }
 
 
-void wraparound_buf::_copy(int it0_dst, int it0_src, int nt)
+void wraparound_buf::_copy(ssize_t it0_dst, ssize_t it0_src, ssize_t nt)
 {
-    int it1_dst = it0_dst + nt;
-    int it1_src = it0_src + nt;
+    ssize_t it1_dst = it0_dst + nt;
+    ssize_t it1_src = it0_src + nt;
 
     // Argument checking
     rf_assert(nt > 0);
@@ -153,7 +153,7 @@ void wraparound_buf::_copy(int it0_dst, int it0_src, int nt)
     rf_assert(it0_src >= 0 && it1_src <= nt_tot);
     rf_assert(max(it0_src,it0_dst) >= min(it1_src,it1_dst));
     
-    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+    for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++) {
 	memcpy(&intensity[ifreq*nt_tot + it0_dst], &intensity[ifreq*nt_tot + it0_src], nt * sizeof(float));
 	memcpy(&weights[ifreq*nt_tot + it0_dst], &weights[ifreq*nt_tot + it0_src], nt * sizeof(float));
     }
@@ -168,35 +168,35 @@ void wraparound_buf::run_unit_tests()
 	if (i % 10 == 0)
 	    cerr << ".";
 
-	int nfreq = randint(1, 10);
-	int nt_contig = randint(1, 10);
-	int nt_ring = randint(1, 20);
-	int nt_linear = randint(1000, 2000);
+	ssize_t nfreq = randint(1, 10);
+	ssize_t nt_contig = randint(1, 10);
+	ssize_t nt_ring = randint(1, 20);
+	ssize_t nt_linear = randint(1000, 2000);
 
 	vector<float> linear_ibuf(nfreq * nt_linear, 0.0);
 	vector<float> linear_wbuf(nfreq * nt_linear, 0.0);
 
 	wraparound_buf wrap_buf(nfreq, nt_contig, nt_ring);
-	int ipos = 0;
+	ssize_t ipos = 0;
 
 	for (;;) {
 	    float *intensity;
 	    float *weights;
-	    int stride;
+	    ssize_t stride;
 	    
 	    // Appending write
 
-	    int nt_append = randint(1, nt_contig+1);
+	    ssize_t nt_append = randint(1, nt_contig+1);
 	    if (ipos + nt_append > nt_linear)
 		break;
 
 	    bool zero_flag = true;
 	    wrap_buf.setup_append(nt_append, intensity, weights, stride, zero_flag);
 
-	    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-		for (int it = 0; it < nt_append; it++) {
-		    int swrap = ifreq*stride + it;
-		    int slin = ifreq*nt_linear + ipos + it;
+	    for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++) {
+		for (ssize_t it = 0; it < nt_append; it++) {
+		    ssize_t swrap = ifreq*stride + it;
+		    ssize_t slin = ifreq*nt_linear + ipos + it;
 
 		    intensity[swrap] = linear_ibuf[slin] = uniform_rand();
 		    weights[swrap] = linear_wbuf[slin] = uniform_rand();
@@ -209,17 +209,17 @@ void wraparound_buf::run_unit_tests()
 	    // Non-appending writes
 
 	    for (int j = 0; j < 5; j++) {
-		int it0_min = max(ipos - nt_contig, 0);
-		int it0_write = randint(it0_min, ipos);
-		int it1_write = randint(it0_write+1, ipos+1);
-		int nt_write = it1_write - it0_write;
+		ssize_t it0_min = max(ipos - nt_contig, (ssize_t)0);
+		ssize_t it0_write = randint(it0_min, ipos);
+		ssize_t it1_write = randint(it0_write+1, ipos+1);
+		ssize_t nt_write = it1_write - it0_write;
 	    
 		wrap_buf.setup_write(it0_write, nt_write, intensity, weights, stride);
 	    
-		for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-		    for (int it = 0; it < nt_write; it++) {
-			int swrap = ifreq*stride + it;
-			int slin = ifreq*nt_linear + it0_write + it;
+		for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++) {
+		    for (ssize_t it = 0; it < nt_write; it++) {
+			ssize_t swrap = ifreq*stride + it;
+			ssize_t slin = ifreq*nt_linear + it0_write + it;
 
 			rf_assert(intensity[swrap] == linear_ibuf[slin]);
 			rf_assert(weights[swrap] == linear_wbuf[slin]);

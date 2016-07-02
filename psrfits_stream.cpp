@@ -59,9 +59,9 @@ struct psrfits_wrapper {
     // Note that there is no way to get a per-(frequency,time_sample) weight.
     float *freq_weights;     // bare pointer to a buffer which lives in the 'struct psrfits'
 
-    int nfreq;
-    int npol;
-    int nt_per_row;
+    ssize_t nfreq;
+    ssize_t npol;
+    ssize_t nt_per_row;
 
     double freq_lo_MHz;
     double freq_hi_MHz;
@@ -201,22 +201,22 @@ void psrfits_stream::stream_body(wi_run_state &run_state)
     while (!p->eof) {
 	float *intensity;
 	float *weights;
-	int stride;
+	ssize_t stride;
 	bool zero_flag = false;
 	run_state.setup_write(this->nt_maxwrite, intensity, weights, stride, zero_flag);
 
 	// Transpose and convert uint8 -> float
-	for (int it = 0; it < nt_maxwrite; it++)
-	    for (int ifreq = 0; ifreq < nfreq; ifreq++)
+	for (ssize_t it = 0; it < nt_maxwrite; it++)
+	    for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++)
 		intensity[ifreq*stride + it] = (float)p->data[it*nfreq + ifreq];
 
 	// psrfits weights are per-(frequency,chunk), not per-(frequency,sample)
-	for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++) {
 	    float w = p->freq_weights[ifreq];
 	    if (w < 0.0)
 		throw runtime_error(p->filename + ": negative weight in file, this is currently treated as an error");
 	
-	    for (int it = 0; it < nt_maxwrite; it++)
+	    for (ssize_t it = 0; it < nt_maxwrite; it++)
 		weights[ifreq*stride + it] = w;
 	}
 

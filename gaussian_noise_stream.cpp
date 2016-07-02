@@ -12,11 +12,11 @@ namespace rf_pipelines {
 class gaussian_noise_stream : public wi_stream
 {
 protected:
-    int nt_tot;
+    ssize_t nt_tot;
     double sample_rms;
 
 public:
-    gaussian_noise_stream(int nfreq_, int nt_chunk_, int nt_tot_, double freq_lo_MHz_, double freq_hi_MHz_, double dt_sample_, double sample_rms_)
+    gaussian_noise_stream(ssize_t nfreq_, ssize_t nt_chunk_, ssize_t nt_tot_, double freq_lo_MHz_, double freq_hi_MHz_, double dt_sample_, double sample_rms_)
     {
 	// these arguments will be sanity-checked elsewhere (in wi_stream::run())
 	this->nfreq = nfreq_;
@@ -42,18 +42,18 @@ public:
 
 	run_state.start_substream(0.0);
 
-	int it0 = 0;
+	ssize_t it0 = 0;
 	while (it0 < nt_tot) {
-	    int nt = min(nt_maxwrite, nt_tot-it0);
+	    ssize_t nt = min(nt_maxwrite, nt_tot-it0);
 	    float *intensity;
 	    float *weights;
-	    int stride;
+	    ssize_t stride;
 
 	    bool zero_flag = false;
 	    run_state.setup_write(nt, intensity, weights, stride, zero_flag);
 
-	    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-		for (int it = 0; it < nt; it++) {
+	    for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++) {
+		for (ssize_t it = 0; it < nt; it++) {
 		    intensity[ifreq*stride + it] = dist(rng);
 		    weights[ifreq*stride + it] = 1.0;
 		}
@@ -68,7 +68,7 @@ public:
 };
 
 
-shared_ptr<wi_stream> make_gaussian_noise_stream(int nfreq, int nt_chunk, int nt_tot, double freq_lo_MHz, double freq_hi_MHz, double dt_sample, double sample_rms)
+shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssize_t nt_chunk, ssize_t nt_tot, double freq_lo_MHz, double freq_hi_MHz, double dt_sample, double sample_rms)
 {
     return make_shared<gaussian_noise_stream> (nfreq, nt_chunk, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms);
 }
