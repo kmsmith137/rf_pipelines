@@ -4,7 +4,7 @@
 
 #ifdef HAVE_PSRFITS
 extern "C" {
-#include <psrfits.h>
+#include <psrfits_utils/psrfits.h>
 }
 #endif // HAVE_PSRFITS
 
