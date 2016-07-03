@@ -14,6 +14,7 @@ include Makefile.local
 
 INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp
 
+# Source files for the core C++ library 'librf_pipelines.so'
 OFILES=bonsai_dedisperser.o \
 	chime_file_stream.o \
 	gaussian_noise_stream.o \
@@ -23,10 +24,21 @@ OFILES=bonsai_dedisperser.o \
 	wi_run.o \
 	wraparound_buf.o
 
-PYFILES=rf_pipelines/rf_pipelines_c.so rf_pipelines/__init__.py
-PYCFILES=rf_pipelines/__init__.pyc
+# Files that get installed in $(PYDIR)
+# Includes both Python source files and the extension module rf_pipelines_c.so (written in C++)
+PYFILES=rf_pipelines/rf_pipelines_c.so \
+	rf_pipelines/__init__.py \
+	rf_pipelines/transforms/__init__.py \
+	rf_pipelines/transforms/frb_injector_transform.py \
+	rf_pipelines/transforms/plotter_transform.py
 
-CLEANDIRS=. rf_pipelines
+# FIXME generate this from PYFILES using Makefile rule
+PYCFILES=rf_pipelines/__init__.pyc \
+	rf_pipelines/transforms/__init__.pyc \
+	rf_pipelines/transforms/frb_injector_transform.pyc \
+	rf_pipelines/transforms/plotter_transform.pyc
+
+CLEANDIRS=. rf_pipelines rf_pipelines/transforms
 
 LIBS=
 
@@ -72,7 +84,7 @@ endif
 all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so run-unit-tests
 
 install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
-	mkdir -p $(INCDIR)/ $(LIBDIR)/ $(PYDIR)/rf_pipelines
+	mkdir -p $(INCDIR)/ $(LIBDIR)/ $(PYDIR)/rf_pipelines/transforms
 	cp -f $(INCFILES) $(INCDIR)/
 	for f in $(PYFILES); do cp $$f $(PYDIR)/$$f; done
 	cp -f librf_pipelines.so $(LIBDIR)/
@@ -80,6 +92,7 @@ install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
 uninstall:
 	for f in $(INCFILES); do rm -f $(INCDIR)/$$f; done
 	for f in $(PYFILES) $(PYCFILES); do rm -f $(PYDIR)/$$f; done
+	rmdir $(PYDIR)/rf_pipelines/transforms
 	rmdir $(PYDIR)/rf_pipelines
 	rm -f $(LIBDIR)/librf_pipelines.so
 
