@@ -53,7 +53,7 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	PyObject *sp = make_temporary_stream(stream);
 	object s(sp, false);
 
-	PyObject *retp = PyObject_CallMethod(this->get_pyobj(), (char *)"set_stream", (char *)"O", s.ptr);
+	PyObject *retp = PyObject_CallMethod(this->get_pyobj(), (char *)"set_stream", (char *)"O", sp);
 	object ret(retp, false);  // a convenient way to ensure Py_DECREF gets called, and throw an exception on failure
 
 	if (s.get_refcount() > 1)
@@ -113,21 +113,24 @@ struct wi_transform_object {
     static PyObject *make(const shared_ptr<rf_pipelines::wi_transform> &p);
     static bool isinstance(PyObject *obj);
     
+    static PyObject *tp_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+    {
+	PyObject *self_ = type->tp_alloc(type, 0);
+	if (!self_)
+	    return NULL;
 
-    // Note: no tp_alloc() function is necessary, since the default (PyType_GenericAlloc()) calls memset().    
+	wi_transform_object *self = (wi_transform_object *) self_;
+	self->pshared = nullptr;
+	return self_;
+    }
+
     static void tp_dealloc(PyObject *self_)
     {
 	wi_transform_object *self = (wi_transform_object *)self_;
 
 	delete self->pshared;
 	self->pshared = nullptr;
-	Py_TYPE(self)->tp_free((PyObject*) self);
-    }
-
-    // We do need tp_new() in order to define subclasses from Python
-    static PyObject *tp_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-    {
-	return type->tp_alloc(type, 0);
+	Py_TYPE(self)->tp_free(self_);
     }
 
     // Helper for get_pshared(): get a pointer-to-shared-ptr from a (PyObject *) which is known to be a wi_transform object.
@@ -285,12 +288,13 @@ PyObject *wi_transform_object::make(const shared_ptr<rf_pipelines::wi_transform>
     if (!ptr)
 	throw runtime_error("rf_pipelines: internal error: empty pointer passed to make_wi_transform()");
 
-    wi_transform_object *ret = PyObject_New(wi_transform_object, &wi_transform_type);
-    if (!ret)
+    PyObject *ret_ = wi_transform_object::tp_new(&wi_transform_type, NULL, NULL);
+    if (!ret_)
 	return NULL;
 
+    wi_transform_object *ret = (wi_transform_object *) (ret_);
     ret->pshared = new shared_ptr<rf_pipelines::wi_transform> (ptr);
-    return (PyObject *) ret;
+    return ret_;
 }
 
 // static member function
@@ -349,6 +353,16 @@ struct wi_stream_object {
     // forward declarations (these guys need to come after 'wi_stream_type'
     static PyObject *make(const shared_ptr<rf_pipelines::wi_stream> &p);
     static bool isinstance(PyObject *obj);
+    
+    static PyObject *tp_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+    {
+	PyObject *self_ = type->tp_alloc(type, 0);
+	wi_stream_object *self = (wi_stream_object *) self_;
+
+	self->pbare = nullptr;
+	self->pshared = nullptr;
+	return self_;
+    }
 
     // note: no tp_alloc function is necessary, since the default (PyType_GenericAlloc()) calls memset().    
     static void tp_dealloc(PyObject *self_)
@@ -490,6 +504,14 @@ static PyTypeObject wi_stream_type = {
     wi_stream_methods,         /* tp_methods */
     0,                         /* tp_members */
     wi_stream_getseters,       /* tp_getset */
+    0,                         /* tp_base */
+    0,                         /* tp_dict */
+    0,                         /* tp_descr_get */
+    0,                         /* tp_descr_set */
+    0,                         /* tp_dictoffset */
+    0,                         /* tp_init */
+    0,                         /* tp_alloc */
+    wi_stream_object::tp_new,  /* tp_new */
 };
 
 
@@ -497,26 +519,28 @@ static PyTypeObject wi_stream_type = {
 PyObject *wi_stream_object::make(const shared_ptr<rf_pipelines::wi_stream> &ptr)
 {
     if (!ptr)
-	throw runtime_error("rf_pipelines: internal error: empty pointer passed to make_wi_stream()");
+	throw runtime_error("rf_pipelines: internal error: empty pointer passed to wi_stream_object::make()");
 
-    wi_stream_object *ret = PyObject_New(wi_stream_object, &wi_stream_type);
-    if (!ret)
+    PyObject *ret_ = wi_stream_object::tp_new(&wi_stream_type, NULL, NULL);
+    if (!ret_)
 	return NULL;
 
+    wi_stream_object *ret = (wi_stream_object *) (ret_);
     ret->pbare = ptr.get();
     ret->pshared = new shared_ptr<rf_pipelines::wi_stream> (ptr);
-    return (PyObject *) ret;
+    return ret_;
 }
 
 // FIXME I'd like to make this a static member function
 static PyObject *make_temporary_stream(const rf_pipelines::wi_stream &s)
 {
-    wi_stream_object *ret = PyObject_New(wi_stream_object, &wi_stream_type);
-    if (!ret)
+    PyObject *ret_ = wi_stream_object::tp_new(&wi_stream_type, NULL, NULL);
+    if (!ret_)
 	return NULL;
 
+    wi_stream_object *ret = (wi_stream_object *) (ret_);
     ret->pbare = const_cast<rf_pipelines::wi_stream *> (&s);
-    return (PyObject *) ret;
+    return ret_;
 }
 
 // static member function

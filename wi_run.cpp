@@ -109,7 +109,7 @@ void wi_run_state::start_substream(double t0)
 	g = gcd(g, transforms[it]->nt_postpad);
 	nt_ring += transforms[it]->nt_chunk + transforms[it]->nt_postpad - g;
     }
-    
+
     this->main_buffer.construct(nfreq, nt_contig, nt_ring);
 
     //

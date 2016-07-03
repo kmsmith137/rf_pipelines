@@ -120,7 +120,6 @@ class plotter_transform(wi_transform):
         self.nfreq = s.nfreq
         assert s.nfreq % self.img_nfreq == 0
 
-
     def start_substream(self, isubstream, t0):
         pass
 
