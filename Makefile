@@ -46,7 +46,7 @@ all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so run-unit-tests
 
 install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
 	cp -f $(INCFILES) $(INCDIR)/
-	cp -f $(PYFILES) $(PYDIR)/
+	for f in $(PYFILES); do cp $$f $(PYDIR)/$$f; done
 	cp -f librf_pipelines.so $(LIBDIR)/
 
 uninstall:
