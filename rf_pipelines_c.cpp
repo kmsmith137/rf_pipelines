@@ -622,9 +622,6 @@ static PyObject *make_chime_stream_from_filename_list(PyObject *self, PyObject *
     if (PyErr_Occurred())
 	throw python_exception();
 
-    for (unsigned int i = 0; i < filename_list.size(); i++)
-	cerr << "XXX " << filename_list[i] << endl;
-
     shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_chime_stream_from_filename_list(filename_list);
     return wi_stream_object::make(ret);
 }
