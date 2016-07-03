@@ -130,7 +130,7 @@ class plotter_transform(wi_transform):
         self.chunk_ix += 1
 
         (ds_intensity, ds_weights) = wi_downsample(intensity, weights, self.img_nfreq, self.img_nt)
-        write_png(filename, intensity, weights=weights, transpose=True, ytop_to_bottom=True)
+        write_png(filename, ds_intensity, weights=ds_weights, transpose=True, ytop_to_bottom=True)
 
 
     def end_substream(self):
