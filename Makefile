@@ -28,6 +28,7 @@ OFILES=bonsai_dedisperser.o \
 # Includes both Python source files and the extension module rf_pipelines_c.so (written in C++)
 PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/__init__.py \
+	rf_pipelines/utils.py \
 	rf_pipelines/transforms/__init__.py \
 	rf_pipelines/transforms/frb_injector_transform.py \
 	rf_pipelines/transforms/plotter_transform.py
@@ -35,6 +36,7 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 # FIXME generate this from PYFILES using Makefile rule
 PYCFILES=rf_pipelines/__init__.pyc \
 	rf_pipelines/transforms/__init__.pyc \
+	rf_pipelines/utils.pyc \
 	rf_pipelines/transforms/frb_injector_transform.pyc \
 	rf_pipelines/transforms/plotter_transform.pyc
 

@@ -9,6 +9,8 @@ from .rf_pipelines_c import \
    make_simple_detrender, \
    make_bonsai_dedisperser
 
+from .utils import write_png, wi_downsample
+
 from .transforms.plotter_transform import plotter_transform
 
 from .transforms.frb_injector_transform import frb_injector_transform
