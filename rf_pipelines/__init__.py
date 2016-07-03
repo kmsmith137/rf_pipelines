@@ -7,7 +7,7 @@ except ImportError:
     print >>sys.stderr, "rf_pipelines: import PIL.Image failed; many things will work but plotting will fail"
 
 
-from rf_pipelines_c import \
+from .rf_pipelines_c import \
    wi_stream, \
    wi_transform, \
    make_psrfits_stream, \
