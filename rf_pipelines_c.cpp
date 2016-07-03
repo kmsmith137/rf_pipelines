@@ -566,6 +566,70 @@ static PyObject *make_psrfits_stream(PyObject *self, PyObject *args)
 }
 
 
+static PyObject *make_chime_stream_from_acqdir(PyObject *self, PyObject *args)
+{
+    const char *filename = nullptr;
+    if (!PyArg_ParseTuple(args, "s", &filename))
+	return NULL;
+
+    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_chime_stream_from_acqdir(filename);
+    return wi_stream_object::make(ret);    
+}
+
+
+static PyObject *make_chime_stream_from_filename(PyObject *self, PyObject *args)
+{
+    const char *filename = nullptr;
+    if (!PyArg_ParseTuple(args, "s", &filename))
+	return NULL;
+
+    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_chime_stream_from_filename(filename);
+    return wi_stream_object::make(ret);    
+}
+
+
+static PyObject *make_chime_stream_from_filename_list(PyObject *self, PyObject *args)
+{
+    PyObject *arg_ptr = nullptr;
+
+    if (!PyArg_ParseTuple(args, "O", &arg_ptr))
+	return NULL;
+    
+    object arg(arg_ptr, false);
+    PyObject *iter_ptr = PyObject_GetIter(arg_ptr);
+
+    if (!iter_ptr)
+	throw runtime_error("rf_pipelines: expected argument to make_chime_stream_from_filename_list() to be a list/iterator of strings");
+
+    object iter(iter_ptr, false);
+    vector<object> item_list;
+    vector<string> filename_list;
+    
+    for (;;) {
+	PyObject *item_ptr = PyIter_Next(iter_ptr);
+	if (!item_ptr)
+	    break;
+
+	item_list.push_back(object(item_ptr, false));
+
+	char *s = PyString_AsString(item_ptr);
+	if (!s)
+	    throw runtime_error("rf_pipelines: expected argument to make_chime_stream_from_filename_list() to be a list/iterator of strings");
+
+	filename_list.push_back(string(s));
+    }
+
+    if (PyErr_Occurred())
+	throw python_exception();
+
+    for (unsigned int i = 0; i < filename_list.size(); i++)
+	cerr << "XXX " << filename_list[i] << endl;
+
+    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_chime_stream_from_filename_list(filename_list);
+    return wi_stream_object::make(ret);
+}
+
+
 static PyObject *make_gaussian_noise_stream(PyObject *self, PyObject *args)
 {
     ssize_t nfreq, nt_chunk, nt_tot;
@@ -577,7 +641,6 @@ static PyObject *make_gaussian_noise_stream(PyObject *self, PyObject *args)
     shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_gaussian_noise_stream(nfreq, nt_chunk, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms);    
     return wi_stream_object::make(ret);
 }
-
 
 
 static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
@@ -610,6 +673,9 @@ static PyObject *make_bonsai_dedisperser(PyObject *self, PyObject *args)
 
 static PyMethodDef module_methods[] = {
     { "make_psrfits_stream", tc_wrap2<make_psrfits_stream>, METH_VARARGS, "XXX" },
+    { "make_chime_stream_from_acqdir", tc_wrap2<make_chime_stream_from_acqdir>, METH_VARARGS, "XXX" },
+    { "make_chime_stream_from_filename", tc_wrap2<make_chime_stream_from_filename>, METH_VARARGS, "XXX" },
+    { "make_chime_stream_from_filename_list", tc_wrap2<make_chime_stream_from_filename_list>, METH_VARARGS, "XXX" },
     { "make_gaussian_noise_stream", tc_wrap2<make_gaussian_noise_stream>, METH_VARARGS, "XXX" },
     { "make_simple_detrender", tc_wrap2<make_simple_detrender>, METH_VARARGS, "XXX" },
     { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, "XXX" },

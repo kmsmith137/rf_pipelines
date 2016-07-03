@@ -15,14 +15,14 @@ namespace rf_pipelines {
 
 #ifndef HAVE_CH_FRB_IO
 
-shared_ptr<wi_stream> make_chime_stream_from_file(const string &filename, ssize_t nt_chunk)
-{
-    throw runtime_error("rf_pipelines::make_chime_stream_from_file() was called, but rf_pipelines was compiled without ch_frb_io");
-}
-
 shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &filename, ssize_t nt_chunk)
 {
     throw runtime_error("rf_pipelines::make_chime_stream_from_acqdir() was called, but rf_pipelines was compiled without ch_frb_io");
+}
+
+shared_ptr<wi_stream> make_chime_stream_from_filename(const string &filename, ssize_t nt_chunk)
+{
+    throw runtime_error("rf_pipelines::make_chime_stream_from_filename() was called, but rf_pipelines was compiled without ch_frb_io");
 }
 
 shared_ptr<wi_stream> make_chime_stream_from_filename_list(const vector<string> &filename_list, ssize_t nt_chunk)
@@ -215,14 +215,6 @@ static void list_chime_acqdir(vector<string> &chime_files, const string &dirname
 }
 
 
-shared_ptr<wi_stream> make_chime_stream_from_filename(const string &filename, ssize_t nt_chunk)
-{
-    vector<string> filename_list;
-    filename_list.push_back(filename);
-
-    return make_chime_stream_from_filename_list(filename_list, nt_chunk);    
-}
-
 shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &dirname, ssize_t nt_chunk)
 {
     bool allow_empty = false;
@@ -232,12 +224,18 @@ shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &dirname, ssize
     return make_chime_stream_from_filename_list(filename_list, nt_chunk);
 }
 
+shared_ptr<wi_stream> make_chime_stream_from_filename(const string &filename, ssize_t nt_chunk)
+{
+    vector<string> filename_list;
+    filename_list.push_back(filename);
+
+    return make_chime_stream_from_filename_list(filename_list, nt_chunk);    
+}
+
 shared_ptr<wi_stream> make_chime_stream_from_filename_list(const vector<string> &filename_list, ssize_t nt_chunk)
 {
     if (filename_list.size() == 0)
 	throw runtime_error("empty filename_list in make_chime_stream()");
-    if (nt_chunk <= 0)
-	throw runtime_error("nt_chunk <= 0 in make_chime_stream()");
 
     return make_shared<chime_file_stream> (filename_list, nt_chunk);
 }
