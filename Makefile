@@ -24,8 +24,31 @@ OFILES=bonsai_dedisperser.o \
 	wraparound_buf.o
 
 PYFILES=rf_pipelines/rf_pipelines_c.so rf_pipelines/__init__.py
+PYCFILES=rf_pipelines/__init__.pyc
+
+CLEANDIRS=. rf_pipelines
 
 LIBS=
+
+
+####################################################################################################
+
+
+ifndef CPP
+$(error Fatal: Makefile.local must define CPP variable)
+endif
+
+ifndef INCDIR
+$(error Fatal: Makefile.local must define INCDIR variable)
+endif
+
+ifndef LIBDIR
+$(error Fatal: Makefile.local must define LIBDIR variable)
+endif
+
+ifndef PYDIR
+$(error Fatal: Makefile.local must define PYDIR variable)
+endif
 
 ifeq ($(HAVE_BONSAI),y)
 	CPP += -DHAVE_BONSAI
@@ -42,20 +65,27 @@ ifeq ($(HAVE_CH_FRB_IO),y)
 	LIBS += -lch_frb_io -lhdf5
 endif
 
+
+####################################################################################################
+
+
 all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so run-unit-tests
 
 install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
+	mkdir -p $(INCDIR)/ $(LIBDIR)/ $(PYDIR)/rf_pipelines
 	cp -f $(INCFILES) $(INCDIR)/
 	for f in $(PYFILES); do cp $$f $(PYDIR)/$$f; done
 	cp -f librf_pipelines.so $(LIBDIR)/
 
 uninstall:
 	for f in $(INCFILES); do rm -f $(INCDIR)/$$f; done
-	for f in $(PYFILES); do rm -f $(PYDIR)/$$f; done
+	for f in $(PYFILES) $(PYCFILES); do rm -f $(PYDIR)/$$f; done
+	rmdir $(PYDIR)/rf_pipelines
 	rm -f $(LIBDIR)/librf_pipelines.so
 
 clean:
-	rm -f *~ *.o *.so run-unit-tests
+	rm -f run-unit-tests
+	for d in $(CLEANDIRS); do rm -f $$d/*~ $$d/*.o $$d/*.so $$d/*.pyc; done
 
 %.o: %.cpp $(INCFILES)
 	$(CPP) -c -o $@ $<
