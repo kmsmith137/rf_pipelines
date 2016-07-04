@@ -61,8 +61,8 @@ Transforms:
 """
 
 
-# wi_stream, wi_transform: these are the stream and transform base classes 
-# (written in C++ and exported to Python via the rf_pipelines_c' extension module).  
+# The 'wi_stream' and 'wi_transform' base classes are subclassed to define streams and transforms.
+# These classes are written in C++ and exported to Python via 'rf_pipelines_c.cpp'
 #
 # If you want to write a new transform in python, the API that you'll need to implement
 # is non-obvious, since it is implicitly defined by the C++ part of the library.  All
@@ -83,53 +83,12 @@ from .streams.gaussian_noise_stream import gaussian_noise_stream
 # Transforms (some implemented in C++, others in python)
 
 from .transforms.plotter_transform import plotter_transform
+from .transforms.simple_detrender import simple_detrender
+from .transforms.bonsai_dedisperser import bonsai_dedisperser
 from .transforms.frb_injector_transform import frb_injector_transform
 
 # Helper routines for writing transforms in python.
 from .utils import write_png, wi_downsample
-
-
-####################################################################################################
-#
-# Transform library
-
-
-def simple_detrender(nt_chunk):
-    """
-    Returns a transform object (wi_transform) which detrends the data.
-    Simplest possible detrender: just divides the data into chunks and subtracts the mean in each chunk.
-    """
-
-    return rf_pipelines_c.make_simple_detrender(nt_chunk)
-
-
-def bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, ibeam=0):
-    """
-    Returns a "transform" (object of class wi_transform) which doesn't actually modify the data,
-    it just runs the bonsai dedisperser.  The output is a stream of coarse-grained triggers
-    which are written to an output hdf5 file.  The dedisperser must be initialized from a
-    config hdf5 file produced with the program 'bonsai-mkweight' in the bonsai github repo.
-
-    Note that the program 'bonsai-plot-triggers.py' in the bonsai github repo may be useful
-    for quick visual inspection of the bonsai output.
-
-    The 'ibeam' argument determines the assignment of threads to cores and can probably
-    be zero except in special situations.
-
-    FIXME 1: Currently the only trigger "processing" which can be done is writing the triggers
-    to an hdf5 file for later analysis.  It would be better if we could use bonsai's python
-    interface, which allows the dedisperser process_triggers() callback to be written in
-    python.  Right now, it's not possible to use bonsai's python interface with rf_pipelines!
-
-    FIXME 2: Currently the dedisperser must be initialized from a config hdf5 file (rather than
-    the simpler config text file) since we use analytic weights to normalize the triggers.
-    Since the analytic weights are only correct for unit-variance noise, the trigger normalization
-    will be wrong for a real experiment, and the triggers won't be meaningfully normalized to
-    "sigmas".  All of this is just a placeholder until Monte Carlo trigger variance estimation
-    is implemented in bonsai.
-    """
-    
-    return rf_pipelines_c.make_bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, ibeam)
 
 
 ####################################################################################################
@@ -219,9 +178,7 @@ class py_wi_transform(wi_transform):
         a multiple of nt_chunk, and so the rf_pipelines library will append zero-weight data.
 
 
-    end_substream()
-
-       Counterpart to start_substream()
+    end_substream(): counterpart to start_substream() above.
     """
 
     def set_stream(self, stream):
