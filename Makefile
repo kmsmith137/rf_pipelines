@@ -53,7 +53,11 @@ PYCFILES=rf_pipelines/__init__.pyc \
 	rf_pipelines/transforms/frb_injector_transform.pyc \
 	rf_pipelines/transforms/plotter_transform.pyc
 
+# Used in 'make clean'
 CLEANDIRS=. rf_pipelines rf_pipelines/streams rf_pipelines/transforms
+
+# Used in 'make uninstall'
+PYSUBDIRS=rf_pipelines rf_pipelines/streams rf_pipelines/transforms
 
 LIBS=
 
@@ -107,9 +111,7 @@ install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
 uninstall:
 	for f in $(INCFILES); do rm -f $(INCDIR)/$$f; done
 	for f in $(PYFILES) $(PYCFILES); do rm -f $(PYDIR)/$$f; done
-	rmdir $(PYDIR)/rf_pipelines/streams
-	rmdir $(PYDIR)/rf_pipelines/transforms
-	rmdir $(PYDIR)/rf_pipelines
+	for d in $(PYSUBDIRS); do [ -d $(PYDIR)/$$d ] && rmdir $(PYDIR)/$$d; done
 	rm -f $(LIBDIR)/librf_pipelines.so
 
 clean:
