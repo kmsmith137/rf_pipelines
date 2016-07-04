@@ -7,6 +7,19 @@ DEPENDENCIES
   - libhdf5 (https://www.hdfgroup.org/HDF5/release/obtain5.html)
     Note that this is a link to HDF5 v1.8.  I imagine v1.10 also works but haven't tested it yet.
 
+  - Optional but recommended: The 'PIL' python imaging library (you can test whether you have 
+    it with 'import PIL' from python).  If you need to install it, I recommend the 'Pillow' 
+    variant (pip install Pillow)
+
+  - Optional but recommended: simpulse (https://github.com/kmsmith137/simpulse)
+    You'll need this if you want to inject simulated FRB's.
+    Note that simpulse requires cython and fftw3 (see its README).
+
+  - Optional: bonsai (https://github.com/CHIMEFRB/bonsai)
+    This is an incremental incoherent dedisperser.
+    Note that bonsai v3 or later is required! (currently on branch 'devel_v3', not github master)
+    Note that bonsai requires a very recent cython (see its README).
+
   - Optional: ch_frb_io (https://github.com/CHIMEFRB/ch_frb_io)
     You'll need this if you want to analyze CHIME data.  
 
@@ -19,9 +32,6 @@ DEPENDENCIES
     Note: if psrfits_utils installation fails due to autoconf warnings which don't look 
           serious, it may help to edit configure.ac and remove the "-Werror" in the line 
           AM_INIT_AUTOMAKE([-Wall -Werror foreign])
-
-  - Optional: bonsai (https://github.com/CHIMEFRB/bonsai)
-    This is an incremental incoherent dedisperser.
 
 
 INSTALLATION
