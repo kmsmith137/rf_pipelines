@@ -1,0 +1,46 @@
+# This is a configuration file for the 'bonsai' dedisperser.
+# For a description of all parameters, see the following example file:
+#   https://github.com/CHIMEFRB/bonsai/blob/master/examples/frb_olympics_run0_test/run0_params.txt
+
+tree_size = 2048
+
+# Number of frequency channels in input data.
+nchan = 512
+
+# Upsampling/downsampling factor, if any.
+nups = 1
+nds = 1
+
+# Trial scattering measures.  In this simple example, we don't search over scattering.
+nsm = 1         # number of trial scattering measures
+sm_depth = 0    # number of tree iterations remaining when SM fanout occurs (sm_depth=4 is usually a good choice)
+sm_max = 0      # largest trial SM
+
+# Trial spectral indices.  In this simple example, we don't search over spectral index.
+nbeta = 1        # number of trial spectral indices
+beta_depth = 0   # number of tree iterations remaining when spectral index fanout STARTS (beta_depth=log_2(nbeta)+1 is a reasonable default)
+beta_min = 0     # endpoint of searched spectral index range
+beta_max = 0     # endpoint of searched spectral index range
+
+# Input frequency band and time sampling
+freq_lo_MHz = 400.0   # MHz
+freq_hi_MHz = 800.0   # MHz
+dt_sample = 0.001     # seconds
+
+# Number of threads per beam.
+nthreads = 1
+
+# Used internally by bonsai
+nt_tree = 256
+
+# Number of time sample used to "pad" the incremental search.
+nt_ftree_pad = 16
+
+# DM coarse-graining factor (used when making coarse-grained triggers from fine-grained triggers)
+ndm_per_trigger = 8
+
+# Time coarse-graining factor (used when making coarse-grained triggers from fine-grained triggers)
+nt_per_trigger = 32
+
+# This determines the chunk size for passing data between rf_pipelines and bonsai.
+nt_data = 1024
