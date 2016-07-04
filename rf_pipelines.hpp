@@ -38,7 +38,16 @@ class wi_run_state;
 // PSRFITS file stream (e.g. gbncc)
 extern std::shared_ptr<wi_stream> make_psrfits_stream(const std::string &filename);
 
-// CHIME file streams
+//
+// CHIME file streams, either from single file, explciit filename, or acquisition directory.
+// In the 'acqusition directory' case, the directory is scanned for filenames of the form NNNNNNNN.h5, where N=[0,9].
+//    
+// The 'nt_chunk' arg is the chunk size used internally when moving data from hdf5 file
+// into the rf_pipelines buffer.  If unspecified or zero, it will default to a reasonable value.
+//
+// Note: a quick way to inspect a CHIME hdf5 file is using the 'ch-show-intensity-file' program,
+// in the ch_frb_io github repo.
+//
 extern std::shared_ptr<wi_stream> make_chime_stream_from_acqdir(const std::string &filename, ssize_t nt_chunk=0);
 extern std::shared_ptr<wi_stream> make_chime_stream_from_filename(const std::string &filename, ssize_t nt_chunk=0);
 extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std::vector<std::string> &filename_list, ssize_t nt_chunk=0);

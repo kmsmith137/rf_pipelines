@@ -569,10 +569,12 @@ static PyObject *make_psrfits_stream(PyObject *self, PyObject *args)
 static PyObject *make_chime_stream_from_acqdir(PyObject *self, PyObject *args)
 {
     const char *filename = nullptr;
-    if (!PyArg_ParseTuple(args, "s", &filename))
+    ssize_t nt_chunk = 0;
+
+    if (!PyArg_ParseTuple(args, "sn", &filename, &nt_chunk))
 	return NULL;
 
-    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_chime_stream_from_acqdir(filename);
+    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_chime_stream_from_acqdir(filename, nt_chunk);
     return wi_stream_object::make(ret);    
 }
 
@@ -580,10 +582,12 @@ static PyObject *make_chime_stream_from_acqdir(PyObject *self, PyObject *args)
 static PyObject *make_chime_stream_from_filename(PyObject *self, PyObject *args)
 {
     const char *filename = nullptr;
-    if (!PyArg_ParseTuple(args, "s", &filename))
+    ssize_t nt_chunk = 0;
+
+    if (!PyArg_ParseTuple(args, "sn", &filename, &nt_chunk))
 	return NULL;
 
-    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_chime_stream_from_filename(filename);
+    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_chime_stream_from_filename(filename, nt_chunk);
     return wi_stream_object::make(ret);    
 }
 
@@ -591,8 +595,9 @@ static PyObject *make_chime_stream_from_filename(PyObject *self, PyObject *args)
 static PyObject *make_chime_stream_from_filename_list(PyObject *self, PyObject *args)
 {
     PyObject *arg_ptr = nullptr;
+    ssize_t nt_chunk = 0;
 
-    if (!PyArg_ParseTuple(args, "O", &arg_ptr))
+    if (!PyArg_ParseTuple(args, "On", &arg_ptr, &nt_chunk))
 	return NULL;
     
     object arg(arg_ptr, false);
@@ -622,7 +627,7 @@ static PyObject *make_chime_stream_from_filename_list(PyObject *self, PyObject *
     if (PyErr_Occurred())
 	throw python_exception();
 
-    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_chime_stream_from_filename_list(filename_list);
+    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_chime_stream_from_filename_list(filename_list, nt_chunk);
     return wi_stream_object::make(ret);
 }
 
