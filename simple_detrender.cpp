@@ -16,7 +16,7 @@ struct simple_detrender : public wi_transform {
 
     virtual void set_stream(const wi_stream &stream);
     virtual void start_substream(int isubstream, double t0) { }
-    virtual void end_substream() { cerr << "simple_detrender::end_substream() called!\n"; }
+    virtual void end_substream() { }
 
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride);
 };
