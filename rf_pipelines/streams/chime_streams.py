@@ -45,6 +45,9 @@ def chime_stream_from_acqdir(dirname, nt_chunk=0):
     Returns a weighted intensity stream (wi_stream) from an acquisition directory containing CHIME hdf5 files.
     The directory is scanned for filenames of the form NNNNNNNN.h5, where N=[0,9].
     
+    This routine should be used with caution, e.g. if pointed to /data/pathfinder/16-06-21 on chimer
+    it will try to analyze 43GB of pathfinder data as a single stream!
+    
     The 'nt_chunk' arg is the chunk size used internally when moving data from hdf5 file
     into the rf_pipelines buffer.  If unspecified or zero, it will default to a reasonable value.
 

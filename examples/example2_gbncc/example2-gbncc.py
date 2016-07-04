@@ -11,6 +11,9 @@ s = rf_pipelines.psrfits_stream('/data/pathfinder/gbncc_example/guppi_56990_GBNC
 # Detrending timescale is 8192 samples = 0.67 sec
 t1 = rf_pipelines.simple_detrender(8192)
 
+# We put the plotter_transform after the detrender, so that it incrementally generates
+# plots of detrended data.
+#
 # We downsample by a factor 4 on the frequency axis, and a factor 1024 on the time axis.
 # Thus each pixel on the time axis corresponds to 1024 samples = 0.084 sec.
 #t2 = rf_pipelines.plotter_transform(img_prefix='detrended_gbncc', img_nfreq=512, img_nt=2048, downsample_nt=1024)

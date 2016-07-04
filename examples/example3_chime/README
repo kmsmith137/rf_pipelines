@@ -1,0 +1,3 @@
+bonsai-mkweight bonsai_config.txt bonsai_config.hdf5
+./example3-chime.py
+bonsai-plot-triggers.py triggers.hdf5

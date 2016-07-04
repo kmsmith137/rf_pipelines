@@ -16,7 +16,7 @@
 # currently unimplemented in bonsai.  I plan to fix this soon!  In the
 # meantime, you'll need to make the hdf5 file with:
 #
-#   bonsai-mkweight bonsai_chime.txt bonsai_chime.hdf5
+#   bonsai-mkweight bonsai_config.txt bonsai_config.hdf5
 
 tree_size = 4096
 nchan = 1024       # Number of frequency channels in input (currently 1024; will expand to 16384)
