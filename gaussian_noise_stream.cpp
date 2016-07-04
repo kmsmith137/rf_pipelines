@@ -16,19 +16,24 @@ protected:
     double sample_rms;
 
 public:
-    gaussian_noise_stream(ssize_t nfreq_, ssize_t nt_chunk_, ssize_t nt_tot_, double freq_lo_MHz_, double freq_hi_MHz_, double dt_sample_, double sample_rms_)
+    gaussian_noise_stream(ssize_t nfreq_, ssize_t nt_tot_, double freq_lo_MHz_, double freq_hi_MHz_, double dt_sample_, double sample_rms_, ssize_t nt_chunk)
     {
+	if (nt_chunk == 0)
+	    nt_chunk = 1024;   // default
+
 	// these arguments will be sanity-checked elsewhere (in wi_stream::run())
 	this->nfreq = nfreq_;
-	this->nt_maxwrite = nt_chunk_;
+	this->nt_maxwrite = nt_chunk;
 	this->freq_lo_MHz = freq_lo_MHz_;
 	this->freq_hi_MHz = freq_hi_MHz_;
 	this->dt_sample = dt_sample_;
 
 	// these arguments must be sanity-checked here
-	this->nt_tot = nt_tot_;
 	this->sample_rms = sample_rms_;
+	this->nt_tot = nt_tot_;
+
 	rf_assert(sample_rms >= 0.0);
+	rf_assert(nt_chunk > 0);
 	rf_assert(nt_tot > 0);
     }
 
@@ -68,9 +73,9 @@ public:
 };
 
 
-shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssize_t nt_chunk, ssize_t nt_tot, double freq_lo_MHz, double freq_hi_MHz, double dt_sample, double sample_rms)
+shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssize_t nt_tot, double freq_lo_MHz, double freq_hi_MHz, double dt_sample, double sample_rms, ssize_t nt_chunk)
 {
-    return make_shared<gaussian_noise_stream> (nfreq, nt_chunk, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms);
+    return make_shared<gaussian_noise_stream> (nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms, nt_chunk);
 }
 
 

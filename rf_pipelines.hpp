@@ -38,6 +38,7 @@ class wi_run_state;
 // PSRFITS file stream (e.g. gbncc)
 extern std::shared_ptr<wi_stream> make_psrfits_stream(const std::string &filename);
 
+
 //
 // CHIME file streams, either from single file, explciit filename, or acquisition directory.
 // In the 'acqusition directory' case, the directory is scanned for filenames of the form NNNNNNNN.h5, where N=[0,9].
@@ -52,8 +53,10 @@ extern std::shared_ptr<wi_stream> make_chime_stream_from_acqdir(const std::strin
 extern std::shared_ptr<wi_stream> make_chime_stream_from_filename(const std::string &filename, ssize_t nt_chunk=0);
 extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std::vector<std::string> &filename_list, ssize_t nt_chunk=0);
 
+
 // Simple stream which simulates Gaussian random noise
-extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssize_t nt_chunk, ssize_t nt_tot, double freq_lo_MHz, double freq_hi_MHz, double dt_sample, double sample_rms);
+// If 'nt_chunk' is unspecified or zero, it will default to a reasonable value.
+extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssize_t nt_tot, double freq_lo_MHz, double freq_hi_MHz, double dt_sample, double sample_rms=1.0, ssize_t nt_chunk=0);
 
 
 // Simplest possible detrender: just divides the data into chunks and subtracts the mean in each chunk

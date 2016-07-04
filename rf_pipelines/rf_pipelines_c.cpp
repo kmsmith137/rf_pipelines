@@ -637,10 +637,10 @@ static PyObject *make_gaussian_noise_stream(PyObject *self, PyObject *args)
     ssize_t nfreq, nt_chunk, nt_tot;
     double freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms;
 
-    if (!PyArg_ParseTuple(args, "nnndddd", &nfreq, &nt_chunk, &nt_tot, &freq_lo_MHz, &freq_hi_MHz, &dt_sample, &sample_rms))
+    if (!PyArg_ParseTuple(args, "nnddddn", &nfreq, &nt_tot, &freq_lo_MHz, &freq_hi_MHz, &dt_sample, &sample_rms, &nt_chunk))
 	return NULL;
 
-    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_gaussian_noise_stream(nfreq, nt_chunk, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms);    
+    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_gaussian_noise_stream(nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms, nt_chunk);
     return wi_stream_object::make(ret);
 }
 
