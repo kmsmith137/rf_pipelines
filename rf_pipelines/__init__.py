@@ -28,9 +28,9 @@ but streams can only be written in C++ (I hope to improve this soon).  If all st
 and transforms are written in C++, the pipeline can be run from python with no
 overhead, allowing python to be the configuration language for optimized C++ code.
 
-The API for implementing a new transform in Python is non-obvious, since it's implicitly
-defined by the C++ part of the library.  All Python documentation is in the docstring
-for class 'py_wi_transform' below.
+If you want to write a new transform in python, the API that you'll need to implement
+is non-obvious, since it is implicitly defined by the C++ part of the library.  All
+documentation is in the docstring for class 'py_wi_transform' below!
 
 Everyone should feel free to commit new transforms to the rf_pipelines github repo.
 Over time we can build up a library of building-block transforms which can be recycled
@@ -43,16 +43,30 @@ I hope to improve this soon!  In the meantime, feel free to email me if it's too
 """
 
 
-# These are the base classes for (written in C++ and exported to Python via the
+# These are the stream and transform base classes (written in C++ and exported to Python via the
 # 'rf_pipelines_c' extension module).  
 #
-# If you want to write a new transform in python, I recommend subclassing the python
-# class 'py_wi_transform' (see below), rather than subclassing the C++ class 'wi_transform'.
-#
-# For the API that you'll need to implement in order to write a new transform, see the
-# docstring for class 'py_wi_transform'.
+# If you want to write a new transform in python, the API that you'll need to implement
+# is non-obvious, since it is implicitly defined by the C++ part of the library.  All
+# documentation is in the docstring for class 'py_wi_transform' below!
 
 from .rf_pipelines_c import wi_stream, wi_transform
+
+# CHIME streams. 
+# For documentation see per-function docstrings, or source code in streams/chime_streams.py.
+#
+# Syntax:
+#    chime_stream_from_filename(filename, nt_chunk=0)
+#    chime_stream_from_filename_list(filename_list, nt_chunk=0)
+#    chime_stream_from_acqdir(dirname, nt_chunk=0)
+
+from .streams.chime_streams import \
+    chime_stream_from_filename, \
+    chime_stream_from_filename_list, \
+    chime_stream_from_acqdir
+
+# PSRFITS stream (e.g. for gbncc).  For documentation, see the function docstring, or source code in streams/psrfits_stream.py.
+# XXX
 
 # Library of transforms written in python.
 from .transforms.plotter_transform import plotter_transform
@@ -63,58 +77,6 @@ from .utils import write_png, wi_downsample
 
 
 ####################################################################################################
-#
-# Stream library.  All functions below return an object of class 'wi_stream'.  They are implemented
-# by wrapping a function written in C++, and interfaced with python in rf_pipelines_c.cpp.
-#
-# FIXME currently, there is no way to write a stream in Python, but this will be fixed soon!
-
-
-def chime_stream_from_filename(filename, nt_chunk=0):
-    """
-    Returns a weighted intensity stream (wi_stream) from a single CHIME hdf5 file.
-
-    The 'filename' arg should be an hdf5 file containing CHIME intensity data.
-
-    The 'nt_chunk' arg is the chunk size used internally when moving data from hdf5 file
-    into the rf_pipelines buffer.  If unspecified or zero, it will default to a reasonable value.
-
-    Note: a quick way to inspect a CHIME hdf5 file is using the 'ch-show-intensity-file' program,
-    in the ch_frb_io github repo.
-    """
-
-    return rf_pipelines_c.make_chime_stream_from_filename(filename, nt_chunk)
-
-
-def chime_stream_from_filename_list(filename_list, nt_chunk=0):
-    """
-    Returns a weighted intensity stream (wi_stream) from a sequence of CHIME hdf5 files.
-
-    The 'filename_list' arg should be a list (or python generator) of hdf5 filenames.
-
-    The 'nt_chunk' arg is the chunk size used internally when moving data from hdf5 file
-    into the rf_pipelines buffer.  If unspecified or zero, it will default to a reasonable value.
-
-    Note: a quick way to inspect a CHIME hdf5 file is using the 'ch-show-intensity-file' program,
-    in the ch_frb_io github repo.
-    """
-
-    return rf_pipelines_c.make_chime_stream_from_filename_list(filename_list, nt_chunk)
-
-
-def chime_stream_from_acqdir(dirname, nt_chunk=0):
-    """
-    Returns a weighted intensity stream (wi_stream) from an acquisition directory containing CHIME hdf5 files.
-    The directory is scanned for filenames of the form NNNNNNNN.h5, where N=[0,9].
-    
-    The 'nt_chunk' arg is the chunk size used internally when moving data from hdf5 file
-    into the rf_pipelines buffer.  If unspecified or zero, it will default to a reasonable value.
-
-    Note: a quick way to inspect a CHIME hdf5 file is using the 'ch-show-intensity-file' program,
-    in the ch_frb_io github repo.
-    """
-
-    return rf_pipelines_c.make_chime_stream_from_acqdir(dirname, nt_chunk)
 
 
 def psrfits_stream(filename):
@@ -191,7 +153,14 @@ class py_wi_transform(wi_transform):
     The API for implementing a new wi_transform in Python is non-obvious, since it's implicitly
     defined by the C++ part of the library.  All Python documentation is in this docstring!
 
-    Define a subclass of 'py_wi_transform' which overrides the following methods:
+    To write a transform in Python, I recommend subclassing the python class 'py_wi_transform' 
+    instead of the C++ class 'wi_transform'.  An object of type 'py_wi_transform' can be inserted
+    into a pipeline using the usual run() syntax:
+
+       s.run([t1,t2,...,tN])    # where s is an object of type wi_stream
+                                # and each t_i is an object of type wi_transform
+
+    Your subclass of 'py_wi_transform' should override the following methods:
     
 
     set_stream(self, stream)

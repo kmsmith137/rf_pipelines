@@ -29,6 +29,8 @@ OFILES=bonsai_dedisperser.o \
 PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/__init__.py \
 	rf_pipelines/utils.py \
+	rf_pipelines/streams/__init__.py \
+	rf_pipelines/streams/chime_streams.py \
 	rf_pipelines/transforms/__init__.py \
 	rf_pipelines/transforms/frb_injector_transform.py \
 	rf_pipelines/transforms/plotter_transform.py
@@ -37,10 +39,12 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 PYCFILES=rf_pipelines/__init__.pyc \
 	rf_pipelines/transforms/__init__.pyc \
 	rf_pipelines/utils.pyc \
+	rf_pipelines/streams/__init__.pyc \
+	rf_pipelines/streams/chime_streams.pyc \
 	rf_pipelines/transforms/frb_injector_transform.pyc \
 	rf_pipelines/transforms/plotter_transform.pyc
 
-CLEANDIRS=. rf_pipelines rf_pipelines/transforms
+CLEANDIRS=. rf_pipelines rf_pipelines/streams rf_pipelines/transforms
 
 LIBS=
 
@@ -86,7 +90,7 @@ endif
 all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so run-unit-tests
 
 install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
-	mkdir -p $(INCDIR)/ $(LIBDIR)/ $(PYDIR)/rf_pipelines/transforms
+	mkdir -p $(INCDIR)/ $(LIBDIR)/ $(PYDIR)/rf_pipelines/streams $(PYDIR)/rf_pipelines/transforms
 	cp -f $(INCFILES) $(INCDIR)/
 	for f in $(PYFILES); do cp $$f $(PYDIR)/$$f; done
 	cp -f librf_pipelines.so $(LIBDIR)/
@@ -94,6 +98,7 @@ install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
 uninstall:
 	for f in $(INCFILES); do rm -f $(INCDIR)/$$f; done
 	for f in $(PYFILES) $(PYCFILES); do rm -f $(PYDIR)/$$f; done
+	rmdir $(PYDIR)/rf_pipelines/streams
 	rmdir $(PYDIR)/rf_pipelines/transforms
 	rmdir $(PYDIR)/rf_pipelines
 	rm -f $(LIBDIR)/librf_pipelines.so
