@@ -32,19 +32,37 @@ If you want to write a new transform in python, the API that you'll need to impl
 is non-obvious, since it is implicitly defined by the C++ part of the library.  All
 documentation is in the docstring for class 'py_wi_transform' below!
 
+To write a transform (or stream) in C++, see comments in 'rf_pipelines.hpp'.  One loose end:
+exporting C++ classes to python is currently kind of a mess, see comments in rf_pipelines_c.cpp.  
+I hope to improve this soon!  In the meantime, feel free to email me if it's too cryptic.
+
 Everyone should feel free to commit new transforms to the rf_pipelines github repo.
 Over time we can build up a library of building-block transforms which can be recycled
 for rapid prototyping, e.g. if we want to experiment with different RFI removal schemes
 by chaining together different RFI removers.
 
-To write a transform (or stream) in C++, see comments in 'rf_pipelines.hpp'.  One loose end:
-exporting C++ classes to python is currently kind of a mess, see comments in rf_pipelines_c.cpp.  
-I hope to improve this soon!  In the meantime, feel free to email me if it's too cryptic.
+Here is a list of all streams and transforms currently available.  For documatation, see
+the individual docstrings.
+
+Streams:
+
+   chime_stream_from_filename(filename, nt_chunk=0)
+   chime_stream_from_filename_list(filename_list, nt_chunk=0)
+   chime_stream_from_acqdir(dirname, nt_chunk=0)
+   psrfits_stream(fits_filename)
+   gaussian_noise_stream(nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms=1.0, nt_chunk=0)
+
+Transforms:
+
+   simple_detrender(nt_chunk)
+   plotter_transform(img_prefix, img_nfreq, img_nt, downsample_nt=1, nt_chunk=0)
+   frb_injector_transform(snr, undispersed_arrival_time, dm, intrinsic_width=0.0, sm=0.0, spectral_index=0.0, sample_rms=1.0, nt_chunk=1024)
+   bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, ibeam=0)
 """
 
 
-# These are the stream and transform base classes (written in C++ and exported to Python via the
-# 'rf_pipelines_c' extension module).  
+# wi_stream, wi_transform: these are the stream and transform base classes 
+# (written in C++ and exported to Python via the rf_pipelines_c' extension module).  
 #
 # If you want to write a new transform in python, the API that you'll need to implement
 # is non-obvious, since it is implicitly defined by the C++ part of the library.  All
@@ -52,52 +70,23 @@ I hope to improve this soon!  In the meantime, feel free to email me if it's too
 
 from .rf_pipelines_c import wi_stream, wi_transform
 
-# CHIME streams. 
-# For documentation see per-function docstrings, or source code in streams/chime_streams.py.
-#
-# Syntax:
-#    chime_stream_from_filename(filename, nt_chunk=0)
-#    chime_stream_from_filename_list(filename_list, nt_chunk=0)
-#    chime_stream_from_acqdir(dirname, nt_chunk=0)
+# Streams (all implemented in C++, there is currently no interface for writing streams in python)
 
 from .streams.chime_streams import \
     chime_stream_from_filename, \
     chime_stream_from_filename_list, \
     chime_stream_from_acqdir
 
-# PSRFITS stream (e.g. for gbncc).  For documentation, see the function docstring, or source code in streams/psrfits_stream.py.
-# XXX
+from .streams.psrfits_stream import psrfits_stream
+from .streams.gaussian_noise_stream import gaussian_noise_stream
 
-# Library of transforms written in python.
+# Transforms (some implemented in C++, others in python)
+
 from .transforms.plotter_transform import plotter_transform
 from .transforms.frb_injector_transform import frb_injector_transform
 
 # Helper routines for writing transforms in python.
 from .utils import write_png, wi_downsample
-
-
-####################################################################################################
-
-
-def psrfits_stream(filename):
-    """Returns a weighted intensity stream (wi_stream) from a single PSRFITS source file."""
-
-    return rf_pipelines_c.make_psrfits_stream(filename)
-
-
-def gaussian_noise_stream(nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms=1.0, nt_chunk=0):
-    """
-    Returns a weighted intensity stream (wi_stream) which simulates Gaussian random noise for each frequency channel and time sample.
-    
-    The 'nt_tot' arg is the total length of the stream, in samples.
-    The 'dt_sample' arg is the length of a sample in seconds.
-    The 'sample_rms' arg is the Gaussian RMS of a single (freq_channel, time_sample) pair.
-
-    The 'nt_chunk' arg is the chunk size used internally when moving data into the rf_pipelines buffer.
-    If unspecified or zero, it will default to a reasonable value.
-    """
-
-    return rf_pipelines_c.make_gaussian_noise_stream(nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms, nt_chunk)
 
 
 ####################################################################################################

@@ -1,7 +1,7 @@
 """
 CHIME streams.
 
-Everything here is a thin wrapper around a C++ stream implementation, written in chime_streams.cpp
+Everything here is a thin wrapper around a C++ implementation, written in chime_streams.cpp
 and exported to Python via rf_pipelines_c.cpp.
 """
 
