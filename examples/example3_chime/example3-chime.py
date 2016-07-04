@@ -25,6 +25,6 @@ t2 = rf_pipelines.plotter_transform('detrended_chime', img_nfreq=512, img_nt=102
 # improvement, in particular if run on a large stream it will make a "monster" plot with a huge
 # number of pixels).
 
-t3 = rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5')
+# t3 = rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5')
 
-s.run([t1,t2,t3])
+s.run([t1,t2])

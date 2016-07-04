@@ -16,11 +16,11 @@ t1 = rf_pipelines.simple_detrender(8192)
 #
 # We downsample by a factor 4 on the frequency axis, and a factor 1024 on the time axis.
 # Thus each pixel on the time axis corresponds to 1024 samples = 0.084 sec.
-#t2 = rf_pipelines.plotter_transform(img_prefix='detrended_gbncc', img_nfreq=512, img_nt=2048, downsample_nt=1024)
+t2 = rf_pipelines.plotter_transform(img_prefix='detrended_gbncc', img_nfreq=512, img_nt=2048, downsample_nt=1024)
 
 # Before running the dedisperser, you'll need to run the command 'bonsai-mkweight bonsai_config.txt bonsai_config.hdf5'
 # which creates the config hdf5 file from the config text file.  The output file triggers.hdf5 contains coarse-grained
 # triggers which can be plotted with 'bonsai-plot-triggers.py'.
-# t3 = rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5')
+t3 = rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5')
 
-s.run([t1])
+s.run([t1,t2,t3])

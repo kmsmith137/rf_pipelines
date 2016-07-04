@@ -51,6 +51,8 @@ def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False
     rgb[:,:,0] = red
     rgb[:,:,2] = blue
 
+    print >>sys.stderr, 'XXX attempting to write png: ', rgb.shape
+
     img = PIL.Image.fromarray(rgb)
     img.save(filename)
     print >>sys.stderr, 'wrote %s' % filename

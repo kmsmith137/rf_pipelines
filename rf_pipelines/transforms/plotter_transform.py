@@ -48,6 +48,7 @@ class plotter_transform(rf_pipelines.wi_transform):
         ichunk = 0
         while ichunk < self.nt_chunk_ds:
             n = min(self.nt_chunk_ds - ichunk, self.img_nt - self.ipos)
+            assert n > 0
             
             self.intensity_buf[:,self.ipos:(self.ipos+n)] = intensity[:,ichunk:(ichunk+n)]
             self.weight_buf[:,self.ipos:(self.ipos+n)] = weights[:,ichunk:(ichunk+n)]
