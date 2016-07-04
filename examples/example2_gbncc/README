@@ -1,0 +1,28 @@
+DESCRIPTION
+-----------
+
+This is a minimal rf_pipelines run which incoherently dedisperses a GBNCC data
+file in PSRFITS format.  It includes simple detrending, but no RFI removal, 
+so the output is a mess!  This example is intended to supersede gbncc-snapshot.cpp 
+in the 'bonsai' github repo.
+
+
+INSTRUCTIONS FOR RUNNING
+------------------------
+
+First you'll need to generate the bonsai config hdf5 file from the bonsai text file.
+(This is a temporary workaround for a currently-unimplemented feature in bonsai: on-the-fly
+estimation of trigger variances.)
+
+    bonsai-mkweight bonsai_config.txt bonsai_config.hdf5
+
+Then rule the example:
+
+   ./example2-gbncc.py
+
+This will generate a bunch of waterfall plots plus a file 'triggers.hdf5' containing
+coarse-grained triggers.  The trigger file can be plotted with:
+
+   bonsai-plot-triggers.py triggers.hdf5
+
+[ XXX finish ]

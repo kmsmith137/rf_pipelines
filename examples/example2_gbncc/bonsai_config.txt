@@ -1,0 +1,27 @@
+# This is a bonsai paramfile I tried using to analyze GBNCC data.
+#
+# It uses four 4K-trees, with max DM's [ 200, 400, 800, 1600 ] and
+# intrinsic widths around [ 2ms, 4ms, 8ms, 16ms ].
+#
+# I didn't put a lot of thought into it, so there may be room for improvement!
+
+tree_size = 4096
+nchan = 4096
+nds = [ 16, 32, 64, 128 ]
+nups = 1
+nsm = 1
+sm_depth = 0
+sm_max = 0
+nbeta = 1
+beta_depth = 0
+beta_min = 0
+beta_max = 0
+freq_lo_MHz = 300.012
+freq_hi_MHz = 400.012
+dt_sample = 8.192e-5
+nthreads = 1
+nt_ftree_pad = 64
+ndm_per_trigger = 16
+nt_per_trigger = [ 128, 64, 32, 16 ]
+nt_tree = [ 512, 256, 256, 256 ]
+nt_data = 8192
