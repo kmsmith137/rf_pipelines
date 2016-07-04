@@ -48,8 +48,8 @@ PYCFILES=rf_pipelines/__init__.pyc \
 	rf_pipelines/streams/psrfits_stream.pyc \
 	rf_pipelines/streams/gaussian_noise_stream.pyc \
 	rf_pipelines/transforms/__init__.pyc \
-	rf_pipelines/transforms/simple_detrender.py \
-	rf_pipelines/transforms/bonsai_dedisperser.py \
+	rf_pipelines/transforms/simple_detrender.pyc \
+	rf_pipelines/transforms/bonsai_dedisperser.pyc \
 	rf_pipelines/transforms/frb_injector_transform.pyc \
 	rf_pipelines/transforms/plotter_transform.pyc
 
