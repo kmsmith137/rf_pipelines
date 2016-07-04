@@ -22,7 +22,7 @@ from .transforms.frb_injector_transform import frb_injector_transform
 
 def chime_stream_from_filename(filename, nt_chunk=0):
     """
-    Returns a weighted intensity stream from a single CHIME hdf5 file.
+    Returns a weighted intensity stream (wi_stream) from a single CHIME hdf5 file.
 
     The 'filename' arg should be an hdf5 file containing CHIME intensity data.
 
@@ -38,7 +38,7 @@ def chime_stream_from_filename(filename, nt_chunk=0):
 
 def chime_stream_from_filename_list(filename_list, nt_chunk=0):
     """
-    Returns a weighted intensity stream from a sequence of CHIME hdf5 files.
+    Returns a weighted intensity stream (wi_stream) from a sequence of CHIME hdf5 files.
 
     The 'filename_list' arg should be a list (or python generator) of hdf5 filenames.
 
@@ -54,7 +54,7 @@ def chime_stream_from_filename_list(filename_list, nt_chunk=0):
 
 def chime_stream_from_acqdir(dirname, nt_chunk=0):
     """
-    Returns a weighted intensity stream from an acquisition directory containing CHIME hdf5 files.
+    Returns a weighted intensity stream (wi_stream) from an acquisition directory containing CHIME hdf5 files.
     The directory is scanned for filenames of the form NNNNNNNN.h5, where N=[0,9].
     
     The 'nt_chunk' arg is the chunk size used internally when moving data from hdf5 file
@@ -65,4 +65,10 @@ def chime_stream_from_acqdir(dirname, nt_chunk=0):
     """
 
     return rf_pipelines_c.make_chime_stream_from_acqdir(dirname, nt_chunk)
+
+
+def psrfits_stream(filename):
+    """Returns a weighted intensity stream (wi_stream) from a single PSRFITS source file."""
+
+    return rf_pipelines_c.make_psrfits_stream(filename)
 
