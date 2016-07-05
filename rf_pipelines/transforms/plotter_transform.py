@@ -94,7 +94,11 @@ class plotter_transform(rf_pipelines.py_wi_transform):
             filename += str(isubstream+1)
         filename += ('_%s.png' % self.ifile)
 
-        rf_pipelines.write_png(filename, self.intensity_buf, weights=self.weight_buf, transpose=True, ytop_to_bottom=True)
+        # I like this plotting convention best cosmetically
+        intensity = self.intensity_buf if (self.ifile > 0) else self.intensity_buf[:,:self.ipos]
+        weights = self.weight_buf if (self.ifile > 0) else self.weight_buf[:,:self.ipos]
+
+        rf_pipelines.write_png(filename, intensity, weights=weights, transpose=True, ytop_to_bottom=True)
 
         self.ifile += 1
         self.ipos = 0
