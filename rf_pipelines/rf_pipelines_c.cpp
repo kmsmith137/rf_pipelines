@@ -395,10 +395,8 @@ struct wi_stream_object {
 	rf_pipelines::wi_stream *stream = get_pbare(self);
 
 	PyObject *iter = PyObject_GetIter(arg);
-	if (!iter) {
-	    PyErr_SetString(PyExc_RuntimeError, "rf_pipelines: expected argument to wi_stream.run() to be a list/iterator of wi_transform objects");	    
-	    return NULL;
-	}
+	if (!iter)
+	    throw runtime_error("rf_pipelines: expected argument to wi_stream.run() to be a list/iterator");
 
 	object iter_reference(iter, false);
 	vector<object> item_references;

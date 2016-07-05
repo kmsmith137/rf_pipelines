@@ -78,12 +78,18 @@ Here are some to do items which anyone could work on:
 
   - In particular a detrender which correctly handles the CHIME switched noise source.
 
+  - Another concrete example: bad channel mask (should initialize from text file so
+    it can be used for either CHIME or GBNCC)
+
   - The plotting_transform is currently very primitive and could use improvement.
 
   - Same goes for the 'bonsai-plot-triggers' script.
 
   - In addition to 'bonsai-plot-triggers', it would be great to have more postprocessing
     scripts for the triggers.hdf5 file which bonsai outputs.
+
+  - A transform which allows the bonsai code to be run through its new python interface	
+    (in case you want to write a trigger postprocessing callback in python)
 
 
 LOW-LEVEL TO DO LIST
