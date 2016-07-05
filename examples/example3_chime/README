@@ -9,6 +9,8 @@ so the output is a mess!
 INSTRUCTIONS FOR RUNNING
 ------------------------
 
+The filenames in example3-chime.py assume you're running on chimer.physics.mcgill.ca.
+
 First you'll need to generate the bonsai config hdf5 file from the bonsai text file.
 (This is a temporary workaround for a currently-unimplemented feature in bonsai: on-the-fly
 estimation of trigger variances.)
@@ -24,10 +26,15 @@ coarse-grained triggers.  The trigger file can be plotted with:
 
    bonsai-plot-triggers.py triggers.hdf5
 
-After running the pipeline, you should see waterfall plots 'detrended_chime_*.png' and files 
-triggers_tree*.png showing the dedispersion outputs.  There waterfall plots have been split
-across 4 files.  There are 3 dedispersion output files because the bonsai configuration file 
-defines three trees to search different parts of parameter space.  The github repo contains 
+After running the pipeline, you should see:
+
+    raw_chime_*.png           waterfall plots of raw data
+    detrended_chime_*.png     waterfall plots of detrended data
+    triggers_tree*.png        output of the dedispersion transform
+
+The waterfall plots have been split across 4 files as explained in the python script.
+There are 3 dedispersion output files because the bonsai configuration file defines 
+three trees to search different parts of parameter space.  The github repo contains 
 "reference" versions of some of these plots for comparison.
 
 All the output files show a ton of RFI since there is no masking!
