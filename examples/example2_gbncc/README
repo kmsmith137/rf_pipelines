@@ -25,4 +25,11 @@ coarse-grained triggers.  The trigger file can be plotted with:
 
    bonsai-plot-triggers.py triggers.hdf5
 
-[ XXX finish ]
+After running the pipeline, you should see a waterfall plot 'detrended_gbncc_0.png' and files 
+triggers_tree*.png showing the dedispersion outputs.  There are 4 dedispersion output
+files because the bonsai configuration file defines four trees to search different parts of
+parameter space.  The github repo contains "reference" versions of some of these plots for
+comparison.
+
+All the output files show a ton of RFI since there is no masking!
+Maybe you can improve this?
