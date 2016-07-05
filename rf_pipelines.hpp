@@ -1,5 +1,8 @@
 // Note: I haven't systematically documented the C++ interface to rf_pipelines,
-// so the level of documentation will be hit-or-miss!
+// so the level of documentation will be hit-or-miss.  Also please note that the
+// python-wrapping in rf_pipelines_c.cpp is kind of a mess which I hope to improve
+// soon.  In the meantime if you want to python-wrap a C++ class, just email me
+// and I'll help navigate the mess!
 
 #ifndef _RF_PIPELINES_HPP
 #define _RF_PIPELINES_HPP
