@@ -1,3 +1,6 @@
+// Note: I haven't systematically documented the C++ interface to rf_pipelines,
+// so the level of documentation will be hit-or-miss!
+
 #ifndef _RF_PIPELINES_HPP
 #define _RF_PIPELINES_HPP
 

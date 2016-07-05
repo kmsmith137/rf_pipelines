@@ -1,3 +1,6 @@
+// Note: I haven't systematically documented the C++ interface to rf_pipelines,
+// so the level of documentation will be hit-or-miss!
+
 #include "rf_pipelines_internals.hpp"
 
 using namespace std;

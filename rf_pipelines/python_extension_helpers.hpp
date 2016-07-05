@@ -1,3 +1,6 @@
+// Note: I haven't systematically documented the C++ interface to rf_pipelines,
+// so the level of documentation will be hit-or-miss!
+
 #ifndef _PYTHON_EXTENSION_HELPERS_HPP
 #define _PYTHON_EXTENSION_HELPERS_HPP
 

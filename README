@@ -103,4 +103,6 @@ I plan to get back to these in a few weeks:
   - The under-the-hood python-wrapping is a mess, making difficult to export a new
     stream or transform written in C++ to python.
 
+  - C++ interface needs documentation and examples.
+
   - Currently it's not possible to write streams in python.
