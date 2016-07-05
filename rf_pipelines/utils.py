@@ -8,10 +8,14 @@ except:
 
 
 def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False):
+    """This is a quick-and-dirty plotting routine that I cut-and-paste everywhere."""
+
     arr = np.array(arr, dtype=np.float)
     assert arr.ndim == 2
 
-    if weights is not None:
+    if weights is None:
+        weights = np.ones(arr.shape, dtype=np.float)
+    else:
         weights = np.array(weights, dtype=np.float)
         assert weights.shape == arr.shape
     
@@ -23,7 +27,25 @@ def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False
         arr = arr[::-1]
         weights = weights[::-1] if (weights is not None) else None
 
-    (mean, rms) = (np.mean(arr), np.var(arr)**0.5)
+    (wmin, wmax) = (np.min(weights), np.max(weights))
+    if wmin < 0:
+        raise RuntimeError('write_png: negative weights are currently treated as an error')
+
+    # A corner case..
+    if wmax == 0.0:
+        print >>sys.stderr, '%s: array was completely masked, writing all-black image' % filename
+        rgb = np.zeros((arr.shape[0], arr.shape[1], 3), dtype=np.uint8)
+        img = PIL.Image.fromarray(rgb)
+        img.save(filename)
+        return
+
+    # normalize weights to [0,1]
+    weights = weights/wmax
+
+    # weighted mean and rms
+    mean = np.sum(weights*arr) / np.sum(weights)
+    var = np.sum((weights*(arr-mean))**2) / np.sum(weights**2)
+    rms = np.sqrt(var) if (var > 0.0) else 1.0    # The "1.0" handles the corner case of a constant array.
 
     # color in range [0,1].
     color = 0.5 + 0.16*(arr-mean)/rms    # factor 0.16 preserves convention from some old code
@@ -31,21 +53,8 @@ def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False
     color = np.minimum(color, 0.999999)  # 0.99999 instead of 1.0, to make roundoff-robust
     
     # rgb in range [0,1]
-    red = 256. * color
-    blue = 256. * (1-color)
-
-    if weights is not None:
-        (wmin, wmax) = (np.min(weights), np.max(weights))
-        if wmin < 0:
-            raise RuntimeError('write_png: negative weights are currently treated as an error')
-
-        # avoid NaN
-        if wmax == 0.0:
-            wmax = 1.0
-
-        weights = weights/wmax
-        red *= weights
-        blue *= weights
+    red = 256. * color * weights
+    blue = 256. * (1-color) * weights
 
     rgb = np.zeros((arr.shape[0],arr.shape[1],3), dtype=np.uint8)
     rgb[:,:,0] = red
