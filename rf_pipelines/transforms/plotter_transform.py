@@ -4,6 +4,30 @@ import rf_pipelines
 
 
 class plotter_transform(rf_pipelines.wi_transform):
+    """
+    This is a pseudo-transform (meaning that it does not actually modify its input)
+    which makes waterfall plots.  It's primitive so please feel free to improve it!
+
+    Note that the y-axis of the waterfall plots corresponds to frequency channel, with 
+    lowest frequency on the bottom and highest frequency on the top.
+
+    Constructor syntax:
+    
+      t = plotter_transform(img_prefix, img_nfreq, img_nt, downsample_nt=1, nt_chunk=0)
+      
+      The 'img_prefix' arg determines the output filenames: ${img_prefix}_0.png,
+      ${img_prefix}_1.png ...
+
+      The 'img_nfreq' arg determines the number of y-pixels in the plot.
+      If the number of instrumental frequency channels is larger it will be downsampled.
+    
+      If the 'downsample_nt' optional arg is specfied, then each x-pixel in the plot will
+      correspond to multiple time samples.
+
+      The 'img_nt' arg determines the number of x-pixels before a waterfall plot gets
+      written, and a new waterfall plot is started.
+    """
+
     def __init__(self, img_prefix, img_nfreq, img_nt, downsample_nt=1, nt_chunk=0):
         assert img_nt > 0
         assert img_nfreq > 0
@@ -70,7 +94,7 @@ class plotter_transform(rf_pipelines.wi_transform):
             filename += str(isubstream+1)
         filename += ('_%s.png' % self.ifile)
 
-        rf_pipelines.write_png(filename, self.intensity_buf[:,:self.ipos], weights=self.weight_buf[:,:self.ipos], transpose=True, ytop_to_bottom=True)
+        rf_pipelines.write_png(filename, self.intensity_buf, weights=self.weight_buf, transpose=True, ytop_to_bottom=True)
 
         self.ifile += 1
         self.ipos = 0

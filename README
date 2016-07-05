@@ -57,8 +57,16 @@ QUICK START
       examples/example2_gbncc   detrend and dedisperse GBNCC data
       examples/example3_chime   detrend and dedisperse CHIME pathfinder data
 
-  - From here I recommend browsing the Python docstrings, starting with the toplevel 'rf_pipelines'
-    module.  (Either look at rf_pipelines/__init__.py or do 'help(rf_pipelines)' in the python interpreter.)
+  - From here (and assuming that you want to use rf_pipelines from Python not C++) I recommend
+    browsing python docstrings.  Some useful docstrings:
+
+        rf_pipelines                    [ 'help(rf_pipelines)' from python interpreter. ]
+	rf_pipelines.py_wi_transform    [ help(rf_pipelines.py_wi_transform) ]
+
+	  + docstrings for stream/transform objects, e.g.
+	      rf_pipelines.chime_stream_from_acqdir
+	      rf_pipelines.plotter_transform
+
 
 
 TO DO LIST

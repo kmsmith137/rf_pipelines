@@ -11,6 +11,9 @@ import rf_pipelines
 # especially the docstring for 'class py_wi_transform' in rf_pipelines/__init__.py !
 #
 # See the README file in this directory for instructions for running this script.
+#
+# For more documentation of the rf_transform API and builtin stream/transforms, see
+# the python docstrings.
 
 
 class toy_transform(rf_pipelines.py_wi_transform):

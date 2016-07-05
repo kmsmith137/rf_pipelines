@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+# See the README file in this directory for instructions for running this script.
+#
+# For more documentation of the rf_transform API and builtin stream/transforms, see
+# the python docstrings.
+
 import os
 import rf_pipelines
 
