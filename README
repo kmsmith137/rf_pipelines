@@ -72,18 +72,24 @@ QUICK START
 TO DO LIST
 ----------
 
+Here are some to do items which anyone could work on:
+
   - More detrenders and RFI-removing filters is a huge priority!
 
   - In particular a detrender which correctly handles the CHIME switched noise source.
 
   - The plotting_transform is currently very primitive and could use improvement.
 
-  - Same goes for the 'bonsai-plot-triggers' script.  We should also have more
-    postprocessing scripts for the bonsai trigger file (peak finders etc.)
+  - Same goes for the 'bonsai-plot-triggers' script.
+
+  - In addition to 'bonsai-plot-triggers', it would be great to have more postprocessing
+    scripts for the triggers.hdf5 file which bonsai outputs.
 
 
 LOW-LEVEL TO DO LIST
 --------------------
+
+I plan to get back to these in a few weeks:
 
   - Currently implemented low-level buffer scheme is a little suboptimal and copies
     data more than necessary
