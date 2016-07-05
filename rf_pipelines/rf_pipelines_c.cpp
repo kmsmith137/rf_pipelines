@@ -261,7 +261,7 @@ static PyTypeObject wi_transform_type = {
     0,                         /* tp_setattro */
     0,                         /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,   /* tp_flags */
-    "MY AWESOME TRANSFORM",           /* tp_doc */
+    "Transform base class (C++)",           /* tp_doc */
     0,                         /* tp_traverse */
     0,                         /* tp_clear */
     0,                         /* tp_richcompare */
@@ -494,7 +494,7 @@ static PyTypeObject wi_stream_type = {
     0,                         /* tp_setattro */
     0,                         /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,   /* tp_flags */
-    "MY AWESOME STREAM",           /* tp_doc */
+    "Stream base class (C++)",           /* tp_doc */
     0,                         /* tp_traverse */
     0,                         /* tp_clear */
     0,                         /* tp_richcompare */
@@ -676,13 +676,13 @@ static PyObject *make_bonsai_dedisperser(PyObject *self, PyObject *args)
 
 
 static PyMethodDef module_methods[] = {
-    { "make_psrfits_stream", tc_wrap2<make_psrfits_stream>, METH_VARARGS, "XXX" },
-    { "make_chime_stream_from_acqdir", tc_wrap2<make_chime_stream_from_acqdir>, METH_VARARGS, "XXX" },
-    { "make_chime_stream_from_filename", tc_wrap2<make_chime_stream_from_filename>, METH_VARARGS, "XXX" },
-    { "make_chime_stream_from_filename_list", tc_wrap2<make_chime_stream_from_filename_list>, METH_VARARGS, "XXX" },
-    { "make_gaussian_noise_stream", tc_wrap2<make_gaussian_noise_stream>, METH_VARARGS, "XXX" },
-    { "make_simple_detrender", tc_wrap2<make_simple_detrender>, METH_VARARGS, "XXX" },
-    { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, "XXX" },
+    { "make_psrfits_stream", tc_wrap2<make_psrfits_stream>, METH_VARARGS, "Python interface to C++ routine" },
+    { "make_chime_stream_from_acqdir", tc_wrap2<make_chime_stream_from_acqdir>, METH_VARARGS, "Python interface to C++ routine" },
+    { "make_chime_stream_from_filename", tc_wrap2<make_chime_stream_from_filename>, METH_VARARGS, "Python interface to C++ routine" },
+    { "make_chime_stream_from_filename_list", tc_wrap2<make_chime_stream_from_filename_list>, METH_VARARGS, "Python interface to C++ routine" },
+    { "make_gaussian_noise_stream", tc_wrap2<make_gaussian_noise_stream>, METH_VARARGS, "Python interface to C++ routine" },
+    { "make_simple_detrender", tc_wrap2<make_simple_detrender>, METH_VARARGS, "Python interface to C++ routine" },
+    { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, "Python interface to C++ routine" },
     { NULL, NULL, 0, NULL }
 };
 
@@ -696,7 +696,7 @@ PyMODINIT_FUNC initrf_pipelines_c(void)
     if (PyType_Ready(&wi_transform_type) < 0)
         return;
 
-    PyObject *m = Py_InitModule3("rf_pipelines_c", module_methods, "XXX");
+    PyObject *m = Py_InitModule3("rf_pipelines_c", module_methods, "Python interface to C++ library");
     if (!m)
 	return;
 
