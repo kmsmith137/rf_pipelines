@@ -57,7 +57,8 @@ PYCFILES=rf_pipelines/__init__.pyc \
 CLEANDIRS=. rf_pipelines rf_pipelines/streams rf_pipelines/transforms
 
 # Used in 'make uninstall'
-PYSUBDIRS=rf_pipelines rf_pipelines/streams rf_pipelines/transforms
+# Directories must be sorted from children to parents
+PYSUBDIRS=rf_pipelines/streams rf_pipelines/transforms rf_pipelines
 
 LIBS=
 
@@ -111,7 +112,7 @@ install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
 uninstall:
 	for f in $(INCFILES); do rm -f $(INCDIR)/$$f; done
 	for f in $(PYFILES) $(PYCFILES); do rm -f $(PYDIR)/$$f; done
-	for d in $(PYSUBDIRS); do [ -d $(PYDIR)/$$d ] && rmdir $(PYDIR)/$$d; done
+	for d in $(PYSUBDIRS); do [ -d $(PYDIR)/$$d ] && rmdir $(PYDIR)/$$d; done; true
 	rm -f $(LIBDIR)/librf_pipelines.so
 
 clean:
