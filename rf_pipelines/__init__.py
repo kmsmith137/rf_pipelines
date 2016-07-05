@@ -162,6 +162,17 @@ class py_wi_transform(wi_transform):
         Each call to process_chunk() is responsible for processing one "chunk" of data with 2D shape
         (self.nfreq, self.nt_chunk).  The 'intensity' and 'weights' arguments are floating-point arrays
         with this shape.
+        
+        Important: the frequency axis of the arrays is ordered from highest frequency to lowest!
+        This is the same ordering used by 'bonsai', and in both GBNCC and CHIME data, so this ordering
+        seemed most convenient.
+
+        The 't0' and 't1' args are timestamps in seconds at the beginning and end of the chunk.
+        (To be precise, t0 is the start time of the first sample in the chunk, and t1 is the end
+        time of the last sample in the chunk.)  This information is mostly redundant since the
+        initial time of the substream is passed in start_substream(), and the time sample length
+        is available in set_stream().  However, I'm anticipating that for long-running streams it 
+        may be useful to allow for a small amount of timestamp "drift" via the t0/t1 args.
 
         Some transforms will need to do read-only inspection of data outside the chunk.  For example,
         a detrending transform may need to look at values of the data a little bit before and after
