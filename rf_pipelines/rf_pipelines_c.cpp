@@ -599,8 +599,10 @@ static PyObject *make_chime_stream_from_filename_list(PyObject *self, PyObject *
 	return NULL;
     
     object arg(arg_ptr, false);
-    PyObject *iter_ptr = PyObject_GetIter(arg_ptr);
 
+    if (PyString_Check(arg_ptr))
+	throw runtime_error("rf_pipelines: expected argument to make_chime_stream_from_filename_list() to be a list/iterator of strings, not a single string");
+    PyObject *iter_ptr = PyObject_GetIter(arg_ptr);
     if (!iter_ptr)
 	throw runtime_error("rf_pipelines: expected argument to make_chime_stream_from_filename_list() to be a list/iterator of strings");
 
