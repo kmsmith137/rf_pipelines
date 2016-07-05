@@ -46,3 +46,41 @@ INSTALLATION
 
   - For some quick unit tests, do 
       ./run-unit-tests
+
+
+QUICK START
+-----------
+
+  - This code is best "documented by example", so defintely start by checking out the following:
+
+      examples/example1_toy     illustrates basic interface + writing a new transform in python
+      examples/example2_gbncc   detrend and dedisperse GBNCC data
+      examples/example3_chime   detrend and dedisperse CHIME pathfinder data
+
+  - From here I recommend reading the Python docstrings, starting with the toplevel 'rf_pipelines'
+    module.
+
+
+TO DO LIST
+----------
+
+  - More detrenders and RFI-removing filters is a huge priority!
+
+  - In particular a detrender which correctly handles the CHIME switched noise source.
+
+  - The plotting_transform is currently very primitive and could use improvement
+
+  - Same goes for the 'bonsai-plot-triggers' script.  We should also have more
+    postprocessing scripts for the bonsai trigger file (peak finders etc.)
+
+
+LOW-LEVEL TO DO LIST
+--------------------
+
+  - Currently implemented low-level buffer scheme is a little suboptimal and copies
+    data more than necessary
+
+  - The under-the-hood python-wrapping is a mess, making difficult to export a new
+    stream or transform written in C++ to python.
+
+  - Currently it's not possible to write streams in python.
