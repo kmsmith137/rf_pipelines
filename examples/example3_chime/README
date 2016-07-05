@@ -38,6 +38,7 @@ three trees to search different parts of parameter space.  The github repo conta
 "reference" versions of some of these plots for comparison.
 
 All the output files show a ton of RFI since there is no masking!
-In this example the waterfall plots do not show artifacts from the periodic noise source.
-I assume this is because noise source edges always occur at a 1024-sample chunk boundary
-of the simple_dedisperser.  Not sure if this is a coincidence or it always happens.
+
+In this example there isn't much difference between the raw and detrended plots, and
+the waterfall plots don't show the periodic noise source.  I assume this is because the
+.h5 files have already been detrended by L1mock?
