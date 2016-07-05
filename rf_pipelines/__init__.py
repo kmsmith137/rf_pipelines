@@ -61,6 +61,9 @@ Transforms:
 """
 
 
+import sys
+import numpy as np
+
 # Not sure why, but this import has to be in the toplevel module,
 # or png writing will sometimes segfault!
 try:
@@ -78,26 +81,6 @@ except:
 
 from .rf_pipelines_c import wi_stream, wi_transform
 
-# Streams (all implemented in C++, there is currently no interface for writing streams in python)
-
-from .streams.chime_streams import \
-    chime_stream_from_filename, \
-    chime_stream_from_filename_list, \
-    chime_stream_from_acqdir
-
-from .streams.psrfits_stream import psrfits_stream
-from .streams.gaussian_noise_stream import gaussian_noise_stream
-
-# Transforms (some implemented in C++, others in python)
-
-from .transforms.plotter_transform import plotter_transform
-from .transforms.simple_detrender import simple_detrender
-from .transforms.bonsai_dedisperser import bonsai_dedisperser
-from .transforms.frb_injector_transform import frb_injector_transform
-
-# Helper routines for implementing new transforms in python.
-
-from .utils import write_png, wi_downsample
 
 
 ####################################################################################################
@@ -212,3 +195,30 @@ class py_wi_transform(wi_transform):
 
     def end_substream(self):
         pass
+
+
+####################################################################################################
+#
+# Library of built-in streams and transforms
+
+
+# Streams (all implemented in C++, there is currently no interface for writing streams in python)
+
+from .streams.chime_streams import \
+    chime_stream_from_filename, \
+    chime_stream_from_filename_list, \
+    chime_stream_from_acqdir
+
+from .streams.psrfits_stream import psrfits_stream
+from .streams.gaussian_noise_stream import gaussian_noise_stream
+
+# Transforms (some implemented in C++, others in python)
+
+from .transforms.plotter_transform import plotter_transform
+from .transforms.simple_detrender import simple_detrender
+from .transforms.bonsai_dedisperser import bonsai_dedisperser
+from .transforms.frb_injector_transform import frb_injector_transform
+
+# Helper routines for implementing new transforms in python.
+
+from .utils import write_png, wi_downsample

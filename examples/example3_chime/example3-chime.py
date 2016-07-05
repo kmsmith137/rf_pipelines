@@ -6,7 +6,13 @@
 # the python docstrings.
 
 import os
+import sys
 import rf_pipelines
+
+if not os.path.exists('bonsai_config.hdf5'):
+    print "Before running this script, you need to create the file 'bonsai_config.hdf5', using this command:"
+    print "  bonsai-mkweight bonsai_config.txt bonsai_config.hdf5"
+    sys.exit(1)
 
 # Analyze four arbitrarily chosen files from the June 21 run.
 # The filenames below assume you're running on chimer.physics.mcgill.ca
@@ -40,3 +46,7 @@ t3 = rf_pipelines.plotter_transform('detrended_chime', img_nfreq=512, img_nt=120
 t4 = rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5')
 
 s.run([t1,t2,t3,t4])
+
+print "example3.py completed successfully"
+print "You can plot the bonsai triggers with 'bonsai-plot-triggers.py triggers.hdf5'"
+

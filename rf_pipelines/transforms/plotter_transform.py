@@ -3,7 +3,7 @@ import numpy as np
 import rf_pipelines
 
 
-class plotter_transform(rf_pipelines.wi_transform):
+class plotter_transform(rf_pipelines.py_wi_transform):
     """
     This is a pseudo-transform (meaning that it does not actually modify its input)
     which makes waterfall plots.  It's primitive so please feel free to improve it!

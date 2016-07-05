@@ -5,7 +5,14 @@
 # For more documentation of the rf_transform API and builtin stream/transforms, see
 # the python docstrings.
 
+import os
+import sys
 import rf_pipelines
+
+if not os.path.exists('bonsai_config.hdf5'):
+    print "Before running this script, you need to create the file 'bonsai_config.hdf5', using this command:"
+    print "  bonsai-mkweight bonsai_config.txt bonsai_config.hdf5"
+    sys.exit(1)
 
 # An example GBNCC file on chimer
 # Note: 8192 frequency channels, sample length 8.192e-5 sec, total size is 120.1 sec (1466368 samples)
@@ -27,3 +34,6 @@ t2 = rf_pipelines.plotter_transform(img_prefix='detrended_gbncc', img_nfreq=512,
 t3 = rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5')
 
 s.run([t1,t2,t3])
+
+print "example2.py completed successfully"
+print "You can plot the bonsai triggers with 'bonsai-plot-triggers.py triggers.hdf5'"

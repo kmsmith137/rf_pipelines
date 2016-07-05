@@ -2,7 +2,7 @@ import sys
 import rf_pipelines
 
 
-class frb_injector_transform(rf_pipelines.wi_transform):
+class frb_injector_transform(rf_pipelines.py_wi_transform):
     def __init__(self, snr, undispersed_arrival_time, dm, intrinsic_width=0.0, sm=0.0, spectral_index=0.0, sample_rms=1.0, nt_chunk=1024):
         self.dm = dm
         self.sm = sm

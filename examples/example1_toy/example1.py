@@ -1,7 +1,15 @@
 #!/usr/bin/env python
 
+import os
+import sys
 import numpy as np
 import rf_pipelines
+
+
+if not os.path.exists('bonsai_config.hdf5'):
+    print "Before running this script, you need to create the file 'bonsai_config.hdf5', using this command:"
+    print "  bonsai-mkweight bonsai_config.txt bonsai_config.hdf5"
+    sys.exit(1)
 
 
 # To illustrate writing a transform in python, here is a toy transform
@@ -95,5 +103,6 @@ t4 = rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5')
 
 # Run the rf_pipeline!
 s.run([t1,t2,t3,t4])
+
 print "example1.py completed successfully"
 print "You can plot the bonsai triggers with 'bonsai-plot-triggers.py triggers.hdf5'"
