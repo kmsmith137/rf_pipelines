@@ -61,6 +61,14 @@ Transforms:
 """
 
 
+# Not sure why, but this import has to be in the toplevel module,
+# or png writing will sometimes segfault!
+try:
+    import PIL.Image
+except:
+    print >>sys.stderr, "rf_pipelines: import PIL.Image failed; many things will work but plotting will fail"
+
+
 # The 'wi_stream' and 'wi_transform' base classes are subclassed to define streams and transforms.
 # These classes are written in C++ and exported to Python via 'rf_pipelines_c.cpp'
 #
@@ -87,7 +95,8 @@ from .transforms.simple_detrender import simple_detrender
 from .transforms.bonsai_dedisperser import bonsai_dedisperser
 from .transforms.frb_injector_transform import frb_injector_transform
 
-# Helper routines for writing transforms in python.
+# Helper routines for implementing new transforms in python.
+
 from .utils import write_png, wi_downsample
 
 

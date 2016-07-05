@@ -3,8 +3,8 @@ import numpy as np
 
 try:
     import PIL.Image
-except ImportError:
-    print >>sys.stderr, "rf_pipelines: import PIL.Image failed; many things will work but plotting will fail"
+except:
+    pass  # warning message has already been printed in rf_pipelines/__init__.py
 
 
 def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False):
@@ -50,8 +50,6 @@ def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False
     rgb = np.zeros((arr.shape[0],arr.shape[1],3), dtype=np.uint8)
     rgb[:,:,0] = red
     rgb[:,:,2] = blue
-
-    print >>sys.stderr, 'XXX attempting to write png: ', rgb.shape
 
     img = PIL.Image.fromarray(rgb)
     img.save(filename)
