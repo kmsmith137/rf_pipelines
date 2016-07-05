@@ -27,7 +27,7 @@ estimation of trigger variances.)
 
     bonsai-mkweight bonsai_config.txt bonsai_config.hdf5
 
-Then rule the example:
+Then run the example:
 
    ./example1.py
 
@@ -36,8 +36,10 @@ coarse-grained triggers.  The trigger file can be plotted with:
 
    bonsai-plot-triggers.py triggers.hdf5
 
-If everything worked then the file 'dedisp_input_5.png' should contain the simulated FRB, 
+If everything worked then the file 'waterfall_5.png' should contain the simulated FRB, 
 gaussian noise, plus periodic artifacts from the toy_transform.  The file 'triggers.png'
 should contain some wide diagonal stripes due to the toy_transform artifacts, plus a
-sharply peaked bowtie from the FRB.
+sharply peaked bowtie from the FRB.  The github refo contains reference versions of these
+plots for comparison.
+
 

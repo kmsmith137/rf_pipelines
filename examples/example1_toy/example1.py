@@ -88,9 +88,9 @@ t2 = rf_pipelines.frb_injector_transform(snr=100, undispersed_arrival_time=5, dm
 
 # The plotter_transform can be put anywhere in the transform chain and is very convenient 
 # for inspecting the pipeline.  (You can include multiple plotter_transforms, just use different 
-# filenames of course!).  You'll be able to see the simulated FRB in 'dedisp_input_5.png'
+# filenames of course!).  You'll be able to see the simulated FRB in 'waterfall_5.png'
 
-t3 = rf_pipelines.plotter_transform(img_prefix = 'dedisp_input',   # filenames will be dedisp_input_0.png, ...
+t3 = rf_pipelines.plotter_transform(img_prefix = 'waterfall',   # filenames will be waterfall_0.png, ...
                                     img_nfreq = 512,     # no downsampling in freq axis, since img_nfreq = stream_nfreq
                                     img_nt = 1024,       # output images will be (512, 1024)
                                     downsample_nt = 1)   # no downsampling in time axis either
