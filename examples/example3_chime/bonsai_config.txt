@@ -5,9 +5,9 @@
 # L1 node.
 #
 # The search uses three 4K-trees:
-#   - one upsampled (nups=2, max DM 820)
-#   - one at native resolution (max DM 1640)
-#   - one downsampled (nups=2, max DM 3280)
+#   - one upsampled (nups=2, max DM 138)
+#   - one at native resolution (max DM 276)
+#   - one downsampled (nups=2, max DM 552)
 #
 # Currently the bonsai dedisperser requires its config.txt file to
 # be processed into a config.hdf5 file (containing a binary array of

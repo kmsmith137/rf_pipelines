@@ -16,7 +16,7 @@ estimation of trigger variances.)
 
     bonsai-mkweight bonsai_config.txt bonsai_config.hdf5
 
-Then rule the example:
+Then run the example:
 
    ./example2-gbncc.py
 
