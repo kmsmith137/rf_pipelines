@@ -39,26 +39,9 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/frb_injector_transform.py \
 	rf_pipelines/transforms/plotter_transform.py
 
-# FIXME generate this from PYFILES using Makefile rule
-PYCFILES=rf_pipelines/__init__.pyc \
-	rf_pipelines/transforms/__init__.pyc \
-	rf_pipelines/utils.pyc \
-	rf_pipelines/streams/__init__.pyc \
-	rf_pipelines/streams/chime_streams.pyc \
-	rf_pipelines/streams/psrfits_stream.pyc \
-	rf_pipelines/streams/gaussian_noise_stream.pyc \
-	rf_pipelines/transforms/__init__.pyc \
-	rf_pipelines/transforms/simple_detrender.pyc \
-	rf_pipelines/transforms/bonsai_dedisperser.pyc \
-	rf_pipelines/transforms/frb_injector_transform.pyc \
-	rf_pipelines/transforms/plotter_transform.pyc
-
 # Used in 'make clean'
-CLEANDIRS=. rf_pipelines rf_pipelines/streams rf_pipelines/transforms
-
-# Used in 'make uninstall'
-# Directories must be sorted from children to parents
-PYSUBDIRS=rf_pipelines/streams rf_pipelines/transforms rf_pipelines
+CLEANDIRS=. site rf_pipelines rf_pipelines/streams rf_pipelines/transforms \
+	examples/example1_toy examples/example2_gbncc examples/example3_chime
 
 LIBS=
 
@@ -111,9 +94,8 @@ install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
 
 uninstall:
 	for f in $(INCFILES); do rm -f $(INCDIR)/$$f; done
-	for f in $(PYFILES) $(PYCFILES); do rm -f $(PYDIR)/$$f; done
-	for d in $(PYSUBDIRS); do [ -d $(PYDIR)/$$d ] && rmdir $(PYDIR)/$$d; done; true
 	rm -f $(LIBDIR)/librf_pipelines.so
+	rm -rf $(PYDIR)/rf_pipelines/
 
 clean:
 	rm -f run-unit-tests
