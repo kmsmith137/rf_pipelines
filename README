@@ -17,7 +17,7 @@ DEPENDENCIES
 
   - Optional: bonsai (https://github.com/CHIMEFRB/bonsai)
     This is an incremental incoherent dedisperser.
-    Note that bonsai v3 or later is required! (currently on branch 'devel_v3', not github master)
+    Note that bonsai v3 or later is required!
     Note that bonsai requires a very recent cython (see its README).
 
   - Optional: ch_frb_io (https://github.com/CHIMEFRB/ch_frb_io)
