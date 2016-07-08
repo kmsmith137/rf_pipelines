@@ -14,11 +14,11 @@ if not os.path.exists('bonsai_config.hdf5'):
     print "  bonsai-mkweight bonsai_config.txt bonsai_config.hdf5"
     sys.exit(1)
 
-# Analyze four arbitrarily chosen files from the June 21 run.
+# Analyze four arbitrarily chosen files from the  run.
 # The filenames below assume you're running on chimer.physics.mcgill.ca
 # Note: The utility 'ch-show-intensity-file' may be useful for quickly inspecting a CHIME hdf5 file.
-filename_list = [ '00003014.h5', '00003035.h5', '00003056.h5', '00003078.h5' ]
-filename_list = [ os.path.join('/data/pathfinder/16-06-21',f) for f in filename_list ]
+filename_list = [ '00000770.h5', '00000786.h5', '00000802.h5', '00000819.h5' ]
+filename_list = [ os.path.join('/data/pathfinder/16-07-08',f) for f in filename_list ]
 
 # Construct CHIME stream object.
 s = rf_pipelines.chime_stream_from_filename_list(filename_list)
