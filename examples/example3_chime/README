@@ -37,9 +37,5 @@ There are 3 dedispersion output files because the bonsai configuration file defi
 three trees to search different parts of parameter space.  The github repo contains 
 "reference" versions of some of these plots for comparison.
 
-All the output files show a ton of RFI since there is no masking!
-
-In this example there isn't much difference between the raw and detrended plots.  I
-think that the periodic noise source was turned off during this acquisition, and that
-some detrending has already been applied by L1mock before writing its hdf5 file, but
-I'm checking with Kiyo.
+All the output files show a ton of RFI since there is no masking!  You will also
+be able to see the noise source turn on/off every 21.47 seconds.
