@@ -20,4 +20,5 @@ def chime_packetizer(dstname, nfreq_per_packet, nt_per_chunk, nt_per_packet, wt_
     weight array.  Samples with weight below the cutoff will be masked.
     """
 
-    return rf_pipelines_c.make_simple_detrender(nt_chunk)
+    return rf_pipelines_c.make_chime_packetizer(dstname, nfreq_per_packet, nt_per_chunk, nt_per_packet, wt_cutoff)
+
