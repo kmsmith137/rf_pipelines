@@ -49,14 +49,21 @@ Streams:
    chime_stream_from_filename(filename, nt_chunk=0)
    chime_stream_from_filename_list(filename_list, nt_chunk=0)
    chime_stream_from_acqdir(dirname, nt_chunk=0)
+
    psrfits_stream(fits_filename)
+
    gaussian_noise_stream(nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms=1.0, nt_chunk=0)
 
 Transforms:
 
-   simple_detrender(nt_chunk)
    plotter_transform(img_prefix, img_nfreq, img_nt, downsample_nt=1, nt_chunk=0)
+
+   chime_packetizer(dstname, nfreq_per_packet, nt_per_chunk, nt_per_packet, wt_cutoff)
+
+   simple_detrender(nt_chunk)
+
    frb_injector_transform(snr, undispersed_arrival_time, dm, intrinsic_width=0.0, sm=0.0, spectral_index=0.0, sample_rms=1.0, nt_chunk=1024)
+
    bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, ibeam=0)
 """
 
@@ -214,6 +221,7 @@ from .streams.gaussian_noise_stream import gaussian_noise_stream
 
 # Transforms (some implemented in C++, others in python)
 
+from .transforms.chime_packetizer import chime_packetizer
 from .transforms.plotter_transform import plotter_transform
 from .transforms.simple_detrender import simple_detrender
 from .transforms.bonsai_dedisperser import bonsai_dedisperser

@@ -651,6 +651,22 @@ static PyObject *make_gaussian_noise_stream(PyObject *self, PyObject *args)
 }
 
 
+static PyObject *make_chime_packetizer(PyObject *self, PyObject *args)
+{
+    const char *dstname = nullptr;
+    int nfreq_per_packet;
+    int nt_per_chunk;
+    int nt_per_packet;
+    double wt_cutoff;
+
+    if (!PyArg_ParseTuple(args, "siiid", &dstname, &nfreq_per_packet, &nt_per_chunk, &nt_per_packet, &wt_cutoff))
+	return NULL;
+
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_chime_packetizer(dstname, nfreq_per_packet, nt_per_chunk, nt_per_packet, wt_cutoff);
+    return wi_transform_object::make(ret);
+}
+
+
 static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
 {
     ssize_t nt_chunk = 0;
@@ -687,6 +703,7 @@ static PyMethodDef module_methods[] = {
     { "make_chime_stream_from_filename", tc_wrap2<make_chime_stream_from_filename>, METH_VARARGS, "Python interface to C++ routine" },
     { "make_chime_stream_from_filename_list", tc_wrap2<make_chime_stream_from_filename_list>, METH_VARARGS, "Python interface to C++ routine" },
     { "make_gaussian_noise_stream", tc_wrap2<make_gaussian_noise_stream>, METH_VARARGS, "Python interface to C++ routine" },
+    { "make_chime_packetizer", tc_wrap2<make_chime_packetizer>, METH_VARARGS, "Python interface to C++ routine" },
     { "make_simple_detrender", tc_wrap2<make_simple_detrender>, METH_VARARGS, "Python interface to C++ routine" },
     { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, "Python interface to C++ routine" },
     { NULL, NULL, 0, NULL }

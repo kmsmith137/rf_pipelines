@@ -35,6 +35,7 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/streams/psrfits_stream.py \
 	rf_pipelines/streams/gaussian_noise_stream.py \
 	rf_pipelines/transforms/__init__.py \
+	rf_pipelines/transforms/chime_packetizer.py \
 	rf_pipelines/transforms/simple_detrender.py \
 	rf_pipelines/transforms/bonsai_dedisperser.py \
 	rf_pipelines/transforms/frb_injector_transform.py \
