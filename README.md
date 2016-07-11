@@ -1,5 +1,17 @@
-DEPENDENCIES
-------------
+rf_pipelines: A plugin-based framework for processing channelized intensity data in radio astronomy.
+
+For a high-level overview, here are some slides from CHIME telecons:
+
+  - June 20 proposal:
+      [ docs/16-06-20-rf_pipelines_proposal.pdf ] 
+      ( docs/16-06-20-rf_pipelines_proposal.pdf ) 
+
+  - July 5 update:
+      [ docs/16-07-05-rf_pipelines_update.pdf ] 
+      ( docs/16-07-05-rf_pipelines_update.pdf ) 
+
+
+### DEPENDENCIES
 
   - A gcc which is recent enough that C++11 is supported.  
     I know that gcc 4.8.1 works, and that 4.4.7 is too old.
@@ -11,7 +23,7 @@ DEPENDENCIES
     it with 'import PIL' from python).  If you need to install it, I recommend the 'Pillow' 
     variant (pip install Pillow)
 
-  - Optional but recommended: simpulse (https://github.com/kmsmith137/simpulse)
+  - Optional: simpulse (https://github.com/kmsmith137/simpulse)
     You'll need this if you want to inject simulated FRB's.
     Note that simpulse requires cython and fftw3 (see its README).
 
@@ -34,8 +46,7 @@ DEPENDENCIES
           AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 
-INSTALLATION
-------------
+### INSTALLATION
 
   - Create a file ./Makefile.local containing compiler flags, library locations, etc.
     The format is defined in Makefile, but it will probably be easiest to copy one of
@@ -48,29 +59,31 @@ INSTALLATION
       ./run-unit-tests
 
 
-QUICK START
------------
+### QUICK START
 
   - This code is best "documented by example", so defintely start by checking out the following:
 
-      examples/example1_toy     illustrates basic interface + writing a new transform in python
-      examples/example2_gbncc   detrend and dedisperse GBNCC data
-      examples/example3_chime   detrend and dedisperse CHIME pathfinder data
+    - [examples/example1_toy] (examples/example1_toy):
+      Illustrates basic interface + writing a new transform in python
+
+    - [examples/example2_gbncc] (examples/example2_gbncc):
+      Detrend and dedisperse GBNCC data
+
+    - [examples/example3_chime] (examples/example3_chime):
+      Detrend and dedisperse CHIME pathfinder data
 
   - From here (and assuming that you want to use rf_pipelines from Python not C++) I recommend
     browsing python docstrings.  Some useful docstrings:
+    ```
+    rf_pipelines                    [ 'help(rf_pipelines)' from python interpreter. ]
+    rf_pipelines.py_wi_transform    [ 'help(rf_pipelines.py_wi_transform)' ]
+ 
+    + docstrings for stream/transform objects, e.g. rf_pipelines.chime_stream_from_acqdir
+      or rf_pipelines.plotter_transform
+    ```
 
-        rf_pipelines                    [ 'help(rf_pipelines)' from python interpreter. ]
-	rf_pipelines.py_wi_transform    [ help(rf_pipelines.py_wi_transform) ]
 
-	  + docstrings for stream/transform objects, e.g.
-	      rf_pipelines.chime_stream_from_acqdir
-	      rf_pipelines.plotter_transform
-
-
-
-TO DO LIST
-----------
+### TO DO LIST
 
 Here are some to do items which anyone could work on:
 
@@ -92,8 +105,7 @@ Here are some to do items which anyone could work on:
     (in case you want to write a trigger postprocessing callback in python)
 
 
-LOW-LEVEL TO DO LIST
---------------------
+### LOW-LEVEL TO DO LIST
 
 I plan to get back to these in a few weeks:
 
