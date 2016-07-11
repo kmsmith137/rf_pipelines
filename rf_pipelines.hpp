@@ -60,6 +60,11 @@ extern std::shared_ptr<wi_stream> make_chime_stream_from_filename(const std::str
 extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std::vector<std::string> &filename_list, ssize_t nt_chunk=0);
 
 
+// Converts a stream to UDP packets in "CHIME L0_L1" format, and sends them over the network.
+// The 'dstname' argument should be of the form HOSTNAME:PORTNUM.
+extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff);
+
+
 // Simple stream which simulates Gaussian random noise
 // If 'nt_chunk' is unspecified or zero, it will default to a reasonable value.
 extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssize_t nt_tot, double freq_lo_MHz, double freq_hi_MHz, double dt_sample, double sample_rms=1.0, ssize_t nt_chunk=0);
