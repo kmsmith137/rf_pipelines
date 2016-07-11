@@ -48,4 +48,4 @@ plots for comparison:
 
 ![reference_waterfall_5.png](https://github.com/kmsmith137/rf_pipelines/blob/master/examples/example1_toy/reference_waterfall_5.png)
 
-!(https://github.com/kmsmith137/rf_pipelines/blob/master/examples/example1_toy/reference_triggers.png")
+![reference_triggers.png](reference_triggers.png)
