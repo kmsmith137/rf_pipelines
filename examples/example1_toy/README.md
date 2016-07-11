@@ -46,9 +46,6 @@ should contain some wide diagonal stripes due to the toy_transform artifacts, pl
 sharply peaked bowtie from the FRB.  The github repo contains reference versions of these
 plots for comparison:
 
-  !(reference_waterfall_5.png)
+!(https://github.com/kmsmith137/rf_pipelines/blob/master/examples/example1_toy/reference_waterfall_5.png)
 
-  (reference_triggers.png)
-
-
-
+!(https://github.com/kmsmith137/rf_pipelines/blob/master/examples/example1_toy/reference_triggers.png)
