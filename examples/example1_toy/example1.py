@@ -103,7 +103,7 @@ class toy_transform(rf_pipelines.py_wi_transform):
 
         rfi[rfi < 400] = 400.
         rfi[rfi > 800] = 800.
-        rfi = int(800) - np.ceil(rfi).astype(int)   # e.g., (417.37, 419.35) ---> (782, 780)
+        rfi = ((int(800)-np.ceil(rfi)) * (self.nfreq/400.)).astype(int)
 
         for x in rfi:
             (ifreq, jfreq) = (x[1], x[0])
