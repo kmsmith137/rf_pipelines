@@ -65,7 +65,55 @@ class toy_transform(rf_pipelines.py_wi_transform):
         (ifreq, jfreq) = (int(0.2*self.nfreq), int(0.3*self.nfreq))
         (it, jt) = (int(0.4*self.nfreq), int(0.5*self.nfreq))
         weights[ifreq:jfreq,it:jt] = 0.
+        
+        #+
+        #------- prototyping an rfi removal mask ------
+        # note: self.nfreq runs from high to low
+        # for the final version
+        #   - rfi should be read from a directory/database of dated 
+        #     masks (stored for finding rfi pattern, forecasting, etc.)
+        #   - hard-coded freq should be given as input par, constrained between 400 and 800 MHz
+        #   - the for loop can be omitted?
+        #   - any use for a non-zero weight?
+        #   - check whether the first is <= second element in the input freq array
+        #     (after all, a standard input file should be defined)
+        #   - dynamic rfi mask: rejecting bad freq by stat analysis
 
+        rfi = np.array([[417.37, 419.35],
+                        [436.90, 438.10],
+                        [449.79, 450.99],
+                        [454.87, 456.06],
+                        [456.04, 457.24],
+                        [457.61, 458.80],
+                        [461.90, 463.10],
+                        [463.86, 465.44],
+                        [468.15, 470.13],
+                        [483.00, 484.97],
+                        [499.79, 509.58],
+                        [529.48, 536.53],
+                        [541.59, 554.50],
+                        [565.42, 572.86],
+                        [577.53, 584.58],
+                        [694.33, 696.30],
+                        [728.70, 734.19],
+                        [734.17, 739.66],
+                        [739.64, 745.91],
+                        [745.89, 756.46],
+                        [799.40, 800.21]]) 
+
+        rfi[rfi < 400] = 400.
+        rfi[rfi > 800] = 800.
+        rfi = int(800) - np.ceil(rfi).astype(int)   # e.g., (417.37, 419.35) ---> (782, 780)
+
+        for x in rfi:
+            (ifreq, jfreq) = (x[1], x[0])
+            if ifreq != jfreq:
+                weights[ifreq:jfreq,:] = 0.
+            else:
+                weights[ifreq,:] = 0.
+
+        #----------------------------------------------
+        #-
 
 # To run an rf_pipeline, we need an input stream and a sequence of transforms.
 # For the stream,  we use the 'gaussian_noise_stream', which just simulates
