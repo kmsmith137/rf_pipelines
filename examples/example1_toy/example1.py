@@ -78,6 +78,14 @@ class toy_transform(rf_pipelines.py_wi_transform):
         #   - check whether the first is <= second element in the input freq array
         #     (after all, a standard input file should be defined)
         #   - dynamic rfi mask: rejecting bad freq by stat analysis
+        #   - some code cleaning is required
+        #
+#       input arg:
+#       filename/path
+        freq_lo_MHz = 400.0
+        freq_hi_MHz = 800.0
+        nfreq = self.nfreq
+#       masking criteria (optional)?
 
         rfi = np.array([[417.37, 419.35],
                         [436.90, 438.10],
@@ -100,10 +108,17 @@ class toy_transform(rf_pipelines.py_wi_transform):
                         [739.64, 745.91],
                         [745.89, 756.46],
                         [799.40, 800.21]]) 
+        
+        scale = nfreq / (freq_hi_MHz - freq_lo_MHz)
+        
+        rfi[rfi < freq_lo_MHz] = freq_lo_MHz
+        rfi[rfi > freq_hi_MHz] = freq_hi_MHz
+        rfi = (freq_hi_MHz - rfi) * scale
 
-        rfi[rfi < 400] = 400.
-        rfi[rfi > 800] = 800.
-        rfi = ((int(800)-np.ceil(rfi)) * (self.nfreq/400.)).astype(int)
+        # Currently masking out nonzero overlap with a bad interval.
+        # Of course, we can add a switch arg for a dynamic criterion.
+        rfi[:,0] = (np.ceil(rfi[:,0])).astype(int)
+        rfi[:,1] = (np.floor(rfi[:,1])).astype(int)
 
         for x in rfi:
             (ifreq, jfreq) = (x[1], x[0])
