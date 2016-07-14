@@ -70,22 +70,17 @@ class toy_transform(rf_pipelines.py_wi_transform):
         #------- prototyping an rfi removal mask ------
         # note: self.nfreq runs from high to low
         # for the final version
-        #   - rfi should be read from a directory/database of dated 
-        #     masks (stored for finding rfi pattern, forecasting, etc.)
-        #   - hard-coded freq should be given as input par, constrained between 400 and 800 MHz
         #   - the for loop can be omitted?
-        #   - any use for a non-zero weight?
         #   - check whether the first is <= second element in the input freq array
         #     (after all, a standard input file should be defined)
         #   - dynamic rfi mask: rejecting bad freq by stat analysis
-        #   - some code cleaning is required
         #
-#       input arg:
-        filepath = '/data/rfi/rfi_20160705.dat'
+        # input arg:
+        filepath = '/data/rfi/rfi_20160705.dat' # (f1,f2) freq intervals, in rows
         freq_lo_MHz = 400.0
         freq_hi_MHz = 800.0
         nfreq = self.nfreq
-#       masking criteria (optional)?
+        # masking criteria (optional)?
 
         rfi = np.genfromtxt(filepath, delimiter=',') 
         scale = nfreq / (freq_hi_MHz - freq_lo_MHz)
