@@ -81,34 +81,13 @@ class toy_transform(rf_pipelines.py_wi_transform):
         #   - some code cleaning is required
         #
 #       input arg:
-#       filename/path
+        filepath = '/data/rfi/rfi_20160705.dat'
         freq_lo_MHz = 400.0
         freq_hi_MHz = 800.0
         nfreq = self.nfreq
 #       masking criteria (optional)?
 
-        rfi = np.array([[417.37, 419.35],
-                        [436.90, 438.10],
-                        [449.79, 450.99],
-                        [454.87, 456.06],
-                        [456.04, 457.24],
-                        [457.61, 458.80],
-                        [461.90, 463.10],
-                        [463.86, 465.44],
-                        [468.15, 470.13],
-                        [483.00, 484.97],
-                        [499.79, 509.58],
-                        [529.48, 536.53],
-                        [541.59, 554.50],
-                        [565.42, 572.86],
-                        [577.53, 584.58],
-                        [694.33, 696.30],
-                        [728.70, 734.19],
-                        [734.17, 739.66],
-                        [739.64, 745.91],
-                        [745.89, 756.46],
-                        [799.40, 800.21]]) 
-        
+        rfi = np.genfromtxt(filepath, delimiter=',') 
         scale = nfreq / (freq_hi_MHz - freq_lo_MHz)
         
         rfi[rfi < freq_lo_MHz] = freq_lo_MHz
