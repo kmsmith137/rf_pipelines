@@ -76,7 +76,7 @@ class toy_transform(rf_pipelines.py_wi_transform):
         #   - dynamic rfi mask: rejecting bad freq by stat analysis
         #
         # input arg:
-        filepath = '/data/rfi/rfi_20160705.dat' # (f1,f2) freq intervals, in rows
+        filepath = '/data/rfi/rfi_20160705.dat' # f1,f2 freq intervals, in rows
         freq_lo_MHz = 400.0
         freq_hi_MHz = 800.0
         nfreq = self.nfreq
