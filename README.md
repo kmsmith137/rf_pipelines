@@ -75,8 +75,7 @@ For a high-level overview, here are some slides from CHIME telecons:
     - [examples/example4_cpp_toy] (examples/example4_cpp_toy):
       Illustrates running rf_pipelines through its C++ interface
 
-  - From here (and assuming that you want to use rf_pipelines from Python not C++) I recommend
-    browsing python docstrings.  Some useful docstrings:
+  - If you want to run rf_pipelines from python, I recommend browsing python docstrings next.  Some useful docstrings:
     ```
     rf_pipelines                    [ 'help(rf_pipelines)' from python interpreter. ]
     rf_pipelines.py_wi_transform    [ 'help(rf_pipelines.py_wi_transform)' ]
@@ -84,6 +83,9 @@ For a high-level overview, here are some slides from CHIME telecons:
     + docstrings for stream/transform objects, e.g. rf_pipelines.chime_stream_from_acqdir
       or rf_pipelines.plotter_transform
     ```
+
+  - If you want to write a new stream in C++, I recommend reading comments in rf_pipelines.hpp, especially the
+    comments in 'class wi_stream' and 'class wi_run_state'.
 
 
 ### TO DO LIST
