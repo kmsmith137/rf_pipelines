@@ -36,10 +36,12 @@ namespace rf_pipelines {
 
 
 // Non-inline helper functions (more to come?)
+extern bool file_exists(const std::string &filename);
 extern void listdir(std::vector<std::string> &filenames, const std::string &dirname);
 
 
 // Inlines follow...
+
 inline double uniform_rand()
 {
     return (rand() + 0.5) / (RAND_MAX + 1.0);
@@ -96,6 +98,12 @@ inline ssize_t gcd(ssize_t m, ssize_t n)
 inline bool endswith(const std::string &str, const std::string &suffix)
 {
     return std::equal(suffix.rbegin(), suffix.rend(), str.rbegin());
+}
+
+template<typename T, typename... Args>
+std::unique_ptr<T> make_unique(Args&& ...args)
+{
+    return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
 
 template<typename T>

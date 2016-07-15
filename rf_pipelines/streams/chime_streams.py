@@ -17,8 +17,8 @@ def chime_stream_from_filename(filename, nt_chunk=0):
     The 'nt_chunk' arg is the chunk size used internally when moving data from hdf5 file
     into the rf_pipelines buffer.  If unspecified or zero, it will default to a reasonable value.
 
-    Note: a quick way to inspect a CHIME hdf5 file is using the 'ch-show-intensity-file' program,
-    in the ch_frb_io github repo.
+    Note: a quick way to inspect a CHIME hdf5 file is using the 'ch-show-intensity-file' and 'ch-plot-intensity-file'
+    programs, in the ch_frb_io github repo.
     """
 
     return rf_pipelines_c.make_chime_stream_from_filename(filename, nt_chunk)

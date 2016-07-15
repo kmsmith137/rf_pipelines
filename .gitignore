@@ -3,5 +3,6 @@
 *.so
 *.pyc
 run-unit-tests
+examples/example4_cpp_toy/example4
 Makefile.local
 TODO
