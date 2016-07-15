@@ -27,7 +27,7 @@ public:
     //
     //   nfreq            Number of frequency channels
     //   freq_lo_MHz      Lowest frequency in band (e.g. 400 for CHIME)
-    //   freq_hi_MHz      Highest frequency in band (e.g. 400 for CHIME)
+    //   freq_hi_MHz      Highest frequency in band (e.g. 800 for CHIME)
     //   dt_sample        Length of a time sample in seconds
     //   nt_maxwrite      Stream block size (=max number of time samples per call to setup_write())
     //

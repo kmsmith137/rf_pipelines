@@ -26,6 +26,13 @@
 // example plotters or dedispersers.  Transforms run in sequence: each transform's
 // output is the input to the next transform.
 //
+// A generally important thing to be aware of!  Throughout rf_pipelines, we always
+// use a frequency channel ordering which goes from highest frequency to lowest.
+// This is the same ordering used in the CHIME data and in the bonsai code.
+// If you're writing a stream or transform class which "naturally" uses the 
+// opposite ordering, then you'll need to do some indexology to translate when
+// reading and writing from the rf_pipelines arrays.
+//
 // Here is a list of the streams and transforms which are currently available in C++.
 // More transforms are available in python (see rf_pipelines module docstring for details).
 // The python transforms are intended for rapid prototyping and should eventually be 
@@ -93,7 +100,14 @@ extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std
 
 
 // Simple stream which simulates Gaussian random noise
-// If 'nt_chunk' is unspecified or zero, it will default to a reasonable value.
+//
+//   nfreq            Number of frequency channels
+//   nt_tot           Total number of time samples written before stream ends.
+//   freq_lo_MHz      Lowest frequency in band (e.g. 400 for CHIME)
+//   freq_hi_MHz      Highest frequency in band (e.g. 800 for CHIME)
+//   dt_sample        Length of a time sample in seconds
+//   nt_chunk         Stream block size (if zero, will default to a reasonable value)
+//
 extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssize_t nt_tot, double freq_lo_MHz, double freq_hi_MHz, double dt_sample, double sample_rms=1.0, ssize_t nt_chunk=0);
 
 
