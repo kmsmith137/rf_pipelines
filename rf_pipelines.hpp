@@ -1,4 +1,6 @@
 //
+// rf_pipelines: plugin-based radio astronomy pipelines.
+//
 // Note: This code is best "documented by example", so if you're seeing it for the first
 // time, I recommend starting with the example programs in the examples/ directory!
 //
@@ -39,6 +41,8 @@
 //
 //   make_simple_detreneder()
 //      -> a really boneheaded detrending transform which just subtracts the mean in chunks
+//   make_chime_file_writer()
+//      -> writes stream to a single file in CHIME hdf5 format
 //   make_bonsai_dedisperser() 
 //      -> runs data through the bonsai dedisperser (dedispersion output is written to an hdf5 file)
 //
@@ -100,6 +104,23 @@ extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssiz
 
 // Simplest possible detrender: just divides the data into chunks and subtracts the mean in each chunk
 extern std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_chunk);
+
+
+//
+// This is a pseudo-transform which doesn't actually modify the data, it just writes it to a file in
+// CHIME hdf5 format.  (For now, the entire stream is written to a single file, I'll generalize later
+// to break the stream into multiple files.)
+//
+// If 'clobber' is false, and the target file already exists, an exception will be thrown rather than clobbering the old file.
+// If 'nt_chunk' is set to zero, a default chunk size will be chosen.
+//
+// The meaning of the 'bitshuffle' arg is:
+//   0 = no compression
+//   1 = try to compress, but if plugin fails then just write uncompressed data instead
+//   2 = try to compress, but if plugin fails then print a warning and write uncompressed data instead
+//   3 = compression mandatory
+//
+std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename, bool clobber=false, int bitshuffle=2, ssize_t nt_chunk=0);
 
 
 //
