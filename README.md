@@ -72,6 +72,9 @@ For a high-level overview, here are some slides from CHIME telecons:
     - [examples/example3_chime] (examples/example3_chime):
       Detrend and dedisperse CHIME pathfinder data
 
+    - [example4_cpp_toy] (example4_cpp_toy):
+      Illustrates running rf_pipelines through its C++ interface
+
   - From here (and assuming that you want to use rf_pipelines from Python not C++) I recommend
     browsing python docstrings.  Some useful docstrings:
     ```
