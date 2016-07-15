@@ -214,6 +214,7 @@ from .streams.gaussian_noise_stream import gaussian_noise_stream
 
 # Transforms (some implemented in C++, others in python)
 
+from .transforms.chime_transforms import chime_file_writer
 from .transforms.plotter_transform import plotter_transform
 from .transforms.simple_detrender import simple_detrender
 from .transforms.bonsai_dedisperser import bonsai_dedisperser

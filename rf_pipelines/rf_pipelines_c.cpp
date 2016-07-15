@@ -662,6 +662,21 @@ static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
 }
 
 
+static PyObject *make_chime_file_writer(PyObject *self, PyObject *args)
+{
+    char *filename = nullptr;
+    int clobber = false;   // "int" (not "bool") is deliberate here
+    int bitshuffle = 2;
+    int nt_chunk = 0;
+
+    if (!PyArg_ParseTuple(args, "siii", &filename, &clobber, &bitshuffle, &nt_chunk))
+	return NULL;
+
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_chime_file_writer(filename, clobber, bitshuffle, nt_chunk);
+    return wi_transform_object::make(ret);
+}
+
+
 static PyObject *make_bonsai_dedisperser(PyObject *self, PyObject *args)
 {
     const char *config_hdf5_filename = nullptr;
@@ -688,6 +703,7 @@ static PyMethodDef module_methods[] = {
     { "make_chime_stream_from_filename_list", tc_wrap2<make_chime_stream_from_filename_list>, METH_VARARGS, "Python interface to C++ routine" },
     { "make_gaussian_noise_stream", tc_wrap2<make_gaussian_noise_stream>, METH_VARARGS, "Python interface to C++ routine" },
     { "make_simple_detrender", tc_wrap2<make_simple_detrender>, METH_VARARGS, "Python interface to C++ routine" },
+    { "make_chime_file_writer", tc_wrap2<make_chime_file_writer>, METH_VARARGS, "Python interface to C++ routine" },
     { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, "Python interface to C++ routine" },
     { NULL, NULL, 0, NULL }
 };
