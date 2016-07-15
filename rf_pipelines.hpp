@@ -84,8 +84,8 @@ extern std::shared_ptr<wi_stream> make_psrfits_stream(const std::string &filenam
 // The 'nt_chunk' arg is the chunk size used internally when moving data from hdf5 file
 // into the rf_pipelines buffer.  If unspecified or zero, it will default to a reasonable value.
 //
-// Note: a quick way to inspect a CHIME hdf5 file is using the 'ch-show-intensity-file' program,
-// in the ch_frb_io github repo.
+// Note: a quick way to inspect a CHIME hdf5 file is using the 'ch-show-intensity-file' and 'ch-plot-intensity-file'
+// programs, in the ch_frb_io github repo.
 //
 extern std::shared_ptr<wi_stream> make_chime_stream_from_acqdir(const std::string &filename, ssize_t nt_chunk=0);
 extern std::shared_ptr<wi_stream> make_chime_stream_from_filename(const std::string &filename, ssize_t nt_chunk=0);
@@ -119,6 +119,9 @@ extern std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_chunk);
 //   1 = try to compress, but if plugin fails then just write uncompressed data instead
 //   2 = try to compress, but if plugin fails then print a warning and write uncompressed data instead
 //   3 = compression mandatory
+//
+// Note: a quick way to inspect a CHIME hdf5 file is using the 'ch-show-intensity-file' and 'ch-plot-intensity-file'
+// programs, in the ch_frb_io github repo.
 //
 std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename, bool clobber=false, int bitshuffle=2, ssize_t nt_chunk=0);
 
