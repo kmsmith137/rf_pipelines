@@ -94,11 +94,16 @@ class plotter_transform(rf_pipelines.py_wi_transform):
             filename += str(isubstream+1)
         filename += ('_%s.png' % self.ifile)
 
-        # I like this plotting convention best cosmetically
+        # When we reach end-of-stream, the buffer might be partially full (i.e. self.ipos < self.img_nt).
+        # In this case, the plotting convention which I like best cosmetically is to truncate the image if there
+        # is only one file in the output (i.e. self.ifile==0), otherwise pad with black.
+
         intensity = self.intensity_buf if (self.ifile > 0) else self.intensity_buf[:,:self.ipos]
         weights = self.weight_buf if (self.ifile > 0) else self.weight_buf[:,:self.ipos]
 
         rf_pipelines.write_png(filename, intensity, weights=weights, transpose=True, ytop_to_bottom=True)
 
+        self.intensity_buf[:,:] = 0.
+        self.weight_buf[:,:] = 0.
         self.ifile += 1
         self.ipos = 0
