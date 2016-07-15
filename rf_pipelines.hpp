@@ -149,7 +149,7 @@ struct wi_stream {
     double freq_lo_MHz;       // lowest frequency in band (e.g. 400 for CHIME)
     double freq_hi_MHz;       // highest frequency in band (e.g. 400 for CHIME)
     double dt_sample;         // length of a sample in seconds
-    ssize_t nt_maxwrite;      // max number of time samples per call to setup_write()
+    ssize_t nt_maxwrite;      // block size of stream (defined as max number of time samples per call to setup_write())
 
     wi_stream() :
 	nfreq(0), freq_lo_MHz(0.), freq_hi_MHz(0.), dt_sample(0.), nt_maxwrite(0)
