@@ -41,20 +41,26 @@ int main(int argc, char **argv)
     transform_list.push_back( make_chime_file_writer(filename,clobber) );
 #endif
 
+    //
     // Now add a 'bonsai_transform', a pseudo-transform which dedisperses the data.
     //
     // Before this will work, you'll need to create the file 'bonsai_config.hdf5' from the
     // configuration file 'bonsai_config.txt', using the command:
     //    bonsai-mkweight bonsai_config.txt bonsai_config.hdf5
     //
-    // To plot the output of the dedispersion transform, use the command:
-    //    bonsai-plot-triggers.py bonsai_outputs.hdf5
-    //
     string bonsai_config_filename = "bonsai_config.hdf5";
     string bonsai_output_filename = "bonsai_outputs.hdf5";
     transform_list.push_back( make_bonsai_dedisperser(bonsai_config_filename, bonsai_output_filename) );
-
+    
+    //
     // Now that the stream and transforms have been set up, this line of code runs the pipeline!
+    //
+    // To plot the output of the dedispersion transform, use the command:
+    //    bonsai-plot-triggers.py bonsai_outputs.hdf5
+    //
+    // This actually generates three plots (bonsai_outputs_treeN.png, where N=0,1,2) since the bonsai
+    // config file defines three dedispersion trees correpsonding to different DM and pulse width ranges.
+
     stream->run(transform_list);
 
     return 0;
