@@ -8,7 +8,7 @@ class rfi_transform(rf_pipelines.py_wi_transform):
 
     Constructor syntax:
 
-      t = rfi_transform(filepath, freq_lo_MHz=400.0, freq_hi_MHz=800.0, ntchunk=0)
+      t = rfi_transform(filepath, freq_lo_MHz=400.0, freq_hi_MHz=800.0, nt_chunk=0)
 
       'filepath' is the full path to an rfi mask file that contains affected freq 
       intervals, written in rows with the following format: e.g., 420.02,423.03 
