@@ -35,7 +35,7 @@ int main(int argc, char **argv)
     // actually modify its input).  You can then use the utility 'ch-plot-intensity-file' in the ch_frb_io
     // github repo to make a waterfall plot.
     
-#if 1  // uncomment to enable
+#if 0  // uncomment to enable
     string filename = "example4_data.hdf5";
     bool clobber = true;
     transform_list.push_back( make_chime_file_writer(filename,clobber) );
