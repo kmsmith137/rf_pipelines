@@ -74,6 +74,9 @@ struct chime_file_writer : public wi_transform {
 	if (isubstream > 0)
 	    throw runtime_error("rf_pipelines: multiple substreams are not currently supported in class chime_file_writer");
 
+	if (!clobber && file_exists(filename))
+	    throw runtime_error(filename + ": file already exists and clobber=false was specified in the the chime_file_writer constructor");
+
 	// Not really correct but that's OK
 	vector<string> pol = { "XX" };
 
@@ -84,9 +87,6 @@ struct chime_file_writer : public wi_transform {
 
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
     {
-	if (clobber && file_exists(filename))
-	    throw runtime_error(filename + ": file already exists and clobber=false was specified in the the chime_file_writer constructor");
-
 	// Repack to contiguous arrays
 	for (int ifreq = 0; ifreq < nfreq; ifreq++) {
 	    memcpy(&intensity_contig_buf[0] + ifreq*nt_chunk, intensity + ifreq*stride, nt_chunk * sizeof(float));
