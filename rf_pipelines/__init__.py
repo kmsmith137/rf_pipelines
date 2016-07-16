@@ -218,7 +218,7 @@ from .transforms.plotter_transform import plotter_transform
 from .transforms.simple_detrender import simple_detrender
 from .transforms.bonsai_dedisperser import bonsai_dedisperser
 from .transforms.frb_injector_transform import frb_injector_transform
-from .transforms.rfi_transform import rfi_transform
+from .transforms.badchannel_mask import badchannel_mask
 
 # Helper routines for implementing new transforms in python.
 

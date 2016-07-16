@@ -27,7 +27,7 @@ filename_list = [ os.path.join('/data/pathfinder/16-07-08',f) for f in filename_
 # Construct CHIME stream object.
 s = rf_pipelines.chime_stream_from_filename_list(filename_list)
 
-t0 = rf_pipelines.rfi_transform('/data/rfi/rfi_20160705.dat')
+t0 = rf_pipelines.badchannel_mask('/data/rfi/rfi_20160705.dat', nt_chunk=512)
 
 # This plotter_transform is before the detrender, so it generates "raw" (non-detrended)
 # plots.  Downsampling by a factor 16 in time, and using 1200 coarse-grained times per
