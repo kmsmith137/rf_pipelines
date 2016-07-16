@@ -66,44 +66,6 @@ class toy_transform(rf_pipelines.py_wi_transform):
         (it, jt) = (int(0.4*self.nfreq), int(0.5*self.nfreq))
         weights[ifreq:jfreq,it:jt] = 0.
         
-        #+
-        #------- prototyping an rfi removal mask ------
-        # note: self.nfreq runs from high to low
-        # for the final version
-        #   - the for loop can be omitted?
-        #   - check whether the first is <= second element in the input freq array
-        #     (after all, a standard input file should be defined)
-        #   - dynamic rfi mask: rejecting bad freq by stat analysis
-        #
-        # input arg:
-        filepath = '/data/rfi/rfi_20160705.dat' # f1,f2 freq intervals, in rows
-        freq_lo_MHz = 400.0
-        freq_hi_MHz = 800.0
-        nfreq = self.nfreq
-        # masking criteria (optional)?
-
-        rfi = np.genfromtxt(filepath, delimiter=',') 
-        scale = nfreq / (freq_hi_MHz - freq_lo_MHz)
-        
-        rfi[rfi < freq_lo_MHz] = freq_lo_MHz
-        rfi[rfi > freq_hi_MHz] = freq_hi_MHz
-        rfi = (freq_hi_MHz - rfi) * scale
-
-        # Currently masking out nonzero overlap with a bad interval.
-        # Of course, we can add a switch arg for a dynamic criterion.
-        rfi[:,0] = (np.ceil(rfi[:,0])).astype(int)
-        rfi[:,1] = (np.floor(rfi[:,1])).astype(int)
-
-        for x in rfi:
-            (ifreq, jfreq) = (x[1], x[0])
-            if ifreq != jfreq:
-                weights[ifreq:jfreq,:] = 0.
-            else:
-                weights[ifreq,:] = 0.
-
-        #----------------------------------------------
-        #-
-
 # To run an rf_pipeline, we need an input stream and a sequence of transforms.
 # For the stream,  we use the 'gaussian_noise_stream', which just simulates
 # an independent random Gaussian for each (freq channel, time sample) pair.
