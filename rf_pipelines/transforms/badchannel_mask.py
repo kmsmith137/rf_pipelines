@@ -29,37 +29,47 @@ class badchannel_mask(rf_pipelines.py_wi_transform):
         self.nt_prepad = 0
         self.nt_postpad = 0
         
-        # Reading the mask file
-        self.mask = np.genfromtxt(self.maskpath, delimiter=',')
+        # We read the frequency mask into a numpy array.
+        self.freq_mask = np.genfromtxt(self.maskpath, delimiter=',')
 
     def set_stream(self, s):
         
+        # self.nfreq corresponds to the number of freq channels in the chunk.
         self.nfreq = s.nfreq
-        
-        # Scaling bad frequencies according to the stream size
-        scale = self.nfreq / (self.freq_hi_MHz - self.freq_lo_MHz)
-        self.mask = self.mask * scale
 
-        # Computing extreme index values for the scaled frequencies
+        # First we need to scale our frequency mask so that it matches with
+        # the number of channels in the chunk. Then we make a copy of
+        # the mask that will be processed and used as an array of indexes.
+        scale = self.nfreq / (self.freq_hi_MHz - self.freq_lo_MHz)
+        self.index_mask = self.freq_mask * scale
+
+        # Let's compute the max and min freq values of the scaled mask.
         fmax = self.freq_hi_MHz * scale
         fmin = self.freq_lo_MHz * scale
 
-        # Constraining the mask within the lowest and the highest index
-        self.mask[self.mask < fmin] = fmin
-        self.mask[self.mask > fmax] = fmax - 1. # Subtracting 1 for indexing (see below)
+        # Subtracting the max value from the mask (which runs from low
+        # to high values) leaves us with an array that runs in reverse.
+        self.index_mask = fmax - self.index_mask
 
-        # The following 3 lines allow us to use the mask values as 
-        # array indexes that run from the highest to the lowest freq
-        self.mask = fmax - 1. - self.mask
-        self.mask[:,0] = (np.ceil(self.mask[:,0])).astype(int)
-        self.mask[:,1] = (np.floor(self.mask[:,1])).astype(int)
-
+        # This part is a bit tricky! First we make sure that we include
+        # any non-zero overlap with the mask. To this end, we take the
+        # ceiling of the first element -- remember this is in a reversed
+        # order, which means, e.g., a[0,1] has become a[1,0] -- and the
+        # floor of the second elemnt. Next, we convert them to integers
+        # so they can be feed as indexes into the mask.
+        self.index_mask[:,0] = (np.ceil(self.index_mask[:,0])).astype(int)
+        self.index_mask[:,1] = (np.floor(self.index_mask[:,1])).astype(int)
+        
+        # This line is to make sure that we don't use negative
+        # indexes in the lower bound. Numpy arrays however accept
+        # numbers beyond the maximum index -- so no need to constrain
+        # the upper bound.
+        self.index_mask[self.index_mask < 0.] = int(0)
+        
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-
-        # Looping over bad freq intervals
-        for k in self.mask:
-            (ifreq, jfreq) = (k[1], k[0])
-            if ifreq != jfreq:
-                weights[ifreq:jfreq,:] = 0.
-            else:
-                weights[ifreq,:] = 0. 
+        
+        # Here we loop over bad frequency intervals. Note 
+        # that index values have to be used in the reversed 
+        # order since we already subtracted fmax from the mask.
+        for k in self.index_mask:
+            weights[k[1]:k[0],:] = 0.
