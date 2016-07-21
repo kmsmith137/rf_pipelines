@@ -43,13 +43,9 @@ class badchannel_mask(rf_pipelines.py_wi_transform):
         scale = self.nfreq / (self.freq_hi_MHz - self.freq_lo_MHz)
         self.index_mask = self.freq_mask * scale
 
-        # Let's compute the max and min freq values of the scaled mask.
-        fmax = self.freq_hi_MHz * scale
-        fmin = self.freq_lo_MHz * scale
-
         # Subtracting the max value from the mask (which runs from low
         # to high values) leaves us with an array that runs in reverse.
-        self.index_mask = fmax - self.index_mask
+        self.index_mask = (self.freq_hi_MHz * scale) - self.index_mask
 
         # This part is a bit tricky! First we make sure that we include
         # any non-zero overlap with the mask. To this end, we take the
@@ -68,8 +64,8 @@ class badchannel_mask(rf_pipelines.py_wi_transform):
         
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         
-        # Here we loop over bad frequency intervals. Note 
-        # that index values have to be used in the reversed 
-        # order since we already subtracted fmax from the mask.
+        # Here we loop over bad frequency intervals. Note that index 
+        # values have to be used in the reversed order since we already 
+        # subtracted the max value from the mask.
         for k in self.index_mask:
             weights[k[1]:k[0],:] = 0.
