@@ -29,17 +29,28 @@ class badchannel_mask(rf_pipelines.py_wi_transform):
         self.nt_prepad = 0
         self.nt_postpad = 0
         
-        # We read the frequency mask into a numpy array.
+        # Read the frequency mask into a numpy array.
         self.freq_mask = np.genfromtxt(self.maskpath, delimiter=',')
+        
+        # Now let's make sure all input arguments are valid.
+        assert self.freq_hi_MHz > self.freq_lo_MHz, "freq_hi_MHz must be greater than freq_lo_MHz."
+        i = 0
+        for k in self.freq_mask:
+            assert k[0] <= k[1], "The frequency interval %r in '%s' is not a valid input" % (k, self.maskpath)
+            # Remove useless intervals.
+            if ((k[0] < self.freq_lo_MHz) and (k[1] < self.freq_lo_MHz)) \
+            or ((k[0] > self.freq_hi_MHz) and (k[1] > self.freq_hi_MHz)):
+                self.freq_mask = np.delete(self.freq_mask, i, 0)
+            i += 1
 
     def set_stream(self, s):
-        
+
         # self.nfreq corresponds to the number of freq channels in the chunk.
         self.nfreq = s.nfreq
 
         # First we need to scale our frequency mask so that it matches with
         # the number of channels in the chunk. Then we make a copy of
-        # the mask that will be processed and used as an array of indexes.
+        # the mask that will be processed and used as an array of indexes.        
         scale = self.nfreq / (self.freq_hi_MHz - self.freq_lo_MHz)
         self.index_mask = self.freq_mask * scale
 
@@ -51,7 +62,7 @@ class badchannel_mask(rf_pipelines.py_wi_transform):
         # any non-zero overlap with the mask. To this end, we take the
         # ceiling of the first element -- remember this is in a reversed
         # order, which means, e.g., a[0,1] has become a[1,0] -- and the
-        # floor of the second elemnt. Next, we convert them to integers
+        # floor of the second element. Next, we convert them to integers
         # so they can be feed as indexes into the weights array.
         self.index_mask[:,0] = (np.ceil(self.index_mask[:,0])).astype(int)
         self.index_mask[:,1] = (np.floor(self.index_mask[:,1])).astype(int)
@@ -61,7 +72,7 @@ class badchannel_mask(rf_pipelines.py_wi_transform):
         # numbers beyond the maximum index -- so no need to constrain
         # the upper bound.
         self.index_mask[self.index_mask < 0.] = int(0)
-        
+
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         
         # Here we loop over bad frequency intervals. Note that index 
