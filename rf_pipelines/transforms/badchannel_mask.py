@@ -66,15 +66,15 @@ class badchannel_mask(rf_pipelines.py_wi_transform):
         # so they can be feed as indexes into the weights array.
         self.index_mask[:,0] = (np.ceil(self.index_mask[:,0])).astype(int)
         self.index_mask[:,1] = (np.floor(self.index_mask[:,1])).astype(int)
-       
-        # The following is a private method for testing the class
-        self._badchannel_mask__test()
 
         # This line is to make sure that we don't use negative
         # indexes in the lower bound. Numpy arrays however accept
         # numbers beyond the maximum index -- so no need to constrain
         # the upper bound.
         self.index_mask[self.index_mask < 0.] = int(0)
+
+        # The following is a private method for testing the class
+        self._badchannel_mask__test()
 
     def __test(self):
         pass
