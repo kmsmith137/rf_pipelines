@@ -40,7 +40,8 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/bonsai_dedisperser.py \
 	rf_pipelines/transforms/frb_injector_transform.py \
 	rf_pipelines/transforms/plotter_transform.py \
-	rf_pipelines/transforms/badchannel_mask.py
+	rf_pipelines/transforms/badchannel_mask.py \
+	rf_pipelines/transforms/noise_source_detrender.py
 
 # Used in 'make clean'
 CLEANDIRS=. site rf_pipelines rf_pipelines/streams rf_pipelines/transforms \

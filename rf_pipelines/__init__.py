@@ -220,6 +220,7 @@ from .transforms.simple_detrender import simple_detrender
 from .transforms.bonsai_dedisperser import bonsai_dedisperser
 from .transforms.frb_injector_transform import frb_injector_transform
 from .transforms.badchannel_mask import badchannel_mask
+from .transforms.noise_source_detrender import noise_source_detrender
 
 # Helper routines for implementing new transforms in python.
 
