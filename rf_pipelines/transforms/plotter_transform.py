@@ -71,8 +71,8 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         self.intensity_buf = np.zeros((self.img_nfreq,self.img_nt), dtype=np.float32)
         self.weight_buf = np.zeros((self.img_nfreq,self.img_nt), dtype=np.float32)
         self.isubstream = isubstream
-        self.ifile = 0
-        self.ipos = 0
+        self.ifile = 0    # keeps track of which png file we're accumulating
+        self.ipos = 0     # keeps track of how many (downsampled) time samples have been accumulated into file so far
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
