@@ -28,7 +28,7 @@ class plotter_transform(rf_pipelines.py_wi_transform):
       written, and a new waterfall plot is started.
       
       By default, the color scheme is assigned by computing the mean and rms after clipping
-      clipping 3 sigma outliers using three masking iterations.  The 'clip_niter' and 'sigma_clip' 
+      3-sigma outliers using three masking iterations.  The 'clip_niter' and 'sigma_clip' 
       arguments can be used to override these defaults.
     """
 
