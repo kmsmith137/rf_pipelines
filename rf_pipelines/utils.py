@@ -7,7 +7,42 @@ except:
     pass  # warning message has already been printed in rf_pipelines/__init__.py
 
 
-def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False):
+def weighted_mean_and_rms(arr, weights, niter=1, sigma_clip=3.0):
+    """
+    If niter > 1, then the calculation will be iterated, "clipping" outlier samples which
+    deviate from the mean by more than 3 sigma (or a different threshold, if the sigma_clip
+    parameter is specified).
+    """
+
+    assert weights is not None
+    assert arr.shape == weights.shape
+    assert niter >= 1
+    assert sigma_clip >= 2.0   # lower than this really wouldn't make sense
+
+    assert np.all(weights >= 0.0)
+    weights = np.copy(weights)
+
+    (mean, rms) = (0.0, 0.0)
+
+    for iter in xrange(niter):
+        wsum = np.sum(weights)
+        if wsum <= 0.0:
+            return (mean, 0.0)
+
+        mean = np.sum(weights*arr) / np.sum(weights)
+        var = np.sum((weights*(arr-mean))**2) / np.sum(weights**2)
+
+        if var <= 0.0:
+            return (mean, rms)
+
+        rms = np.sqrt(var)
+        mask = np.abs(arr-mean) <= sigma_clip*rms
+        weights = np.where(mask, weights, 0.0)
+
+    return (mean, rms)
+
+
+def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False, clip_niter=3, sigma_clip=3.0):
     """This is a quick-and-dirty plotting routine that I cut-and-paste everywhere."""
 
     arr = np.array(arr, dtype=np.float)
@@ -39,13 +74,15 @@ def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False
         img.save(filename)
         return
 
+    (mean, rms) = weighted_mean_and_rms(arr, weights, clip_niter, sigma_clip)
+
+    # Anorther corner case: if rms is zero then use 1.0 and fall through.  
+    # This will plot an image with constant color values.
+    if rms <= 0.0:
+        rms = 1.0
+
     # normalize weights to [0,1]
     weights = weights/wmax
-
-    # weighted mean and rms
-    mean = np.sum(weights*arr) / np.sum(weights)
-    var = np.sum((weights*(arr-mean))**2) / np.sum(weights**2)
-    rms = np.sqrt(var) if (var > 0.0) else 1.0    # The "1.0" handles the corner case of a constant array.
 
     # color in range [0,1].
     color = 0.5 + 0.16*(arr-mean)/rms    # factor 0.16 preserves convention from some old code
