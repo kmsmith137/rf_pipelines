@@ -40,12 +40,13 @@ protected:
     vector<string> filename_list;
 
     shared_ptr<ch_frb_io::intensity_hdf5_file> curr_file;
-    int curr_ifile;  // index of current file in filename_list
+    int curr_ifile = -1;  // index of current file in filename_list
 
 public:
     chime_file_stream(const vector<string> &filename_list_, ssize_t nt_chunk);
     virtual ~chime_file_stream() { }
 
+    virtual void stream_start();
     virtual void stream_body(wi_run_state &run_state);
 };
 
@@ -55,6 +56,17 @@ chime_file_stream::chime_file_stream(const vector<string> &filename_list_, ssize
 {
     rf_assert(filename_list.size() > 0);
 
+    // We defer initialization of the base class members { nfreq, freq_lo_MHz, freq_hi_MHz, dt_sample } to stream_start().
+    this->nt_maxwrite = (nt_chunk > 0) ? nt_chunk : 1024;
+}
+
+
+// virtual
+void chime_file_stream::stream_start()
+{
+    rf_assert(!curr_file);
+    rf_assert(curr_ifile < 0);
+
     this->curr_file = make_shared<ch_frb_io::intensity_hdf5_file> (filename_list[0]);
     this->curr_ifile = 0;
 
@@ -62,7 +74,6 @@ chime_file_stream::chime_file_stream(const vector<string> &filename_list_, ssize
     this->freq_lo_MHz = curr_file->freq_lo_MHz;
     this->freq_hi_MHz = curr_file->freq_hi_MHz;
     this->dt_sample = curr_file->dt_sample;
-    this->nt_maxwrite = (nt_chunk > 0) ? nt_chunk : 1024;
 }
 
     
@@ -95,6 +106,9 @@ void chime_file_stream::stream_body(wi_run_state &run_state)
 	    // FIXME should be able to write fewer than nt_maxwrite samples here
 	    run_state.finalize_write(nt_maxwrite);
 	    run_state.end_substream();
+
+	    this->curr_file.reset();
+	    this->curr_ifile = -1;
 	    return;
 	}
 	else if (it_file >= curr_file->nt_logical) {
