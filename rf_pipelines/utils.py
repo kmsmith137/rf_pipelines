@@ -49,8 +49,8 @@ def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False
 
     # color in range [0,1].
     color = 0.5 + 0.16*(arr-mean)/rms    # factor 0.16 preserves convention from some old code
-    color = np.maximum(color, 0.0)
-    color = np.minimum(color, 0.999999)  # 0.99999 instead of 1.0, to make roundoff-robust
+    color = np.maximum(color, 0.0001)    # 0.0001 instead of 0.0, to make roundoff-robust
+    color = np.minimum(color, 0.9999)    # 0.9999 instead of 1.0, to make roundoff-robust
     
     # rgb in range [0,1]
     red = 256. * color * weights
