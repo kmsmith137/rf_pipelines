@@ -188,28 +188,36 @@ extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &
 // Note: for a reference example showing how to implement a wi_stream, check out gaussian_noise_stream.cpp
 struct wi_stream {
     //
-    // The subclass is responsible for initializing the fields { nfreq, ..., nt_maxwrite }
-    // in its constructor.  (As a detail, we don't require this initialization to be done 
-    // via a base class constructor, since the subclass constructor sometimes needs to do 
-    // a little processing first, e.g. opening the first file in a sequence.)
+    // The fields { nfreq, ... , nt_maxwrite } must be initialized by the base class, either
+    // in its constructor or in stream_start().
+    //
+    // As a detail, it's sometimes convenient to defer initialization of some fields until stream_start(),
+    // since they may not be known until the stream starts running.  An example is a network stream, which
+    // may not get the value of dt_sample (say) until the first packet is received.
     //
     // Note: don't set nt_maxwrite to an excessively large value, since there is an internal
     // buffer of approximate size (24 bytes) * nfreq * nt_maxwrite.
     //
-    ssize_t nfreq;            // number of frequency channels
-    double freq_lo_MHz;       // lowest frequency in band (e.g. 400 for CHIME)
-    double freq_hi_MHz;       // highest frequency in band (e.g. 400 for CHIME)
-    double dt_sample;         // length of a sample in seconds
-    ssize_t nt_maxwrite;      // block size of stream (defined as max number of time samples per call to setup_write())
-
-    wi_stream() :
-	nfreq(0), freq_lo_MHz(0.), freq_hi_MHz(0.), dt_sample(0.), nt_maxwrite(0)
-    { }
+    ssize_t nfreq = 0;              // number of frequency channels
+    double freq_lo_MHz = 0.0;       // lowest frequency in band (e.g. 400 for CHIME)
+    double freq_hi_MHz = 0.0;       // highest frequency in band (e.g. 400 for CHIME)
+    double dt_sample = 0.0;         // length of a sample in seconds
+    ssize_t nt_maxwrite = 0;        // block size of stream (defined as max number of time samples per call to setup_write())
 
     virtual ~wi_stream() { }
     
     //
-    // This is the virtual function which must be implemented to define a stream.
+    // There are two virtual functions which can be implemented to define a stream.
+    //
+    // First, a function stream_start() which is called to start the stream.  More precisely, it is called
+    // after wi_stream::run(), but before any of the calls to wi_transform::set_stream().  This function
+    // serves as a "last chance" to set the stream parameters { nfreq, ..., nt_maxwrite } as discussed above.
+    //
+
+    virtual void stream_start() { }   // note non pure virtual, defaults to empty function
+
+    //
+    // Second, a pure virtual function stream_body() which generates incremental chunks of data.
     //
     // The 'run_state' argument is an object containing ring buffers which the stream should
     // write its data to.  For the definition of 'class wi_run_state' see below.  The stream_body()

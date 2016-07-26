@@ -16,10 +16,19 @@ namespace rf_pipelines {
 
 void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transforms, bool noisy)
 {
+    // Argument checking
+
     if (transforms.size() == 0)
 	throw runtime_error("wi_stream::run() called on empty transform list");
 
-    // Lots of checks to make sure everything is initialized
+    for (unsigned int it = 0; it < transforms.size(); it++) {
+	if (!transforms[it])
+	    throw runtime_error("rf_pipelines: empty transform pointer passed to wi_stream::run()");
+    }
+
+    // Call stream_start().  When it returns, all stream parameters should be initialized.
+
+    this->stream_start();
 
     if (nfreq <= 0)
 	throw runtime_error("wi_stream::nfreq is non-positive or uninitialized");
@@ -32,10 +41,9 @@ void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transform
     if (nt_maxwrite <= 0)
 	throw runtime_error("wi_stream::nt_maxwrite is non-positive or uninitialized");
 
-    for (unsigned int it = 0; it < transforms.size(); it++) {
-	if (!transforms[it])
-	    throw runtime_error("rf_pipelines: empty transform pointer passed to wi_stream::run()");
+    // Initialize transforms by calling wi_transform::set_stream(), and check that all transform parameters are initialized.
 
+    for (unsigned int it = 0; it < transforms.size(); it++) {
 	transforms[it]->set_stream(*this);
 
 	if (transforms[it]->nfreq != this->nfreq)
@@ -48,11 +56,13 @@ void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transform
 	    throw runtime_error("rf_pipelines: wi_transform::nt_postpad is negative");
     }
 
-    // Delegate to stream_body() method implemented in subclass
+    // Run the stream by calling wi_stream::stream_body().
+
     wi_run_state run_state(*this, transforms, noisy);
     this->stream_body(run_state);
 
-    // Only state=4 is OK, otherwise we complain!
+    // After stream_body() returns, only wi_run_state::state==4 is OK.
+
     if (run_state.state == 0)
 	throw runtime_error("rf_pipelines: logic error in stream: run() returned without doing anything");
     if (run_state.state == 1)
