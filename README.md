@@ -96,9 +96,6 @@ Here are some to do items which anyone could work on:
 
   - In particular a detrender which correctly handles the CHIME switched noise source.
 
-  - Another concrete example: bad channel mask (should initialize from text file so
-    it can be used for either CHIME or GBNCC)
-
   - The plotting_transform is currently very primitive and could use improvement.
 
   - Same goes for the 'bonsai-plot-triggers' script.

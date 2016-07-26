@@ -33,11 +33,14 @@ s = rf_pipelines.chime_stream_from_filename_list(filename_list)
 
 t1 = rf_pipelines.plotter_transform('raw_chime', img_nfreq=512, img_nt=1200, downsample_nt=16)
 
-# Currently 'rf_pipelines' contains a simple detrending transform, and no RFI-removing transforms!
-t2 = rf_pipelines.simple_detrender(1024)
+# Mask out bad channels (i.e., weights[bad] = 0)
+t2 = rf_pipelines.badchannel_mask('/data/pathfinder/rfi_masks/rfi_20160705.dat', nt_chunk=512)
+
+# A very simple detrender (should implement something better soon!)
+t3 = rf_pipelines.simple_detrender(1024)
 
 # This plotter_transform is after the detrender, so it generates detrended plots.
-t3 = rf_pipelines.plotter_transform('detrended_chime', img_nfreq=512, img_nt=1200, downsample_nt=16)
+t4 = rf_pipelines.plotter_transform('detrended_chime', img_nfreq=512, img_nt=1200, downsample_nt=16)
 
 # Dedisperse and write coarse-grained triggers to the file 'triggers.hdf5'.
 #
@@ -47,9 +50,9 @@ t3 = rf_pipelines.plotter_transform('detrended_chime', img_nfreq=512, img_nt=120
 # improvement, in particular if run on a large stream it will make a "monster" plot with a huge
 # number of pixels).
 
-t4 = rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5')
+t5 = rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5')
 
-s.run([t1,t2,t3,t4])
+s.run([t1,t2,t3,t4,t5])
 
 print "example3.py completed successfully"
 print "You can plot the bonsai triggers with 'bonsai-plot-triggers.py triggers.hdf5'"

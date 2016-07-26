@@ -65,8 +65,7 @@ class toy_transform(rf_pipelines.py_wi_transform):
         (ifreq, jfreq) = (int(0.2*self.nfreq), int(0.3*self.nfreq))
         (it, jt) = (int(0.4*self.nfreq), int(0.5*self.nfreq))
         weights[ifreq:jfreq,it:jt] = 0.
-
-
+        
 # To run an rf_pipeline, we need an input stream and a sequence of transforms.
 # For the stream,  we use the 'gaussian_noise_stream', which just simulates
 # an independent random Gaussian for each (freq channel, time sample) pair.
