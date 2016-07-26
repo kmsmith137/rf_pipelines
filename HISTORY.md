@@ -1,3 +1,10 @@
+- version 4
+
+  - plotter_transform: fix bug which sometimes caused outlier intensities to be superfluously masked
+  
+  - plotter_transform: determine color mapping using outlier-clipped mean/variance (without this, the
+    plots were sometimes misleading!)
+
 - version 3
 
   - From Masoud: New transform badchannel_mask, which reads a text file containing a list of bad 
