@@ -22,7 +22,7 @@ protected:
 
 public:
     //
-    // The subclass constructor is required to initialize the following members,
+    // The subclass constructor should initialize the following members,
     // which are inherited from the wi_stream base class:
     //
     //   nfreq            Number of frequency channels
@@ -30,6 +30,15 @@ public:
     //   freq_hi_MHz      Highest frequency in band (e.g. 800 for CHIME)
     //   dt_sample        Length of a time sample in seconds
     //   nt_maxwrite      Stream block size (=max number of time samples per call to setup_write())
+    //
+    // As an alternative to initializing these fields in the constructor, another possibility is to
+    // define the function wi_stream::stream_start (overriding an empty virtual function in the base
+    // class) and initialize them there.  This function gets called when the stream starts running.
+    //
+    // An example where stream_start() is useful is a network stream, where the value of dt_sample (say)
+    // may not be known until the stream actually receives packets.  By deferring initialization of dt_sample 
+    // to start_stream(), the constructor can return immediately (start_stream() would need to block until
+    // the first packet is received but that's OK).
     //
     gaussian_noise_stream(ssize_t nfreq_, ssize_t nt_tot_, double freq_lo_MHz_, double freq_hi_MHz_, double dt_sample_, double sample_rms_, ssize_t nt_chunk)
     {
