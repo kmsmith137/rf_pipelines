@@ -43,7 +43,20 @@ def weighted_mean_and_rms(arr, weights, niter=1, sigma_clip=3.0):
 
 
 def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False, clip_niter=3, sigma_clip=3.0):
-    """This is a quick-and-dirty plotting routine that I cut-and-paste everywhere."""
+    """
+    Writes a 2D floating-point array as a png image.  Currently we use a simple blue-purple-red colormap.
+
+       'arr': A 2D array to be plotted
+
+       'weights': If specified, elements with zero/low weight will be black/greyed out.
+ 
+       'transpose': If set, array axis ordering will be (y,x) rather than the default (x,y).
+
+       'ytop_to_bottom': If set, the array y-axis will run from top->bottom in the image, rather than the default bottom->top.
+
+       'clip_niter', 'sigma_clip': By default, colors are assigned by computing the mean and rms after clipping 3-sigma 
+           outliers using three masking iterations.  These arguments override the defaults.
+    """
 
     arr = np.array(arr, dtype=np.float)
     assert arr.ndim == 2
