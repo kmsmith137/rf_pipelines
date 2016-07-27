@@ -78,12 +78,14 @@ void chime_network_stream::stream_body(wi_run_state &run_state)
 
 	rf_assert(nfreq == 1024 * chunk->nupfreq);   // FIXME hardcoded 1024
 
-	double t0 = chunk->chunk_t0 * chunk->fpga_counts_per_sample * 2.5-6;   // FIXME hardcoded 2.5e-6
+	double t0 = chunk->chunk_t0 * chunk->fpga_counts_per_sample * 2.5e-6;   // FIXME hardcoded 2.5e-6
 	const float *src_intensity = chunk->intensity;
 	const float *src_weights = chunk->weights;
 
-	if (!startflag)
+	if (!startflag) {
 	    run_state.start_substream(t0);
+	    startflag = true;
+	}
 
 	float *dst_intensity = nullptr;
 	float *dst_weights = nullptr;
@@ -96,6 +98,16 @@ void chime_network_stream::stream_body(wi_run_state &run_state)
 	    memcpy(dst_intensity + ifreq*dst_stride, src_intensity + ifreq*nt_maxwrite, nt_maxwrite * sizeof(float));
 	    memcpy(dst_weights + ifreq*dst_stride, src_weights + ifreq*nt_maxwrite, nt_maxwrite * sizeof(float));
 	}
+
+#if 0  // debug
+	float wtot = 0.0;
+	for (int ifreq = 0; ifreq < nfreq; ifreq++)
+	    for (int it = 0; it < nt_maxwrite; it++)
+		wtot += dst_weights[ifreq*dst_stride + it];
+	
+	float wmean = wtot / (nfreq*nt_maxwrite);
+	cout << ("XXX wtot=" + to_string(wmean) + "\n");
+#endif
 
 	run_state.finalize_write(nt_maxwrite);
 	chunk.reset();
