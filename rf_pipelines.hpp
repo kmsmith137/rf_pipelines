@@ -100,7 +100,7 @@ extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std
 
 
 //
-// CHIME network file stream, using UDP packets in "CHIME L0-L1 format", single-beam for now.
+// CHIME network stream, using UDP packets in "CHIME L0-L1 format", single-beam for now.
 // This can be generalized later to assemble multiple beams on the same UDP port.
 //
 extern std::shared_ptr<wi_stream> make_chime_network_stream(int udp_port, int beam_id=0);
