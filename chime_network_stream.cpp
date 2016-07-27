@@ -100,6 +100,9 @@ void chime_network_stream::stream_body(wi_run_state &run_state)
 	run_state.finalize_write(nt_maxwrite);
 	chunk.reset();
     }
+    
+    // "true" joins both the network and assembler threads
+    stream->wait_for_end_of_stream(true);
 
     if (!startflag)
 	throw runtime_error("chime_network_stream: no packets received");
