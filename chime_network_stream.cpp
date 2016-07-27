@@ -99,16 +99,6 @@ void chime_network_stream::stream_body(wi_run_state &run_state)
 	    memcpy(dst_weights + ifreq*dst_stride, src_weights + ifreq*nt_maxwrite, nt_maxwrite * sizeof(float));
 	}
 
-#if 0  // debug
-	float wtot = 0.0;
-	for (int ifreq = 0; ifreq < nfreq; ifreq++)
-	    for (int it = 0; it < nt_maxwrite; it++)
-		wtot += dst_weights[ifreq*dst_stride + it];
-	
-	float wmean = wtot / (nfreq*nt_maxwrite);
-	cout << ("XXX wtot=" + to_string(wmean) + "\n");
-#endif
-
 	run_state.finalize_write(nt_maxwrite);
 	chunk.reset();
     }
