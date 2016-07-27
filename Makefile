@@ -18,6 +18,7 @@ INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp
 OFILES=bonsai_dedisperser.o \
 	chime_file_stream.o \
 	chime_file_writer.o \
+	chime_network_stream.o \
 	chime_packetizer.o \
 	gaussian_noise_stream.o \
 	misc.o \

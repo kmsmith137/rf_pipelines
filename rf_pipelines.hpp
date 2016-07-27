@@ -100,16 +100,10 @@ extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std
 
 
 //
-// Converts a stream to UDP packets in "CHIME L0_L1" format, and sends them over the network.
-// The 'dstname' argument is a string of the form HOSTNAME:PORT.  For example 'localhost:13178' or
-// 'chimer.physics.ubc.ca:13178'.  (Be careful sending packets over the internet since the bandwidth
-// can be very high!)
+// CHIME network file stream, using UDP packets in "CHIME L0-L1 format", single-beam for now.
+// This can be generalized later to assemble multiple beams on the same UDP port.
 //
-// The 'wt_cutoff' argument is used to convert the rf_pipelines 'weights' array to a boolean mask.
-// This conversion is necessary because the CHIME L0_L1 packet format doesn't support a floating-point
-// weight array.  Samples with weight below the cutoff will be masked.
-//
-extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff);
+extern std::shared_ptr<wi_stream> make_chime_network_stream(int udp_port, int beam_id=0);
 
 
 // Simple stream which simulates Gaussian random noise
@@ -151,6 +145,19 @@ extern std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_chunk);
 // programs, in the ch_frb_io github repo.
 //
 std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename, bool clobber=false, int bitshuffle=2, ssize_t nt_chunk=0);
+
+
+//
+// Converts a stream to UDP packets in "CHIME L0_L1" format, and sends them over the network.
+// The 'dstname' argument is a string of the form HOSTNAME:PORT.  For example 'localhost:13178' or
+// 'chimer.physics.ubc.ca:13178'.  (Be careful sending packets over the internet since the bandwidth
+// can be very high!)
+//
+// The 'wt_cutoff' argument is used to convert the rf_pipelines 'weights' array to a boolean mask.
+// This conversion is necessary because the CHIME L0_L1 packet format doesn't support a floating-point
+// weight array.  Samples with weight below the cutoff will be masked.
+//
+extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff);
 
 
 //
