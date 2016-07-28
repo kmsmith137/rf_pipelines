@@ -4,11 +4,12 @@
 // Note: This code is best "documented by example", so if you're seeing it for the first
 // time, I recommend starting with the example programs in the examples/ directory!
 //
-// Warning: I haven't systematically documented the C++ interface to rf_pipelines,
-// so the level of documentation will be hit-or-miss.  Also please note that the
-// python-wrapping in rf_pipelines_c.cpp is kind of a mess which I hope to improve
-// soon.  In the meantime if you want to python-wrap a C++ class, just email me
-// and I'll help navigate the mess!
+// Warning: currently, the C++ and python API's are pretty well documented, so if you're
+// sticking to one or the other then the code should look reasonable.  However, if
+// you want to python-wrap a class written in C++, then you'll find that the code in 
+// rf_pipelines/rf_pipelines_c.cpp is kind of a mess!  I hope to improve this soon.
+// In the meantime, if you want to python-wrap a C++ class, just email me and I'll help
+// navigate the mess!
 //
 // There are two fundamental classes, wi_streams ("weighted intensity stream")
 // and wi_transforms ("weighted intensity transform").  These are both virtual
@@ -234,27 +235,103 @@ struct wi_stream {
 
 
 struct wi_transform {
-    //
-    // The subclass is responsible for initializing the fields { nfreq, ..., nt_postpad },
-    // but the initialization can either be done in the subclass constructor, or in the member 
-    // function set_stream() below.  The latter option may be more convenient since the value
-    // of wi_stream::nfreq can be used to initialize wi_transform::nfreq.
-    //
-    ssize_t nfreq;
-    ssize_t nt_chunk;
-    ssize_t nt_prepad;
-    ssize_t nt_postpad;
+
+    // The following members must be initialized by the subclass.  The initialization may be
+    // done either in the subclass constructor, or in the member function wi_stream::set_stream()
+    // below.  The latter option may be more convenient if it's useful to inspect the stream
+    // parameters.  For example, the transform may wish to set 'nfreq' to the value of stream.nfreq.
+
+    ssize_t nfreq = 0;        // number of frequency channels which the transform expects to receive from the stream
+    ssize_t nt_chunk = 0;     // chunk size for process_chunk(), see below
+    ssize_t nt_prepad = 0;    // prepad size for process_chunk(), see below
+    ssize_t nt_postpad = 0;   // postpad size for process_chunk(), see below
     
-    wi_transform() : 
-	nfreq(0), nt_chunk(0), nt_prepad(0), nt_postpad(0)
-    { }
+    wi_transform() { }
 
     virtual ~wi_transform() { }
 
-    // This is the API which must be implemented to define a transform.
+    // The subclass must define the four virtual functions which follow.
+
+    //
+    // set_stream(): this is called once, at the beginning of a pipeline run.
+    // Note that the following members of 'wi_stream' may be useful:
+    //
+    //     stream.nfreq         number of frequency channels in stream
+    //     stream.freq_lo_MHz   lower limit of frequency band
+    //     stream.freq_hi_MHz   upper limit of frequency band
+    //     stream.dt_sample     sample length in seconds
+    //     stream.nt_maxwrite   internal chunk size of stream, this probably won't be useful.
+    //
     virtual void set_stream(const wi_stream &stream) = 0;
+
+    //
+    // start_substream(): Each stream can divide its output into one or more "substreams" which 
+    // are bracketed with start_substream() and end_substream() calls.  Currently I don't use the 
+    // "substreaming"  feature much: all streams just define a single substream, and not all 
+    // transforms support multiple substreams.
+    //
+    // However, I anticipate it being a useful feature when we implement real-time network streams,
+    // since we'll want a way to finalize state when the correlator goes down (or repoints) and
+    // restart when it comes back.
+    //
+    // The 'isubstream' arg is 0 for the first substream, 1 for the second substream, etc.
+    // The 't0' arg is the initial time of the substream in seconds, relative to an arbitrary 
+    // stream-defined origin.
+    //
     virtual void start_substream(int isubstream, double t0) = 0;
+
+    //
+    // process_chunk(): This routine is called to deliver chunks of data to the transform.  Each 
+    // transform defines three buffer sizes (see above): nt_chunk, nt_prepad, and nt_postpad.
+    //
+    // Each call to process_chunk() is responsible for processing one "chunk" of data with 2D shape
+    // (nfreq, nt_chunk).  The 'intensity' and 'weights' arguments are floating-point arrays with
+    // this logical shape.
+    //
+    // The 'stride' argument is the memory stride between logically adjacent frequencies in the
+    // 'intensity' and 'weights' 2D arrays.  In other words, the memory location of the array
+    // element with indices (ifreq,it) is intensity[ifreq*stride + it] and similarly for the weights.
+    //  
+    // Important: the frequency axis of the arrays is ordered from highest frequency to lowest!
+    // This is the same ordering used by 'bonsai', and in both GBNCC and CHIME data, so this ordering
+    // seemed most convenient.
+    //
+    // The 't0' and 't1' args are timestamps in seconds at the beginning and end of the chunk.
+    // (To be precise, t0 is the start time of the first sample in the chunk, and t1 is the end
+    // time of the last sample in the chunk.)  This information is mostly redundant since the
+    // initial time of the substream is passed in start_substream(), and the time sample length
+    // is available in set_stream().  However, I'm anticipating that for long-running streams it 
+    // may be useful to allow for a small amount of timestamp "drift" via the t0/t1 args.
+    //
+    // Some transforms will need to do read-only inspection of data outside the chunk.  For example,
+    // a detrending transform may need to look at values of the data a little bit before and after
+    // the chunk, in order to detrend data in the chunk.  
+    //
+    // A transform which needs to "see into the future" can set nt_postpad to a nonzero value.  
+    // In this case, it will be safe to index the 'intensity' and 'weights' with time indices in
+    // the range 0 <= it < (nt_chunk + nt_postpad).  Important: the transform is only allowed to 
+    // modify the first 'nt_chunk' samples!
+    //
+    // A transform which needs to "see into the past" can set self.nt_prepad to a nonzero value.
+    // In this case, the prepadding data is passed as separate arrays, via the 'pp_intensity' and
+    // 'pp_weights' args.  These are 2D arrays with logical shapes (nfreq, nt_prepad).  Note that
+    // these arrays have their own memory stride 'pp_stride' which will not be equal to 'stride'.
+    // Note also that prepadding works differently from the postpadding case, where the extra data 
+    // is passed by extending the chunk array.  If nt_prepad is zero, then the 'pp_intensity' and 
+    // 'pp_weights' arguments are NULL.
+    //
+    // Each transform can initialize its nt_chunk, nt_prepad, and nt_postpad independently of
+    // the other transforms, and the rf_pipelines library will handle the necessary buffering 
+    // and rechunking.
+    //
+    // Transforms should make sure to handle the case where there are many zeroes in the 'weights'
+    // array, including the extreme case where the weights are all zeros.  One situation where
+    // many zeros arise is at the end of a stream, where the total stream length may not be
+    // a multiple of nt_chunk, and so the rf_pipelines library will append zero-weight data.
+    //
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) = 0;
+
+    // end_substream(): counterpart to start_substream() above
     virtual void end_substream() = 0;
 };
 
