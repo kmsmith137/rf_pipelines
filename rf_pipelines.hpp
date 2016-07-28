@@ -117,8 +117,14 @@ extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssiz
 // Factory functions returning wi_transforms
 
 
-// Simplest possible detrender: just divides the data into chunks and subtracts the mean in each chunk
-extern std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_chunk);
+//
+// simple_detrender: this the simplest possible detrending algorithm.  We really
+// need something better here!  It just divides the data into chunk, and subtracts
+// the time-average of the data for every (chunk, frequency_channel) pair.
+//
+// The 'nt_detrend' constructor argument is the detrending chunk size (in number of samples).
+//
+extern std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend);
 
 
 //
@@ -234,6 +240,10 @@ struct wi_stream {
 };
 
 
+//
+// Note: for a reference example showing how to implement a wi_stream, check out simple_detrender.cpp.
+// (This may be too simple to be an ideal example, I might suggest something different later!)
+//
 struct wi_transform {
 
     // The following members must be initialized by the subclass.  The initialization may be
