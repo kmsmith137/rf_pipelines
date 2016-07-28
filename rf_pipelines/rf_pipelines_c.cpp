@@ -681,11 +681,11 @@ static PyObject *make_chime_packetizer(PyObject *self, PyObject *args)
 
 static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
 {
-    ssize_t nt_chunk = 0;
-    if (!PyArg_ParseTuple(args, "n", &nt_chunk))
+    ssize_t nt_detrend = 0;
+    if (!PyArg_ParseTuple(args, "n", &nt_detrend))
 	return NULL;
     
-    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_simple_detrender(nt_chunk);
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_simple_detrender(nt_detrend);
     return wi_transform_object::make(ret);
 }
 
