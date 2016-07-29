@@ -91,8 +91,8 @@ void chime_packetizer::set_stream(const wi_stream &stream)
     vector<int> ifreq_chunk(nfreq);
     for (int i = 0; i < nfreq; i++)
 	ifreq_chunk[i] = i;
-    
-    this->stream_obj = make_shared<ch_frb_io::intensity_network_ostream> (dstname, ibeam, ifreq_chunk, nupfreq, nt_chunk, nfreq_per_packet, nt_per_packet, fpga_counts_per_sample, wt_cutoff);
+
+    this->stream_obj = ch_frb_io::intensity_network_ostream::make(dstname, ibeam, ifreq_chunk, nupfreq, nt_chunk, nfreq_per_packet, nt_per_packet, fpga_counts_per_sample, wt_cutoff);
 }
 
 
@@ -118,7 +118,8 @@ void chime_packetizer::process_chunk(double t0, double t1, float *intensity, flo
 
 void chime_packetizer::end_substream()
 {
-    stream_obj->end_stream();
+    bool join_network_thread = true;
+    stream_obj->end_stream(join_network_thread);
     stream_obj.reset();
 }
 
