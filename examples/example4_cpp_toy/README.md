@@ -20,11 +20,11 @@ make
 # estimation of trigger variances.)
 bonsai-mkweight bonsai_config.txt bonsai_config.hdf5
 
-# Run the pipeline.  The dedispersion outputs will be written to the file bonsai_outputs.hdf5
+# Run the pipeline.  We now run bonsai in a mode where it splits the output across multiple hdf5 files.
 ./example4
 
 # Plot the output of the dedispersion transform.
-# This actually generates three plots (bonsai_outputs_treeN.png, where N=0,1,2) since the bonsai
+# This actually generates six plots, since the triggers have been split into two hdf5 files, and the bonsai
 # config file defines three dedispersion trees correpsonding to different DM and pulse width ranges.
 bonsai-plot-triggers.py bonsai_outputs.hdf5
 ```
