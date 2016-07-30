@@ -14,7 +14,7 @@ namespace rf_pipelines {
 
 #ifndef HAVE_BONSAI
 
-shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_filename, const std::string &output_hdf5_filename, int ibeam)
+shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_filename, const std::string &output_hdf5_filename, int nt_per_file, int ibeam)
 {
     throw runtime_error("make_bonsai_dedisperser() was called, but this rf_pipelines instance was compiled without bonsai");
 }
@@ -25,8 +25,9 @@ shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_
 struct bonsai_dedisperser : public wi_transform {
     shared_ptr<bonsai::dedisperser> base;
     string trigger_filename;
+    int nt_per_file;
 
-    bonsai_dedisperser(const string &config_hdf5_filename, const string &output_hdf5_filename, int ibeam);
+    bonsai_dedisperser(const string &config_hdf5_filename, const string &output_hdf5_filename, int nt_per_file, int ibeam);
 
     virtual void set_stream(const wi_stream &stream);
     virtual void start_substream(int isubstream, double t0);
@@ -35,7 +36,7 @@ struct bonsai_dedisperser : public wi_transform {
 };
 
 
-bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const string &output_hdf5_filename, int ibeam)
+bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const string &output_hdf5_filename, int nt_per_file, int ibeam)
 {
     if (!endswith(config_hdf5_filename,".hdf5") && !endswith(config_hdf5_filename,".h5"))
 	cerr << "rf_pipelines: warning: bonsai config filename doesn't end with .h5 or .hdf5, note that the bonsai_dedisperser requires an hdf5 file created with bonsai-mkweight\n";
@@ -47,6 +48,7 @@ bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const
 
     this->base = make_shared<bonsai::dedisperser> (cp, ibeam, init_weights);
     this->trigger_filename = output_hdf5_filename;
+    this->nt_per_file = nt_per_file;
 
     // initialize members of wi_transform base class
     this->nfreq = base->nchan;
@@ -76,9 +78,8 @@ void bonsai_dedisperser::start_substream(int isubstream, double t0)
     if (isubstream > 0)
 	throw runtime_error("bonsai_dedisperser: currently can't process a stream which defines multiple substreams");
 
-    bool clobber = true;
     if (trigger_filename.size())
-	base->start_trigger_file(trigger_filename, clobber);
+	base->start_trigger_file(trigger_filename, nt_per_file);
 
     base->spawn_slave_threads();
 }
@@ -100,9 +101,9 @@ void bonsai_dedisperser::end_substream()
 }
 
 
-shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_filename, const std::string &output_hdf5_filename, int ibeam)
+shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_filename, const std::string &output_hdf5_filename, int nt_per_file, int ibeam)
 {
-    return make_shared<bonsai_dedisperser> (config_hdf5_filename, output_hdf5_filename, ibeam);
+    return make_shared<bonsai_dedisperser> (config_hdf5_filename, output_hdf5_filename, nt_per_file, ibeam);
 }
 
 #endif  // HAVE_BONSAI
