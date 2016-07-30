@@ -14,7 +14,7 @@ def simple_detrender(nt_detrend):
     It just divides the data into chunk, and subtracts the time-average of the data for every 
     (chunk, frequency_channel) pair.
 
-    The 'nt_chunk' constructor arg determiens the chunk size (in number of samples).
+    The 'nt_detrend' constructor arg determiens the chunk size (in number of samples).
     """
 
-    return rf_pipelines_c.make_simple_detrender(nt_chunk)
+    return rf_pipelines_c.make_simple_detrender(nt_detrend)
