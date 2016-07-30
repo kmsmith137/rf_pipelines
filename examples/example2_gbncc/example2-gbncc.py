@@ -31,6 +31,10 @@ t2 = rf_pipelines.plotter_transform(img_prefix='detrended_gbncc', img_nfreq=512,
 # Before running the dedisperser, you'll need to run the command 'bonsai-mkweight bonsai_config.txt bonsai_config.hdf5'
 # which creates the config hdf5 file from the config text file.  The output file triggers.hdf5 contains coarse-grained
 # triggers which can be plotted with 'bonsai-plot-triggers.py'.
+#
+# Note: the optional arugment 'nt_per_file' to rf_pipelines.bonsai_dedisperser() can be used to break the bonsai output
+# into multiple files.  This can make the bonsai output files easier to interpret by putting them in 1-1 correspondence
+# with the intensity waterfall plots.  See example3_chime for an explicit example.
 t3 = rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5')
 
 s.run([t1,t2,t3])
