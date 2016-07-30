@@ -50,7 +50,10 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         # of clipper functions! But is the inner func really 
         # necessary? The difficulty is that the intensity gets 
         # called in process_chunk().
-
+        # Are there any other func that we may end up using in
+        # future? How about a user-supplied base array (like
+        # a smooth fit)? But this can be implemented in the
+        # detrender I suppose.. 
         def func(intensity, axis, func):
             return {
                 'stdv': np.std(intensity, axis=axis),
@@ -59,6 +62,11 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         
         self.clip = func(intensity, self.axis, self.func)
         
+        # FIXME: Vectorize these loops by using 2d boolean arrays.
+        # This would also eliminate the need for calling the axis, 
+        # I think. Minimize the call for self.axis.
+        # FIXME: Any need for a 1D clipper? can it be implemented by
+        # using a boolean (perhaps user-supplied) mask?
         if self.axis == 0:
             assert np.size(self.clip) == self.nt_chunk
             for time in xrange(self.nt_chunk):
