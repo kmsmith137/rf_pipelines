@@ -36,4 +36,4 @@ def bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, nt_per_file=0
     is implemented in bonsai.
     """
     
-    return rf_pipelines_c.make_bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, ibeam)
+    return rf_pipelines_c.make_bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, nt_per_file, ibeam)
