@@ -20,7 +20,7 @@ Then run the example:
 ```
    ./example3-gbncc.py
 ```
-This will generate a bunch of waterfall plots plus a file 'triggers.hdf5' containing
+This will generate a bunch of waterfall plots plus files 'triggers.hdf5' containing
 coarse-grained triggers.  The trigger file can be plotted with:
 ```
    bonsai-plot-triggers.py triggers.hdf5
@@ -29,11 +29,12 @@ After running the pipeline, you should see:
 ```
     raw_chime_*.png           waterfall plots of raw data
     detrended_chime_*.png     waterfall plots of detrended data
-    triggers_tree*.png        output of the dedispersion transform
+    triggers_*_tree*.png        output of the dedispersion transform
 ```
 The waterfall plots have been split across 4 files as explained in the python script.
-There are 3 dedispersion output files because the bonsai configuration file defines 
-three trees to search different parts of parameter space.  
+There are 12 trigger plots, because the same factor-of-4 splitting has been multiplied
+by the three trees, which are defined in the bonsai config file to search different parts
+of parameter space.
 
 The github repo contains "reference" versions of some of these plots for comparison.
 
@@ -43,5 +44,7 @@ bad channel mask.
 
 ![reference_raw_chime_0.png](reference_raw_chime_0.png)
 
-![reference_triggers_tree0.png](reference_triggers_tree0.png)
+![reference_detrended_chime_0.png](reference_detrended_chime_0.png)
+
+![reference_triggers_0_tree0.png](reference_triggers_0_tree0.png)
 
