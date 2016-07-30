@@ -681,14 +681,15 @@ static PyObject *make_bonsai_dedisperser(PyObject *self, PyObject *args)
 {
     const char *config_hdf5_filename = nullptr;
     const char *output_hdf5_filename = nullptr;
+    int nt_per_file = 0;
     int ibeam = 0;
     
     // FIXME there should be a way to disable core-pinning entirely
 
-    if (!PyArg_ParseTuple(args, "ssi", &config_hdf5_filename, &output_hdf5_filename, &ibeam))
+    if (!PyArg_ParseTuple(args, "ssii", &config_hdf5_filename, &output_hdf5_filename, &nt_per_file, &ibeam))
 	return NULL;
 
-    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, ibeam);
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, nt_per_file, ibeam);
     return wi_transform_object::make(ret);
 }
 

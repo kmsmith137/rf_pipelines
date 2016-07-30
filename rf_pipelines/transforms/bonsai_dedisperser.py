@@ -6,7 +6,7 @@ See simple_detrender.cpp, and python linkage in rf_pipelines_c.cpp.
 from rf_pipelines import rf_pipelines_c
 
 
-def bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, ibeam=0):
+def bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, nt_per_file=0, ibeam=0):
     """
     Returns a "transform" (object of class wi_transform) which doesn't actually modify the data,
     it just runs the bonsai dedisperser.  The output is a stream of coarse-grained triggers
@@ -15,6 +15,10 @@ def bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, ibeam=0):
 
     Note that the program 'bonsai-plot-triggers.py' in the bonsai github repo may be useful
     for quick visual inspection of the bonsai output.
+
+    If 'nt_per_file' is zero, then all triggers will be written to a single "monster file".  
+    Otherwise multiple files will be written.  Note that nt_per_file is the number of input 
+    time samples (the number of coarse-grained triggers is usually much smaller).
 
     The 'ibeam' argument determines the assignment of threads to cores and can probably
     be zero except in special situations.
