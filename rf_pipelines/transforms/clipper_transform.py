@@ -3,9 +3,9 @@ import rf_pipelines
 
 class clipper_transform(rf_pipelines.py_wi_transform):
     """
-   Clips the intensity along a selected axis and 
-   above a given threshold. Results are applied to 
-   the weights array (i.e., weights[clipped] = 0.) 
+   This transform clips the intensity along a selected 
+   axis and above a given threshold. Results are applied 
+   to the weights array (i.e., weights[clipped] = 0.) 
    for masking extreme values.
 
    Currently based on the standard deviation from
