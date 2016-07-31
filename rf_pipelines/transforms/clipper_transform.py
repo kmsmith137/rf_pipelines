@@ -1,15 +1,14 @@
 import numpy as np
 import rf_pipelines
-from astropy.stats import median_absolute_deviation
 
 class clipper_transform(rf_pipelines.py_wi_transform):
     """
-   Clips the intensity above a given threshold. Results
-   are applied to the weights array for masking RFIs.
+   Clips the intensity above a given stdv threshold. 
+   Results are applied to the weights array for masking RFIs.
 
     Constructor syntax:
 
-      t = clipper_transform(thr=3, axis=0, func='stdv', nt_chunk=1024)
+      t = clipper_transform(thr=3, axis=0, nt_chunk=1024)
 
       'thr=3.' is the multiplicative factor of maximum threshold,
         e.g., 3 * standard_deviation, meaning that anything above this
@@ -19,26 +18,19 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         0: along freq; constant time
         1: along time; constant freq
 
-      "func='stdv'" indicates the mathematical function that is used 
-        for clipping:
-          'stdv' : standard deviation (from the mean)
-          'mad' : median absolute deviation
-
       'nt_chunk=1024' is the buffer size.
     """
 
-    def __init__(self, thr=3., axis=0, func='stdv', nt_chunk=1024):
+    def __init__(self, thr=3., axis=0, nt_chunk=1024):
         
         self.thr = thr
         self.axis = axis
-        self.func = func
-
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
 
         assert (self.axis == 0 or self.axis == 1), \
-        'Axis must be 0 (along freq; constant time) or 1 (along time; constant freq)'
+        'axis must be 0 (along freq; constant time) or 1 (along time; constant freq).'
 
     def set_stream(self, stream):
 
@@ -46,32 +38,12 @@ class clipper_transform(rf_pipelines.py_wi_transform):
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         
-        # FIXME: Here I was thinking of making a dictionary
-        # of clipper functions! But is the inner func really 
-        # necessary? The difficulty is that the intensity gets 
-        # called in process_chunk().
-        # Are there any other func that we may end up using in
-        # future? How about a user-supplied base array (like
-        # a smooth fit)? But this can be implemented in the
-        # detrender I suppose.. 
-        def func(intensity, axis, func):
-            return {
-                'stdv': np.std(intensity, axis=axis),
-                'mad': median_absolute_deviation(intensity, axis=axis),
-            } [func]
-        
-        self.clip = func(intensity, self.axis, self.func)
-        
-        # FIXME: Vectorize these loops by using 2d boolean arrays.
-        # This would also eliminate the need for calling the axis, 
-        # I think. Minimize the call for self.axis.
-        # FIXME: Any need for a 1D clipper? can it be implemented by
-        # using a boolean (perhaps user-supplied) mask?
+        self.clip = np.std(intensity, axis=self.axis)
+         
         if self.axis == 0:
-            assert np.size(self.clip) == self.nt_chunk
-            for time in xrange(self.nt_chunk):
-                weights[ intensity[:,time] > (self.thr*self.clip[time]), time ] = 0.
+            self.clip = np.tile(self.clip, (self.nfreq, 1))
         else:
-            assert np.size(self.clip) == self.nfreq
-            for freq in xrange(self.nfreq):
-                weights[ freq, intensity[freq,:] > (self.thr*self.clip[freq]) ] = 0.
+            self.clip = np.transpose(np.tile(self.clip, (self.nt_chunk, 1)))
+        
+        assert np.shape(weights) == np.shape(intensity) == np.shape(self.clip)
+        weights[ intensity > (self.thr*self.clip) ] = 0.
