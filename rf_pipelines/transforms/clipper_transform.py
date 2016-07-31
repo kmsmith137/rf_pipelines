@@ -35,7 +35,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         self.nt_postpad = 0
 
         assert (self.axis == 0 or self.axis == 1), \
-        'axis must be 0 (along freq; constant time) or 1 (along time; constant freq).'
+            'axis must be 0 (along freq; constant time) or 1 (along time; constant freq).'
         assert self.thr >= 1., 'threshold must be >= 1.'
 
     def set_stream(self, stream):
