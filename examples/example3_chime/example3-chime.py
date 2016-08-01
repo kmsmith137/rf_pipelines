@@ -44,13 +44,14 @@ t4 = rf_pipelines.plotter_transform('detrended_chime', img_nfreq=512, img_nt=120
 
 # Dedisperse and write coarse-grained triggers to the file 'triggers.hdf5'.
 #
-# The bonsai_config.hdf5 input file can be made with 'bonsai-mkweight'.
+# We run bonsai in multifile mode, with nt_per_file=16*1200 so that the bonsai output files will
+# be in 1-1 correspondence with the plotter_transforms above.  This makes it easier to interpret
+# the outputs!
 #
-# The triggers.hdf5 file can be plotted with 'bonsai-plot-triggers.py' (warning: this script needs 
-# improvement, in particular if run on a large stream it will make a "monster" plot with a huge
-# number of pixels).
+# The bonsai_config.hdf5 input file can be made with 'bonsai-mkweight'.
+# The triggers.hdf5 file can be plotted with 'bonsai-plot-triggers.py'.
 
-t5 = rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5')
+t5 = rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5', nt_per_file=16*1200)
 
 s.run([t1,t2,t3,t4,t5])
 

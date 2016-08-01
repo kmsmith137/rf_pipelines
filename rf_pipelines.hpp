@@ -176,6 +176,10 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 // Note that the program 'bonsai-plot-triggers.py' in the bonsai github repo may be useful
 // for quick visual inspection of the bonsai output.
 //
+// If 'nt_per_file' is zero, then all triggers will be written to a single "monster file".  
+// Otherwise multiple files will be written.  Note that nt_per_file is the number of input 
+// time samples (the number of coarse-grained triggers is usually much smaller).
+//
 // The 'ibeam' argument determines the assignment of threads to cores and can probably
 // be zero except in special situations.
 //
@@ -189,7 +193,7 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 // "sigmas".  All of this is just a placeholder until Monte Carlo trigger variance estimation
 // is implemented in bonsai.
 //
-extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_filename, const std::string &output_hdf5_filename, int ibeam=0);
+extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_filename, const std::string &output_hdf5_filename, int nt_per_file=0, int ibeam=0);
 
 
 // -------------------------------------------------------------------------------------------------

@@ -98,6 +98,11 @@ t3 = rf_pipelines.plotter_transform(img_prefix = 'waterfall',   # filenames will
 # You'll need to create the config file with: 'bonsai-mkweight bonsai_config.txt'
 # Coarse-grained triggers are written to 'triggers.hdf5', which can be plotted with 'bonsai-plot-triggers.py triggers.hdf5'.
 # You'll see some wide diagonal stripes from the toy_transform output, plus a sharply peaked bowtie from the FRB.
+#
+# Note: the optional arugment 'nt_per_file' to rf_pipelines.bonsai_dedisperser() can be used to break the bonsai output
+# into multiple files.  This can make the bonsai output files easier to interpret by putting them in 1-1 correspondence
+# with the intensity waterfall plots.  See example3_chime for an explicit example.
+#
 t4 = rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5')
 
 # Run the rf_pipeline!

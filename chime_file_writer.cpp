@@ -18,7 +18,6 @@ namespace rf_pipelines {
 shared_ptr<wi_transform> make_chime_file_writer(const string &filename, bool clobber, int bitshuffle, ssize_t nt_chunk)
 {
     throw runtime_error("rf_pipelines::make_chime_file_writer() was called, but rf_pipelines was compiled without ch_frb_io");
-
 }
 
 #else  // HAVE_CH_FRB_IO
