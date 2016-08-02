@@ -48,7 +48,7 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
         # TODO have to create an inner func taking nfreq/nt_chunk as input
         x = np.linspace(-1, 1, self.nfreq) # TODO could use .tile to combine with p 
         coef = np.eye(self.deg+1)
-        p = np.zeros(self.deg+1, self.nfreq)
+        p = np.zeros([self.deg+1, self.nfreq])
 
         for d in xrange(self.deg+1):
             p[d,:] = np.polynomial.Legendre(coef[d,:])(x)
@@ -60,11 +60,11 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
         for t in xrange(self.nt_chunk):
             
             # TODO weights[:,t] vs. weights[n,:] depending on self.axis
-            M = np.dot( weights[:,t] * p, p.T) # (d+1) by (d+1)
-            assert np.size(M) == (self.deg+1, self.deg+1) # TODO check if necessary
+            M = np.dot(weights[:,t] * p, p.T) # (d+1) by (d+1)
+            assert np.shape(M) == (self.deg+1, self.deg+1) # TODO check if necessary
             
-            v = np.sum( weights[:,t] * intensity[:,t] * p, axis=1) # (d+1) by 1
-            assert np.size(v) == (self.deg+1, 1) # TODO check if necessary
+            v = np.sum(weights[:,t] * intensity[:,t] * p, axis=1) # (d+1) by 1
+            assert np.shape(v) == (self.deg+1,) # TODO check if necessary
 
             # --------------------------------------
             # A.3 conditional statements
@@ -72,7 +72,7 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
             
             # --------------------------------------
             # A.4
-            c = np.linalg.inv(M) * v
+            c = np.dot(np.linalg.inv(M), v)
             assert np.size(c) == self.deg+1 # TODO check if necessary
             fit = np.polynomial.Legendre(c)(x)
             
