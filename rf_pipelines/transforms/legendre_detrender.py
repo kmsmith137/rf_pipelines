@@ -39,43 +39,39 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
     def set_stream(self, stream):
         
         self.nfreq = stream.nfreq
+        
+        if self.axis == 0:
+            (self.N, self.loop) = (self.nfreq, self.nt_chunk)
+        else:
+            (self.N, self.loop) = (self.nt_chunk, self.nfreq)
 
+        self.x = np.linspace(-1, 1, self.N)
+        self.coef = np.eye(self.deg+1)
+        
+        self.P = np.zeros([self.deg+1, self.N])
+        for d in xrange(self.deg+1):
+            self.P[d,:] = np.polynomial.Legendre(self.coef[d,:])(self.x) 
+    
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         
-        # <<<<<<< Assuming self.axis = 0 >>>>>>>
-        # --------------------------------------
-        # A.1 precomputing P(x_i)_alpha; TODO to be moved to set_stream?
-        # TODO have to create an inner func taking nfreq/nt_chunk as input
-        x = np.linspace(-1, 1, self.nfreq) # TODO could use .tile to combine with p 
-        coef = np.eye(self.deg+1)
-        p = np.zeros([self.deg+1, self.nfreq])
-
-        for d in xrange(self.deg+1):
-            p[d,:] = np.polynomial.Legendre(coef[d,:])(x)
+        assert np.shape(weights)[self.axis] == np.shape(self.P)[1]
         
-        # --------------------------------------
-        # A.2 looping over time samples
-        assert np.shape(weights)[self.axis] == np.shape(p)[1] # use self.axis convention
-        # TODO change iterator `t' to sample/ sth else)
-        for t in xrange(self.nt_chunk):
-            
-            # TODO weights[:,t] vs. weights[n,:] depending on self.axis
-            M = np.dot(weights[:,t] * p, p.T) # (d+1) by (d+1)
-            assert np.shape(M) == (self.deg+1, self.deg+1) # TODO check if necessary
-            
-            v = np.sum(weights[:,t] * intensity[:,t] * p, axis=1) # (d+1) by 1
-            assert np.shape(v) == (self.deg+1,) # TODO check if necessary
+        for n in xrange(self.loop):
+            if self.axis == 0:
+                intensity[:,n] -= self.leg_fit(weights[:,n], intensity[:,n])
+            else:
+                intensity[n,:] -= self.leg_fit(weights[n,:], intensity[n,:])
 
-            # --------------------------------------
-            # A.3 conditional statements
-            # TODO if poorly conditioned, then skip, else continue..
-            
-            # --------------------------------------
-            # A.4
+    def leg_fit(self, w, i):     
+        # assert: input; skip if w=0, etc.
+        # case: chunks > nt_chunk
+        if np.sum(w) == 0:
+            return 0.
+        else:
+            M = np.dot(w * self.P, self.P.T)
+            assert np.shape(M) == (self.deg+1, self.deg+1)
+            v = np.sum(w * i * self.P, axis=1)
+            # A.3
             c = np.dot(np.linalg.inv(M), v)
-            assert np.size(c) == self.deg+1 # TODO check if necessary
-            fit = np.polynomial.Legendre(c)(x)
-            
-            # --------------------------------------
-            # A.5 TODO: what to do with fit? e.g., TODO tailor to `self.axis'
-            intensity[:,t] -= fit # TODO combine with A.4 to save memory
+            assert np.size(c) == self.deg+1
+            return np.polynomial.Legendre(c)(self.x)
