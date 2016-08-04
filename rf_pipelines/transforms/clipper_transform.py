@@ -8,8 +8,8 @@ class clipper_transform(rf_pipelines.py_wi_transform):
    to the weights array (i.e., weights[clipped] = 0.) 
    for masking extreme values.
 
-   Currently based on the standard deviation from
-   the mean (np.std)
+   Currently based on the weighted standard deviation
+   as explained in "chime_zerodm_notes" 
 
     Constructor syntax:
 
