@@ -54,17 +54,17 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
         # evaluated over self.N) of legendre polynomials 
         # from degree 0 to self.deg.
         self.x = np.linspace(-1, 1, self.N)
-        self.coef = np.eye(self.deg+1)
         self.P = np.zeros([self.deg+1, self.N])
         for d in xrange(self.deg+1):
-            self.P[d,:] = np.polynomial.Legendre(self.coef[d,:])(self.x) 
+            self.P[d,:] = np.polynomial.Legendre(np.eye(self.deg+1)[d,:])(self.x) 
     
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         
         # Checking whether the coefficients array matches
-        # (in dimension) with the weights array along the
-        # selected axis.
-        assert np.shape(weights)[self.axis] == np.shape(self.P)[1]
+        # (in dimension) with the weights and intensity 
+        # arrays along the selected axis.
+        assert np.shape(weights)[self.axis] == np.shape(intensity)[self.axis] ==\
+                np.shape(self.P)[1]
         
         # Looping over the unselected axis, we subtract
         # the best fit (i.e., output of self.leg_fit()) 
@@ -78,7 +78,8 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
     def leg_fit(self, w, i):     
         #%%%%% assert: input; skip if w=0, etc.
         #%%%%% case: chunks > nt_chunk
-        if np.sum(w) == 0:
+        #%%%%% 0.5*nt_chunk; impl self.wstdv; self.step.
+        if np.sum(w) == 0.: #%%%%% 0.5?
             return 0.
         else:
             M = np.dot(w * self.P, self.P.T)
