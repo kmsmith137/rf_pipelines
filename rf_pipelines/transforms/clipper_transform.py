@@ -16,8 +16,8 @@ class clipper_transform(rf_pipelines.py_wi_transform):
       t = clipper_transform(thr=3, axis=0, nt_chunk=1024)
 
       'thr=3.' is the multiplicative factor of maximum threshold,
-        e.g., 3 * standard_deviation, meaning that any sample
-        above/below this limit is clipped.
+        e.g., 3 * standard_deviation, meaning that (the absolute
+        value of) any sample above this limit is clipped.
 
       'axis=0' is the axis convention:
         0: along freq; constant time
@@ -42,27 +42,48 @@ class clipper_transform(rf_pipelines.py_wi_transform):
 
         self.nfreq = stream.nfreq
         
-    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        
-        #----------------------------------------------------------
-        self.sum_weights = np.sum(weights, axis=self.axis)
-        self.weighted_mean = np.zeros([np.array(self.sum_weights.shape)])
+        # This 2d array will be used as a boolean mask
+        # for selecting the intensity elements beyond
+        # the threshold.
         self.clip = np.zeros([self.nfreq,self.nt_chunk])
-        
+
+    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
+
+        # This 1d array holds the sum of weights along
+        # the selected axis. Its size is equal to the
+        # unselected axis.
+        self.sum_weights = np.sum(weights, axis=self.axis)
+
+        # This 1d array has to match (in dimensions)
+        # with self.sum_weights during the first element-
+        # by-element operation (see the next line).
+        self.weighted_mean = np.zeros([np.array(self.sum_weights.shape)])
+
+        # The first element-by-element operation (1d).
+        # Here we find the weighted mean values
+        # (for those that have non-zero weights)
+        # along the selected axis. The results has 
+        # the size of the unselected axis.
         self.weighted_mean[self.sum_weights > 0.] = \
-            self.tile_arr(np.sum(weights*intensity,\
-            axis=self.axis)[self.sum_weights > 0.]/\
-            self.sum_weights[self.sum_weights > 0.])
+            np.sum(weights*intensity, axis=self.axis)[self.sum_weights > 0.]/\
+            self.sum_weights[self.sum_weights > 0.]
 
+        # Let's tile our 1d arrays by using 
+        # self.tile_arr() so that their dimensions
+        # (now in 2d; [nfreq, nt_chunk]) match 
+        # with intensity, weights, and self.clip.
         self.sum_weights = self.tile_arr(self.sum_weights)
+        self.weighted_mean = self.tile_arr(self.weighted_mean) 
 
+        # Here is the second element-by-element operation (2d).
+        # Note that np.sum(2d) results in a 1d array. Therefore,
+        # we have to use self.tile_arr() to make the 2d elements 
+        # one-to-one.
         self.clip[self.sum_weights > 0.] = np.sqrt(self.tile_arr(\
-            np.sum(weights*(intensity-self.tile_arr(self.weighted_mean))**2,\
+            np.sum(weights*(intensity-self.weighted_mean)**2,\
             axis=self.axis))[self.sum_weights > 0.]/\
             self.sum_weights[self.sum_weights > 0.])
-        #----------------------------------------------------------
 
-        # Verify that all the arrays have the same dimensions.
         assert weights.shape == intensity.shape == self.clip.shape
 
         # Assign zero weights to those elements that have an
