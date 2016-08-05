@@ -62,8 +62,11 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         # The first element-by-element operation (1d).
         # Here we find the weighted mean values
         # (for those that have non-zero weights)
-        # along the selected axis. The results has 
-        # the size of the unselected axis.
+        # along the selected axis. The result has 
+        # the size of the unselected axis. An already-
+        # detrended (e.g., by degree-d legendre polynomial)
+        # array should have zero (or very small) 
+        # weighted_mean values.
         self.weighted_mean[self.sum_weights > 0.] = \
             np.sum(weights*intensity, axis=self.axis)[self.sum_weights > 0.]/\
             self.sum_weights[self.sum_weights > 0.]
@@ -74,7 +77,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         # with intensity, weights, and self.clip.
         self.sum_weights = self.tile_arr(self.sum_weights)
         self.weighted_mean = self.tile_arr(self.weighted_mean) 
-
+        
         # Here is the second element-by-element operation (2d).
         # Note that np.sum(2d) results in a 1d array. Therefore,
         # we have to use self.tile_arr() to make the 2d elements 

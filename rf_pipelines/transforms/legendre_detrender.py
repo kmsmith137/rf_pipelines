@@ -88,4 +88,4 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
             #%%%%% A.3 >>> CONDITIONAL <<<
             c = np.dot(np.linalg.inv(M), v)
             assert np.size(c) == self.deg+1
-            return np.polynomial.Legendre(c)(self.x)
+            return np.polynomial.Legendre(c)(self.x) # use P instead of calling np
