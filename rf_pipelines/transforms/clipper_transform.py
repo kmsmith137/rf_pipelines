@@ -67,9 +67,10 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         # detrended (e.g., by degree-d legendre polynomial)
         # array should have zero (or very small) 
         # weighted_mean values.
-        self.weighted_mean[self.sum_weights > 0.] = \
-            np.sum(weights*intensity, axis=self.axis)[self.sum_weights > 0.]/\
-            self.sum_weights[self.sum_weights > 0.]
+        ind = np.where(self.sum_weights > 0.)
+        self.weighted_mean[ind] = \
+            np.sum(weights*intensity, axis=self.axis)[ind]/\
+            self.sum_weights[ind]
 
         # Let's tile our 1d arrays by using 
         # self.tile_arr() so that their dimensions
@@ -82,18 +83,15 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         # Note that np.sum(2d) results in a 1d array. Therefore,
         # we have to use self.tile_arr() to make the 2d elements 
         # one-to-one.
-        self.clip[self.sum_weights > 0.] = np.sqrt(self.tile_arr(\
+        indx, indy = np.where(self.sum_weights > 0.)
+        self.clip[indx,indy] = np.sqrt(self.tile_arr(\
             np.sum(weights*(intensity-self.weighted_mean)**2,\
-            axis=self.axis))[self.sum_weights > 0.]/\
-            self.sum_weights[self.sum_weights > 0.])
-
-        assert weights.shape == intensity.shape == self.clip.shape
+            axis=self.axis))[indx,indy]/self.sum_weights[indx,indy])
 
         # Assign zero weights to those elements that have an
-        # intensity value above/below the threshold limit.
-        # The statement in [ ] creates a boolean array which
-        # picks up elements in the weights array.
-        weights[ np.abs(intensity) > (self.thr*self.clip) ] = 0.
+        # intensity value beyond the threshold limit.
+        assert weights.shape == intensity.shape == self.clip.shape
+        np.putmask(weights, np.abs(intensity) > (self.thr*self.clip), 0.)
 
     def tile_arr(self, arr):
         if self.axis == 0:
