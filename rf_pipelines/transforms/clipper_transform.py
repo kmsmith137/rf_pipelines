@@ -113,7 +113,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
     
     def __test(self, weights, intensity):
         # Let's replace the intensity array with gaussian noise
-        # centered at 0 with std=1. Also set all weights to 0.
+        # centered at 0 with std=1. Also set all weights to 1.
         # Masking elements beyond thr=1 should result in keeping 
         # ~68% of all elements (i.e., non-zero and within 1std).
         intensity[:] = np.random.normal(9, 1, intensity.size).reshape(intensity.shape)
