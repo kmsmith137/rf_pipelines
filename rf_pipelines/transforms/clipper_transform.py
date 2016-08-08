@@ -75,7 +75,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         self.weighted_mean[ind] = \
             np.sum(weights*intensity, axis=self.axis)[ind]/\
             self.sum_weights[ind]
-
+        
         # Let's tile our 1d arrays by using 
         # self.tile_arr() so that their dimensions
         # (now in 2d; [nfreq, nt_chunk]) match 
@@ -95,7 +95,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         # Assign zero weights to those elements that have an
         # intensity value beyond the threshold limit.
         assert weights.shape == intensity.shape == self.clip.shape
-        np.putmask(weights, np.abs(intensity) > (self.thr*self.clip), 0.)
+        np.putmask(weights, np.abs(intensity-self.weighted_mean) > (self.thr*self.clip), 0.)
         
         # --->>> This is part of the test run.
         #print np.count_nonzero(weights) /\
@@ -113,10 +113,10 @@ class clipper_transform(rf_pipelines.py_wi_transform):
     
     def __test(self, weights, intensity):
         # Let's replace the intensity array with gaussian noise
-        # centered at 0 with std=1. Also set all weights to 1.
+        # centered at 0 with std=1. Also set all weights to 0.
         # Masking elements beyond thr=1 should result in keeping 
         # ~68% of all elements (i.e., non-zero and within 1std).
-        intensity[:] = np.random.normal(0, 1, intensity.size).reshape(intensity.shape)
+        intensity[:] = np.random.normal(9, 1, intensity.size).reshape(intensity.shape)
         weights[:] = 1.
         self.thr = 1.
         return weights, intensity
