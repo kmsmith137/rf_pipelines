@@ -8,9 +8,11 @@ class clipper_transform(rf_pipelines.py_wi_transform):
    to the weights array (i.e., weights[clipped] = 0.) 
    for masking extreme values.
 
-   Currently based on the weighted standard deviation
-   as explained in "chime_zerodm_notes" 
-
+   - Currently based on the weighted standard deviation
+   as explained in "chime_zerodm_notes".
+   - Assumes zero mean (i.e., the intensity has already 
+   been detrended along the selected axis).
+   
     Constructor syntax:
 
       t = clipper_transform(thr=3, axis=0, nt_chunk=1024)
@@ -48,7 +50,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         self.clip = np.zeros([self.nfreq,self.nt_chunk])
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-
+        
         # --->>> The following is a private method for testing the class.
         #weights, intensity = self._clipper_transform__test(weights, intensity)
         
@@ -57,50 +59,31 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         # unselected axis.
         self.sum_weights = np.sum(weights, axis=self.axis)
 
-        # This 1d array has to match (in dimensions)
-        # with self.sum_weights during the first element-
-        # by-element operation (see the next line).
-        self.weighted_mean = np.zeros(np.array(self.sum_weights.shape))
-        
-        # The first element-by-element operation (1d).
-        # Here we find the weighted mean values
-        # (for those that have non-zero weights)
-        # along the selected axis. The result has 
-        # the size of the unselected axis. An already-
-        # detrended (e.g., by degree-d legendre polynomial)
-        # array should have zero (or very small) 
-        # weighted_mean values.
-        # note: ind = NONE is safe.
-        ind = np.where(self.sum_weights > 0.)
-        self.weighted_mean[ind] = \
-            np.sum(weights*intensity, axis=self.axis)[ind]/\
-            self.sum_weights[ind]
-        
-        # Let's tile our 1d arrays by using 
-        # self.tile_arr() so that their dimensions
+        # Let's tile our 1d array by using 
+        # self.tile_arr() so that its dimensions
         # (now in 2d; [nfreq, nt_chunk]) match 
         # with intensity, weights, and self.clip.
         self.sum_weights = self.tile_arr(self.sum_weights)
-        self.weighted_mean = self.tile_arr(self.weighted_mean) 
         
-        # Here is the second element-by-element operation (2d).
+        # Here is an element-by-element operation (2d).
         # Note that np.sum(2d) results in a 1d array. Therefore,
         # we have to use self.tile_arr() to make the 2d elements 
         # one-to-one.
         indx, indy = np.where(self.sum_weights > 0.)
         self.clip[indx,indy] = np.sqrt(self.tile_arr(\
-            np.sum(weights*(intensity-self.weighted_mean)**2,\
-            axis=self.axis))[indx,indy]/self.sum_weights[indx,indy])
+            np.sum(weights*(intensity)**2,\
+            axis=self.axis))[indx,indy]/\
+            self.sum_weights[indx,indy])
 
         # Assign zero weights to those elements that have an
         # intensity value beyond the threshold limit.
         assert weights.shape == intensity.shape == self.clip.shape
-        np.putmask(weights, np.abs(intensity-self.weighted_mean) > (self.thr*self.clip), 0.)
+        np.putmask(weights, np.abs(intensity) > (self.thr*self.clip), 0.)
         
         # --->>> This is part of the test run.
         #print np.count_nonzero(weights) /\
         #        float(self.nfreq*self.nt_chunk) * 100, "% not masked."
-
+        
     def tile_arr(self, arr):
         # This method tiles (i.e., copies) a 1d array along the 
         # selected axis. It's used for matching two arrays in 
@@ -115,8 +98,9 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         # Let's replace the intensity array with gaussian noise
         # centered at 0 with std=1. Also set all weights to 1.
         # Masking elements beyond thr=1 should result in keeping 
-        # ~68% of all elements (i.e., non-zero and within 1std).
-        intensity[:] = np.random.normal(9, 1, intensity.size).reshape(intensity.shape)
+        # ~68% of all elements in weights (i.e., non-zero and 
+        # within 1std).
+        intensity[:] = np.random.normal(0, 1, intensity.size).reshape(intensity.shape)
         weights[:] = 1.
         self.thr = 1.
         return weights, intensity
