@@ -60,6 +60,9 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
     
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         
+        # --->>> The following is a private method for testing the class.
+        #weights, intensity = self._legendre_detrender__test(weights, intensity)
+
         # Checking whether the coefficients array matches
         # (in dimension) with the weights and intensity 
         # arrays along the selected axis.
@@ -78,8 +81,7 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
     def leg_fit(self, w, i):     
         #%%%%% assert: input; skip if w=0, etc.
         #%%%%% case: chunks > nt_chunk
-        #%%%%% 0.5*nt_chunk; impl self.wstdv; self.step.
-        if np.sum(w) == 0.: #%%%%% 0.5?
+        if np.sum(w) == 0.:
             return 0.
         else:
             M = np.dot(w * self.P, self.P.T)
@@ -88,4 +90,7 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
             #%%%%% A.3 >>> CONDITIONAL <<<
             c = np.dot(np.linalg.inv(M), v)
             assert np.size(c) == self.deg+1
-            return np.polynomial.Legendre(c)(self.x) # use P instead of calling np
+            return np.dot(c, self.P)
+    
+    def __test(self, weights, intensity):
+        pass
