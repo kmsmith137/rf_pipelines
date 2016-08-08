@@ -49,6 +49,9 @@ class clipper_transform(rf_pipelines.py_wi_transform):
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
 
+        # --->>> The following is a private method for testing the class.
+        #weights, intensity = self._clipper_transform__test(weights, intensity)
+        
         # This 1d array holds the sum of weights along
         # the selected axis. Its size is equal to the
         # unselected axis.
@@ -57,8 +60,8 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         # This 1d array has to match (in dimensions)
         # with self.sum_weights during the first element-
         # by-element operation (see the next line).
-        self.weighted_mean = np.zeros([np.array(self.sum_weights.shape)])
-
+        self.weighted_mean = np.zeros(np.array(self.sum_weights.shape))
+        
         # The first element-by-element operation (1d).
         # Here we find the weighted mean values
         # (for those that have non-zero weights)
@@ -67,6 +70,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         # detrended (e.g., by degree-d legendre polynomial)
         # array should have zero (or very small) 
         # weighted_mean values.
+        # note: ind = NONE is safe.
         ind = np.where(self.sum_weights > 0.)
         self.weighted_mean[ind] = \
             np.sum(weights*intensity, axis=self.axis)[ind]/\
@@ -92,9 +96,27 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         # intensity value beyond the threshold limit.
         assert weights.shape == intensity.shape == self.clip.shape
         np.putmask(weights, np.abs(intensity) > (self.thr*self.clip), 0.)
+        
+        # --->>> This is part of the test run.
+        #print np.count_nonzero(weights) /\
+        #        float(self.nfreq*self.nt_chunk) * 100, "% not masked."
 
     def tile_arr(self, arr):
+        # This method tiles (i.e., copies) a 1d array along the 
+        # selected axis. It's used for matching two arrays in 
+        # element-by-element operations.
+        assert arr.ndim == 1
         if self.axis == 0:
             return np.tile(arr, (self.nfreq, 1))
         else:
             return np.transpose(np.tile(arr, (self.nt_chunk, 1)))
+    
+    def __test(self, weights, intensity):
+        # Let's replace the intensity array with gaussian noise
+        # centered at 0 with std=1. Also set all weights to 1.
+        # Masking elements beyond thr=1 should result in keeping 
+        # ~68% of all elements (i.e., non-zero and within 1std).
+        intensity[:] = np.random.normal(0, 1, intensity.size).reshape(intensity.shape)
+        weights[:] = 1.
+        self.thr = 1.
+        return weights, intensity
