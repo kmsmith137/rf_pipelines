@@ -6,11 +6,10 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
    This transform removes a degree-d weighted-fit legendre 
    polynomial from the intensity along a specified axis. 
 
-   Currently based on the minimization of sum( w_i * (y_i-f(x_i)) )^2,
+   + Currently based on the minimization of sum( w_i * (y_i-f(x_i)) )^2,
    where w_i, y_i, and f(x_i) are the weights, intensity and model 
    values of sample i, respectively.
-
-   Names are based on "chime_zerodm_notes"
+   + Names are consistent with "chime_zerodm_notes".
 
     Constructor syntax:
 
@@ -27,7 +26,7 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
       'test=False' enables a test mode.
     """
 
-    def __init__(self, deg=0, axis=0, nt_chunk=1024):
+    def __init__(self, deg=0, axis=0, nt_chunk=1024, test=False):
         
         self.deg = deg
         self.axis = axis
@@ -37,9 +36,9 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
         self.test = test
 
         assert (self.deg >= 0 and type(self.deg) == int), \
-            'degree must be an integer >= 0'
+            "degree must be an integer >= 0"
         assert (self.axis == 0 or self.axis == 1), \
-            'axis must be 0 (along freq; constant time) or 1 (along time; constant freq).'
+            "axis must be 0 (along freq; constant time) or 1 (along time; constant freq)."
 
     def set_stream(self, stream):
         
@@ -82,20 +81,33 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
                 intensity[n,:] -= self.leg_fit(weights[n,:], intensity[n,:])
 
     def leg_fit(self, w, i):
-        
+        """This method computes the coefficients of the 
+        best-fit leg polynomial for the array 'i' weighted by 'w'.
+        The output is an array of the evaluated leg polynomial
+        over the same domain as 'i'.
+        """
+        # Input should be 1d.
         assert w.ndim == i.ndim == 1
         assert w.size == i.size
         
+        # Ill-conditioned Matrix M:
+        # For now, let's just ignore totally-masked 
+        # arrays. In the future, we shall implement 
+        # a robust algorithm for catching 
+        # poorly-conditioned matrices 
+        # (see "chime_zerodm_notes").
         if np.sum(w) == 0.:
             return 0.
         else:
+            # The following is explained in the notes.
             M = np.dot(w * self.P, self.P.T)
             assert np.shape(M) == (self.deg+1, self.deg+1)
             v = np.sum(w * i * self.P, axis=1)
-            #%%%%% A.3 >>> CONDITIONAL <<<
+            # This is a good place to call an inner 
+            # method for catching an ill-conditioned M.
             c = np.dot(np.linalg.inv(M), v)
             assert np.size(c) == self.deg+1
             return np.dot(c, self.P)
     
     def __test(self, weights, intensity):
-        pass 
+        pass
