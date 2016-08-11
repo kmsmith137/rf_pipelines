@@ -66,19 +66,21 @@ class clipper_transform(rf_pipelines.py_wi_transform):
             self.sum_weights = np.sum(weights, axis=self.axis)
 
             # Let's tile our 1d array by using 
-            # self.tile_arr() so that its dimensions
+            # rf_pipelines.tile_arr() so that its dimensions
             # (now in 2d; [nfreq, nt_chunk]) match 
             # with intensity, weights, and self.clip.
-            self.sum_weights = self.tile_arr(self.sum_weights)
+            self.sum_weights = rf_pipelines.tile_arr(self.sum_weights, self.axis,\
+                    self.nfreq, self.nt_chunk)
         
             # Here is an element-by-element operation (2d).
             # Note that np.sum(2d) results in a 1d array. Therefore,
-            # we have to use self.tile_arr() to make the 2d elements 
+            # we have to use rf_pipelines.tile_arr() to make the 2d elements 
             # one-to-one.
             indx, indy = np.where(self.sum_weights > 0.)
-            self.clip[indx,indy] = np.sqrt(self.tile_arr(\
+            self.clip[indx,indy] = np.sqrt(rf_pipelines.tile_arr(\
                 np.sum(weights*(intensity)**2,\
-                axis=self.axis))[indx,indy]/\
+                axis=self.axis), self.axis, self.nfreq,\
+                self.nt_chunk)[indx,indy]/\
                 self.sum_weights[indx,indy])
         else:
             # 2d mode
@@ -94,17 +96,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         if self.test:
             print np.count_nonzero(weights) /\
                 float(self.nfreq*self.nt_chunk) * 100, "% not masked."
-        
-    def tile_arr(self, arr):
-        # This method tiles (i.e., copies) a 1d array along the 
-        # selected axis. It's used for matching two arrays in 
-        # element-by-element operations.
-        assert arr.ndim == 1
-        if self.axis == 0:
-            return np.tile(arr, (self.nfreq, 1))
-        else:
-            return np.transpose(np.tile(arr, (self.nt_chunk, 1)))
-    
+
     def __test(self, weights, intensity):
         # Let's replace the intensity array with gaussian noise
         # centered at 0 with std=1. Also set all weights to 1.

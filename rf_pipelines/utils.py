@@ -7,8 +7,56 @@ except:
     pass  # warning message has already been printed in rf_pipelines/__init__.py
 
 
-def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False):
-    """This is a quick-and-dirty plotting routine that I cut-and-paste everywhere."""
+def weighted_mean_and_rms(arr, weights, niter=1, sigma_clip=3.0):
+    """
+    If niter > 1, then the calculation will be iterated, "clipping" outlier samples which
+    deviate from the mean by more than 3 sigma (or a different threshold, if the sigma_clip
+    parameter is specified).
+    """
+
+    assert weights is not None
+    assert arr.shape == weights.shape
+    assert niter >= 1
+    assert sigma_clip >= 2.0   # lower than this really wouldn't make sense
+
+    assert np.all(weights >= 0.0)
+    weights = np.copy(weights)
+
+    (mean, rms) = (0.0, 0.0)
+
+    for iter in xrange(niter):
+        wsum = np.sum(weights)
+        if wsum <= 0.0:
+            return (mean, 0.0)
+
+        mean = np.sum(weights*arr) / np.sum(weights)
+        var = np.sum((weights*(arr-mean))**2) / np.sum(weights**2)
+
+        if var <= 0.0:
+            return (mean, rms)
+
+        rms = np.sqrt(var)
+        mask = np.abs(arr-mean) <= sigma_clip*rms
+        weights = np.where(mask, weights, 0.0)
+
+    return (mean, rms)
+
+
+def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False, clip_niter=3, sigma_clip=3.0):
+    """
+    Writes a 2D floating-point array as a png image.  Currently we use a simple blue-purple-red colormap.
+
+       'arr': A 2D array to be plotted
+
+       'weights': If specified, elements with zero/low weight will be black/greyed out.
+ 
+       'transpose': If set, array axis ordering will be (y,x) rather than the default (x,y).
+
+       'ytop_to_bottom': If set, the array y-axis will run from top->bottom in the image, rather than the default bottom->top.
+
+       'clip_niter', 'sigma_clip': By default, colors are assigned by computing the mean and rms after clipping 3-sigma 
+           outliers using three masking iterations.  These arguments override the defaults.
+    """
 
     arr = np.array(arr, dtype=np.float)
     assert arr.ndim == 2
@@ -39,18 +87,20 @@ def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False
         img.save(filename)
         return
 
+    (mean, rms) = weighted_mean_and_rms(arr, weights, clip_niter, sigma_clip)
+
+    # Anorther corner case: if rms is zero then use 1.0 and fall through.  
+    # This will plot an image with constant color values.
+    if rms <= 0.0:
+        rms = 1.0
+
     # normalize weights to [0,1]
     weights = weights/wmax
 
-    # weighted mean and rms
-    mean = np.sum(weights*arr) / np.sum(weights)
-    var = np.sum((weights*(arr-mean))**2) / np.sum(weights**2)
-    rms = np.sqrt(var) if (var > 0.0) else 1.0    # The "1.0" handles the corner case of a constant array.
-
     # color in range [0,1].
     color = 0.5 + 0.16*(arr-mean)/rms    # factor 0.16 preserves convention from some old code
-    color = np.maximum(color, 0.0)
-    color = np.minimum(color, 0.999999)  # 0.99999 instead of 1.0, to make roundoff-robust
+    color = np.maximum(color, 0.0001)    # 0.0001 instead of 0.0, to make roundoff-robust
+    color = np.minimum(color, 0.9999)    # 0.9999 instead of 1.0, to make roundoff-robust
     
     # rgb in range [0,1]
     red = 256. * color * weights
@@ -93,3 +143,14 @@ def wi_downsample(intensity, weights, new_nfreq, new_ntime):
     wi = np.where(mask, wi, 0.0)
 
     return (wi, w)
+
+def tile_arr(arr, axis, nfreq, nt_chunk):
+    """tiles (i.e., copies) a 1d array along the selected axis. 
+    It's used for matching 1d and 2d arrays in element-by-element 
+    operations. It can also be useful in creating 2d simulations."""
+    
+    assert arr.ndim == 1
+    if axis == 0:
+        return np.tile(arr, (nfreq, 1))
+    else:
+        return np.transpose(np.tile(arr, (nt_chunk, 1)))

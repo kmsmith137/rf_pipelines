@@ -225,4 +225,4 @@ from .transforms.legendre_detrender import legendre_detrender
 
 # Helper routines for implementing new transforms in python.
 
-from .utils import write_png, wi_downsample
+from .utils import write_png, wi_downsample, tile_arr
