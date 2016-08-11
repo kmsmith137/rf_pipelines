@@ -14,7 +14,7 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
 
     Constructor syntax:
 
-      t = legendre_detrender(deg=0, axis=0, nt_chunk=1024)
+      t = legendre_detrender(deg=0, axis=0, nt_chunk=1024, test=False)
       
       'deg=0' is the degree of fit.
       
@@ -23,6 +23,8 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
         1: along time; constant freq
 
       'nt_chunk=1024' is the buffer size.
+
+      'test=False' enables a test mode.
     """
 
     def __init__(self, deg=0, axis=0, nt_chunk=1024):
@@ -32,6 +34,7 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
+        self.test = test
 
         assert (self.deg >= 0 and type(self.deg) == int), \
             'degree must be an integer >= 0'
@@ -60,8 +63,8 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
     
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         
-        # --->>> The following is a private method for testing the class.
-        #weights, intensity = self._legendre_detrender__test(weights, intensity)
+        if self.test:
+            weights, intensity = self._legendre_detrender__test(weights, intensity)
 
         # Checking whether the coefficients array matches
         # (in dimension) with the weights and intensity 
@@ -78,9 +81,11 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
             else:
                 intensity[n,:] -= self.leg_fit(weights[n,:], intensity[n,:])
 
-    def leg_fit(self, w, i):     
-        #%%%%% assert: input; skip if w=0, etc.
-        #%%%%% case: chunks > nt_chunk
+    def leg_fit(self, w, i):
+        
+        assert w.ndim == i.ndim == 1
+        assert w.size == i.size
+        
         if np.sum(w) == 0.:
             return 0.
         else:
@@ -93,4 +98,4 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
             return np.dot(c, self.P)
     
     def __test(self, weights, intensity):
-        pass
+        pass 
