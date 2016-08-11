@@ -30,7 +30,6 @@ class clipper_transform(rf_pipelines.py_wi_transform):
       'nt_chunk=1024' is the buffer size.
 
       'test=False' enables a test mode.
-
     """
 
     def __init__(self, thr=3., axis=0, nt_chunk=1024, test=False):
