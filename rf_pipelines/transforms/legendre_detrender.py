@@ -80,6 +80,11 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
             else:
                 intensity[n,:] -= self.leg_fit(weights[n,:], intensity[n,:])
 
+        if self.test:
+            mean = np.sum(weights*intensity)/np.sum(weights)
+            rms = np.sqrt(np.sum(weights*(intensity-mean)**2)/np.sum(weights))
+            print (self.deg, mean, rms), " = (deg, mean, rms)"
+
     def leg_fit(self, w, i):
         """This method computes the coefficients of the 
         best-fit leg polynomial for the array 'i' weighted by 'w'.
@@ -91,10 +96,9 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
         assert w.size == i.size
         
         # Ill-conditioned Matrix M:
-        # For now, let's just ignore totally-masked 
-        # arrays. In the future, we shall implement 
-        # a robust algorithm for catching 
-        # poorly-conditioned matrices 
+        # For now, let's just ignore totally-masked arrays. 
+        # In the future, we shall implement a robust 
+        # algorithm for catching poorly-conditioned matrices 
         # (see "chime_zerodm_notes").
         if np.sum(w) == 0.:
             return 0.
@@ -109,5 +113,33 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
             assert np.size(c) == self.deg+1
             return np.dot(c, self.P)
     
-    def __test(self, weights, intensity):
-        pass
+    def __test(self, weights, intensity, mask_level=0.3, test_mode=1):
+        """This private method replaces the weights and intensity
+        arrays with a new set of pre-defined arrays (see below)"""
+
+        # Let's create a weights array using a gaussian noise distribution.
+        weights[:] = np.random.normal(0, 1, weights.size).reshape(weights.shape)
+        # Mask out weights less than 'mask_level'
+        indx, indy = np.where(weights < mask_level)
+        weights[indx,indy] = 0.
+        print indx.size / float(weights.size) * 100, " % masked"
+
+        if test_mode == 0:
+            # Fitting a noise level with randomly masked 
+            # elements should result in a consistent chain 
+            # of outputs with different degrees of fit.
+            # Test the code by running the transform 
+            # (while self.test=True) with a few different 
+            # values for 'self.deg'.
+            intensity[:] = np.random.normal(0, 1, intensity.size).reshape(intensity.shape)
+            
+        if test_mode == 1:
+            # Test by fitting a well-defined poly tiled in 2d.
+            # The poly's coefficients are chosen randomly 
+            # (centered at 0 with stdv=10)
+            c = np.random.normal(0, 10, self.deg+1)
+            intensity[:] = rf_pipelines.tile_arr(\
+                    np.dot(c, self.P), self.axis,\
+                    self.nfreq, self.nt_chunk)
+
+        return weights, intensity
