@@ -87,7 +87,7 @@ chime_file_stream::chime_file_stream(const vector<string> &filename_list_, ssize
 	double fi0 = curr_file->time_lo / dt_sample;
 	ssize_t i0 = ssize_t(fi0 + 0.5);
 
-	if (fabs(fi0 - i0) < 1.0e-4)
+	if (fabs(fi0 - i0) > 1.0e-4)
 	    throw std::runtime_error("chime_file_stream constructor: file timestamp does not appear to evenly divide dt_sample");
 
 	i0 = i0 % noise_source_align;

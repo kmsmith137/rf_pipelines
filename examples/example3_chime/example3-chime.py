@@ -24,8 +24,11 @@ if not os.path.exists('bonsai_config.hdf5'):
 filename_list = [ '00000770.h5', '00000786.h5', '00000802.h5', '00000819.h5' ]
 filename_list = [ os.path.join('/data/pathfinder/16-07-08',f) for f in filename_list ]
 
-# Construct CHIME stream object.
-s = rf_pipelines.chime_stream_from_filename_list(filename_list)
+# Construct CHIME stream object.  We use the noise_source_align optional argument, which ensures that
+# the noise source is aligned with the detrender chunks, by discarding a small amount of initial data
+# if necessary.  Note that the value of 'noise_source_align' should be equal to the detrender chunk
+# size (not the stream nt_chunk! in this example the two happen to be equal.)
+s = rf_pipelines.chime_stream_from_filename_list(filename_list, nt_chunk=1024, noise_source_align=1024)
 
 # This plotter_transform is before the detrender, so it generates "raw" (non-detrended)
 # plots.  Downsampling by a factor 16 in time, and using 1200 coarse-grained times per
@@ -37,6 +40,8 @@ t1 = rf_pipelines.plotter_transform('raw_chime', img_nfreq=512, img_nt=1200, dow
 t2 = rf_pipelines.badchannel_mask('/data/pathfinder/rfi_masks/rfi_20160705.dat', nt_chunk=512)
 
 # A very simple detrender (should implement something better soon!)
+# The argument to the simple_detrender constructor is the detrender chunk size.
+# The value of 'noise_source_align' above should be chosen to equal this.
 t3 = rf_pipelines.simple_detrender(1024)
 
 # This plotter_transform is after the detrender, so it generates detrended plots.
