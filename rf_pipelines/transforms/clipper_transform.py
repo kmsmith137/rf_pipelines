@@ -13,7 +13,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
    been detrended along the selected axis).
    + Currently based on the weighted standard deviation 
    as explained in "chime_zerodm_notes".
-   + Available in a coarse-grained mode via 'upsample_nt'
+   + Available in a coarse-grained mode by using 'upsample_nt'
     
     Constructor syntax:
 
