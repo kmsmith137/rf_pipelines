@@ -36,25 +36,32 @@ shared_ptr<wi_stream> make_chime_stream_from_filename_list(const vector<string> 
 class chime_file_stream : public wi_stream
 {
 protected:
-    // Specified at construction.  Note that the 'nt_chunk' argument becomes 
+    // Specified at construction.  For an explanation of the 'noise_source_align' field see rf_pipelines.hpp.
+    // Note that the 'nt_chunk' constructor argument is used to initialize the base class member wi_stream::nt_maxwrite.
     vector<string> filename_list;
+    ssize_t noise_source_align;   // if zero, no alignment will be performed
 
     shared_ptr<ch_frb_io::intensity_hdf5_file> curr_file;
     int curr_ifile;  // index of current file in filename_list
 
+    // Only nonzero if noise source alignment is requested
+    ssize_t samples_per_noise_switch = 0;
+    ssize_t initial_discard_count = 0;
+
 public:
-    chime_file_stream(const vector<string> &filename_list_, ssize_t nt_chunk);
+    chime_file_stream(const vector<string> &filename_list_, ssize_t nt_chunk, ssize_t noise_source_align);
     virtual ~chime_file_stream() { }
 
     virtual void stream_body(wi_run_state &run_state);
 };
 
     
-chime_file_stream::chime_file_stream(const vector<string> &filename_list_, ssize_t nt_chunk) :
-    filename_list(filename_list_)
+chime_file_stream::chime_file_stream(const vector<string> &filename_list_, ssize_t nt_chunk, ssize_t noise_source_align_) :
+    filename_list(filename_list_), noise_source_align(noise_source_align_)
 {
     rf_assert(filename_list.size() > 0);
-
+    rf_assert(noise_source_align >= 0);
+    
     this->curr_file = make_shared<ch_frb_io::intensity_hdf5_file> (filename_list[0]);
     this->curr_ifile = 0;
 
@@ -63,14 +70,38 @@ chime_file_stream::chime_file_stream(const vector<string> &filename_list_, ssize
     this->freq_hi_MHz = curr_file->freq_hi_MHz;
     this->dt_sample = curr_file->dt_sample;
     this->nt_maxwrite = (nt_chunk > 0) ? nt_chunk : 1024;
+
+    if (noise_source_align > 0) {
+	if (dt_sample < 1.0e-4)
+	    throw std::runtime_error("chime_file_stream constructor: unexpectedly small dt_sample");
+
+	double dt_noise_source = (1 << 23) * 2.56e-6;
+	double fsamp = dt_noise_source / dt_sample;
+	this->samples_per_noise_switch = ssize_t(fsamp + 0.5);
+
+	if (fabs(samples_per_noise_switch - fsamp) > 1.0e-4)
+	    throw std::runtime_error("chime_file_stream constructor: dt_sample does not appear to evenly divide dt_noise_source");
+	if (samples_per_noise_switch % noise_source_align != 0)
+	    throw std::runtime_error("chime_file_stream constructor: 'noise_source_align' must evenly divide " + to_string(samples_per_noise_switch));
+
+	double fi0 = curr_file->time_lo / dt_sample;
+	ssize_t i0 = ssize_t(fi0 + 0.5);
+
+	if (fabs(fi0 - i0) < 1.0e-4)
+	    throw std::runtime_error("chime_file_stream constructor: file timestamp does not appear to evenly divide dt_sample");
+
+	i0 = i0 % noise_source_align;
+	this->initial_discard_count = (noise_source_align - i0) % noise_source_align;
+    }
 }
 
     
 // virtual
 void chime_file_stream::stream_body(wi_run_state &run_state)
 {
-    ssize_t it_file = 0;    // time index in current file.  Can be negative!  This means there is a time gap between files.
-    ssize_t it_chunk = 0;
+    ssize_t it_file = 0;                         // time index in current file.  Can be negative!  This means there is a time gap between files.
+    ssize_t it_chunk = -initial_discard_count;   // index in current chunk.  Can be negative!  This means we're still discarding initial samples.
+    double stream_t0 = curr_file->time_lo + initial_discard_count * dt_sample;
     int nfiles = filename_list.size();
 
     float *intensity;
@@ -78,8 +109,8 @@ void chime_file_stream::stream_body(wi_run_state &run_state)
     ssize_t stride;
     bool zero_flag = true;
 
-    run_state.start_substream(curr_file->time_lo);
-    run_state.setup_write(nt_maxwrite, intensity, weights, stride, zero_flag, curr_file->time_lo);
+    run_state.start_substream(stream_t0);
+    run_state.setup_write(nt_maxwrite, intensity, weights, stride, zero_flag, stream_t0);
 
     for (;;) {
 	//
@@ -145,7 +176,13 @@ void chime_file_stream::stream_body(wi_run_state &run_state)
 	}
 	else if (it_file < 0) {
 	    // Skip gap between files.
-	    ssize_t n = min(-it_file, nt_maxwrite-it_chunk);
+	    ssize_t n = min(-it_file, nt_maxwrite - it_chunk);
+	    it_file += n;
+	    it_chunk += n;
+	}
+	else if (it_chunk < 0) {
+	    // Drop data, by advancing it_chunk
+	    ssize_t n = min(-it_chunk, curr_file->nt_logical - it_file);
 	    it_file += n;
 	    it_chunk += n;
 	}
@@ -215,30 +252,30 @@ static void list_chime_acqdir(vector<string> &chime_files, const string &dirname
 }
 
 
-shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &dirname, ssize_t nt_chunk)
+shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &dirname, ssize_t nt_chunk, ssize_t noise_source_align)
 {
     bool allow_empty = false;
     vector<string> filename_list;
     list_chime_acqdir(filename_list, dirname, allow_empty);
     cerr << dirname << ": " << filename_list.size() << " data files found in acqdir";
 
-    return make_chime_stream_from_filename_list(filename_list, nt_chunk);
+    return make_chime_stream_from_filename_list(filename_list, nt_chunk, noise_source_align);
 }
 
-shared_ptr<wi_stream> make_chime_stream_from_filename(const string &filename, ssize_t nt_chunk)
+shared_ptr<wi_stream> make_chime_stream_from_filename(const string &filename, ssize_t nt_chunk, ssize_t noise_source_align)
 {
     vector<string> filename_list;
     filename_list.push_back(filename);
 
-    return make_chime_stream_from_filename_list(filename_list, nt_chunk);    
+    return make_chime_stream_from_filename_list(filename_list, nt_chunk, noise_source_align);
 }
 
-shared_ptr<wi_stream> make_chime_stream_from_filename_list(const vector<string> &filename_list, ssize_t nt_chunk)
+shared_ptr<wi_stream> make_chime_stream_from_filename_list(const vector<string> &filename_list, ssize_t nt_chunk, ssize_t noise_source_align)
 {
     if (filename_list.size() == 0)
 	throw runtime_error("empty filename_list in make_chime_stream()");
 
-    return make_shared<chime_file_stream> (filename_list, nt_chunk);
+    return make_shared<chime_file_stream> (filename_list, nt_chunk, noise_source_align);
 }
 
 
