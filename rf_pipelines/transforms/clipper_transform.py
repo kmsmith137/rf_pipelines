@@ -14,12 +14,13 @@ class clipper_transform(rf_pipelines.py_wi_transform):
    + Currently based on the weighted standard deviation 
    as explained in "chime_zerodm_notes".
    + Available in a coarse-grained mode by using 
-   'dsample_nfreq' and 'dsample_nt'.
+   'course_grained', 'dsample_nfreq', and 'dsample_nt'.
     
     Constructor syntax:
 
-      t = clipper_transform(thr=3, axis=0, nt_chunk=1024,\ 
-          dsample_nfreq=512, dsample_nt=1024, test=False)
+      t = clipper_transform(thr=3, axis=0, nt_chunk=1024,\
+          dsample_nfreq=512, dsample_nt=1024,\
+          course_grained=False, test=False)
 
       'thr=3.' is the multiplicative factor of maximum threshold,
         e.g., 3 * standard_deviation, meaning that (the absolute
@@ -35,10 +36,15 @@ class clipper_transform(rf_pipelines.py_wi_transform):
       'dsample_nfreq=512' and 'dsample_nt=1024' are the downsampled 
        number of pixles along the freq and time axes, respectively.
 
+      'coarse_grained=False' enables the coarse-grained clipper by
+      downsampling the arrays. NOTE: This is an internal processing
+      flag. Therefore, the outgoing stream always matches (in 
+      dimensions, [nfreq,nt_chunk]) with the incoming stream.
+
       'test=False' enables a test mode.
     """
 
-    def __init__(self, thr=3., axis=0, nt_chunk=1024, dsample_nfreq=512, dsample_nt=1024, test=False):
+    def __init__(self, thr=3., axis=0, nt_chunk=1024, dsample_nfreq=512, dsample_nt=1024, coarse_grained=False, test=False):
 
         assert (axis == 0 or axis == 1 or axis == 2),\
             "axis must be 0 (along freq; constant time), 1 (along time; constant freq), or 2 (planar; freq and time)."
@@ -56,6 +62,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         self.nt_postpad = 0
         self.dsample_nfreq = dsample_nfreq
         self.dsample_nt = dsample_nt
+        self.coarse_grained = coarse_grained
         self.test = test
 
     def set_stream(self, stream):
@@ -64,6 +71,12 @@ class clipper_transform(rf_pipelines.py_wi_transform):
                 raise RuntimeError("plotter_transform: current implementation requires 'dsample_nfreq' to be a divisor of stream nfreq.")
 
         self.nfreq = stream.nfreq
+
+        if self.coarse_grained:
+            self.ry = self.nfreq.copy()
+            self.rx = self.nt_chunk.copy()
+            self.nfreq = self.dsample_nfreq
+            self.nt_chunk = self.dsample_nt
 
         # This 2d array will be used as a boolean mask
         # for selecting the intensity elements beyond
@@ -75,12 +88,17 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         if self.test:
             weights, intensity = self._clipper_transform__test(weights, intensity)
         
+        if self.coarse_grained:
+            ri = intensity.copy()
+            (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights, \
+                    self.dsample_nfreq, self.dsample_nt)
+
         if self.axis != 2: # 1d mode
             # This 1d array holds the sum of weights along
             # the selected axis. Its size is equal to the
             # unselected axis.
             self.sum_weights = np.sum(weights, axis=self.axis)
-
+            
             # Let's tile our 1d array by using 
             # rf_pipelines.tile_arr() so that its dimensions
             # (now in 2d; [nfreq, nt_chunk]) match 
@@ -109,6 +127,14 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         assert weights.shape == intensity.shape == self.clip.shape
         np.putmask(weights, np.abs(intensity) > (self.thr*self.clip), 0.)
         
+        if self.coarse_grained:
+            self.nfreq = self.ry
+            self.nt_chunk = self.rx
+            intensity[:] = ri
+
+            weights = rf_pipelines.upsample(weights, self.nfreq, self.nt_chunk)
+            assert intensity.shape == weights.shape
+
         if self.test:
             print np.count_nonzero(weights) /\
                 float(self.nfreq*self.nt_chunk) * 100, "% not masked."
