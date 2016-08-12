@@ -13,11 +13,13 @@ class clipper_transform(rf_pipelines.py_wi_transform):
    been detrended along the selected axis).
    + Currently based on the weighted standard deviation 
    as explained in "chime_zerodm_notes".
-   + Available in a coarse-grained mode by using 'upsample_nt'
+   + Available in a coarse-grained mode by using 
+   'upsample_nfreq' and 'upsample_nt'
     
     Constructor syntax:
 
-      t = clipper_transform(thr=3, axis=0, nt_chunk=1024, upsample_nt=1, test=False)
+      t = clipper_transform(thr=3, axis=0, nt_chunk=1024,\ 
+          upsample_nfreq=1, upsample_nt=1, test=False)
 
       'thr=3.' is the multiplicative factor of maximum threshold,
         e.g., 3 * standard_deviation, meaning that (the absolute
@@ -30,17 +32,19 @@ class clipper_transform(rf_pipelines.py_wi_transform):
 
       'nt_chunk=1024' is the buffer size.
 
-      'upsample_nt=1' is the upsampling ratio along the time axis.
+      'upsample_nfreq' and 'upsample_nt=1' are the upsampling 
+      factors along the freq and time axes, respectively.
 
       'test=False' enables a test mode.
     """
 
-    def __init__(self, thr=3., axis=0, nt_chunk=1024, upsample_nt=1, test=False):
+    def __init__(self, thr=3., axis=0, nt_chunk=1024, upsample_nfreq=1, upsample_nt=1, test=False):
 
         assert (axis == 0 or axis == 1 or axis == 2),\
             "axis must be 0 (along freq; constant time), 1 (along time; constant freq), or 2 (planar; freq and time)"
         assert thr >= 1., "threshold must be >= 1."
-        assert upsample_nt > 0, "invalid upsampling ratio"
+        assert upsample_nt > 0, "invalid upsampling factor"
+        assert upsample_nfreq > 0, "invalid upsampling factor"
 
         if upsample_nt % nt_chunk != 0:
             raise RuntimeError("clipper_transform: current implementation requires 'upsample_nt' to be a multiple of 'nt_chunk'.")
@@ -50,13 +54,17 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
+        self.upsample_nfreq = upsample_nfreq
         self.upsample_nt = upsample_nt
         self.test = test
 
     def set_stream(self, stream):
+ 
+        if self.upsample_nfreq % stream.nfreq != 0:
+                raise RuntimeError("plotter_transform: current implementation requires 'upsample_nfreq' to be a multiple of stream nfreq")
 
         self.nfreq = stream.nfreq
-        
+
         # This 2d array will be used as a boolean mask
         # for selecting the intensity elements beyond
         # the threshold.
