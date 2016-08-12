@@ -14,12 +14,12 @@ class clipper_transform(rf_pipelines.py_wi_transform):
    + Currently based on the weighted standard deviation 
    as explained in "chime_zerodm_notes".
    + Available in a coarse-grained mode by using 
-   'upsample_nfreq' and 'upsample_nt'
+   'dsample_nfreq' and 'dsample_nt'
     
     Constructor syntax:
 
       t = clipper_transform(thr=3, axis=0, nt_chunk=1024,\ 
-          upsample_nfreq=512, upsample_nt=1024, test=False)
+          dsample_nfreq=512, dsample_nt=1024, test=False)
 
       'thr=3.' is the multiplicative factor of maximum threshold,
         e.g., 3 * standard_deviation, meaning that (the absolute
@@ -32,36 +32,36 @@ class clipper_transform(rf_pipelines.py_wi_transform):
 
       'nt_chunk=1024' is the buffer size.
 
-      'upsample_nfreq' and 'upsample_nt=1' are the upsampled 
+      'dsample_nfreq=512' and 'dsample_nt=1024' are the downsampled 
        number of pixles along the freq and time axes, respectively.
 
       'test=False' enables a test mode.
     """
 
-    def __init__(self, thr=3., axis=0, nt_chunk=1024, upsample_nfreq=512, upsample_nt=1024, test=False):
+    def __init__(self, thr=3., axis=0, nt_chunk=1024, dsample_nfreq=512, dsample_nt=1024, test=False):
 
         assert (axis == 0 or axis == 1 or axis == 2),\
             "axis must be 0 (along freq; constant time), 1 (along time; constant freq), or 2 (planar; freq and time)"
         assert thr >= 1., "threshold must be >= 1."
-        assert upsample_nt > 0, "invalid upsampling number along the time axis."
-        assert upsample_nfreq > 0, "invalid upsampling number along the freq axis."
+        assert dsample_nt > 0, "invalid downsampling number along the time axis."
+        assert dsample_nfreq > 0, "invalid downsampling number along the freq axis."
 
-        if upsample_nt % nt_chunk != 0:
-            raise RuntimeError("clipper_transform: current implementation requires 'upsample_nt' to be a multiple of 'nt_chunk'.")
+        if nt_chunk % dsample_nt != 0:
+            raise RuntimeError("clipper_transform: current implementation requires 'dsample_nt' to be a divisor of 'nt_chunk'.")
 
         self.thr = thr
         self.axis = axis
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
-        self.upsample_nfreq = upsample_nfreq
-        self.upsample_nt = upsample_nt
+        self.dsample_nfreq = dsample_nfreq
+        self.dsample_nt = dsample_nt
         self.test = test
 
     def set_stream(self, stream):
  
-        if self.upsample_nfreq % stream.nfreq != 0:
-                raise RuntimeError("plotter_transform: current implementation requires 'upsample_nfreq' to be a multiple of stream nfreq")
+        if stream.nfreq % self.dsample_nfreq != 0:
+                raise RuntimeError("plotter_transform: current implementation requires 'dsample_nfreq' to be a divisor of stream nfreq")
 
         self.nfreq = stream.nfreq
 
