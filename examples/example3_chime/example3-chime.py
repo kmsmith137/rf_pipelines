@@ -24,10 +24,14 @@ if not os.path.exists('bonsai_config.hdf5'):
 filename_list = [ '00000770.h5', '00000786.h5', '00000802.h5', '00000819.h5' ]
 filename_list = [ os.path.join('/data/pathfinder/16-07-08',f) for f in filename_list ]
 
-# Construct CHIME stream object.  We use the noise_source_align optional argument, which ensures that
-# the noise source is aligned with the detrender chunks, by discarding a small amount of initial data
-# if necessary.  Note that the value of 'noise_source_align' should be equal to the detrender chunk
-# size (not the stream nt_chunk! in this example the two happen to be equal.)
+#
+# Construct CHIME stream object.  
+#
+# We use the noise_source_align optional arg, which ensures that the noise source is aligned 
+# with the detrender chunks, by discarding a small amount of initial data if necessary.  Note 
+# that the value of 'noise_source_align' should be equal to the DETRENDER chunk size, not the
+# chime_stream's nt_chunk.  (In this example the two happen to be equal.)
+#
 s = rf_pipelines.chime_stream_from_filename_list(filename_list, nt_chunk=1024, noise_source_align=1024)
 
 # This plotter_transform is before the detrender, so it generates "raw" (non-detrended)
