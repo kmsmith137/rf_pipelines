@@ -122,7 +122,7 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
             # Print the computed coeff of the best fit.
             # Warning: a very long print! 
             # But this is proven to be a very useful probe 
-            # for catching inconsistent outputs in test(_mode=1).
+            # for catching an inconsistent output in test(_mode=1).
             if self.test:
                 print c, "= Computed Coeff"
 
@@ -134,12 +134,12 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
         """This private method replaces the weights and intensity
         arrays with a new set of simulated arrays.
         
-        + Search for the following words in the printed output on screen:
-        "Masked", "deg", "mean", "stdv", "Actual", "Computed"
+        + Search for the following words in the printed output on 
+        your screen: "Masked", "deg", "mean", "stdv", "Actual", "Computed".
         + Set 'mask_level' to a float between -1 and +1 (e.g., mask_level=0
-        masks out ~50% of the weights.
+        masks out ~50% of the weights).
         + A visual test: In the main loop above, change '-=' to '=' so that
-        the output of the leg_fit() gets stored as the data.
+        the output of leg_fit() gets stored as the data.
         """
 
         # Let's create a weights array using a gaussian dist.
@@ -183,5 +183,5 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
                     np.dot(rc, self.P), tile_axis,\
                     self.nfreq, self.nt_chunk)
         
-        # Simulated weights and intensity arrays
+        # Simulated weights and intensity arrays.
         return weights, intensity
