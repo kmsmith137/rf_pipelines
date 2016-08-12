@@ -147,7 +147,12 @@ def wi_downsample(intensity, weights, new_nfreq, new_ntime):
 def tile_arr(arr, axis, nfreq, nt_chunk):
     """tiles (i.e., copies) a 1d array along the selected axis. 
     It's used for matching 1d and 2d arrays in element-by-element 
-    operations. It can also be useful in creating 2d simulations."""
+    operations. It can also be useful in creating 2d simulations.
+    
+    Axis convention:
+    0: tile along freq; constant time
+    1: tile along time; constant freq
+    """
     
     assert arr.ndim == 1
     if axis == 0:
