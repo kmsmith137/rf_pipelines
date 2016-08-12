@@ -144,6 +144,22 @@ def wi_downsample(intensity, weights, new_nfreq, new_ntime):
 
     return (wi, w)
 
+def upsample(arr, new_nfreq, new_nt):
+    """Upsamples a 2d array"""
+
+    (old_nfreq, old_nt) = arr.shape
+    assert new_nfreq % old_nfreq == 0
+    assert new_nt % old_nt == 0
+
+    (r_nfreq, r_nt) = (new_nfreq // old_nfreq, new_nt // old_nt)
+    ret = np.zeros((old_nfreq, r_nfreq, old_nt, r_nt), dtype=arr.dtype)
+
+    for i in xrange(r_nfreq):
+        for j in xrange(r_nt):
+            ret[:,i,:,j] = arr[:,:]
+    
+    return np.reshape(ret, (new_nfreq, new_nt))
+
 def tile_arr(arr, axis, nfreq, nt_chunk):
     """tiles (i.e., copies) a 1d array along the selected axis. 
     It's used for matching 1d and 2d arrays in element-by-element 
