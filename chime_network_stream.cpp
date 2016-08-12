@@ -62,7 +62,7 @@ void chime_network_stream::stream_start()
 
     // now we can initialize {nfreq, dt_sample}
     this->nfreq = 1024 * nupfreq;                       // FIXME hardcoded 1024
-    this->dt_sample = 2.5e-6 * fpga_counts_per_sample;  // FIXME hardcoded 2.5e-6
+    this->dt_sample = constants::chime_seconds_per_fpga_count * fpga_counts_per_sample;
 }
 
 
@@ -78,7 +78,7 @@ void chime_network_stream::stream_body(wi_run_state &run_state)
 
 	rf_assert(nfreq == 1024 * chunk->nupfreq);   // FIXME hardcoded 1024
 
-	double t0 = chunk->chunk_t0 * chunk->fpga_counts_per_sample * 2.5e-6;   // FIXME hardcoded 2.5e-6
+	double t0 = chunk->chunk_t0 * chunk->fpga_counts_per_sample * constants::chime_seconds_per_fpga_count;
 	const float *src_intensity = chunk->intensity;
 	const float *src_weights = chunk->weights;
 

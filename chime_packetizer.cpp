@@ -24,7 +24,6 @@ shared_ptr<wi_transform> make_chime_packetizer(const string &dstname, int nfreq_
 
 struct chime_packetizer : public wi_transform {
     static constexpr int chime_nfreq = 1024;
-    static constexpr double chime_fpga_count_in_seconds = 2.56e-6;
 
     // Note: inherits { nfreq, nt_chunk, nt_prepad, nt_postpad } from base class wi_transform
 
@@ -80,11 +79,11 @@ void chime_packetizer::set_stream(const wi_stream &stream)
     this->nupfreq = stream.nfreq / chime_nfreq;
 
     // infer fpga_counts_per_sample from stream.dt_sample
-    double f = stream.dt_sample / chime_fpga_count_in_seconds;
+    double f = stream.dt_sample / constants::chime_seconds_per_fpga_count;
     this->fpga_counts_per_sample = int(f+0.5);   // round to nearest integer
 
     if (fabs(f - fpga_counts_per_sample) > 0.01)
-	throw runtime_error("chime_packetizer: currently stream.dt_sample must be a multiple of " + to_string(chime_fpga_count_in_seconds) + " seconds");
+	throw runtime_error("chime_packetizer: currently stream.dt_sample must be a multiple of " + to_string(constants::chime_seconds_per_fpga_count) + " seconds");
 
     vector<int> ibeam = { 0 };
 
@@ -103,7 +102,7 @@ void chime_packetizer::start_substream(int isubstream, double t0)
 
     // infer current_fpga_count from t0
     if (t0 > 0.0) {
-	double u = t0 / chime_fpga_count_in_seconds / fpga_counts_per_sample;
+	double u = t0 / constants::chime_seconds_per_fpga_count / fpga_counts_per_sample;
 	this->current_fpga_count = int(u+0.5) * fpga_counts_per_sample;
     }
 }
