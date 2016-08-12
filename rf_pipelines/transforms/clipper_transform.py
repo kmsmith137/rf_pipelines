@@ -73,8 +73,8 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         self.nfreq = stream.nfreq
 
         if self.coarse_grained:
-            self.ry = self.nfreq.copy()
-            self.rx = self.nt_chunk.copy()
+            self.ry = self.nfreq
+            self.rx = self.nt_chunk
             self.nfreq = self.dsample_nfreq
             self.nt_chunk = self.dsample_nt
 
