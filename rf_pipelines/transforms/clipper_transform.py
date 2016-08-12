@@ -14,7 +14,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
    + Currently based on the weighted standard deviation 
    as explained in "chime_zerodm_notes".
    + Available in a coarse-grained mode by using 
-   'dsample_nfreq' and 'dsample_nt'
+   'dsample_nfreq' and 'dsample_nt'.
     
     Constructor syntax:
 
@@ -26,9 +26,9 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         value of) any sample above this limit is clipped.
 
       'axis=0' is the axis convention:
-        0: along freq; constant time
-        1: along time; constant freq
-        2: planar; freq and time
+        0: along freq; constant time.
+        1: along time; constant freq.
+        2: planar; freq and time.
 
       'nt_chunk=1024' is the buffer size.
 
@@ -41,7 +41,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
     def __init__(self, thr=3., axis=0, nt_chunk=1024, dsample_nfreq=512, dsample_nt=1024, test=False):
 
         assert (axis == 0 or axis == 1 or axis == 2),\
-            "axis must be 0 (along freq; constant time), 1 (along time; constant freq), or 2 (planar; freq and time)"
+            "axis must be 0 (along freq; constant time), 1 (along time; constant freq), or 2 (planar; freq and time)."
         assert thr >= 1., "threshold must be >= 1."
         assert dsample_nt > 0, "invalid downsampling number along the time axis."
         assert dsample_nfreq > 0, "invalid downsampling number along the freq axis."
@@ -61,7 +61,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
     def set_stream(self, stream):
  
         if stream.nfreq % self.dsample_nfreq != 0:
-                raise RuntimeError("plotter_transform: current implementation requires 'dsample_nfreq' to be a divisor of stream nfreq")
+                raise RuntimeError("plotter_transform: current implementation requires 'dsample_nfreq' to be a divisor of stream nfreq.")
 
         self.nfreq = stream.nfreq
 
