@@ -28,17 +28,17 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
 
     def __init__(self, deg=0, axis=0, nt_chunk=1024, test=False):
         
+        assert (deg >= 0 and type(deg) == int), \
+            "degree must be an integer >= 0"
+        assert (axis == 0 or axis == 1), \
+            "axis must be 0 (along freq; constant time) or 1 (along time; constant freq)."
+
         self.deg = deg
         self.axis = axis
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
         self.test = test
-
-        assert (self.deg >= 0 and type(self.deg) == int), \
-            "degree must be an integer >= 0"
-        assert (self.axis == 0 or self.axis == 1), \
-            "axis must be 0 (along freq; constant time) or 1 (along time; constant freq)."
 
     def set_stream(self, stream):
         
