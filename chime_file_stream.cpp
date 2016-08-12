@@ -75,8 +75,8 @@ chime_file_stream::chime_file_stream(const vector<string> &filename_list_, ssize
 	if (dt_sample < 1.0e-4)
 	    throw std::runtime_error("chime_file_stream constructor: unexpectedly small dt_sample");
 
-	double dt_noise_source = (1 << 23) * 2.56e-6;
-	double fsamp = dt_noise_source / dt_sample;
+	// The CHIME noise source switch occurs at FPGA counts which are multiples of 2^23.
+	double fsamp = (1 << 23) * constants::chime_seconds_per_fpga_count / dt_sample;
 	this->samples_per_noise_switch = ssize_t(fsamp + 0.5);
 
 	if (fabs(samples_per_noise_switch - fsamp) > 1.0e-4)

@@ -76,6 +76,18 @@ struct wi_transform;
 class wi_run_state;
 
 
+namespace constants {
+    //
+    // Throughout the CHIMEFRB backend, we represent times in seconds, but the raw packets use timestamps
+    // constructed from FPGA counts.  We convert by assuming that each FPGA count is exactly 2.56e-6 seconds.
+    // The precise conversion matters (to machine precision!) when predicting the location of the noise
+    // source edges from the timestamps.  Therefore, the 2.56e-6 "magic number" must be used consistently
+    // throughout rf_pipelines and ch_vdif_assembler.
+    //
+    static constexpr double chime_seconds_per_fpga_count = 2.56e-6;
+};
+
+
 // -------------------------------------------------------------------------------------------------
 //
 // Factory functions returning wi_streams
