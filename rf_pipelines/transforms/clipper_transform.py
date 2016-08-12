@@ -19,7 +19,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
     Constructor syntax:
 
       t = clipper_transform(thr=3, axis=0, nt_chunk=1024,\ 
-          upsample_nfreq=1, upsample_nt=1, test=False)
+          upsample_nfreq=512, upsample_nt=1024, test=False)
 
       'thr=3.' is the multiplicative factor of maximum threshold,
         e.g., 3 * standard_deviation, meaning that (the absolute
@@ -32,19 +32,19 @@ class clipper_transform(rf_pipelines.py_wi_transform):
 
       'nt_chunk=1024' is the buffer size.
 
-      'upsample_nfreq' and 'upsample_nt=1' are the upsampling 
-      factors along the freq and time axes, respectively.
+      'upsample_nfreq' and 'upsample_nt=1' are the upsampled 
+       number of pixles along the freq and time axes, respectively.
 
       'test=False' enables a test mode.
     """
 
-    def __init__(self, thr=3., axis=0, nt_chunk=1024, upsample_nfreq=1, upsample_nt=1, test=False):
+    def __init__(self, thr=3., axis=0, nt_chunk=1024, upsample_nfreq=512, upsample_nt=1024, test=False):
 
         assert (axis == 0 or axis == 1 or axis == 2),\
             "axis must be 0 (along freq; constant time), 1 (along time; constant freq), or 2 (planar; freq and time)"
         assert thr >= 1., "threshold must be >= 1."
-        assert upsample_nt > 0, "invalid upsampling factor"
-        assert upsample_nfreq > 0, "invalid upsampling factor"
+        assert upsample_nt > 0, "invalid upsampling number along the time axis."
+        assert upsample_nfreq > 0, "invalid upsampling number along the freq axis."
 
         if upsample_nt % nt_chunk != 0:
             raise RuntimeError("clipper_transform: current implementation requires 'upsample_nt' to be a multiple of 'nt_chunk'.")
