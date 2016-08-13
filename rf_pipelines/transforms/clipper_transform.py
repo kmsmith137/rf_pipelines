@@ -92,7 +92,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         if self.coarse_grained:
             ri = intensity.copy()
             (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights, \
-                    self.ry, self.rx)
+                    self.dsample_nfreq, self.dsample_nt)
 
         if self.axis != 2: # 1d mode
             # This 1d array holds the sum of weights along
@@ -111,12 +111,12 @@ class clipper_transform(rf_pipelines.py_wi_transform):
             # Note that np.sum(2d) results in a 1d array. Therefore,
             # we have to use rf_pipelines.tile_arr() to make the 2d elements 
             # one-to-one.
-            indx, indy = np.where(self.sum_weights > 0.)
-            self.clip[indx,indy] = np.sqrt(rf_pipelines.tile_arr(\
+            indy, indx = np.where(self.sum_weights > 0.)
+            self.clip[indy,indx] = np.sqrt(rf_pipelines.tile_arr(\
                 np.sum(weights*(intensity)**2,\
                 axis=self.axis), self.axis, self.ry,\
-                self.rx)[indx,indy]/\
-                self.sum_weights[indx,indy])
+                self.rx)[indy,indx]/\
+                self.sum_weights[indy,indx])
         else:
             # 2d mode
             self.sum_weights = np.sum(weights)
@@ -128,12 +128,15 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         assert weights.shape == intensity.shape == self.clip.shape
         np.putmask(weights, np.abs(intensity) > (self.thr*self.clip), 0.)
         
+        print weights.shape, np.where(weights == 0)[0].size
+
         if self.coarse_grained:
             intensity = ri
             weights = rf_pipelines.upsample(weights, self.nfreq, self.nt_chunk) 
             assert intensity.shape == weights.shape
+            print weights.shape, np.where(weights == 0)[0].size
 
-        if self.test:
+        if self.test: 
             print np.count_nonzero(weights) /\
                 float(self.nfreq*self.nt_chunk) * 100, "% not masked."
 
