@@ -18,8 +18,8 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
       'deg=0' is the degree of fit.
       
       'axis=0' is the axis convention:
-        0: along freq; constant time.
-        1: along time; constant freq.
+        0: along freq; constant time
+        1: along time; constant freq
 
       'nt_chunk=1024' is the buffer size.
 
@@ -29,7 +29,7 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
     def __init__(self, deg=0, axis=0, nt_chunk=1024, test=False):
         
         assert (deg >= 0 and type(deg) == int), \
-            "degree must be an integer >= 0."
+            "degree must be an integer >= 0"
         assert (axis == 0 or axis == 1), \
             "axis must be 0 (along freq; constant time) or 1 (along time; constant freq)."
 
@@ -145,8 +145,8 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
         # Let's create a weights array using a gaussian dist.
         weights[:] = np.random.normal(0, 1, weights.size).reshape(weights.shape)
         # Mask out weights less than 'mask_level'
-        indx, indy = np.where(weights < mask_level)
-        weights[indx,indy] = 0.
+        indy, indx = np.where(weights < mask_level)
+        weights[indy,indx] = 0.
 
         print indx.size / float(weights.size) * 100, " % Masked"
 
