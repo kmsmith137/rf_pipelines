@@ -47,11 +47,12 @@ class clipper_transform(rf_pipelines.py_wi_transform):
 
         assert (axis == 0 or axis == 1 or axis == 2),\
             "axis must be 0 (along freq; constant time), 1 (along time; constant freq), or 2 (planar; freq and time)."
-        assert thr >= 1., "threshold must be >= 1."
-        assert dsample_nt > 0, "invalid downsampling number along the time axis."
-        assert dsample_nfreq > 0, "invalid downsampling number along the freq axis."
+        assert thr >= 1., "Threshold must be >= 1."
+        assert dsample_nt > 0, "Invalid downsampling number along the time axis."
+        assert dsample_nfreq > 0, "Invalid downsampling number along the freq axis."
         assert nt_chunk > 0
-
+        if test:
+            assert coarse_grained != True, "Set coarse_grained to False before running the test!"
         if nt_chunk % dsample_nt != 0:
             raise RuntimeError("clipper_transform: current implementation requires 'dsample_nt' to be a divisor of 'nt_chunk'.")
 
@@ -94,7 +95,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
             # Let's make a ref to the original high-resolution weights.
             weights_hres = weights
             # Downsample the weights and intensity.
-            (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights, \
+            (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights,\
                     self.dsample_nfreq, self.dsample_nt)
 
         if self.axis != 2: # 1d mode
@@ -137,7 +138,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
             weights[weights != 0] = 1.
             # Upsample the 0-and-1 array, then 
             # multiply by the original weights.
-            weights_hres[:] = weights_hres[:] * \
+            weights_hres[:] = weights_hres[:] *\
                     rf_pipelines.upsample(weights, self.nfreq, self.nt_chunk)
 
         if self.test: 
