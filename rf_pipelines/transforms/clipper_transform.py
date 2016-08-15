@@ -14,13 +14,12 @@ class clipper_transform(rf_pipelines.py_wi_transform):
    + Currently based on the weighted standard deviation 
    as explained in "chime_zerodm_notes".
    + Available in a coarse-grained mode by using 
-   'course_grained', 'dsample_nfreq', and 'dsample_nt'.
+   'dsample_nfreq', and 'dsample_nt'.
     
     Constructor syntax:
 
-      t = clipper_transform(thr=3, axis=0, nt_chunk=1024,\
-          dsample_nfreq=512, dsample_nt=512,\
-          course_grained=False, test=False)
+      t = clipper_transform(thr=3, axis=2, nt_chunk=1024,\
+          dsample_nfreq=None, dsample_nt=None, test=False)
 
       'thr=3.' is the multiplicative factor of maximum threshold,
         e.g., 3 * standard_deviation, meaning that (the absolute
@@ -33,12 +32,8 @@ class clipper_transform(rf_pipelines.py_wi_transform):
 
       'nt_chunk=1024' is the buffer size.
 
-      'dsample_nfreq=512' and 'dsample_nt=512' are the downsampled 
+      'dsample_nfreq' and 'dsample_nt' are the downsampled 
        number of pixles along the freq and time axes, respectively.
-
-      'coarse_grained=False' enables the coarse-grained clipper by
-      downsampling the arrays. The weights array is upsampled after
-      the clipping process.
 
       'test=False' enables a test mode.
     """
