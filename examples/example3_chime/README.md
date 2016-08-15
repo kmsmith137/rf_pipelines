@@ -38,9 +38,8 @@ of parameter space.
 
 The github repo contains "reference" versions of some of these plots for comparison.
 
-Current processing status: the largest uncleaned contaminant is currently the switched noise source,
-which turns on/off every 21.47 seconds.  There is also some RFI contamination visible outside the
-bad channel mask.
+Current processing status: the noise source is removed by the legendre detrender!
+Some RFI remains which will be taken care of soon by some detrend/clipper combination.
 
 ![reference_raw_chime_0.png](reference_raw_chime_0.png)
 
