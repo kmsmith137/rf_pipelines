@@ -48,9 +48,6 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         assert (dsample_nt is None or dsample_nt > 0), "Invalid downsampling number along the time axis!"
         assert (dsample_nfreq is None or dsample_nfreq > 0), "Invalid downsampling number along the freq axis!"
 
-        if test:
-            assert (dsample_nfreq is None and dsample_nt is None), "Set dsample_nfreq and dsample_nt to None before running the test!"
-
         self.thr = thr
         self.axis = axis
         self.nt_chunk = nt_chunk
@@ -75,9 +72,11 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         self.nfreq = stream.nfreq
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        
+        # If 'test' is specified, this will be a pseudo-transform which doesn't modify data
+        # in the pipeline, but simulates some fake Gaussian data and reports the clipped fraction
         if self.test:
-            weights, intensity = self._clipper_transform__test(weights, intensity)
+            intensity = np.random.normal(0, 1, size=intensity.shape)
+            weights = np.ones(weights.shape)
 
         # Let's make a ref to the original high-resolution weights.
         weights_hres = weights
@@ -122,16 +121,5 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         np.putmask(weights_hres, mask, 0.)
 
         if self.test: 
-            print np.count_nonzero(weights) /\
-                float(self.nfreq*self.nt_chunk) * 100, "% not masked."
-
-    def __test(self, weights, intensity):
-        # Let's replace the intensity array with gaussian noise
-        # centered at 0 with std=1. Also set all weights to 1.
-        # Masking elements beyond thr=1 should result in keeping 
-        # ~68% of all elements in weights (i.e., non-zero and 
-        # within 1std).
-        intensity[:] = np.random.normal(0, 1, intensity.size).reshape(intensity.shape)
-        weights[:] = 1.
-        self.thr = 1.
-        return weights, intensity
+            unmasked_percentage = np.count_nonzero(weights_hres) / float(weights_hres.size) * 100.
+            print unmasked_percentage, "% not masked."
