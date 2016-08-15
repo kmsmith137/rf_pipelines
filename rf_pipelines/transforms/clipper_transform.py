@@ -88,10 +88,11 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         
         if self.test:
             weights, intensity = self._clipper_transform__test(weights, intensity)
+
+        # Let's make a ref to the original high-resolution weights.
+        weights_hres = weights
         
         if self.coarse_grained:
-            # Let's make a ref to the original high-resolution weights.
-            weights_hres = weights
             # Downsample the weights and intensity.
             (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights,\
                     self.dsample_nfreq, self.dsample_nt)
@@ -118,23 +119,24 @@ class clipper_transform(rf_pipelines.py_wi_transform):
 
         else:
             # 2d mode
-            self.sum_weights = np.sum(weights)
-            if self.sum_weights != 0.:
-                self.clip[:] = np.sqrt(np.sum(weights*(intensity)**2)/self.sum_weights)
+            num = np.sum(weights * intensity**2)
+            den = np.sum(weights)
+
+            if den == 0.:
+                return
+
+            self.clip[:] = np.sqrt(num/den)
+
+        assert weights.shape == intensity.shape == self.clip.shape
+
+        # Boolean array which is True for masked values
+        mask = np.abs(intensity) > (self.thr*self.clip)
+        if self.coarse_grained:
+            mask = rf_pipelines.upsample(mask, self.nfreq, self.nt_chunk)
 
         # Assign zero weights to those elements that have an
         # intensity value beyond the threshold limit.
-        assert weights.shape == intensity.shape == self.clip.shape
-        np.putmask(weights, np.abs(intensity) > (self.thr*self.clip), 0.)
-        
-        if self.coarse_grained:
-            # Make the downsampled weights 0 and 1,
-            # preventing any non-zero leak.
-            weights[weights != 0] = 1.
-            # Upsample the 0-and-1 array, then 
-            # multiply by the original weights.
-            weights_hres[:] = weights_hres[:] *\
-                    rf_pipelines.upsample(weights, self.nfreq, self.nt_chunk)
+        np.putmask(weights_hres, mask, 0.)
 
         if self.test: 
             print np.count_nonzero(weights) /\
