@@ -47,9 +47,9 @@ class clipper_transform(rf_pipelines.py_wi_transform):
 
         assert (axis == 0 or axis == 1 or axis == 2),\
             "axis must be 0 (along freq; constant time), 1 (along time; constant freq), or 2 (planar; freq and time)."
-        assert thr >= 1., "Threshold must be >= 1."
-        assert dsample_nt > 0, "Invalid downsampling number along the time axis."
-        assert dsample_nfreq > 0, "Invalid downsampling number along the freq axis."
+        assert thr >= 1., "threshold must be >= 1."
+        assert dsample_nt > 0, "Invalid downsampling number along the time axis!"
+        assert dsample_nfreq > 0, "Invalid downsampling number along the freq axis!"
         assert nt_chunk > 0
         if test:
             assert coarse_grained != True, "Set coarse_grained to False before running the test!"
