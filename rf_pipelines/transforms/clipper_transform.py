@@ -71,7 +71,8 @@ class clipper_transform(rf_pipelines.py_wi_transform):
                 raise RuntimeError("plotter_transform: current implementation requires 'dsample_nfreq' to be a divisor of stream nfreq.")
 
         self.nfreq = stream.nfreq
-
+        
+        # (y,x) corresponds to (freq,time).
         if not self.coarse_grained:
             self.ry = self.nfreq
             self.rx = self.nt_chunk
@@ -90,7 +91,9 @@ class clipper_transform(rf_pipelines.py_wi_transform):
             weights, intensity = self._clipper_transform__test(weights, intensity)
         
         if self.coarse_grained:
-            ri = intensity.copy()
+            # Let's make a ref to the original high-resolution weights.
+            weights_hres = weights
+            # Downsample the weights and intensity.
             (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights, \
                     self.dsample_nfreq, self.dsample_nt)
 
@@ -128,13 +131,14 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         assert weights.shape == intensity.shape == self.clip.shape
         np.putmask(weights, np.abs(intensity) > (self.thr*self.clip), 0.)
         
-        print weights.shape, np.where(weights == 0)[0].size
-
         if self.coarse_grained:
-            intensity = ri
-            weights = rf_pipelines.upsample(weights, self.nfreq, self.nt_chunk) 
-            assert intensity.shape == weights.shape
-            print weights.shape, np.where(weights == 0)[0].size
+            # Make the downsampled weights 0 and 1,
+            # preventing any non-zero leak.
+            weights[weights != 0] = 1.
+            # Upsample the 0-and-1 array, then 
+            # multiply by the original weights.
+            weights_hres[:] = weights_hres[:] * \
+                    rf_pipelines.upsample(weights, self.nfreq, self.nt_chunk)
 
         if self.test: 
             print np.count_nonzero(weights) /\
