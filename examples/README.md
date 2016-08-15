@@ -9,3 +9,6 @@ This code is best "documented by example":
 
   - [example3_chime] (example3_chime):
     Detrend and dedisperse CHIME pathfinder data
+
+  - [example4_cpp_toy] (example4_cpp_toy):
+    Illustrates running rf_pipelines through its C++ interface

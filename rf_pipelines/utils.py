@@ -89,7 +89,7 @@ def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False
 
     (mean, rms) = weighted_mean_and_rms(arr, weights, clip_niter, sigma_clip)
 
-    # Anorther corner case: if rms is zero then use 1.0 and fall through.  
+    # Another corner case: if rms is zero then use 1.0 and fall through.  
     # This will plot an image with constant color values.
     if rms <= 0.0:
         rms = 1.0
