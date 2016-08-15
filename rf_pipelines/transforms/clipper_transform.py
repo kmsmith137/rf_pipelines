@@ -43,18 +43,18 @@ class clipper_transform(rf_pipelines.py_wi_transform):
       'test=False' enables a test mode.
     """
 
-    def __init__(self, thr=3., axis=0, nt_chunk=1024, dsample_nfreq=512, dsample_nt=512, coarse_grained=False, test=False):
+    def __init__(self, thr=3., axis=0, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False):
 
         assert (axis == 0 or axis == 1 or axis == 2),\
             "axis must be 0 (along freq; constant time), 1 (along time; constant freq), or 2 (planar; freq and time)."
         assert thr >= 1., "threshold must be >= 1."
-        assert dsample_nt > 0, "Invalid downsampling number along the time axis!"
-        assert dsample_nfreq > 0, "Invalid downsampling number along the freq axis!"
         assert nt_chunk > 0
+
+        assert (dsample_nt is None or dsample_nt > 0), "Invalid downsampling number along the time axis!"
+        assert (dsample_nfreq is None or dsample_nfreq > 0), "Invalid downsampling number along the freq axis!"
+
         if test:
             assert coarse_grained != True, "Set coarse_grained to False before running the test!"
-        if nt_chunk % dsample_nt != 0:
-            raise RuntimeError("clipper_transform: current implementation requires 'dsample_nt' to be a divisor of 'nt_chunk'.")
 
         self.thr = thr
         self.axis = axis
@@ -63,23 +63,25 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         self.nt_postpad = 0
         self.dsample_nfreq = dsample_nfreq
         self.dsample_nt = dsample_nt
-        self.coarse_grained = coarse_grained
         self.test = test
 
     def set_stream(self, stream):
- 
-        if stream.nfreq % self.dsample_nfreq != 0:
-                raise RuntimeError("plotter_transform: current implementation requires 'dsample_nfreq' to be a divisor of stream nfreq.")
+        if self.dsample_nfreq is None:
+            self.dsample_nfreq = stream.nfreq
+        if self.dsample_nt is None:
+            self.dsample_nt = self.nt_chunk
 
+        if stream.nfreq % self.dsample_nfreq != 0:
+            raise RuntimeError("plotter_transform: current implementation requires 'dsample_nfreq' to be a divisor of stream nfreq.")
+        if self.nt_chunk % self.dsample_nt != 0:
+            raise RuntimeError("clipper_transform: current implementation requires 'dsample_nt' to be a divisor of 'nt_chunk'.")
+
+        self.coarse_grained = (self.dsample_nfreq < stream.nfreq) or (self.dsample_nt < self.nt_chunk)
         self.nfreq = stream.nfreq
         
         # (y,x) corresponds to (freq,time).
-        if not self.coarse_grained:
-            self.ry = self.nfreq
-            self.rx = self.nt_chunk
-        else:
-            self.ry = self.dsample_nfreq
-            self.rx = self.dsample_nt
+        self.ry = self.dsample_nfreq
+        self.rx = self.dsample_nt
 
         # This 2d array will be used as a boolean mask
         # for selecting the intensity elements beyond

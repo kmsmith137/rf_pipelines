@@ -59,23 +59,23 @@ t3 = rf_pipelines.simple_detrender(1024)
 # -------------------------------------------------------------
 # Pre-fit clippers
 c1 = rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=1024,\
-        dsample_nfreq=1024, dsample_nt=1024/256, coarse_grained=True, test=False)
+        dsample_nfreq=1024, dsample_nt=1024/256, test=False)
 
 c2 = rf_pipelines.clipper_transform(thr=3, axis=2, nt_chunk=1024,\
-        dsample_nfreq=1024, dsample_nt=1024/256, coarse_grained=True)
+        dsample_nfreq=1024, dsample_nt=1024/256)
 
 c3 = rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=1024,\
-        dsample_nfreq=1024/128, dsample_nt=1024, coarse_grained=True)
+        dsample_nfreq=1024/128, dsample_nt=1024)
 
 # Post-fit clippers
 c4 = rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=2048,\
-        dsample_nfreq=1024/64, dsample_nt=1024, coarse_grained=True)
+        dsample_nfreq=1024/64, dsample_nt=1024)
 
 c5 = rf_pipelines.clipper_transform(thr=3, axis=2, nt_chunk=1024,\
-        dsample_nfreq=1024/4, dsample_nt=1024/256, coarse_grained=True)
+        dsample_nfreq=1024/4, dsample_nt=1024/256)
 
 c6 = rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=1024,\
-        dsample_nfreq=1024, dsample_nt=4, coarse_grained=True)
+        dsample_nfreq=1024, dsample_nt=4)
 
 # Legendre detrenders
 l1 = rf_pipelines.legendre_detrender(deg=4, axis=1, nt_chunk=1024, test=False)
