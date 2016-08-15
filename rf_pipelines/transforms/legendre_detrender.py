@@ -70,8 +70,7 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
         # Checking whether the coefficients array matches
         # (in dimension) with the weights and intensity 
         # arrays along the selected axis.
-        assert np.shape(weights)[self.axis] == np.shape(intensity)[self.axis] ==\
-                np.shape(self.P)[1]
+        assert np.shape(weights)[self.axis] == np.shape(intensity)[self.axis] == self.N
         
         # Looping over the unselected axis, we subtract
         # the best fit (i.e., output of self.leg_fit()) 
@@ -97,9 +96,8 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
         The output is an array of the evaluated leg polynomial
         over the same domain as 'i'.
         """
-        # Input should be 1d.
-        assert w.ndim == i.ndim == 1
-        assert w.size == i.size
+
+        assert w.shape == i.shape == (self.N,)
         
         # Ill-conditioned Matrix M:
         # For now, let's just ignore totally-masked arrays. 
@@ -107,7 +105,7 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
         # algorithm for catching poorly-conditioned matrices 
         # (see "chime_zerodm_notes").
         if np.sum(w) == 0.:
-            return 0.
+            return np.zeros(self.N)
 
         else:
             # The following section is explained in "chime_zerodm_notes".
