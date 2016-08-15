@@ -76,6 +76,18 @@ struct wi_transform;
 class wi_run_state;
 
 
+namespace constants {
+    //
+    // Throughout the CHIMEFRB backend, we represent times in seconds, but the raw packets use timestamps
+    // constructed from FPGA counts.  We convert by assuming that each FPGA count is exactly 2.56e-6 seconds.
+    // The precise conversion matters (to machine precision!) when predicting the location of the noise
+    // source edges from the timestamps.  Therefore, the 2.56e-6 "magic number" must be used consistently
+    // throughout rf_pipelines and ch_vdif_assembler.
+    //
+    static constexpr double chime_seconds_per_fpga_count = 2.56e-6;
+};
+
+
 // -------------------------------------------------------------------------------------------------
 //
 // Factory functions returning wi_streams
@@ -92,12 +104,15 @@ extern std::shared_ptr<wi_stream> make_psrfits_stream(const std::string &filenam
 // The 'nt_chunk' arg is the chunk size used internally when moving data from hdf5 file
 // into the rf_pipelines buffer.  If unspecified or zero, it will default to a reasonable value.
 //
+// If 'noise_source_align' is nonzero, then it should be equal to the DETRENDER chunk size (not the chime_file_stream nt_chunk).
+// In this case, the stream will align the noise source edges with the detrender chunks, by discarding initial data if necessary.
+//
 // Note: a quick way to inspect a CHIME hdf5 file is using the 'ch-show-intensity-file' and 'ch-plot-intensity-file'
 // programs, in the ch_frb_io github repo.
 //
-extern std::shared_ptr<wi_stream> make_chime_stream_from_acqdir(const std::string &filename, ssize_t nt_chunk=0);
-extern std::shared_ptr<wi_stream> make_chime_stream_from_filename(const std::string &filename, ssize_t nt_chunk=0);
-extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std::vector<std::string> &filename_list, ssize_t nt_chunk=0);
+extern std::shared_ptr<wi_stream> make_chime_stream_from_acqdir(const std::string &filename, ssize_t nt_chunk=0, ssize_t noise_source_align=0);
+extern std::shared_ptr<wi_stream> make_chime_stream_from_filename(const std::string &filename, ssize_t nt_chunk=0, ssize_t noise_source_align=0);
+extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std::vector<std::string> &filename_list, ssize_t nt_chunk=0, ssize_t noise_source_align=0);
 
 
 // Simple stream which simulates Gaussian random noise
