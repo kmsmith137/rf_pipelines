@@ -78,15 +78,11 @@ class clipper_transform(rf_pipelines.py_wi_transform):
 
         self.coarse_grained = (self.dsample_nfreq < stream.nfreq) or (self.dsample_nt < self.nt_chunk)
         self.nfreq = stream.nfreq
-        
-        # (y,x) corresponds to (freq,time).
-        self.ry = self.dsample_nfreq
-        self.rx = self.dsample_nt
 
         # This 2d array will be used as a boolean mask
         # for selecting the intensity elements beyond
         # the threshold.
-        self.clip = np.zeros([self.ry,self.rx])
+        self.clip = np.zeros([self.dsample_nfreq, self.dsample_nt])
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         
@@ -106,12 +102,13 @@ class clipper_transform(rf_pipelines.py_wi_transform):
             # unselected axis.
             self.sum_weights = np.sum(weights, axis=self.axis)
             
-            # Let's tile our 1d array by using 
-            # rf_pipelines.tile_arr() so that its dimensions
-            # (now in 2d; [self.ry, self.rx]) match 
-            # with intensity, weights, and self.clip.
+            # Let's tile our 1d array by using rf_pipelines.tile_arr() so that its dimensions
+            # match with intensity, weights, and self.clip.
+            #
+            # Note that if we're not downsampling, then dsample_freq is equal to nfreq
+            # (and likewise for nt)
             self.sum_weights = rf_pipelines.tile_arr(self.sum_weights, self.axis,\
-                    self.ry, self.rx)
+                    self.dsample_nfreq, self.dsample_nt)
         
             # Here is an element-by-element operation (2d).
             # Note that np.sum(2d) results in a 1d array. Therefore,
@@ -120,8 +117,8 @@ class clipper_transform(rf_pipelines.py_wi_transform):
             indy, indx = np.where(self.sum_weights > 0.)
             self.clip[indy,indx] = np.sqrt(rf_pipelines.tile_arr(\
                 np.sum(weights*(intensity)**2,\
-                axis=self.axis), self.axis, self.ry,\
-                self.rx)[indy,indx]/\
+                axis=self.axis), self.axis, self.dsample_nfreq,\
+                self.dsample_nt)[indy,indx]/\
                 self.sum_weights[indy,indx])
         else:
             # 2d mode
