@@ -574,11 +574,12 @@ static PyObject *make_chime_stream_from_acqdir(PyObject *self, PyObject *args)
 {
     const char *filename = nullptr;
     ssize_t nt_chunk = 0;
+    ssize_t noise_source_align = 0;
 
-    if (!PyArg_ParseTuple(args, "sn", &filename, &nt_chunk))
+    if (!PyArg_ParseTuple(args, "snn", &filename, &nt_chunk, &noise_source_align))
 	return NULL;
 
-    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_chime_stream_from_acqdir(filename, nt_chunk);
+    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_chime_stream_from_acqdir(filename, nt_chunk, noise_source_align);
     return wi_stream_object::make(ret);    
 }
 
@@ -587,11 +588,12 @@ static PyObject *make_chime_stream_from_filename(PyObject *self, PyObject *args)
 {
     const char *filename = nullptr;
     ssize_t nt_chunk = 0;
+    ssize_t noise_source_align = 0;
 
-    if (!PyArg_ParseTuple(args, "sn", &filename, &nt_chunk))
+    if (!PyArg_ParseTuple(args, "snn", &filename, &nt_chunk, &noise_source_align))
 	return NULL;
 
-    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_chime_stream_from_filename(filename, nt_chunk);
+    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_chime_stream_from_filename(filename, nt_chunk, noise_source_align);
     return wi_stream_object::make(ret);    
 }
 
@@ -600,8 +602,9 @@ static PyObject *make_chime_stream_from_filename_list(PyObject *self, PyObject *
 {
     PyObject *arg_ptr = nullptr;
     ssize_t nt_chunk = 0;
+    ssize_t noise_source_align = 0;
 
-    if (!PyArg_ParseTuple(args, "On", &arg_ptr, &nt_chunk))
+    if (!PyArg_ParseTuple(args, "Onn", &arg_ptr, &nt_chunk, &noise_source_align))
 	return NULL;
     
     object arg(arg_ptr, false);
@@ -633,7 +636,7 @@ static PyObject *make_chime_stream_from_filename_list(PyObject *self, PyObject *
     if (PyErr_Occurred())
 	throw python_exception();
 
-    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_chime_stream_from_filename_list(filename_list, nt_chunk);
+    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_chime_stream_from_filename_list(filename_list, nt_chunk, noise_source_align);
     return wi_stream_object::make(ret);
 }
 
@@ -653,11 +656,26 @@ static PyObject *make_gaussian_noise_stream(PyObject *self, PyObject *args)
 
 static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
 {
-    ssize_t nt_chunk = 0;
-    if (!PyArg_ParseTuple(args, "n", &nt_chunk))
+    ssize_t nt_detrend = 0;
+    if (!PyArg_ParseTuple(args, "n", &nt_detrend))
 	return NULL;
     
-    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_simple_detrender(nt_chunk);
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_simple_detrender(nt_detrend);
+    return wi_transform_object::make(ret);
+}
+
+
+static PyObject *make_chime_file_writer(PyObject *self, PyObject *args)
+{
+    char *filename = nullptr;
+    int clobber = false;   // "int" (not "bool") is deliberate here
+    int bitshuffle = 2;
+    int nt_chunk = 0;
+
+    if (!PyArg_ParseTuple(args, "siii", &filename, &clobber, &bitshuffle, &nt_chunk))
+	return NULL;
+
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_chime_file_writer(filename, clobber, bitshuffle, nt_chunk);
     return wi_transform_object::make(ret);
 }
 
@@ -666,14 +684,15 @@ static PyObject *make_bonsai_dedisperser(PyObject *self, PyObject *args)
 {
     const char *config_hdf5_filename = nullptr;
     const char *output_hdf5_filename = nullptr;
+    int nt_per_file = 0;
     int ibeam = 0;
     
     // FIXME there should be a way to disable core-pinning entirely
 
-    if (!PyArg_ParseTuple(args, "ssi", &config_hdf5_filename, &output_hdf5_filename, &ibeam))
+    if (!PyArg_ParseTuple(args, "ssii", &config_hdf5_filename, &output_hdf5_filename, &nt_per_file, &ibeam))
 	return NULL;
 
-    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, ibeam);
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, nt_per_file, ibeam);
     return wi_transform_object::make(ret);
 }
 
@@ -688,6 +707,7 @@ static PyMethodDef module_methods[] = {
     { "make_chime_stream_from_filename_list", tc_wrap2<make_chime_stream_from_filename_list>, METH_VARARGS, "Python interface to C++ routine" },
     { "make_gaussian_noise_stream", tc_wrap2<make_gaussian_noise_stream>, METH_VARARGS, "Python interface to C++ routine" },
     { "make_simple_detrender", tc_wrap2<make_simple_detrender>, METH_VARARGS, "Python interface to C++ routine" },
+    { "make_chime_file_writer", tc_wrap2<make_chime_file_writer>, METH_VARARGS, "Python interface to C++ routine" },
     { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, "Python interface to C++ routine" },
     { NULL, NULL, 0, NULL }
 };

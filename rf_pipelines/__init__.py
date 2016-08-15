@@ -125,16 +125,16 @@ class py_wi_transform(wi_transform):
 
     start_substream(self, isubstream, t0)
 
-        Each stream can divide its output into one or more "substreams" which are delineated with
-        start_substream() and end_substream() calls.  Currently I don't use this feature much: all
-        streams just define a single substream, and not all transforms support multiple substreams.
+        Each stream can divide its output into one or more "substreams" which are bracketed with
+        start_substream() and end_substream() calls.  Currently I don't use the "substreaming" feature
+        much: all streams just define a single substream, and not all transforms support multiple substreams.
 
         However, I anticipate it being a useful feature when we implement real-time network streams,
         since we'll want a way to finalize state when the correlator goes down (or repoints) and
         restart when it comes back.
 
         The 'isubstream' arg is 0 for the first substream, 1 for the second substream, etc.
-        The 't0' arg is the initial time of the substream in seconds, relative to an arbitrary origin.
+        The 't0' arg is the initial time of the substream in seconds, relative to an arbitrary stream-defined origin.
 
 
     process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights)

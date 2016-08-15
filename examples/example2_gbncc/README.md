@@ -2,8 +2,7 @@
 
 This is a minimal rf_pipelines run which incoherently dedisperses a GBNCC data
 file in PSRFITS format.  It includes simple detrending, but no RFI removal, 
-so the output is a mess!  This example is intended to supersede gbncc-snapshot.cpp 
-in the 'bonsai' github repo.
+so the output is a mess!
 
 
 ### INSTRUCTIONS FOR RUNNING

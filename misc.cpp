@@ -15,6 +15,20 @@ namespace rf_pipelines {
 // not much here for now, but I suspect this source file will grow over time...
 
 
+bool file_exists(const string &filename)
+{
+    struct stat s;
+
+    int err = stat(filename.c_str(), &s);
+    if (err >= 0)
+        return true;
+    if (errno == ENOENT)
+        return false;
+
+    throw runtime_error(filename + ": " + strerror(errno));
+}
+
+
 void listdir(vector<string> &filenames, const string &dirname)
 {
     filenames.resize(0);
