@@ -99,27 +99,23 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         if self.axis != 2: # 1d mode
             # This 1d array holds the sum of weights along
             # the selected axis. Its size is equal to the
-            # unselected axis.
-            self.sum_weights = np.sum(weights, axis=self.axis)
-            
-            # Let's tile our 1d array by using rf_pipelines.tile_arr() so that its dimensions
-            # match with intensity, weights, and self.clip.
-            #
-            # Note that if we're not downsampling, then dsample_freq is equal to nfreq
-            # (and likewise for nt)
-            self.sum_weights = rf_pipelines.tile_arr(self.sum_weights, self.axis,\
-                    self.dsample_nfreq, self.dsample_nt)
-        
+            # unselected axis.  We then call rf_pipelines.tile_arr()
+            # so that its dimensions match the original.
+            den = np.sum(weights, axis=self.axis)
+            den = rf_pipelines.tile_arr(den, self.axis, self.dsample_nfreq, self.dsample_nt)
+
             # Here is an element-by-element operation (2d).
             # Note that np.sum(2d) results in a 1d array. Therefore,
             # we have to use rf_pipelines.tile_arr() to make the 2d elements 
             # one-to-one.
-            indy, indx = np.where(self.sum_weights > 0.)
-            self.clip[indy,indx] = np.sqrt(rf_pipelines.tile_arr(\
-                np.sum(weights*(intensity)**2,\
-                axis=self.axis), self.axis, self.dsample_nfreq,\
-                self.dsample_nt)[indy,indx]/\
-                self.sum_weights[indy,indx])
+            indy, indx = np.where(den > 0.)
+
+            # Compute sum_i W_i I_i^2, and use tile_arr() to get an array of the original dimensions
+            num = np.sum(weights*(intensity)**2, axis=self.axis)
+            num = rf_pipelines.tile_arr(num, self.axis, self.dsample_nfreq, self.dsample_nt)
+
+            self.clip[indy,indx] = np.sqrt(num[indy,indx]/den[indy,indx])
+
         else:
             # 2d mode
             self.sum_weights = np.sum(weights)
