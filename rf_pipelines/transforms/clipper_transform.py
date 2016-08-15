@@ -43,7 +43,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
       'test=False' enables a test mode.
     """
 
-    def __init__(self, thr=3., axis=0, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False):
+    def __init__(self, thr=3., axis=2, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False):
 
         assert (axis == 0 or axis == 1 or axis == 2),\
             "axis must be 0 (along freq; constant time), 1 (along time; constant freq), or 2 (planar; freq and time)."
@@ -54,7 +54,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         assert (dsample_nfreq is None or dsample_nfreq > 0), "Invalid downsampling number along the freq axis!"
 
         if test:
-            assert coarse_grained != True, "Set coarse_grained to False before running the test!"
+            assert (dsample_nfreq is None and dsample_nt is None), "Set dsample_nfreq and dsample_nt to None before running the test!"
 
         self.thr = thr
         self.axis = axis
@@ -79,11 +79,6 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         self.coarse_grained = (self.dsample_nfreq < stream.nfreq) or (self.dsample_nt < self.nt_chunk)
         self.nfreq = stream.nfreq
 
-        # This 2d array will be used as a boolean mask
-        # for selecting the intensity elements beyond
-        # the threshold.
-        self.clip = np.zeros([self.dsample_nfreq, self.dsample_nt])
-
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         
         if self.test:
@@ -97,25 +92,17 @@ class clipper_transform(rf_pipelines.py_wi_transform):
             (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights,\
                     self.dsample_nfreq, self.dsample_nt)
 
+        # The purpose of this next block of code is to compute 'clip', a 2D array of
+        # shape (dsample_nfreq, dsample_nt) which contains the estimated rms.
+
         if self.axis != 2: # 1d mode
-            # This 1d array holds the sum of weights along
-            # the selected axis. Its size is equal to the
-            # unselected axis.  We then call rf_pipelines.tile_arr()
-            # so that its dimensions match the original.
-            den = np.sum(weights, axis=self.axis)
-            den = rf_pipelines.tile_arr(den, self.axis, self.dsample_nfreq, self.dsample_nt)
-
-            # Here is an element-by-element operation (2d).
-            # Note that np.sum(2d) results in a 1d array. Therefore,
-            # we have to use rf_pipelines.tile_arr() to make the 2d elements 
-            # one-to-one.
-            indy, indx = np.where(den > 0.)
-
-            # Compute sum_i W_i I_i^2, and use tile_arr() to get an array of the original dimensions
+            # Compute (sum_i W_i I_i^2) and (sum_i W_i)
             num = np.sum(weights*(intensity)**2, axis=self.axis)
-            num = rf_pipelines.tile_arr(num, self.axis, self.dsample_nfreq, self.dsample_nt)
+            den = np.sum(weights, axis=self.axis)
+            np.putmask(den, den==0., 1.0)     # replace 0.0 by 1.0 to avoid divide-by-zero
 
-            self.clip[indy,indx] = np.sqrt(num[indy,indx]/den[indy,indx])
+            clip = np.sqrt(num/den)      # 1D array
+            clip = rf_pipelines.tile_arr(clip, self.axis, self.dsample_nfreq, self.dsample_nt)   # 2D array
 
         else:
             # 2d mode
@@ -125,12 +112,13 @@ class clipper_transform(rf_pipelines.py_wi_transform):
             if den == 0.:
                 return
 
-            self.clip[:] = np.sqrt(num/den)
+            clip = np.zeros((self.dsample_nfreq, self.dsample_nt))
+            clip[:] = np.sqrt(num/den)
 
-        assert weights.shape == intensity.shape == self.clip.shape
+        assert weights.shape == intensity.shape == clip.shape
 
         # Boolean array which is True for masked values
-        mask = np.abs(intensity) > (self.thr*self.clip)
+        mask = np.abs(intensity) > (self.thr * clip)
         if self.coarse_grained:
             mask = rf_pipelines.upsample(mask, self.nfreq, self.nt_chunk)
 
