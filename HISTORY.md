@@ -1,3 +1,11 @@
+- Version 6:
+
+     - From Masoud: New transform legendre_detrender (polynomial fitting along either time or frequency axis)
+
+     - From Masoud: New transform clipper_transform (clips outlier intensities, relative to a variance
+       estimate which can be computed either in 2D, in 1D along the time axis, or in 1D along the frequency
+       axis)
+
 - Version 5:
 
      - The bonsai trigger hdf5 file output can now be generated in multifile mode.  Previously
