@@ -122,3 +122,5 @@ I plan to get back to these in a few weeks:
   - Currently it's not possible to write streams in python.
 
   - Multithreaded interface?
+
+  - Test
