@@ -34,8 +34,10 @@ filename_list = [ os.path.join('/data/pathfinder/16-07-08',f) for f in filename_
 #
 s = rf_pipelines.chime_stream_from_filename_list(filename_list, nt_chunk=1024, noise_source_align=1024)
 
-frb = rf_pipelines.frb_injector_transform(snr=300, undispersed_arrival_time=10,\
-        sample_rms=1, dm=50)
+# With these FRB parameters, the bowtie should appear in 'triggers_0_tree2.png'
+# after running 'bonsai-plot-triggers.py triggers.hdf5'
+frb = rf_pipelines.frb_injector_transform(snr=30, undispersed_arrival_time=2105.0,
+        sample_rms=0.005, dm=500.)
 
 # This plotter_transform is before the detrender, so it generates "raw" (non-detrended)
 # plots.  Downsampling by a factor 16 in time, and using 1200 coarse-grained times per
@@ -99,7 +101,7 @@ t4 = rf_pipelines.plotter_transform('detrended_chime', img_nfreq=512, img_nt=120
 
 t5 = rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5', nt_per_file=16*1200)
 
-s.run([t1,t2,\
+s.run([frb,t1,t2,\
     l1,\
     c1,c2,c3,\
     l2,l3,\
