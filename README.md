@@ -106,6 +106,7 @@ Here are some to do items which anyone could work on:
   - A transform which allows the bonsai code to be run through its new python interface	
     (in case you want to write a trigger postprocessing callback in python)
 
+  - Mask-expanding transform
 
 ### LOW-LEVEL TO DO LIST
 
