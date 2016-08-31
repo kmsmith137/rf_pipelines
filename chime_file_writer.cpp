@@ -76,6 +76,8 @@ struct chime_file_writer : public wi_transform {
 	if (!clobber && file_exists(filename))
 	    throw runtime_error(filename + ": file already exists and clobber=false was specified in the the chime_file_writer constructor");
 
+	this->json_outputs["name"] = "chime_file_writer(" + filename + ")";
+
 	// Not really correct but that's OK
 	vector<string> pol = { "XX" };
 

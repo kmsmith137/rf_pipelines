@@ -65,6 +65,7 @@
 #include <iostream>
 #include <vector>
 #include <memory>
+#include <json/json.h>
 
 namespace rf_pipelines {
 #if 0
@@ -274,12 +275,23 @@ struct wi_transform {
     ssize_t nt_chunk = 0;     // chunk size for process_chunk(), see below
     ssize_t nt_prepad = 0;    // prepad size for process_chunk(), see below
     ssize_t nt_postpad = 0;   // postpad size for process_chunk(), see below
+
+    //
+    // The 'json_outputs' argument is a set of key/value pairs which the transform is free to define.
+    // By convention each transform should write a 'name' field.  The rf_pipelines library supplies 
+    // 'time' and 'plots' fields automatically.
+    //
+    // Note that json_outputs is automatically reset between substreams.  Therefore, it's natural to
+    // add data in start_subtream(), process_chunk(), or end_substream(), and it's probably a bug to
+    // add data in the transform constructor or start_stream().  (See below.)
+    //
+    Json::Value json_outputs;
     
     wi_transform() { }
 
     virtual ~wi_transform() { }
 
-    // The subclass must define the four virtual functions which follow.
+    // The subclass must define the four pure virtual functions which follow.
 
     //
     // set_stream(): this is called once, at the beginning of a pipeline run.

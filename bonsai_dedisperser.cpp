@@ -23,21 +23,24 @@ shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_
 
 
 struct bonsai_dedisperser : public wi_transform {
+    string config_filename;
     shared_ptr<bonsai::dedisperser> base;
     string trigger_filename;
     int nt_per_file;
 
     bonsai_dedisperser(const string &config_hdf5_filename, const string &output_hdf5_filename, int nt_per_file, int ibeam);
 
-    virtual void set_stream(const wi_stream &stream);
-    virtual void start_substream(int isubstream, double t0);
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride);
-    virtual void end_substream();
+    virtual void set_stream(const wi_stream &stream) override;
+    virtual void start_substream(int isubstream, double t0) override;
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override;
+    virtual void end_substream() override;
 };
 
 
 bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const string &output_hdf5_filename, int nt_per_file, int ibeam)
 {
+    this->config_filename = config_hdf5_filename;
+
     if (!endswith(config_hdf5_filename,".hdf5") && !endswith(config_hdf5_filename,".h5"))
 	cerr << "rf_pipelines: warning: bonsai config filename doesn't end with .h5 or .hdf5, note that the bonsai_dedisperser requires an hdf5 file created with bonsai-mkweight\n";
     if (output_hdf5_filename.size() &&  !endswith(output_hdf5_filename,".hdf5") && !endswith(output_hdf5_filename,".h5"))
@@ -75,6 +78,8 @@ void bonsai_dedisperser::set_stream(const wi_stream &stream)
 
 void bonsai_dedisperser::start_substream(int isubstream, double t0)
 {
+    this->json_outputs["name"] = "bonsai_dedisperser(" + config_filename + ")";
+
     if (isubstream > 0)
 	throw runtime_error("bonsai_dedisperser: currently can't process a stream which defines multiple substreams");
 
@@ -98,6 +103,8 @@ void bonsai_dedisperser::end_substream()
 	base->end_trigger_file();
 
     base->terminate();
+
+    // FIXME should write more json_outputs here, e.g. max signal-to-noise of all triggers.
 }
 
 

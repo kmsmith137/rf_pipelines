@@ -22,11 +22,10 @@ struct simple_detrender : public wi_transform {
     // Since the simple_detrender doesn't maintain state between chunks, we don't need to
     // know when substreams begin and end.
 
-    virtual void set_stream(const wi_stream &stream);
-    virtual void start_substream(int isubstream, double t0) { }
-    virtual void end_substream() { }
-
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride);
+    virtual void set_stream(const wi_stream &stream) override;
+    virtual void start_substream(int isubstream, double t0) override;
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override;
+    virtual void end_substream() override { }
 };
 
 
@@ -54,6 +53,13 @@ void simple_detrender::set_stream(const wi_stream &stream)
     // to get a runtime check.
 
     this->nfreq = stream.nfreq;
+}
+
+
+void simple_detrender::start_substream(int isubstream, double t0)
+{
+    // This is a natural place to write the transform name.
+    this->json_outputs["name"] = "simple_detrender(" + to_string(nt_chunk) + ")";
 }
 
 
@@ -87,6 +93,7 @@ void simple_detrender::process_chunk(double t0, double t1, float *intensity, flo
 	    intensity[ifreq*stride + it] -= (num/den);
     }
 }
+
 
 // Externally visible factory function declared in rf_transforms.hpp
 shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_chunk)

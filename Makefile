@@ -48,7 +48,7 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 CLEANDIRS=. site rf_pipelines rf_pipelines/streams rf_pipelines/transforms \
 	examples/example1_toy examples/example2_gbncc examples/example3_chime
 
-LIBS=
+LIBS=-ljsoncpp
 
 
 ####################################################################################################
@@ -116,4 +116,4 @@ rf_pipelines/rf_pipelines_c.so: rf_pipelines/rf_pipelines_c.cpp $(INCFILES) rf_p
 	$(CPP) $(CPP_LFLAGS) -Wno-strict-aliasing -DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION -shared -o $@ $< -lrf_pipelines $(LIBS) $(LIBS_PYMODULE)
 
 run-unit-tests: run-unit-tests.o librf_pipelines.so
-	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines
+	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines $(LIBS)
