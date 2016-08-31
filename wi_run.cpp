@@ -144,8 +144,9 @@ void wi_run_state::start_substream(double t0)
 
     // State clearing between substreams
     for (int it = 0; it < ntransforms; it++) {
-	transforms[it]->json_outputs.clear();
 	transforms[it]->time_spent_in_transform = 0.0;
+	transforms[it]->json_output.clear();
+	transforms[it]->json_output["name"] = transforms[it]->get_name();
     }
 
     this->state = 1;
@@ -308,7 +309,15 @@ void wi_run_state::end_substream()
     if (noisy) {
 	cerr << ("rf_pipelines: processed " + to_string(save_ipos) + " samples\n");
 	for (int it = 0; it < ntransforms; it++)
-	    cerr << "    Transform " << it << ": " << transforms[it]->time_spent_in_transform << " sec (" << transforms[it]->get_name() << ")\n";
+	    cerr << "    Transform " << it << ": " << transforms[it]->time_spent_in_transform << " sec  [" << transforms[it]->get_name() << "]\n";
+    }
+
+    Json::Value json_output;
+
+    for (int it = 0; it < ntransforms; it++) {
+	Json::Value &t = transforms[it]->json_output;
+	t["time"] = transforms[it]->time_spent_in_transform;
+	json_output.append(t);
     }
 }
 

@@ -277,14 +277,14 @@ struct wi_transform {
     ssize_t nt_postpad = 0;   // postpad size for process_chunk(), see below
 
     //
-    // The 'json_outputs' argument is an optional set of key/value pairs which the transform is free to define.
+    // The 'json_output' argument is an optional set of key/value pairs which the transform is free to define.
     // The rf_pipelines library supplies 'time' and 'plots' fields automatically.
     //
-    // Note that json_outputs is automatically reset between substreams.  Therefore, it's natural to
-    // add data in start_subtream(), process_chunk(), or end_substream(), and it's probably a bug to
-    // add data in the transform constructor or start_stream().  (See below.)
+    // Note that 'json_output' is automatically reset between substreams.  Therefore, it's natural to
+    // modify it in start_subtream(), process_chunk(), or end_substream(), and it's probably a bug to
+    // modify in the transform constructor or start_stream().  (See below.)
     //
-    Json::Value json_outputs;
+    Json::Value json_output;
     
     // Used internally to time transforms.
     double time_spent_in_transform = 0.0;
