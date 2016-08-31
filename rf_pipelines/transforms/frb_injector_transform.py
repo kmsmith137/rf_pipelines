@@ -86,3 +86,7 @@ class frb_injector_transform(rf_pipelines.py_wi_transform):
         missing_frac = 1.0 - intersection_dt / (pulse_t1 - pulse_t0)
 
         print >>sys.stderr, ('frb_injector_transform: warning: %f percent of pulse was outside stream endpoints' % (100. * missing_frac))
+
+
+    def __str__(self):
+        return 'frb_injector_transform'
