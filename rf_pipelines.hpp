@@ -307,8 +307,8 @@ struct wi_transform {
     //     from (it0,nt) but we use them for error checking.
     //   The return value is the full pathname ('basename' with the stream output_dir prepended)
     //
-    // add_file(): Call just before writing a regular file, to check for filename collisions between
-    //   transforms.   The return value is the full pathname ('basename' with stream output_dir prepended)x
+    // add_file(): Call just before writing a non-plot file, to check for filename collisions between transforms.
+    //   The return value is the full pathname ('basename' with stream output_dir prepended)
     //
     int add_plot_group(const std::string &name, int nt_per_x, int ny);   // returns group id
     std::string add_plot(const std::string &basename, int64_t it0, int nt, int nx, int ny, int group_id=0);
