@@ -297,7 +297,7 @@ struct wi_transform {
     //
     // make_plot_group(): Each transform's output plots are divided into one or more "plot groups".
     //   For example, the bonsai dedisperser can write one plot group per internally defined tree.
-    //   The 'nt_per_x' arg is the number of pipeline time samples per x-pixel in the plot.
+    //   The 'nt_per_pix' arg is the number of pipeline time samples per x-pixel in the plot.
     //   The 'ny' arg is the number of y-pixels (assumed to be the same for all plots in the group).
     //   The return value is the group_id arg needed in add_plot(), and group_ids always go 0,1,...
     //
@@ -310,7 +310,7 @@ struct wi_transform {
     // add_file(): Call just before writing a non-plot file, to check for filename collisions between transforms.
     //   The return value is the full pathname ('basename' with stream output_dir prepended)
     //
-    int add_plot_group(const std::string &name, int nt_per_x, int ny);   // returns group id
+    int add_plot_group(const std::string &name, int nt_per_pix, int ny);   // returns group id
     std::string add_plot(const std::string &basename, int64_t it0, int nt, int nx, int ny, int group_id=0);
     std::string add_file(const std::string &basename);
 

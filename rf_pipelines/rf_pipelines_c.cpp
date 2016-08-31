@@ -227,19 +227,19 @@ struct wi_transform_object {
 	return 0;
     }
 
-    // int add_plot_group(const std::string &name, int nt_per_x, int ny)
+    // int add_plot_group(const std::string &name, int nt_per_pix, int ny)
     static PyObject *add_plot_group(PyObject *self, PyObject *args, PyObject *kwds)
     {
-	static const char *kwlist[] = { "name", "nt_per_x", "ny", NULL };
+	static const char *kwlist[] = { "name", "nt_per_pix", "ny", NULL };
 
 	char *name = nullptr;
-	int nt_per_x = 0;
+	int nt_per_pix = 0;
 	int ny = 0;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "sii", (char **)kwlist, &name, &nt_per_x, &ny))
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "sii", (char **)kwlist, &name, &nt_per_pix, &ny))
 	    return NULL;
 
-	int ret = get_pbare(self)->add_plot_group(name, nt_per_x, ny);
+	int ret = get_pbare(self)->add_plot_group(name, nt_per_pix, ny);
 	return Py_BuildValue("i", ret);
     }
 
@@ -247,7 +247,7 @@ struct wi_transform_object {
 	"Usage: add_plot_group(name, nt_per_pix, ny)\n\n"
 	"    Each transform's output plots are divided into one or more \"plot groups\"\n"
 	"    For example, the bonsai dedisperser can write one plot group per internally defined tree.\n"
-	"    The 'nt_per_x' arg is the number of pipeline time samples per x-pixel in the plot.\n"
+	"    The 'nt_per_pix' arg is the number of pipeline time samples per x-pixel in the plot.\n"
 	"    The 'ny' arg is the number of y-pixels (assumed to be the same for all plots in the group).\n"
 	"    The return value is the group_id arg needed in add_plot(), and group_ids always go 0,1,...\n";
 
