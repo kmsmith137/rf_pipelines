@@ -256,8 +256,11 @@ struct wi_stream {
     //
     virtual void stream_body(wi_run_state &run_state) = 0;
 
+    //
     // This non-virtual function isn't defined by the wi_stream subclass, it's called 
-    // "from the outside" to run the rf_pipeline.
+    // "from the outside" to run the rf_pipeline.  If 'clobber' is true, then the pipeline
+    // is allowed to overwrite a previous run.
+    //
     void run(const std::vector<std::shared_ptr<wi_transform> > &transforms, 
 	     const std::string &outdir=".", bool noisy=true, bool clobber=true);
 };

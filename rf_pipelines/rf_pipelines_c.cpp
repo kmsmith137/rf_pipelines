@@ -414,29 +414,39 @@ struct wi_stream_object {
 	return s->pbare;
     }
     
-    static PyObject *run(PyObject *self, PyObject *arg)
+    static PyObject *run(PyObject *self, PyObject *args, PyObject *kwds)
     {
+	static const char *kwlist[] = { "transforms", "outdir", "noisy", "clobber", NULL };
+
+	PyObject *transforms_obj = nullptr;
+	const char *outdir = ".";
+	int noisy = 1;
+	int clobber = 1;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|sii", (char **)kwlist, &transforms_obj, (char **)&outdir, &noisy, &clobber))
+	    return NULL;
+
 	rf_pipelines::wi_stream *stream = get_pbare(self);
 
-	PyObject *iter = PyObject_GetIter(arg);
-	if (!iter)
-	    throw runtime_error("rf_pipelines: expected argument to wi_stream.run() to be a list/iterator");
+	PyObject *transforms_iter = PyObject_GetIter(transforms_obj);
+	if (!transforms_iter)
+	    throw runtime_error("rf_pipelines: expected 'transforms' argument to wi_stream.run() to be a list/iterator");
 
-	object iter_reference(iter, false);
+	object iter_reference(transforms_iter, false);
 	vector<object> item_references;
 
 	vector<shared_ptr<rf_pipelines::wi_transform> > transform_list;
 	transform_list.push_back(make_shared<exception_monitor> (stream->nt_maxwrite));
 
 	for (;;) {
-	    PyObject *item_ptr = PyIter_Next(iter);
+	    PyObject *item_ptr = PyIter_Next(transforms_iter);
 	    if (!item_ptr)
 		break;
 
 	    item_references.push_back(object(item_ptr,false));
 
 	    if (!wi_transform_object::isinstance(item_ptr))
-		throw runtime_error("rf_pipelines: expected argument to wi_stream.run() to be a list/iterator of wi_transform objects");
+		throw runtime_error("rf_pipelines: expected 'transforms' argument to wi_stream.run() to be a list/iterator of wi_transform objects");
 
 	    transform_list.push_back(wi_transform_object::get_pshared(item_ptr));
 	}	
@@ -444,12 +454,15 @@ struct wi_stream_object {
 	if (PyErr_Occurred())
 	    throw python_exception();
 
-	bool noisy=true;  // FIXME make this selectable from python
-	stream->run(transform_list, noisy);
+	stream->run(transform_list, outdir, noisy, clobber);
 
 	Py_INCREF(Py_None);
 	return Py_None;
     }
+
+    static constexpr const char *run_docstring = 
+	"Usage: run(transforms, outdir='.', noisy=True, clobber=True)\n"
+	"  If clobber is True, then the pipeline is allowed to overwrite a previous run.\n";
 
     // Properties
 
@@ -481,7 +494,7 @@ struct wi_stream_object {
 
 
 static PyMethodDef wi_stream_methods[] = {
-    { "run", tc_wrap2<wi_stream_object::run>, METH_O, NULL },
+    { "run", (PyCFunction) tc_wrap3<wi_stream_object::run>, METH_VARARGS | METH_KEYWORDS, (char *)wi_stream_object::run_docstring },
     { NULL, NULL, 0, NULL }
 };
 
