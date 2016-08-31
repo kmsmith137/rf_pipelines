@@ -277,9 +277,8 @@ struct wi_transform {
     ssize_t nt_postpad = 0;   // postpad size for process_chunk(), see below
 
     //
-    // The 'json_outputs' argument is a set of key/value pairs which the transform is free to define.
-    // By convention each transform should write a 'name' field.  The rf_pipelines library supplies 
-    // 'time' and 'plots' fields automatically.
+    // The 'json_outputs' argument is an optional set of key/value pairs which the transform is free to define.
+    // The rf_pipelines library supplies 'time' and 'plots' fields automatically.
     //
     // Note that json_outputs is automatically reset between substreams.  Therefore, it's natural to
     // add data in start_subtream(), process_chunk(), or end_substream(), and it's probably a bug to
@@ -374,6 +373,9 @@ struct wi_transform {
 
     // end_substream(): counterpart to start_substream() above
     virtual void end_substream() = 0;
+    
+    // Note: the transform name will appear in the json output, and in python __str__().
+    virtual std::string get_name() const = 0;
 };
 
 

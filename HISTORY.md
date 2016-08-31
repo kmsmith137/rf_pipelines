@@ -1,3 +1,7 @@
+- JSON branch:
+
+     - Backwards-incompatible: jsoncpp library now required
+
 - Version 6:
 
      - From Masoud: New transform legendre_detrender (polynomial fitting along either time or frequency axis)

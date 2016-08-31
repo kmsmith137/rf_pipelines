@@ -34,6 +34,7 @@ struct bonsai_dedisperser : public wi_transform {
     virtual void start_substream(int isubstream, double t0) override;
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override;
     virtual void end_substream() override;
+    virtual string get_name() const override;
 };
 
 
@@ -78,8 +79,6 @@ void bonsai_dedisperser::set_stream(const wi_stream &stream)
 
 void bonsai_dedisperser::start_substream(int isubstream, double t0)
 {
-    this->json_outputs["name"] = "bonsai_dedisperser(" + config_filename + ")";
-
     if (isubstream > 0)
 	throw runtime_error("bonsai_dedisperser: currently can't process a stream which defines multiple substreams");
 
@@ -105,6 +104,12 @@ void bonsai_dedisperser::end_substream()
     base->terminate();
 
     // FIXME should write more json_outputs here, e.g. max signal-to-noise of all triggers.
+}
+
+
+string bonsai_dedisperser::get_name() const
+{
+    return "bonsai_dedisperser(" + config_filename + ")";
 }
 
 
