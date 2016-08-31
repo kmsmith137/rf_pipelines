@@ -36,6 +36,31 @@ namespace rf_pipelines {
 #endif
 
 
+//
+// A note for the future: if rf_pipelines is ever made multithreaded, then there are
+// some race conditions related to the output_tracker which will need to be fixed.  The
+// basename_set should be protected by a lock, and we also probably want a lock to
+// protect the wi_transform::output_output_tracker pointer itself.  We may also want the
+// output_tracker to create a lockfile in the output directory.
+//
+struct outdir_manager {
+    std::string outdir;  // includes trailing slash
+    bool clobber_ok = true;
+
+    std::set<std::string> basename_set;
+
+    // Constructor creates the output directory.
+    outdir_manager(const std::string &outdir, bool clobber_ok);
+
+    // Returns the full pathname, throws exception if filename has already been written in this pipeline run.
+    std::string add_file(const std::string &basename);
+
+    void write_json_file(int isubstream, const Json::Value &data);
+
+    static bool is_json_basename(const std::string &basename);
+};
+
+
 // Non-inline helper functions (more to come?)
 extern bool file_exists(const std::string &filename);
 extern void makedirs(const std::string &dirname);

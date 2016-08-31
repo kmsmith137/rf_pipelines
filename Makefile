@@ -24,6 +24,7 @@ OFILES=bonsai_dedisperser.o \
 	psrfits_stream.o \
 	simple_detrender.o \
 	wi_run.o \
+	wi_transform.o \
 	wraparound_buf.o
 
 # Files that get installed in $(PYDIR)
