@@ -61,6 +61,30 @@ struct outdir_manager {
 };
 
 
+struct plot_group {
+    std::string name;
+    int nt_per_pix = 0;
+    int ny = 0;
+    
+    bool is_empty = true;
+    int64_t curr_it0 = 0;
+    int64_t curr_it1 = 0;
+    Json::Value files;
+
+    plot_group(const std::string &name_, int nt_per_pix_, int ny_) :
+	name(name_), nt_per_pix(nt_per_pix_), ny(ny_) 
+    { 
+	if (nt_per_pix < 1)
+	    throw std::runtime_error("rf_pipelines::plot_group: nt_per_pix must be >= 1");
+	if (ny < 1)
+	    throw std::runtime_error("rf_pieplines::plot_group: ny must be >= 1");
+    }
+};
+
+
+// -------------------------------------------------------------------------------------------------
+
+
 // Non-inline helper functions (more to come?)
 extern bool file_exists(const std::string &filename);
 extern void makedirs(const std::string &dirname);

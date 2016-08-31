@@ -264,26 +264,47 @@ void wi_run_state::end_substream()
 
 void wi_run_state::write_per_substream_json_file()
 {
-    Json::Value json_output;
-    json_output["nsamples"] = int64_t(stream_ipos);
+    Json::Value json_all;
+    json_all["nsamples"] = int64_t(stream_ipos);
     // more things will go here!
 
-    for (int it = 0; it < ntransforms; it++) {
-	Json::Value &t = transforms[it]->json_output; 	// includes "name", but not "time" or "plots"
-	t["time"] = transforms[it]->time_spent_in_transform;
-	json_output["transforms"].append(t);
+    for (const shared_ptr<wi_transform> &t: transforms) {
+	Json::Value &json_t = t->json_output;   // includes everything except "time" and "plots"
+	json_t["time"] = t->time_spent_in_transform;
+
+	for (const shared_ptr<plot_group> &g: t->plot_groups) {
+	    if (g->is_empty)
+		continue;
+
+	    Json::Value json_g;
+	    json_g["name"] = g->name;
+	    json_g["nt_per_pix"] = g->nt_per_pix;
+	    json_g["ny"] = g->ny;
+	    json_g["it0"] = g->curr_it0;
+	    json_g["it1"] = g->curr_it1;
+	    json_g["plots"].append(g->files);
+
+	    json_t.append(json_g);
+	}
+
+	json_all.append(json_t);
     }
 
-    manager->write_per_substream_json_file(isubstream, json_output, noisy);
+    manager->write_per_substream_json_file(isubstream, json_all, noisy);
 }
 
 
 void wi_run_state::clear_per_substream_data()
 {
-    for (int it = 0; it < ntransforms; it++) {
-	transforms[it]->time_spent_in_transform = 0.0;
-	transforms[it]->json_output.clear();
-	transforms[it]->json_output["name"] = transforms[it]->get_name();
+    for (const shared_ptr<wi_transform> &t: transforms) {
+	t->time_spent_in_transform = 0.0;
+	t->json_output.clear();
+	t->json_output["name"] = t->get_name();
+
+	for (const shared_ptr<plot_group> &g: t->plot_groups) {
+	    g->is_empty = true;
+	    g->files.clear();
+	}
     }
 }
 
