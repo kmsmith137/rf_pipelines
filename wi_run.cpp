@@ -305,8 +305,11 @@ void wi_run_state::end_substream()
     this->state = 4;
     this->isubstream++;
 
-    if (noisy)
+    if (noisy) {
 	cerr << ("rf_pipelines: processed " + to_string(save_ipos) + " samples\n");
+	for (int it = 0; it < ntransforms; it++)
+	    cerr << "    Transform " << it << ": " << transforms[it]->get_name() << ": " << transforms[it]->time_spent_in_transform << " sec\n";
+    }
 }
 
 
