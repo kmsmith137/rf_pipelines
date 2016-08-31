@@ -445,7 +445,9 @@ struct wraparound_buf {
 // 
 class wi_run_state {
 public:
-    wi_run_state(const wi_stream &stream, const std::vector<std::shared_ptr<wi_transform> > &transforms, bool noisy);
+    wi_run_state(const wi_stream &stream, 
+		 const std::vector<std::shared_ptr<wi_transform> > &transforms, 
+		 const std::shared_ptr<outdir_manager> &manager, bool noisy);
 
     // The 't0' arg is the substream start time in seconds, relative to an arbitrary stream-defined origin.
     void start_substream(double t0);
@@ -500,6 +502,7 @@ protected:
     // stream params
     const ssize_t nfreq;
     const ssize_t nt_stream_maxwrite;
+    const std::shared_ptr<outdir_manager> manager;
 
     // transform list
     const int ntransforms;
@@ -527,6 +530,9 @@ protected:
     // buffers
     wraparound_buf main_buffer;
     std::vector<wraparound_buf> prepad_buffers;
+    
+    void write_per_substream_json_file();
+    void clear_per_substream_data();
 };
 
 

@@ -14,19 +14,33 @@ namespace rf_pipelines {
 #endif
 
 //
-// A helper class which initializes the wi_transform::outdir_manager pointer in its constructor, 
-// and resets it in its destructor.  This is convenient for ensuring that the pointer always gets
-// cleared, e.g. if an exception is thrown.  We also use this class to detect transform reuse
-// (currently treated as an error).
+// A helper class which resets wi_transform::outdir_manager pointers in its destructor.
+// This is convenient for ensuring that the pointer always gets reset, e.g. in the case where an
+// exception is thrown.  We also use this class to detect transform reuse (currently treated as an error).
 //
 struct outdir_janitor {
-    shared_ptr<wi_transform> transform;
+    shared_ptr<outdir_manager> manager;
+    vector<shared_ptr<wi_transform> > transform_list;
 
-    outdir_janitor(const shared_ptr<wi_transform> &transform_, const shared_ptr<outdir_manager> &manager) :
-	transform(transform_)
+    outdir_janitor(const string &outdir, bool clobber)
+    {
+	this->manager = make_shared<outdir_manager> (outdir, clobber);
+    }
+
+    // noncopyable
+    outdir_janitor(const outdir_janitor &) = delete;
+    outdir_janitor &operator=(const outdir_janitor &) = delete;
+
+    ~outdir_janitor() 
+    { 
+	for (unsigned int i = 0; i < transform_list.size(); i++)
+	    transform_list[i]->outdir_manager.reset(); 
+	transform_list.clear();
+    }
+
+    void set_outdir_manager(const shared_ptr<wi_transform> &transform)
     {
 	rf_assert(transform);
-	rf_assert(manager);
 
 	if (transform->outdir_manager) {
 	    string name = transform->get_name();
@@ -34,13 +48,8 @@ struct outdir_janitor {
 	}
 
 	transform->outdir_manager = manager;
+	this->transform_list.push_back(transform);
     }
-
-    ~outdir_janitor() { transform->outdir_manager.reset(); }
-
-    // noncopyable
-    outdir_janitor(const outdir_janitor &) = delete;
-    outdir_janitor &operator=(const outdir_janitor &) = delete;
 };
 
 
@@ -50,8 +59,6 @@ void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const s
 
     // Lots of checks to make sure everything is initialized
 
-    if (ntransforms == 0)
-	throw runtime_error("wi_stream::run() called on empty transform list");
     if (nfreq <= 0)
 	throw runtime_error("wi_stream::nfreq is non-positive or uninitialized");
     if (freq_lo_MHz <= 0.0)
@@ -62,15 +69,17 @@ void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const s
 	throw runtime_error("wi_stream::dt_sample is non-positive or uninitialized");	
     if (nt_maxwrite <= 0)
 	throw runtime_error("wi_stream::nt_maxwrite is non-positive or uninitialized");
+    if (ntransforms == 0)
+	throw runtime_error("wi_stream::run() called on empty transform list");
 
-    auto outdir_manager = make_shared<rf_pipelines::outdir_manager> (outdir, clobber);
-    vector<shared_ptr<outdir_janitor> > janitor_list(ntransforms);
-
-    for (int it = 0; it < ntransforms; it++) {
-	if (!transforms[it])
+    for (const auto &transform: transforms)
+	if (!transform)
 	    throw runtime_error("rf_pipelines: empty transform pointer passed to wi_stream::run()");
 
-	janitor_list[it] = make_shared<outdir_janitor> (transforms[it], outdir_manager);
+    outdir_janitor janitor(outdir, clobber);
+
+    for (int it = 0; it < ntransforms; it++) {
+	janitor.set_outdir_manager(transforms[it]);
 
 	transforms[it]->set_stream(*this);
 
@@ -85,7 +94,7 @@ void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const s
     }
 
     // Delegate to stream_body() method implemented in subclass
-    wi_run_state run_state(*this, transforms, noisy);
+    wi_run_state run_state(*this, transforms, janitor.manager, noisy);
     this->stream_body(run_state);
 
     // Only state=4 is OK, otherwise we complain!

@@ -14,9 +14,10 @@ namespace rf_pipelines {
 #endif
 
 
-wi_run_state::wi_run_state(const wi_stream &stream, const vector<shared_ptr<wi_transform> > &transforms_, bool noisy_) :
+wi_run_state::wi_run_state(const wi_stream &stream, const vector<shared_ptr<wi_transform> > &transforms_, const shared_ptr<outdir_manager> &manager_, bool noisy_) :
     nfreq(stream.nfreq),
     nt_stream_maxwrite(stream.nt_maxwrite),
+    manager(manager_),
     ntransforms(transforms_.size()),
     transforms(transforms_),
     dt_sample(stream.dt_sample),
@@ -34,6 +35,8 @@ wi_run_state::wi_run_state(const wi_stream &stream, const vector<shared_ptr<wi_t
 	throw runtime_error("wi_run_state constructor called on uninitialized stream");
     if (ntransforms < 1)
 	throw runtime_error("wi_run_state constructor called on empty transform list");
+    if (!manager)
+	throw runtime_error("wi_run_state constructor called with empty manager pointer");
 }
 
 
@@ -89,13 +92,7 @@ void wi_run_state::start_substream(double t0)
 	this->prepad_buffers[it].append_zeros(n0);
     }
 
-    // State clearing between substreams
-    for (int it = 0; it < ntransforms; it++) {
-	transforms[it]->time_spent_in_transform = 0.0;
-	transforms[it]->json_output.clear();
-	transforms[it]->json_output["name"] = transforms[it]->get_name();
-    }
-
+    this->clear_per_substream_data();
     this->state = 1;
 }
 
@@ -245,26 +242,48 @@ void wi_run_state::end_substream()
     for (int it = 0; it < ntransforms; it++)
 	transforms[it]->end_substream();
 
-    // Deallocate buffers
-    this->main_buffer.reset();
-    for (int it = 0; it < ntransforms; it++)
-	this->prepad_buffers[it].reset();
-
-    this->state = 4;
-    this->isubstream++;
-
+    // Write outputs
     if (noisy) {
 	cerr << ("rf_pipelines: processed " + to_string(save_ipos) + " samples\n");
 	for (int it = 0; it < ntransforms; it++)
 	    cerr << "    Transform " << it << ": " << transforms[it]->time_spent_in_transform << " sec  [" << transforms[it]->get_name() << "]\n";
     }
 
+    this->write_per_substream_json_file();
+    this->clear_per_substream_data();
+
+    // Deallocate buffers and advance state
+    this->main_buffer.reset();
+    for (int it = 0; it < ntransforms; it++)
+	this->prepad_buffers[it].reset();
+
+    this->state = 4;
+    this->isubstream++;
+}
+
+
+void wi_run_state::write_per_substream_json_file()
+{
     Json::Value json_output;
+    json_output["nsamples"] = int64_t(stream_ipos);
+    // more things will go here!
 
     for (int it = 0; it < ntransforms; it++) {
-	Json::Value &t = transforms[it]->json_output;
+	Json::Value &t = transforms[it]->json_output; 	// includes "name", but not "time" or "plots"
 	t["time"] = transforms[it]->time_spent_in_transform;
-	json_output.append(t);
+	json_output["transforms"].append(t);
+    }
+
+    manager->write_per_substream_json_file(isubstream, json_output, noisy);
+}
+
+
+void wi_run_state::clear_per_substream_data()
+{
+    for (int it = 0; it < ntransforms; it++) {
+	transforms[it]->time_spent_in_transform = 0.0;
+	transforms[it]->json_output.clear();
+	transforms[it]->json_output["name"] = transforms[it]->get_name();
     }
 }
 
