@@ -62,9 +62,10 @@
 #error "This source file needs to be compiled with C++0x support (g++ -std=c++0x)"
 #endif
 
-#include <iostream>
+#include <set>
 #include <vector>
 #include <memory>
+#include <iostream>
 #include <json/json.h>
 
 namespace rf_pipelines {
@@ -75,6 +76,7 @@ namespace rf_pipelines {
 struct wi_stream;
 struct wi_transform;
 class wi_run_state;
+struct outdir_manager;
 
 
 namespace constants {
@@ -256,7 +258,8 @@ struct wi_stream {
 
     // This non-virtual function isn't defined by the wi_stream subclass, it's called 
     // "from the outside" to run the rf_pipeline.
-    void run(const std::vector<std::shared_ptr<wi_transform> > &transforms, bool noisy=true);
+    void run(const std::vector<std::shared_ptr<wi_transform> > &transforms, 
+	     const std::string &outdir=".", bool noisy=true, bool clobber=true);
 };
 
 
@@ -285,15 +288,18 @@ struct wi_transform {
     // modify in the transform constructor or start_stream().  (See below.)
     //
     Json::Value json_output;
-    
-    // Used internally to time transforms.
+
+    // Data used internally by rf_pipelines -- probably a bad idea to use these fields directly!
+    // Note: the outdir_manager is a nonempty pointer if and only if the transform is currently running.
+    std::shared_ptr<outdir_manager> outdir_manager;
     double time_spent_in_transform = 0.0;
 
     wi_transform() { }
 
     virtual ~wi_transform() { }
 
-    // The subclass must define the four pure virtual functions which follow.
+
+    // --------------- The subclass must define the five pure virtual functions which follow ---------------
 
     //
     // set_stream(): this is called once, at the beginning of a pipeline run.
@@ -387,6 +393,31 @@ struct wi_transform {
 // Low-level classes.
 
 
+//
+// A note for the future: if rf_pipelines is ever made multithreaded, then there are
+// some race conditions related to the output_tracker which will need to be fixed.  The
+// basename_set should be protected by a lock, and we also probably want a lock to
+// protect the wi_transform::output_output_tracker pointer itself.  We may also want the
+// output_tracker to create a lockfile in the output directory.
+//
+struct outdir_manager {
+    std::string outdir;  // includes trailing slash
+    bool clobber_ok = true;
+
+    std::set<std::string> basename_set;
+
+    // Constructor creates the output directory.
+    outdir_manager(const std::string &outdir, bool clobber_ok);
+
+    // Returns the full pathname, throws exception if filename has already been written in this pipeline run.
+    std::string add_file(const std::string &basename);
+
+    void write_json_file(int isubstream, const Json::Value &data);
+
+    static bool is_json_basename(const std::string &basename);
+};
+
+
 // Helper class for wi_run_state (probably not useful from the outside world)
 struct wraparound_buf {
     // specified at construction
@@ -478,7 +509,8 @@ public:
     void end_substream();
 
 protected:
-    friend void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transforms, bool noisy);
+    friend void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transforms, 
+			       const std::string &outdir, bool noisy, bool clobber);
 
     // make noncopyable
     wi_run_state(const wi_run_state &) = delete;

@@ -38,7 +38,8 @@ namespace rf_pipelines {
 
 // Non-inline helper functions (more to come?)
 extern bool file_exists(const std::string &filename);
-extern void listdir(std::vector<std::string> &filenames, const std::string &dirname);
+extern void makedirs(const std::string &dirname);
+extern std::vector<std::string> listdir(const std::string &dirname);
 
 
 // Inlines follow...
@@ -94,6 +95,11 @@ inline ssize_t gcd(ssize_t m, ssize_t n)
     }
 
     return m;
+}
+
+inline bool startswith(const std::string &str, const std::string &prefix)
+{
+    return std::equal(prefix.begin(), prefix.end(), str.begin());
 }
 
 inline bool endswith(const std::string &str, const std::string &suffix)

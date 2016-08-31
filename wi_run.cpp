@@ -14,13 +14,48 @@ namespace rf_pipelines {
 #endif
 
 
-void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transforms, bool noisy)
+//
+// A helper class which initializes the wi_transform::outdir_manager pointer in its constructor, 
+// and resets it in its destructor.  This is convenient for ensuring that the pointer always gets
+// cleared, e.g. if an exception is thrown.  We also use this class to detect transform reuse
+// (currently treated as an error).
+//
+struct outdir_janitor {
+    shared_ptr<wi_transform> transform;
+
+    outdir_janitor(const shared_ptr<wi_transform> &transform_, const shared_ptr<outdir_manager> &manager) :
+	transform(transform_)
+    {
+	rf_assert(transform);
+	rf_assert(manager);
+
+	if (transform->outdir_manager) {
+	    string name = transform->get_name();
+	    throw runtime_error("Fatal: transform->outdir_manager initialized twice.  This probably means a transform is being reused (transform name=" + name + ")");
+	}
+
+	transform->outdir_manager = manager;
+    }
+
+    ~outdir_janitor() { transform->outdir_manager.reset(); }
+
+    // noncopyable
+    outdir_janitor(const outdir_janitor &) = delete;
+    outdir_janitor &operator=(const outdir_janitor &) = delete;
+};
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const string &outdir, bool noisy, bool clobber)
 {
-    if (transforms.size() == 0)
-	throw runtime_error("wi_stream::run() called on empty transform list");
+    int ntransforms = transforms.size();
 
     // Lots of checks to make sure everything is initialized
 
+    if (ntransforms == 0)
+	throw runtime_error("wi_stream::run() called on empty transform list");
     if (nfreq <= 0)
 	throw runtime_error("wi_stream::nfreq is non-positive or uninitialized");
     if (freq_lo_MHz <= 0.0)
@@ -32,16 +67,21 @@ void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transform
     if (nt_maxwrite <= 0)
 	throw runtime_error("wi_stream::nt_maxwrite is non-positive or uninitialized");
 
-    for (unsigned int it = 0; it < transforms.size(); it++) {
+    auto outdir_manager = make_shared<rf_pipelines::outdir_manager> (outdir, clobber);
+    vector<shared_ptr<outdir_janitor> > janitor_list(ntransforms);
+
+    for (int it = 0; it < ntransforms; it++) {
 	if (!transforms[it])
 	    throw runtime_error("rf_pipelines: empty transform pointer passed to wi_stream::run()");
+
+	janitor_list[it] = make_shared<outdir_janitor> (transforms[it], outdir_manager);
 
 	transforms[it]->set_stream(*this);
 
 	if (transforms[it]->nfreq != this->nfreq)
 	    throw runtime_error("rf_pipelines: transform's value of 'nfreq' does not match stream's value of 'nfreq'");
 	if (transforms[it]->nt_chunk <= 0)
-	    throw runtime_error("rf_piptlines: transform's value of 'nt_chunk' is non-positive or uninitialized");
+	    throw runtime_error("rf_pipelines: transform's value of 'nt_chunk' is non-positive or uninitialized");
 	if (transforms[it]->nt_prepad < 0)
 	    throw runtime_error("rf_pipelines: wi_transform::nt_prepad is negative");
 	if (transforms[it]->nt_postpad < 0)
@@ -67,7 +107,7 @@ void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transform
 // -------------------------------------------------------------------------------------------------
 
 
-wi_run_state::wi_run_state(const wi_stream &stream, const std::vector<std::shared_ptr<wi_transform> > &transforms_, bool noisy_) :
+wi_run_state::wi_run_state(const wi_stream &stream, const vector<shared_ptr<wi_transform> > &transforms_, bool noisy_) :
     nfreq(stream.nfreq),
     nt_stream_maxwrite(stream.nt_maxwrite),
     ntransforms(transforms_.size()),

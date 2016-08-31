@@ -228,15 +228,10 @@ static bool is_chime_file(const string &basename)
 // Lists all files of the form ${dirname}/NNNNNNNN.h5, where N=[0,9]
 static void list_chime_acqdir(vector<string> &chime_files, const string &dirname, bool allow_empty=false)
 {
-    vector<string> all_files;
-    listdir(all_files, dirname);
-
-    bool wflag = false;
     chime_files.resize(0);
+    bool wflag = false;
 
-    for (unsigned int i = 0; i < all_files.size(); i++) {
-	string basename = all_files[i];
-
+    for (const string &basename: listdir(dirname)) {
 	if (is_chime_file(basename))
 	    chime_files.push_back(dirname + "/" + basename);
 	else if (!wflag && (endswith(basename,".h5") || endswith(basename,".hdf5"))) {

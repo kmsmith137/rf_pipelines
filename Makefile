@@ -20,6 +20,7 @@ OFILES=bonsai_dedisperser.o \
 	chime_file_writer.o \
 	gaussian_noise_stream.o \
 	misc.o \
+	outdir_manager.o \
 	psrfits_stream.o \
 	simple_detrender.o \
 	wi_run.o \
