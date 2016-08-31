@@ -286,6 +286,9 @@ struct wi_transform {
     //
     Json::Value json_outputs;
     
+    // Used internally to time transforms.
+    double time_spent_in_transform = 0.0;
+
     wi_transform() { }
 
     virtual ~wi_transform() { }

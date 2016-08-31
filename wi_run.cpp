@@ -142,6 +142,12 @@ void wi_run_state::start_substream(double t0)
 	this->prepad_buffers[it].append_zeros(n0);
     }
 
+    // State clearing between substreams
+    for (int it = 0; it < ntransforms; it++) {
+	transforms[it]->json_outputs.clear();
+	transforms[it]->time_spent_in_transform = 0.0;
+    }
+
     this->state = 1;
 }
 
@@ -232,7 +238,10 @@ void wi_run_state::finalize_write(ssize_t nt)
 	    // Transform is called here.
 	    double t0 = this->stream_curr_time + dt_sample * (transform_ipos[it] - stream_ipos);
 	    double t1 = this->stream_curr_time + dt_sample * (transform_ipos[it] - stream_ipos + n1);
+
+	    struct timeval tv0 = get_time();
 	    transforms[it]->process_chunk(t0, t1, intensity, weights, stride, pp_intensity, pp_weights, pp_stride);
+	    transforms[it]->time_spent_in_transform += time_diff(tv0, get_time());
 
 	    // Note (n1) here, versus (n1+n2) in call to finalize_write() below.
 	    main_buffer.finalize_write(transform_ipos[it], n1);
