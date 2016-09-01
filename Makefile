@@ -30,6 +30,7 @@ OFILES=bonsai_dedisperser.o \
 PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/__init__.py \
 	rf_pipelines/utils.py \
+	rf_pipelines/grouper.py \
 	rf_pipelines/streams/__init__.py \
 	rf_pipelines/streams/chime_streams.py \
 	rf_pipelines/streams/psrfits_stream.py \
@@ -42,7 +43,12 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/plotter_transform.py \
 	rf_pipelines/transforms/badchannel_mask.py \
 	rf_pipelines/transforms/clipper_transform.py \
-	rf_pipelines/transforms/legendre_detrender.py
+	rf_pipelines/transforms/legendre_detrender.py \
+	rf_pipelines/transforms/kurtosis_filter.py \
+	rf_pipelines/transforms/std_dev_filter.py \
+	rf_pipelines/transforms/thermal_noise_weight.py \
+	rf_pipelines/transforms/RC_detrender.py \
+	
 
 # Used in 'make clean'
 CLEANDIRS=. site rf_pipelines rf_pipelines/streams rf_pipelines/transforms \

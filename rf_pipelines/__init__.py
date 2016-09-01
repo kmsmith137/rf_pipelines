@@ -222,7 +222,14 @@ from .transforms.frb_injector_transform import frb_injector_transform
 from .transforms.badchannel_mask import badchannel_mask
 from .transforms.clipper_transform import clipper_transform
 from .transforms.legendre_detrender import legendre_detrender
+from .transforms.kurtosis_filter import kurtosis_filter
+from .transforms.std_dev_filter import std_dev_filter
+from .transforms.thermal_noise_weight import thermal_noise_weight
+from .transforms.RC_detrender import RC_detrender
 
 # Helper routines for implementing new transforms in python.
 
 from .utils import write_png, wi_downsample, upsample, tile_arr
+
+# Grouping code to handle output of bonsai_dedisperser
+from grouper import group_bonsai_output
