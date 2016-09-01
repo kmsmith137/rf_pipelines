@@ -244,7 +244,7 @@ struct wi_transform_object {
     }
 
     static constexpr const char *add_plot_group_docstring = 
-	"Usage: add_plot_group(name, nt_per_pix, ny)\n\n"
+	"Usage: add_plot_group(name, nt_per_pix, ny) -> integer\n\n"
 	"    Each transform's output plots are divided into one or more \"plot groups\"\n"
 	"    For example, the bonsai dedisperser can write one plot group per internally defined tree.\n"
 	"    The 'nt_per_pix' arg is the number of pipeline time samples per x-pixel in the plot.\n"
@@ -271,7 +271,7 @@ struct wi_transform_object {
     }
 
     static constexpr const char *add_plot_docstring = 
-	"Usage: add_plot(basename, int64_t it0, int nt, int nx, int ny, int group_id=0)\n\n"
+	"Usage: add_plot(basename, int64_t it0, int nt, int nx, int ny, int group_id=0) -> string\n\n"
 	"Call just before writing a plot.\n"
 	"    The range of time samples in the plot is [it0:it0+nt).\n"
 	"    The pixel dimensions of the plot are (nx,ny).  These are redundant since they can be deduced\n"
@@ -293,7 +293,7 @@ struct wi_transform_object {
     }
 
     static constexpr const char *add_file_docstring = 
-	"Usage: add_file(basename)\n\n"
+	"Usage: add_file(basename) -> string\n\n"
 	"    Call just before writing a non-plot file, to check for filename collisions between transforms.\n"
 	"    The return value is the full pathname ('basename' with stream output_dir prepended)\n";
 };
