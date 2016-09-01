@@ -4,8 +4,6 @@
 
      - Backwards-incompatible: transform reuse now treated as an error
 
-     - There may be a backwards-incompatible change in the transform API
-
 - Version 6:
 
      - From Masoud: New transform legendre_detrender (polynomial fitting along either time or frequency axis)
