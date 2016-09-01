@@ -291,7 +291,7 @@ void wi_run_state::write_per_substream_json_file()
 	    json_g["ny"] = g->ny;
 	    json_g["it0"] = g->curr_it0;
 	    json_g["it1"] = g->curr_it1;
-	    json_g["plots"].append(g->files);
+	    json_g["files"].append(g->files);
 
 	    json_t["plots"].append(json_g);
 	}
