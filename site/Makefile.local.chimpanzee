@@ -24,5 +24,6 @@ PYTHON_INCDIR=/usr/include/python2.7
 #
 CPP=g++ -O3 -march=native -std=c++0x -Wall -ffast-math -funroll-loops -fPIC -I. -I$(INCDIR) -I$(PYTHON_INCDIR) -L. -L$(LIBDIR)
 
-# Extra include dirs needed for psrfits_utils on chimpanzee
+# Extra include dirs needed on chimpanzee
+CPP += -I/usr/include/jsoncpp
 CPP += -I$(INCDIR)/psrfits_utils -I/usr/include/cfitsio
