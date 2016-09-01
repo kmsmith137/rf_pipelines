@@ -449,5 +449,13 @@ inline ssize_t ssize_t_from_python(PyObject *obj)
     return n;
 }
 
+inline double double_from_python(PyObject *obj)
+{
+    double ret = PyFloat_AsDouble(obj);
+    if ((ret == -1.0) && PyErr_Occurred())
+	throw python_exception();
+    return ret;
+}
+
 
 #endif  // _PYTHON_EXTENSION_HELPERS_HPP

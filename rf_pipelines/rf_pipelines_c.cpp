@@ -440,9 +440,21 @@ struct wi_stream_object {
 	return Py_BuildValue("i", get_pbare(self)->nfreq);
     }
 
+    static int nfreq_setter(PyObject *self, PyObject *value, void *closure)
+    {
+	get_pbare(self)->nfreq = ssize_t_from_python(value);
+	return 0;
+    }
+
     static PyObject *nt_maxwrite_getter(PyObject *self, void *closure)
     {
 	return Py_BuildValue("i", get_pbare(self)->nt_maxwrite);
+    }
+
+    static int nt_maxwrite_setter(PyObject *self, PyObject *value, void *closure)
+    {
+	get_pbare(self)->nt_maxwrite = ssize_t_from_python(value);
+	return 0;
     }
 
     static PyObject *freq_lo_MHz_getter(PyObject *self, void *closure)
@@ -450,14 +462,32 @@ struct wi_stream_object {
 	return Py_BuildValue("d", get_pbare(self)->freq_lo_MHz);
     }
 
+    static int freq_lo_MHz_setter(PyObject *self, PyObject *value, void *closure)
+    {
+	get_pbare(self)->freq_lo_MHz = double_from_python(value);
+	return 0;
+    }
+
     static PyObject *freq_hi_MHz_getter(PyObject *self, void *closure)
     {
 	return Py_BuildValue("d", get_pbare(self)->freq_hi_MHz);
     }
 
+    static int freq_hi_MHz_setter(PyObject *self, PyObject *value, void *closure)
+    {
+	get_pbare(self)->freq_hi_MHz = double_from_python(value);
+	return 0;
+    }
+
     static PyObject *dt_sample_getter(PyObject *self, void *closure)
     {
 	return Py_BuildValue("d", get_pbare(self)->dt_sample);
+    }
+
+    static int dt_sample_setter(PyObject *self, PyObject *value, void *closure)
+    {
+	get_pbare(self)->dt_sample = double_from_python(value);
+	return 0;
     }
 };
 
@@ -467,12 +497,33 @@ static PyMethodDef wi_stream_methods[] = {
     { NULL, NULL, 0, NULL }
 };
 
+
 static PyGetSetDef wi_stream_getseters[] = {
-    { (char *)"nfreq", tc_wrap_getter<wi_stream_object::nfreq_getter>, NULL, NULL, NULL },
-    { (char *)"nt_maxwrite", tc_wrap_getter<wi_stream_object::nt_maxwrite_getter>, NULL, NULL, NULL },
-    { (char *)"freq_lo_MHz", tc_wrap_getter<wi_stream_object::freq_lo_MHz_getter>, NULL, NULL, NULL },
-    { (char *)"freq_hi_MHz", tc_wrap_getter<wi_stream_object::freq_hi_MHz_getter>, NULL, NULL, NULL },
-    { (char *)"dt_sample", tc_wrap_getter<wi_stream_object::dt_sample_getter>, NULL, (char *)"sample length in seconds", NULL },
+    { (char *)"nfreq", 
+      tc_wrap_getter<wi_stream_object::nfreq_getter>, 
+      tc_wrap_setter<wi_stream_object::nfreq_setter>, 
+      NULL, NULL },
+
+    { (char *)"nt_maxwrite", 
+      tc_wrap_getter<wi_stream_object::nt_maxwrite_getter>, 
+      tc_wrap_setter<wi_stream_object::nt_maxwrite_setter>, 
+      NULL, NULL },
+
+    { (char *)"freq_lo_MHz", 
+      tc_wrap_getter<wi_stream_object::freq_lo_MHz_getter>, 
+      tc_wrap_setter<wi_stream_object::freq_lo_MHz_setter>, 
+      NULL, NULL },
+
+    { (char *)"freq_hi_MHz", 
+      tc_wrap_getter<wi_stream_object::freq_hi_MHz_getter>, 
+      tc_wrap_setter<wi_stream_object::freq_hi_MHz_setter>, 
+      NULL, NULL },
+
+    { (char *)"dt_sample", 
+      tc_wrap_getter<wi_stream_object::dt_sample_getter>, 
+      tc_wrap_setter<wi_stream_object::dt_sample_setter>, 
+      (char *)"sample length in seconds", NULL },
+
     { NULL, NULL, NULL, NULL, NULL }
 };
 
