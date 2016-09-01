@@ -72,24 +72,22 @@ void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const s
     if (ntransforms == 0)
 	throw runtime_error("wi_stream::run() called on empty transform list");
 
-    for (const auto &transform: transforms)
+    outdir_janitor janitor(outdir, clobber);
+
+    for (const shared_ptr<wi_transform> &transform: transforms) {
 	if (!transform)
 	    throw runtime_error("rf_pipelines: empty transform pointer passed to wi_stream::run()");
 
-    outdir_janitor janitor(outdir, clobber);
-
-    for (int it = 0; it < ntransforms; it++) {
-	janitor.set_outdir_manager(transforms[it]);
+	janitor.set_outdir_manager(transform);
+	transform->set_stream(*this);
 	
-	transforms[it]->set_stream(*this);
-
-	if (transforms[it]->nfreq != this->nfreq)
+	if (transform->nfreq != this->nfreq)
 	    throw runtime_error("rf_pipelines: transform's value of 'nfreq' does not match stream's value of 'nfreq'");
-	if (transforms[it]->nt_chunk <= 0)
+	if (transform->nt_chunk <= 0)
 	    throw runtime_error("rf_pipelines: transform's value of 'nt_chunk' is non-positive or uninitialized");
-	if (transforms[it]->nt_prepad < 0)
+	if (transform->nt_prepad < 0)
 	    throw runtime_error("rf_pipelines: wi_transform::nt_prepad is negative");
-	if (transforms[it]->nt_postpad < 0)
+	if (transform->nt_postpad < 0)
 	    throw runtime_error("rf_pipelines: wi_transform::nt_postpad is negative");
     }
 
