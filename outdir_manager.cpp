@@ -28,7 +28,7 @@ outdir_manager::outdir_manager(const string &outdir_, bool clobber_ok_) :
 
     for (const string &s: listdir(outdir)) {
 	if (is_json_basename(s))
-	    throw runtime_error("Directory \"" + outdir + "\" contains stray files of the form pipeline_NN.json, and 'clobber' flag wasn't set");
+	    throw runtime_error("Directory \"" + outdir + "\" contains stray files of the form rf_pipeline_NN.json, and 'clobber' flag wasn't set");
     }
 }
 
@@ -52,7 +52,7 @@ void outdir_manager::write_per_substream_json_file(int isubstream, const Json::V
 	throw runtime_error("outdir_manager::write_json_file(): 'isubstream' arg was negative");
 
     stringstream ss;
-    ss << this->outdir << "pipeline_" << isubstream << ".json";
+    ss << this->outdir << "rf_pipeline_" << isubstream << ".json";
 
     string filename = ss.str();
     ofstream f(filename);
@@ -71,7 +71,7 @@ void outdir_manager::write_per_substream_json_file(int isubstream, const Json::V
 // Static member function
 bool outdir_manager::is_json_basename(const string &basename)
 {
-    if (!startswith(basename, "pipeline_"))
+    if (!startswith(basename, "rf_pipeline_"))
 	return false;
     if (!endswith(basename, ".json"))
 	return false;
