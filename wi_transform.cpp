@@ -44,7 +44,7 @@ string wi_transform::add_plot(const string &basename, int64_t it0, int nt, int n
 
     Json::Value file;
     file["filename"] = filename;
-    file["it0"] = it0;
+    file["it0"] = Json::Value::Int64(it0);
     file["nx"] = nx;
 
     g->curr_it1 = it0 + nt;

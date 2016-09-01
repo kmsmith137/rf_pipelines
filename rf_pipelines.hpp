@@ -317,7 +317,7 @@ struct wi_transform {
     // Data used internally by rf_pipelines -- probably a bad idea to use these fields directly!
     // Note: the outdir_manager is a nonempty pointer if and only if the transform is currently running.
     std::vector<std::shared_ptr<plot_group> > plot_groups;
-    std::shared_ptr<outdir_manager> outdir_manager;
+    std::shared_ptr<rf_pipelines::outdir_manager> outdir_manager;
     double time_spent_in_transform = 0.0;
 
 

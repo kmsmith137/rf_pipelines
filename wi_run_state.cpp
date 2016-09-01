@@ -265,7 +265,7 @@ void wi_run_state::end_substream()
 void wi_run_state::write_per_substream_json_file()
 {
     Json::Value json_all;
-    json_all["nsamples"] = int64_t(stream_ipos);
+    json_all["nsamples"] = Json::Value::Int64(stream_ipos);
     // more things will go here!
 
     for (const shared_ptr<wi_transform> &t: transforms) {
@@ -289,8 +289,8 @@ void wi_run_state::write_per_substream_json_file()
 	    json_g["name"] = g->name;
 	    json_g["nt_per_pix"] = g->nt_per_pix;
 	    json_g["ny"] = g->ny;
-	    json_g["it0"] = g->curr_it0;
-	    json_g["it1"] = g->curr_it1;
+	    json_g["it0"] = Json::Value::Int64(g->curr_it0);
+	    json_g["it1"] = Json::Value::Int64(g->curr_it1);
 	    json_g["files"].append(g->files);
 
 	    json_t["plots"].append(json_g);
