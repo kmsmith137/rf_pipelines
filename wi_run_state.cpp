@@ -284,10 +284,10 @@ void wi_run_state::write_per_substream_json_file()
 	    json_g["it1"] = g->curr_it1;
 	    json_g["plots"].append(g->files);
 
-	    json_t.append(json_g);
+	    json_t["plots"].append(json_g);
 	}
 
-	json_all.append(json_t);
+	json_all["transforms"].append(json_t);
     }
 
     manager->write_per_substream_json_file(isubstream, json_all, noisy);
