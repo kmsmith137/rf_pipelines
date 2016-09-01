@@ -269,7 +269,16 @@ void wi_run_state::write_per_substream_json_file()
     // more things will go here!
 
     for (const shared_ptr<wi_transform> &t: transforms) {
-	Json::Value &json_t = t->json_output;   // includes everything except "time" and "plots"
+	string transform_name = "<error in wi_transform::get_name()>";
+
+	try {
+	    transform_name = t->get_name();
+	} catch (...) {
+	    cerr << "warning: wi_transform::get_name() threw exception";
+	}
+
+	Json::Value &json_t = t->json_misc;   // includes everything except "time" and "plots"
+	json_t["name"] = transform_name;
 	json_t["time"] = t->time_spent_in_transform;
 
 	for (const shared_ptr<plot_group> &g: t->plot_groups) {
@@ -298,8 +307,7 @@ void wi_run_state::clear_per_substream_data()
 {
     for (const shared_ptr<wi_transform> &t: transforms) {
 	t->time_spent_in_transform = 0.0;
-	t->json_output.clear();
-	t->json_output["name"] = t->get_name();
+	t->json_misc.clear();
 
 	for (const shared_ptr<plot_group> &g: t->plot_groups) {
 	    g->is_empty = true;

@@ -103,7 +103,7 @@ void bonsai_dedisperser::end_substream()
 
     base->terminate();
 
-    // FIXME should write more json_outputs here, e.g. max signal-to-noise of all triggers.
+    // FIXME should use json_misc to write more outputs, e.g. max signal-to-noise of all triggers.
 }
 
 

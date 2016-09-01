@@ -283,14 +283,13 @@ struct wi_transform {
     ssize_t nt_postpad = 0;   // postpad size for process_chunk(), see below
 
     //
-    // The 'json_output' argument is an optional set of key/value pairs which the transform is free to define.
-    // The rf_pipelines library supplies 'name', 'time' and 'plots' fields automatically.
+    // The 'json_misc' argument is an optional set of key/value pairs which the transform is free to define.
     //
-    // Note that 'json_output' is automatically reset between substreams.  Therefore, it's natural to
+    // Note that 'json_misc' is automatically reset between substreams.  Therefore, it's natural to
     // modify it in start_subtream(), process_chunk(), or end_substream(), and it's probably a bug to
     // modify in the transform constructor or start_stream().  (See below.)
     //
-    Json::Value json_output;
+    Json::Value json_misc;
 
     //
     // These helper functions are used by wi_transforms which write output files (e.g. hdf5, png).

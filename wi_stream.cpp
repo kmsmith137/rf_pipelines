@@ -80,7 +80,7 @@ void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const s
 
     for (int it = 0; it < ntransforms; it++) {
 	janitor.set_outdir_manager(transforms[it]);
-
+	
 	transforms[it]->set_stream(*this);
 
 	if (transforms[it]->nfreq != this->nfreq)
