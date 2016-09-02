@@ -197,12 +197,35 @@ class py_wi_transform(wi_transform):
         pass
 
 
+
+####################################################################################################
+#
+# Python interface for defining new transforms.
+
+
+class py_wi_stream(wi_stream):
+    """
+    XXX Finish docstring.
+    """
+
+    def __init__(self, nfreq, freq_lo_MHz, freq_hi_MHz, dt_sample, nt_maxwrite):
+        self.nfreq = nfreq
+        self.freq_lo_MHz = freq_lo_MHz
+        self.freq_hi_MHz = freq_hi_MHz
+        self.dt_sample = dt_sample
+        self.nt_maxwrite = nt_maxwrite
+
+
+    def stream_body(self, run_state):
+        raise RuntimeError('Subclass of py_wi_stream must override stream_body().')
+
+
 ####################################################################################################
 #
 # Library of built-in streams and transforms
 
 
-# Streams (all implemented in C++, there is currently no interface for writing streams in python)
+# Streams (all implemented in C++)
 
 from .streams.chime_streams import \
     chime_stream_from_filename, \
