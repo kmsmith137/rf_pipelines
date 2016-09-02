@@ -79,7 +79,7 @@ except:
 # is non-obvious, since it is implicitly defined by the C++ part of the library.  All
 # documentation is in the docstring for class 'py_wi_transform' below!
 
-from .rf_pipelines_c import wi_stream, wi_transform
+from .rf_pipelines_c import wi_stream, wi_transform, wi_run_state
 
 
 

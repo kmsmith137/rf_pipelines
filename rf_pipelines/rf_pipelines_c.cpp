@@ -536,6 +536,24 @@ static PyTypeObject wi_run_state_type = {
     wi_run_state_object::tp_new,  /* tp_new */
 };
 
+// static member function
+PyObject *wi_run_state_object::make(rf_pipelines::wi_run_state &rs)
+{
+    PyObject *ret_ = wi_run_state_object::tp_new(&wi_run_state_type, NULL, NULL);
+    if (!ret_)
+	return NULL;
+
+    wi_run_state_object *ret = (wi_run_state_object *) (ret_);
+    ret->pbare = &rs;
+    return ret_;
+}
+
+// static member function
+bool wi_run_state_object::isinstance(PyObject *obj)
+{
+    return PyObject_IsInstance(obj, (PyObject *) &wi_run_state_type);
+}
+
 
 // -------------------------------------------------------------------------------------------------
 //
@@ -967,6 +985,8 @@ PyMODINIT_FUNC initrf_pipelines_c(void)
         return;
     if (PyType_Ready(&wi_transform_type) < 0)
         return;
+    if (PyType_Ready(&wi_run_state_type) < 0)
+        return;
 
     PyObject *m = Py_InitModule3("rf_pipelines_c", module_methods, "Python interface to C++ library");
     if (!m)
@@ -977,4 +997,7 @@ PyMODINIT_FUNC initrf_pipelines_c(void)
 
     Py_INCREF(&wi_transform_type);
     PyModule_AddObject(m, "wi_transform", (PyObject *)&wi_transform_type);
+
+    Py_INCREF(&wi_run_state_type);
+    PyModule_AddObject(m, "wi_run_state", (PyObject *)&wi_run_state_type);
 }
