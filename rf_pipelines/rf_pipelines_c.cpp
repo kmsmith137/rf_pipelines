@@ -424,20 +424,20 @@ struct wi_run_state_object {
 
 	// should never happen, since min_depth=max_depth=2 was specified in PyArray_FromAny()
 	if ((PyArray_NDIM(src_intensity) != 2) || (PyArray_NDIM(src_weight) != 2))
-	    throw runtime_error("ndim != 2 in rf_pipelines.wi_stream.write()?! (should never happen)");
+	    throw runtime_error("ndim != 2 in rf_pipelines.wi_run_state.write()?! (should never happen)");
 
 	npy_intp *src_intensity_shape = PyArray_SHAPE(src_intensity);
 	npy_intp *src_weight_shape = PyArray_SHAPE(src_intensity);	
 
 	if ((src_intensity_shape[0] != src_weight_shape[0]) || (src_intensity_shape[1] != src_weight_shape[1]))
-	    throw runtime_error("rf_pipelines.wi_stream.write(): 'intensity' and 'weight' arrays must have the same shape");
+	    throw runtime_error("rf_pipelines.wi_run_state.write(): 'intensity' and 'weight' arrays must have the same shape");
 
 	if (src_intensity_shape[0] != run_state->nfreq)
-	    throw runtime_error("rf_pipelines.wi_stream.write(): first dimension of 'intensity' and 'weight' arrays must equal stream's 'nfreq'");
+	    throw runtime_error("rf_pipelines.wi_run_state.write(): first dimension of 'intensity' and 'weight' arrays must equal stream's 'nfreq'");
 	if (src_intensity_shape[1] <= 0)
-	    throw runtime_error("rf_pipelines.wi_stream.write(): zero-length write (currently treated as an error");
+	    throw runtime_error("rf_pipelines.wi_run_state.write(): zero-length write (currently treated as an error");
 	if (src_intensity_shape[1] > run_state->nt_stream_maxwrite)
-	    throw runtime_error("rf_pipelines.wi_stream.write(): number of time samples written cannot exceed stream's nt_maxwrite");
+	    throw runtime_error("rf_pipelines.wi_run_state.write(): number of time samples written cannot exceed stream's nt_maxwrite");
 
 	ssize_t nt = src_intensity_shape[1];
 	float *dst_intensity_ptr = nullptr;
@@ -558,6 +558,42 @@ bool wi_run_state_object::isinstance(PyObject *obj)
 // -------------------------------------------------------------------------------------------------
 //
 // wi_stream wrapper class
+
+
+// "Upcalling" stream whose stream_body() virtual function is implemented by python upcalls.
+struct upcalling_wi_stream : public rf_pipelines::wi_stream
+{
+    object weakref;
+
+    upcalling_wi_stream(PyObject *self) :
+	weakref(PyWeakref_NewRef(self,NULL), false)
+    { }
+
+    virtual ~upcalling_wi_stream() { }
+
+    // returns borrowed reference
+    PyObject *get_pyobj()
+    {
+	PyObject *ret = PyWeakref_GetObject(weakref.ptr);
+	if (!ret)
+	    throw python_exception();
+	if (ret == Py_None)
+	    throw runtime_error("rf_pipelines: internal error: weak reference expired [should never happen]");
+	return ret;
+    }
+    
+    virtual void stream_body(rf_pipelines::wi_run_state &run_state)
+    {
+	PyObject *rs = wi_run_state_object::make(run_state);
+	object rs_ref(rs, false);
+
+	PyObject *ret = PyObject_CallMethod(this->get_pyobj(), (char *)"stream_body", (char *)"O", rs);
+	object ret_ref(ret, false);
+	
+	if (rs_ref.get_refcount() > 1)
+	    throw runtime_error("fatal: wi_stream.stream_body() callback kept a reference to the wi_run_state object");
+    }
+};
 
 
 struct wi_stream_object {
