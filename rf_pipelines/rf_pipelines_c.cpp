@@ -396,22 +396,18 @@ struct wi_run_state_object {
     static PyObject *write(PyObject *self, PyObject *args, PyObject *kwds)
     {
 	rf_pipelines::wi_run_state *run_state = get_pbare(self);
-	PyObject *src_intensity_obj = nullptr;
-	PyObject *src_weight_obj = nullptr;
-	PyObject *t0_obj = nullptr;
-	double t0 = 0.0;
+	PyObject *src_intensity_obj = Py_None;
+	PyObject *src_weight_obj = Py_None;
+	PyObject *t0_obj = Py_None;
 
 	static const char *kwlist[] = { "intensity", "weight", "t0", NULL };
 
-	// Note: if set, t0_obj will be a borrowed reference
+	// Note: the object pointers will be borrowed references
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "OO|O", (char **)kwlist, &src_intensity_obj, &src_weight_obj, &t0_obj))
             return NULL;
 
-	// Check 't0' first.  After this point, 't0' is meaningful if and only if 't0_obj' is non-NULL.
-	if (t0_obj == Py_None)
-	    t0_obj = nullptr;
-	else
-	    t0 = double_from_python(t0_obj);
+	// Note that 't0' is meaningful if and only if (t0_obj != Py_None)
+	double t0 = (t0_obj != Py_None) ? double_from_python(t0_obj) : 0.0;
 
 	src_intensity_obj = PyArray_FromAny(src_intensity_obj, NULL, 2, 2, 0, NULL);
 	object ref1(src_intensity_obj, false);   // manages refcount, throws exception on NULL
@@ -445,7 +441,7 @@ struct wi_run_state_object {
 	ssize_t dst_cstride = 0;
 	bool zero_flag = false;
 
-	if (t0_obj == nullptr)
+	if (t0_obj == Py_None)
 	    run_state->setup_write(nt, dst_intensity_ptr, dst_weight_ptr, dst_cstride, zero_flag);
 	else
 	    run_state->setup_write(nt, dst_intensity_ptr, dst_weight_ptr, dst_cstride, zero_flag, t0);	    
