@@ -362,9 +362,24 @@ struct wi_run_state_object {
     {
 	if (!wi_run_state_object::isinstance(obj))
 	    throw runtime_error("rf_pipelines: 'self' argument to wi_run_state method was not an object of type wi_run_state");
-	return ((wi_run_state_object *) obj)->pbare;
-    }
 
+	rf_pipelines::wi_run_state *ret = ((wi_run_state_object *) obj)->pbare;
+	if (!ret)
+	    throw runtime_error("rf_pipelines: wi_run_state object cannot be constructed directly from Python");
+
+	return ret;
+    }
+    
+    static PyObject *tp_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+    {
+	PyObject *self_ = type->tp_alloc(type, 0);
+	if (!self_)
+	    return NULL;
+
+	wi_run_state_object *self = (wi_run_state_object *) self_;
+	self->pbare = nullptr;
+	return self_;
+    }
 
     // void start_substream(double t0);
     // Note: this one is METH_O
@@ -462,13 +477,63 @@ struct wi_run_state_object {
 
     // void end_substream();
     // Note: this one is METH_NOARGS
-    static PyObject *end_substream(PyObject *self, PyObject *dummy)
+    static PyObject *end_substream(PyObject *self)
     {
 	get_pbare(self)->end_substream();
 
 	Py_INCREF(Py_None);
 	return Py_None;
     }
+};
+
+
+static PyMethodDef wi_run_state_methods[] = {
+    { "start_substream", tc_wrap2<wi_run_state_object::start_substream>, METH_O, NULL },
+    { "write", (PyCFunction) tc_wrap3<wi_run_state_object::write>, METH_VARARGS | METH_KEYWORDS, NULL },
+    { "end_substream", (PyCFunction) tc_wrap1<wi_run_state_object::end_substream>, METH_NOARGS, NULL },
+    { NULL, NULL, 0, NULL }
+};
+
+
+static PyTypeObject wi_run_state_type = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "rf_pipelines_c.wi_run_state",  /* tp_name */
+    sizeof(wi_run_state_object),    /* tp_basicsize */
+    0,                         /* tp_itemsize */
+    0,                         /* tp_dealloc */
+    0,                         /* tp_print */
+    0,                         /* tp_getattr */
+    0,                         /* tp_setattr */
+    0,                         /* tp_reserved */
+    0,                         /* tp_repr */
+    0,                         /* tp_as_number */
+    0,                         /* tp_as_sequence */
+    0,                         /* tp_as_mapping */
+    0,                         /* tp_hash  */
+    0,                         /* tp_call */
+    0,                         /* tp_str */
+    0,                         /* tp_getattro */
+    0,                         /* tp_setattro */
+    0,                         /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,   /* tp_flags */
+    "class wi_run_state (C++)",                 /* tp_doc */
+    0,                         /* tp_traverse */
+    0,                         /* tp_clear */
+    0,                         /* tp_richcompare */
+    0,                         /* tp_weaklistoffset */
+    0,                         /* tp_iter */
+    0,                         /* tp_iternext */
+    wi_run_state_methods,      /* tp_methods */
+    0,                         /* tp_members */
+    0,                         /* tp_getset */
+    0,                         /* tp_base */
+    0,                         /* tp_dict */
+    0,                         /* tp_descr_get */
+    0,                         /* tp_descr_set */
+    0,                         /* tp_dictoffset */
+    0,                         /* tp_init */
+    0,                         /* tp_alloc */
+    wi_run_state_object::tp_new,  /* tp_new */
 };
 
 
