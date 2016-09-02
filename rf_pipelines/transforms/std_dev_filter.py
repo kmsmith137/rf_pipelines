@@ -26,4 +26,4 @@ class std_dev_filter(rf_pipelines.py_wi_transform):
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         sd = np.ma.masked_where(weights==0.,intensity,copy=False).std(1)
-        weights[abs(sd-sd.mean())/sd.std() > self.thr] = 0.
+        weights[abs(sd-sd.mean()) > self.thr*sd.std()] = 0.
