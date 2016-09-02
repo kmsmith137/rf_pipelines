@@ -206,6 +206,9 @@ class py_wi_transform(wi_transform):
 class py_wi_stream(wi_stream):
     """
     XXX Finish docstring.
+       run_state.start_substream(t0)
+       run_state.write(intensity, weight, t0=None)
+       run_state.end_substream()
     """
 
     def __init__(self, nfreq, freq_lo_MHz, freq_hi_MHz, dt_sample, nt_maxwrite):

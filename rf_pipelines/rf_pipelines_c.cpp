@@ -639,14 +639,11 @@ struct wi_stream_object {
 
 	wi_stream_object *s = (wi_stream_object *) self;
 
-	if (!s->pshared) {
+	if (!s->pbare) {
 	    shared_ptr<rf_pipelines::wi_stream> p = make_shared<upcalling_wi_stream> (self);
 	    s->pshared = new shared_ptr<rf_pipelines::wi_stream> (p);
 	    s->pbare = p.get();
 	}
-
-	if (!s->pbare)
-	    throw runtime_error("rf_pipelines: internal error: unexpected NULL pointer in wi_stream [should never happen]");
 
 	return s->pbare;
     }
