@@ -418,6 +418,10 @@ class wi_run_state {
 public:
     wi_run_state(const wi_stream &stream, const std::vector<std::shared_ptr<wi_transform> > &transforms, bool noisy);
 
+    // stream params
+    const ssize_t nfreq;
+    const ssize_t nt_stream_maxwrite;
+
     // The 't0' arg is the substream start time in seconds, relative to an arbitrary stream-defined origin.
     void start_substream(double t0);
     
@@ -466,10 +470,6 @@ protected:
     // make noncopyable
     wi_run_state(const wi_run_state &) = delete;
     wi_run_state& operator=(const wi_run_state &) = delete;
-
-    // stream params
-    const ssize_t nfreq;
-    const ssize_t nt_stream_maxwrite;
 
     // transform list
     const int ntransforms;

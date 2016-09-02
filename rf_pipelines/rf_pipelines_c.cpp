@@ -115,7 +115,7 @@ struct wi_transform_object {
 
     shared_ptr<rf_pipelines::wi_transform> *pshared;
 
-    // forward declarations (these guys need to come after 'wi_transform_type'
+    // forward declarations (these guys need to come after 'wi_transform_type')
     static PyObject *make(const shared_ptr<rf_pipelines::wi_transform> &p);
     static bool isinstance(PyObject *obj);
     
@@ -338,6 +338,136 @@ struct exception_monitor : public rf_pipelines::wi_transform
     {
 	if (PyErr_Occurred() || PyErr_CheckSignals())
 	    throw python_exception();
+    }
+};
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// wi_run_state wrapper class
+
+
+struct wi_run_state_object {
+    PyObject_HEAD
+
+    // "Borrowed" reference, cannot be NULL
+    rf_pipelines::wi_run_state *pbare;
+
+    // Forward declarations (these guys need to come after 'wi_run_state_type')
+    static PyObject *make(rf_pipelines::wi_run_state &rs);
+    static bool isinstance(PyObject *obj);
+
+
+    static inline rf_pipelines::wi_run_state *get_pbare(PyObject *obj)
+    {
+	if (!wi_run_state_object::isinstance(obj))
+	    throw runtime_error("rf_pipelines: 'self' argument to wi_run_state method was not an object of type wi_run_state");
+	return ((wi_run_state_object *) obj)->pbare;
+    }
+
+
+    // void start_substream(double t0);
+    // Note: this one is METH_O
+    static PyObject *start_substream(PyObject *self, PyObject *arg)
+    {
+	double t0 = double_from_python(arg);
+	get_pbare(self)->start_substream(t0);
+
+	Py_INCREF(Py_None);
+	return Py_None;
+    }
+
+    // void write(intensity, weight, t0=None)
+    static PyObject *write(PyObject *self, PyObject *args, PyObject *kwds)
+    {
+	rf_pipelines::wi_run_state *run_state = get_pbare(self);
+	PyObject *src_intensity_obj = nullptr;
+	PyObject *src_weight_obj = nullptr;
+	PyObject *t0_obj = nullptr;
+	double t0 = 0.0;
+
+	static const char *kwlist[] = { "intensity", "weight", "t0", NULL };
+
+	// Note: if set, t0_obj will be a borrowed reference
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "OO|O", (char **)kwlist, &src_intensity_obj, &src_weight_obj, &t0_obj))
+            return NULL;
+
+	// Check 't0' first.  After this point, 't0' is meaningful if and only if 't0_obj' is non-NULL.
+	if (t0_obj == Py_None)
+	    t0_obj = nullptr;
+	else
+	    t0 = double_from_python(t0_obj);
+
+	src_intensity_obj = PyArray_FromAny(src_intensity_obj, NULL, 2, 2, 0, NULL);
+	object ref1(src_intensity_obj, false);   // manages refcount, throws exception on NULL
+
+	src_weight_obj = PyArray_FromAny(src_weight_obj, NULL, 2, 2, 0, NULL);
+	object ref2(src_weight_obj, false);     // manages refcount, throws exception on NULL
+
+	PyArrayObject *src_intensity = (PyArrayObject *) src_intensity_obj;
+	PyArrayObject *src_weight = (PyArrayObject *) src_weight_obj;
+
+	// should never happen, since min_depth=max_depth=2 was specified in PyArray_FromAny()
+	if ((PyArray_NDIM(src_intensity) != 2) || (PyArray_NDIM(src_weight) != 2))
+	    throw runtime_error("ndim != 2 in rf_pipelines.wi_stream.write()?! (should never happen)");
+
+	npy_intp *src_intensity_shape = PyArray_SHAPE(src_intensity);
+	npy_intp *src_weight_shape = PyArray_SHAPE(src_intensity);	
+
+	if ((src_intensity_shape[0] != src_weight_shape[0]) || (src_intensity_shape[1] != src_weight_shape[1]))
+	    throw runtime_error("rf_pipelines.wi_stream.write(): 'intensity' and 'weight' arrays must have the same shape");
+
+	if (src_intensity_shape[0] != run_state->nfreq)
+	    throw runtime_error("rf_pipelines.wi_stream.write(): first dimension of 'intensity' and 'weight' arrays must equal stream's 'nfreq'");
+	if (src_intensity_shape[1] <= 0)
+	    throw runtime_error("rf_pipelines.wi_stream.write(): zero-length write (currently treated as an error");
+	if (src_intensity_shape[1] > run_state->nt_stream_maxwrite)
+	    throw runtime_error("rf_pipelines.wi_stream.write(): number of time samples written cannot exceed stream's nt_maxwrite");
+
+	ssize_t nt = src_intensity_shape[1];
+	float *dst_intensity_ptr = nullptr;
+	float *dst_weight_ptr = nullptr;
+	ssize_t dst_cstride = 0;
+	bool zero_flag = false;
+
+	if (t0_obj == nullptr)
+	    run_state->setup_write(nt, dst_intensity_ptr, dst_weight_ptr, dst_cstride, zero_flag);
+	else
+	    run_state->setup_write(nt, dst_intensity_ptr, dst_weight_ptr, dst_cstride, zero_flag, t0);	    
+
+	// Make destination array objects, in order to call PyArray_CopyInto()	
+	// Note syntax is: PyArray_New(subtype, nd, dims, type_num, npy_intp* strides, void* data, int itemsize, int flags, PyObject* obj)
+
+	npy_intp dst_dims[2] = { run_state->nfreq, nt };
+	npy_intp dst_strides[2] = { dst_cstride * (ssize_t)sizeof(float), (ssize_t)sizeof(float) };
+
+	PyObject *dst_intensity = PyArray_New(&PyArray_Type, 2, dst_dims, NPY_FLOAT, dst_strides, (void *)dst_intensity_ptr, 0, NPY_ARRAY_WRITEABLE, NULL);
+	object ref3(dst_intensity, false);   // manages refcount, throws exception on NULL
+
+	PyObject *dst_weight = PyArray_New(&PyArray_Type, 2, dst_dims, NPY_FLOAT, dst_strides, (void *)dst_weight_ptr, 0, NPY_ARRAY_WRITEABLE, NULL);
+	object ref4(dst_weight, false);   // manages refcount, throws exception on NULL
+
+	// Copy data into pipeline buffer
+
+	if (PyArray_CopyInto((PyArrayObject *)dst_intensity, src_intensity))
+	    return NULL;
+	if (PyArray_CopyInto((PyArrayObject *)dst_weight, src_weight))
+	    return NULL;
+	
+	run_state->finalize_write(nt);
+
+	Py_INCREF(Py_None);
+	return Py_None;
+    }
+
+    // void end_substream();
+    // Note: this one is METH_NOARGS
+    static PyObject *end_substream(PyObject *self, PyObject *dummy)
+    {
+	get_pbare(self)->end_substream();
+
+	Py_INCREF(Py_None);
+	return Py_None;
     }
 };
 
