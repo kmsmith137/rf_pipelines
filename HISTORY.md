@@ -1,10 +1,16 @@
-- JSON branch:
+- KMS branch:
 
      - Backwards-incompatible: jsoncpp library now required
 
      - Backwards-incompatible: transform reuse now treated as an error
 
      - There may be a backwards-incompatible change in the transform API
+
+     - JSON output
+
+     - run() syntax changed
+
+     - Python streams implemented
 
 - Version 7:
 
