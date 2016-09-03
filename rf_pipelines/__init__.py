@@ -113,7 +113,7 @@ class py_wi_transform(wi_transform):
            stream.dt_sample     sample length in seconds
            stream.nt_maxwrite   internal chunk size of stream, this probably won't be useful.
 
-        The job of set_stream() is to initialize the following four members:
+        The job of set_stream() is to initialize the following four members.
            self.nfreq           number of frequency channels
            self.nt_chunk        chunk size for process_chunk(), see below
            self.nt_prepad       prepad size for process_chunk(), see below
@@ -205,10 +205,69 @@ class py_wi_transform(wi_transform):
 
 class py_wi_stream(wi_stream):
     """
-    XXX Finish docstring.
-       run_state.start_substream(t0)
-       run_state.write(intensity, weight, t0=None)
-       run_state.end_substream()
+    The API for implementing a new wi_stream in Python is non-obvious, since it's implicitly
+    defined by the C++ part of the library.  All Python documentation is in this docstring!
+
+    The wi_stream class defines a method
+        run(self, transform_list)
+    which is called to run a pipeline.  Here, transform_list is a list (or generator) of objects
+    of type wi_transform (or py_wi_transform).
+
+    The wi_stream class defines the following members:
+         nfreq            number of frequency channels
+         freq_lo_MHz      lowest frequency in band (e.g. 400.0 for CHIME)
+         freq_hi_MHz      highest frequency in band (e.g. 800.0 for CHIME)
+         dt_sample        length of a sample in seconds
+         nt_maxwrite      block size of stream (defined as max number of time samples per call to setup_write())
+
+    These are initialized in the constructor and can never be changed afterwards.
+
+    Note: don't set nt_maxwrite to an excessively large value, since there is an internal
+    buffer of approximate size (24 bytes) * nfreq * nt_maxwrite.
+
+    To write a new stream in Python, I recommend subclassing the python class 'py_wi_stream' 
+    instead of the C++ class 'wi_stream'.  Your subclass of 'py_wi_transform' should initialize
+    the above fields { nfreq, ..., nt_maxwrite } in its constructor, and it should define the
+    following method:
+
+        stream_body(self, run_state)
+
+    This method will consist of a loop which moves blocks of data from some source (a file or 
+    network connection) into the rf_pipelines ring buffer.  The 'run_state' argument is an
+    object of class 'wi_run_state'.  This is a low-level C++ class which defines the following
+    methods:
+
+        run_state.start_substream(t0)
+        run_state.write(intensity_arr, weight_arr, t0=None)
+        run_state.end_substream()
+
+    The run_state.write() method is called by stream_body() to copy data into the rf_pipelines
+    ring buffer.  Its 'intensity_arr' and 'weight_arr' arguments are 2D arrays of shape (nfreq, nt)
+    where 'nt' is a number of samples satisfying 0 < nt <= stream.nt_maxwrite.  The 't0' arg
+    is the start time of the block in seconds.  Note that t0 is optional since it can be inferred from 
+    the substream start time, the value of wi_stream::dt_sample, and the number of samples written 
+    so far.  However, it may be useful to specify t0 occasionally in order to keep track of slow 
+    timestamp drifts over time.  For example in the chimefrb pipeline, the intensity samples 
+    always correspond to a fixed number of FPGA counts, and the FPGA clock drifts on long timescales.
+
+    The run_state.start_substream() and run_state.end_substream() methods can be used to divide the
+    stream into multiple substreams.  The downstream transforms should reset state between substreams.
+    The 't0' arg to start_substream() is the initial time of the substream in seconds, relative to an 
+    arbitrary stream-defined origin.
+
+    At the moment the "multiple-substream" feature isn't very well-supported, so it's probably best for all 
+    streams to represent their data as a single substream. However, I anticipate it being a useful feature 
+    when we  implement real-time network streams, since we'll want a way to finalize state when the correlator 
+    goes down (or repoints) and restart when it comes back.
+
+    Sumarizing, wi_stream.stream_body() should look something like this.
+
+       def stream_body(self, run_state):
+           for ...:                          # outer loop over substreams
+               run_state.start_substream()
+               for ...:
+                   run_state.write()         # inner loop over data blocks
+               run_state.end_substream()    
     """
 
     def __init__(self, nfreq, freq_lo_MHz, freq_hi_MHz, dt_sample, nt_maxwrite):

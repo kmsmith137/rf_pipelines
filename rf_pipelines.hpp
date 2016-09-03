@@ -202,16 +202,18 @@ extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &
 struct wi_stream {
     //
     // The subclass is responsible for initializing the fields { nfreq, ..., nt_maxwrite }
-    // in its constructor.  (As a detail, we don't require this initialization to be done 
-    // via a base class constructor, since the subclass constructor sometimes needs to do 
-    // a little processing first, e.g. opening the first file in a sequence.)
+    // in its constructor.  After the constructor exits, these fields can never be changed!
+    //
+    // (As a detail, we don't require this initialization to be done via a base class constructor, 
+    // since the subclass constructor sometimes needs to do  a little processing first, e.g. opening 
+    // the first file in a sequence.)
     //
     // Note: don't set nt_maxwrite to an excessively large value, since there is an internal
     // buffer of approximate size (24 bytes) * nfreq * nt_maxwrite.
     //
     ssize_t nfreq;            // number of frequency channels
     double freq_lo_MHz;       // lowest frequency in band (e.g. 400 for CHIME)
-    double freq_hi_MHz;       // highest frequency in band (e.g. 400 for CHIME)
+    double freq_hi_MHz;       // highest frequency in band (e.g. 800 for CHIME)
     double dt_sample;         // length of a sample in seconds
     ssize_t nt_maxwrite;      // block size of stream (defined as max number of time samples per call to setup_write())
 
@@ -226,8 +228,8 @@ struct wi_stream {
     //
     // The 'run_state' argument is an object containing ring buffers which the stream should
     // write its data to.  For the definition of 'class wi_run_state' see below.  The stream_body()
-    // function will probably consist of a loop which moves blocks of data from some source (a file
-    // or network stream) into the ring buffers.
+    // function will consist of a loop which moves blocks of data from some source (a file
+    // or network connection) into the rf_pipelines ring buffer.
     //
     // "Moving" a block of data is done in two steps.  First, call wi_run_state::setup_write() to request 
     // space in the ring buffers.  This will return bare pointers to chunks of memory inside the ring buffers.
@@ -236,8 +238,8 @@ struct wi_stream {
     //
     // The stream can also define multiple "substreams" by calling wi_run_state::start_substream() and
     // wi_run_state::end_substream().  The downstream transforms should reset state between substreams.
-    // At the moment this feature isn't very well-supported, so it's probably best for all streams to
-    // represent their data as a single substream.
+    // At the moment the "multiple-substream" feature isn't very well-supported, so it's probably best 
+    // for all streams to represent their data as a single substream.
     //
     // Summarizing, wi_stream::stream_body() should look something like this.
     // See 'class wi_run_state' below for more details on setup_write(), finalize_write(), etc!
@@ -449,7 +451,7 @@ public:
     // can be inferred from the substream start time, the value of wi_stream::dt_sample, and the number of
     // samples written so far.  However, it may be useful to specify t0 occasionally in order to keep track
     // of slow timestamp drifts over time.  For example in the chimefrb pipeline, the intensity samples 
-    // always correspond to a fixed number of FPGA counts, and the fpga clock drifts on long timescales.
+    // always correspond to a fixed number of FPGA counts, and the FPGA clock drifts on long timescales.
     // 
     void setup_write(ssize_t nt, float* &intensityp, float* &weightp, ssize_t &stride, bool zero_flag, double t0);
 
