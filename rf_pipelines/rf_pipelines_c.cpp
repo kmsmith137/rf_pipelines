@@ -213,6 +213,11 @@ struct wi_transform_object {
 	get_pbare(self)->nt_postpad = ssize_t_from_python(value);
 	return 0;
     }
+
+    static constexpr const char *dummy_docstring = 
+	"wi_transform is a C++ base class, and transforms written in C++ inherit from it.\n"
+	"Transforms written in python will inherit from rf_pipelines.py_wi_transform.\n"
+	"For documentation of wi_transform and its methods, see the rf_pipelines.py_wi_transform docstring.";
 };
 
 
@@ -220,22 +225,22 @@ static PyGetSetDef wi_transform_getseters[] = {
     { (char *)"nfreq", 
       tc_wrap_getter<wi_transform_object::nfreq_getter>, 
       tc_wrap_setter<wi_transform_object::nfreq_setter>, 
-      NULL, NULL },
+      (char *)wi_transform_object::dummy_docstring, NULL },
 
     { (char *)"nt_chunk", 
       tc_wrap_getter<wi_transform_object::nt_chunk_getter>, 
       tc_wrap_setter<wi_transform_object::nt_chunk_setter>,
-      NULL, NULL },
+      (char *)wi_transform_object::dummy_docstring, NULL },
 
     { (char *)"nt_prepad", 
       tc_wrap_getter<wi_transform_object::nt_prepad_getter>, 
       tc_wrap_setter<wi_transform_object::nt_prepad_setter>,
-      NULL, NULL },
+      (char *)wi_transform_object::dummy_docstring, NULL },
 
     { (char *)"nt_postpad", 
       tc_wrap_getter<wi_transform_object::nt_postpad_getter>, 
       tc_wrap_setter<wi_transform_object::nt_postpad_setter>,
-      NULL, NULL },
+      (char *)wi_transform_object::dummy_docstring, NULL },
 
     { NULL, NULL, NULL, NULL, NULL }
 };
@@ -267,7 +272,7 @@ static PyTypeObject wi_transform_type = {
     0,                         /* tp_setattro */
     0,                         /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,   /* tp_flags */
-    "Transform base class (C++)",           /* tp_doc */
+    wi_transform_object::dummy_docstring,       /* tp_doc */
     0,                         /* tp_traverse */
     0,                         /* tp_clear */
     0,                         /* tp_richcompare */
@@ -480,13 +485,17 @@ struct wi_run_state_object {
 	Py_INCREF(Py_None);
 	return Py_None;
     }
+
+    static constexpr const char *dummy_docstring = 
+	"wi_run_state is a C++ helper class which is used to move data from a stream into the rf_pipelines ring buffer.\n"
+	"For documentation of class wi_run_state and its methods, see the rf_pipelines.py_wi_stream docstring.";
 };
 
 
 static PyMethodDef wi_run_state_methods[] = {
-    { "start_substream", tc_wrap2<wi_run_state_object::start_substream>, METH_O, NULL },
-    { "write", (PyCFunction) tc_wrap3<wi_run_state_object::write>, METH_VARARGS | METH_KEYWORDS, NULL },
-    { "end_substream", (PyCFunction) tc_wrap1<wi_run_state_object::end_substream>, METH_NOARGS, NULL },
+    { "start_substream", tc_wrap2<wi_run_state_object::start_substream>, METH_O, wi_run_state_object::dummy_docstring },
+    { "write", (PyCFunction) tc_wrap3<wi_run_state_object::write>, METH_VARARGS | METH_KEYWORDS, wi_run_state_object::dummy_docstring },
+    { "end_substream", (PyCFunction) tc_wrap1<wi_run_state_object::end_substream>, METH_NOARGS, wi_run_state_object::dummy_docstring },
     { NULL, NULL, 0, NULL }
 };
 
@@ -512,7 +521,7 @@ static PyTypeObject wi_run_state_type = {
     0,                         /* tp_setattro */
     0,                         /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,   /* tp_flags */
-    "class wi_run_state (C++)",                 /* tp_doc */
+    wi_run_state_object::dummy_docstring,       /* tp_doc */
     0,                         /* tp_traverse */
     0,                         /* tp_clear */
     0,                         /* tp_richcompare */
@@ -737,11 +746,16 @@ struct wi_stream_object {
 	get_pbare(self)->dt_sample = double_from_python(value);
 	return 0;
     }
+
+    static constexpr const char *dummy_docstring = 
+	"wi_stream is a C++ base class, and streams written in C++ inherit from it.\n"
+	"Streams written in python will inherit from rf_pipelines.py_wi_stream.\n"
+	"For documentation of wi_stream and its methods, see the rf_pipelines.py_wi_stream docstring.";
 };
 
 
 static PyMethodDef wi_stream_methods[] = {
-    { "run", tc_wrap2<wi_stream_object::run>, METH_O, NULL },
+    { "run", tc_wrap2<wi_stream_object::run>, METH_O, wi_stream_object::dummy_docstring },
     { NULL, NULL, 0, NULL }
 };
 
@@ -750,27 +764,27 @@ static PyGetSetDef wi_stream_getseters[] = {
     { (char *)"nfreq", 
       tc_wrap_getter<wi_stream_object::nfreq_getter>, 
       tc_wrap_setter<wi_stream_object::nfreq_setter>, 
-      NULL, NULL },
+      (char *)wi_stream_object::dummy_docstring, NULL },
 
     { (char *)"nt_maxwrite", 
       tc_wrap_getter<wi_stream_object::nt_maxwrite_getter>, 
       tc_wrap_setter<wi_stream_object::nt_maxwrite_setter>, 
-      NULL, NULL },
+      (char *)wi_stream_object::dummy_docstring, NULL },
 
     { (char *)"freq_lo_MHz", 
       tc_wrap_getter<wi_stream_object::freq_lo_MHz_getter>, 
       tc_wrap_setter<wi_stream_object::freq_lo_MHz_setter>, 
-      NULL, NULL },
+      (char *)wi_stream_object::dummy_docstring, NULL },
 
     { (char *)"freq_hi_MHz", 
       tc_wrap_getter<wi_stream_object::freq_hi_MHz_getter>, 
       tc_wrap_setter<wi_stream_object::freq_hi_MHz_setter>, 
-      NULL, NULL },
+      (char *)wi_stream_object::dummy_docstring, NULL },
 
     { (char *)"dt_sample", 
       tc_wrap_getter<wi_stream_object::dt_sample_getter>, 
       tc_wrap_setter<wi_stream_object::dt_sample_setter>, 
-      (char *)"sample length in seconds", NULL },
+      (char *)wi_stream_object::dummy_docstring, NULL },
 
     { NULL, NULL, NULL, NULL, NULL }
 };
@@ -797,7 +811,7 @@ static PyTypeObject wi_stream_type = {
     0,                         /* tp_setattro */
     0,                         /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,   /* tp_flags */
-    "Stream base class (C++)",           /* tp_doc */
+    wi_stream_object::dummy_docstring,          /* tp_doc */
     0,                         /* tp_traverse */
     0,                         /* tp_clear */
     0,                         /* tp_richcompare */
@@ -996,18 +1010,23 @@ static PyObject *make_bonsai_dedisperser(PyObject *self, PyObject *args)
 }
 
 
+static constexpr const char *dummy_module_method_docstring = 
+    "This is a C++ function in the rf_pipelines_c module.\n"
+    "For documentation, see the docstring of the similarly-named python function in the rf_pipelines module.\n";
+
+
 // -------------------------------------------------------------------------------------------------
 
 
 static PyMethodDef module_methods[] = {
-    { "make_psrfits_stream", tc_wrap2<make_psrfits_stream>, METH_VARARGS, "Python interface to C++ routine" },
-    { "make_chime_stream_from_acqdir", tc_wrap2<make_chime_stream_from_acqdir>, METH_VARARGS, "Python interface to C++ routine" },
-    { "make_chime_stream_from_filename", tc_wrap2<make_chime_stream_from_filename>, METH_VARARGS, "Python interface to C++ routine" },
-    { "make_chime_stream_from_filename_list", tc_wrap2<make_chime_stream_from_filename_list>, METH_VARARGS, "Python interface to C++ routine" },
-    { "make_gaussian_noise_stream", tc_wrap2<make_gaussian_noise_stream>, METH_VARARGS, "Python interface to C++ routine" },
-    { "make_simple_detrender", tc_wrap2<make_simple_detrender>, METH_VARARGS, "Python interface to C++ routine" },
-    { "make_chime_file_writer", tc_wrap2<make_chime_file_writer>, METH_VARARGS, "Python interface to C++ routine" },
-    { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, "Python interface to C++ routine" },
+    { "make_psrfits_stream", tc_wrap2<make_psrfits_stream>, METH_VARARGS, dummy_module_method_docstring },
+    { "make_chime_stream_from_acqdir", tc_wrap2<make_chime_stream_from_acqdir>, METH_VARARGS, dummy_module_method_docstring },
+    { "make_chime_stream_from_filename", tc_wrap2<make_chime_stream_from_filename>, METH_VARARGS, dummy_module_method_docstring },
+    { "make_chime_stream_from_filename_list", tc_wrap2<make_chime_stream_from_filename_list>, METH_VARARGS, dummy_module_method_docstring },
+    { "make_gaussian_noise_stream", tc_wrap2<make_gaussian_noise_stream>, METH_VARARGS, dummy_module_method_docstring },
+    { "make_simple_detrender", tc_wrap2<make_simple_detrender>, METH_VARARGS, dummy_module_method_docstring },
+    { "make_chime_file_writer", tc_wrap2<make_chime_file_writer>, METH_VARARGS, dummy_module_method_docstring },
+    { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, dummy_module_method_docstring },
     { NULL, NULL, 0, NULL }
 };
 
@@ -1023,7 +1042,7 @@ PyMODINIT_FUNC initrf_pipelines_c(void)
     if (PyType_Ready(&wi_run_state_type) < 0)
         return;
 
-    PyObject *m = Py_InitModule3("rf_pipelines_c", module_methods, "Python interface to C++ library");
+    PyObject *m = Py_InitModule3("rf_pipelines_c", module_methods, "rf_pipelines_c: a C++ library containing low-level rf_pipelines code");
     if (!m)
 	return;
 

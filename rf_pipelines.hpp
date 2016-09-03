@@ -412,7 +412,8 @@ struct wraparound_buf {
 // through the transform chain.  The details are hidden from the wi_transforms, but if you're
 // implementing a new wi_stream, you'll need to call the public member functions below.
 //
-// Note: for a reference example showing how to implement a wi_stream, check out gaussian_noise_stream.cpp
+// For more details, see comments in class wi_stream, or see gaussian_noise_stream.cpp
+// for a reference example.
 // 
 class wi_run_state {
 public:
