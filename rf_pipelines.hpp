@@ -233,9 +233,11 @@ struct wi_stream {
     //
     ssize_t nfreq = 0;              // number of frequency channels
     double freq_lo_MHz = 0.0;       // lowest frequency in band (e.g. 400 for CHIME)
-    double freq_hi_MHz = 0.0;       // highest frequency in band (e.g. 400 for CHIME)
+    double freq_hi_MHz = 0.0;       // highest frequency in band (e.g. 800 for CHIME)
     double dt_sample = 0.0;         // length of a sample in seconds
     ssize_t nt_maxwrite = 0;        // block size of stream (defined as max number of time samples per call to setup_write())
+
+    wi_stream() { }
 
     virtual ~wi_stream() { }
     
@@ -254,8 +256,8 @@ struct wi_stream {
     //
     // The 'run_state' argument is an object containing ring buffers which the stream should
     // write its data to.  For the definition of 'class wi_run_state' see below.  The stream_body()
-    // function will probably consist of a loop which moves blocks of data from some source (a file
-    // or network stream) into the ring buffers.
+    // function will consist of a loop which moves blocks of data from some source (a file
+    // or network connection) into the rf_pipelines ring buffer.
     //
     // "Moving" a block of data is done in two steps.  First, call wi_run_state::setup_write() to request 
     // space in the ring buffers.  This will return bare pointers to chunks of memory inside the ring buffers.
@@ -264,8 +266,8 @@ struct wi_stream {
     //
     // The stream can also define multiple "substreams" by calling wi_run_state::start_substream() and
     // wi_run_state::end_substream().  The downstream transforms should reset state between substreams.
-    // At the moment this feature isn't very well-supported, so it's probably best for all streams to
-    // represent their data as a single substream.
+    // At the moment the "multiple-substream" feature isn't very well-supported, so it's probably best 
+    // for all streams to represent their data as a single substream.
     //
     // Summarizing, wi_stream::stream_body() should look something like this.
     // See 'class wi_run_state' below for more details on setup_write(), finalize_write(), etc!
@@ -440,11 +442,16 @@ struct wraparound_buf {
 // through the transform chain.  The details are hidden from the wi_transforms, but if you're
 // implementing a new wi_stream, you'll need to call the public member functions below.
 //
-// Note: for a reference example showing how to implement a wi_stream, check out gaussian_noise_stream.cpp
+// For more details, see comments in class wi_stream, or see gaussian_noise_stream.cpp
+// for a reference example.
 // 
 class wi_run_state {
 public:
     wi_run_state(const wi_stream &stream, const std::vector<std::shared_ptr<wi_transform> > &transforms, bool noisy);
+
+    // stream params
+    const ssize_t nfreq;
+    const ssize_t nt_stream_maxwrite;
 
     // The 't0' arg is the substream start time in seconds, relative to an arbitrary stream-defined origin.
     void start_substream(double t0);
@@ -472,7 +479,7 @@ public:
     // can be inferred from the substream start time, the value of wi_stream::dt_sample, and the number of
     // samples written so far.  However, it may be useful to specify t0 occasionally in order to keep track
     // of slow timestamp drifts over time.  For example in the chimefrb pipeline, the intensity samples 
-    // always correspond to a fixed number of FPGA counts, and the fpga clock drifts on long timescales.
+    // always correspond to a fixed number of FPGA counts, and the FPGA clock drifts on long timescales.
     // 
     void setup_write(ssize_t nt, float* &intensityp, float* &weightp, ssize_t &stride, bool zero_flag, double t0);
 
@@ -494,10 +501,6 @@ protected:
     // make noncopyable
     wi_run_state(const wi_run_state &) = delete;
     wi_run_state& operator=(const wi_run_state &) = delete;
-
-    // stream params
-    const ssize_t nfreq;
-    const ssize_t nt_stream_maxwrite;
 
     // transform list
     const int ntransforms;
