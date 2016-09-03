@@ -227,6 +227,77 @@ struct wi_transform_object {
 	return 0;
     }
 
+    // int add_plot_group(const std::string &name, int nt_per_pix, int ny)
+    static PyObject *add_plot_group(PyObject *self, PyObject *args, PyObject *kwds)
+    {
+	static const char *kwlist[] = { "name", "nt_per_pix", "ny", NULL };
+
+	char *name = nullptr;
+	int nt_per_pix = 0;
+	int ny = 0;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "sii", (char **)kwlist, &name, &nt_per_pix, &ny))
+	    return NULL;
+
+	int ret = get_pbare(self)->add_plot_group(name, nt_per_pix, ny);
+	return Py_BuildValue("i", ret);
+    }
+
+    static constexpr const char *add_plot_group_docstring = 
+	"Usage: add_plot_group(name, nt_per_pix, ny) -> integer\n\n"
+	"    Each transform's output plots are divided into one or more \"plot groups\"\n"
+	"    For example, the bonsai dedisperser can write one plot group per internally defined tree.\n"
+	"    The 'nt_per_pix' arg is the number of pipeline time samples per x-pixel in the plot.\n"
+	"    The 'ny' arg is the number of y-pixels (assumed to be the same for all plots in the group).\n"
+	"    The return value is the group_id arg needed in add_plot(), and group_ids always go 0,1,...\n";
+
+    // string add_plot(const string &basename, int64_t it0, int nt, int nx, int ny, int group_id=0)
+    static PyObject *add_plot(PyObject *self, PyObject *args, PyObject *kwds)
+    {
+	static const char *kwlist[] = { "basename", "it0", "nt", "nx", "ny", "group_id", NULL };
+
+	char *basename = nullptr;
+	ssize_t it0 = 0;
+	int nt = 0;
+	int nx = 0;
+	int ny = 0;
+	int group_id = 0;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "sniii|i", (char **)kwlist, &basename, &it0, &nt, &nx, &ny, &group_id))
+	    return NULL;
+	
+	string ret = get_pbare(self)->add_plot(basename, it0, nt, nx, ny, group_id);
+	return Py_BuildValue("s", ret.c_str());   // Note: Py_BuildValue() copies the string
+    }
+
+    static constexpr const char *add_plot_docstring = 
+	"Usage: add_plot(basename, int64_t it0, int nt, int nx, int ny, int group_id=0) -> string\n\n"
+	"Call just before writing a plot.\n"
+	"    The range of time samples in the plot is [it0:it0+nt).\n"
+	"    The pixel dimensions of the plot are (nx,ny).  These are redundant since they can be deduced\n"
+	"    from (it0,nt) but we use them for error checking.\n"
+	"    The return value is the full pathname ('basename' with the stream output_dir prepended)\n";
+
+    // string add_file(const string &basename)
+    static PyObject *add_file(PyObject *self, PyObject *args, PyObject *kwds)
+    {
+	static const char *kwlist[] = { "basename", NULL };
+
+	char *basename = nullptr;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", (char **)kwlist, &basename))
+	    return NULL;
+	
+	string ret = get_pbare(self)->add_file(basename);
+	return Py_BuildValue("s", ret.c_str());   // Note: Py_BuildValue() copies the string
+    }
+
+    static constexpr const char *add_file_docstring = 
+	"Usage: add_file(basename) -> string\n\n"
+	"    Call just before writing a non-plot file, to check for filename collisions between transforms.\n"
+	"    The return value is the full pathname ('basename' with stream output_dir prepended)\n";
+
+
     static constexpr const char *dummy_docstring = 
 	"wi_transform is a C++ base class, and transforms written in C++ inherit from it.\n"
 	"Transforms written in python will inherit from rf_pipelines.py_wi_transform.\n"
@@ -260,6 +331,9 @@ static PyGetSetDef wi_transform_getseters[] = {
 
 
 static PyMethodDef wi_transform_methods[] = {
+    { "add_plot_group", (PyCFunction) tc_wrap3<wi_transform_object::add_plot_group>, METH_VARARGS | METH_KEYWORDS, (char *)wi_transform_object::add_plot_group_docstring },
+    { "add_plot", (PyCFunction) tc_wrap3<wi_transform_object::add_plot>, METH_VARARGS | METH_KEYWORDS, (char *)wi_transform_object::add_plot_docstring },
+    { "add_file", (PyCFunction) tc_wrap3<wi_transform_object::add_file>, METH_VARARGS | METH_KEYWORDS, (char *)wi_transform_object::add_file_docstring },
     { NULL, NULL, 0, NULL }
 };
 

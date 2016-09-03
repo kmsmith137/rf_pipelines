@@ -9,12 +9,55 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
-// Not much in this source file right now, but I think it will grow with time!
+
+int wi_transform::add_plot_group(const string &name, int nt_per_pix, int ny)
+{
+    // Note: argument checking is done in plot_group constructor
+    this->plot_groups.push_back(make_shared<plot_group>(name, nt_per_pix, ny));
+    return plot_groups.size()-1;
+}
+
+
+string wi_transform::add_plot(const string &basename, int64_t it0, int nt, int nx, int ny, int group_id)
+{
+    if (plot_groups.size() == 0)
+	throw runtime_error("wi_transform::add_plot(): no plot groups defined, maybe you forgot to call add_plot_group()?");
+
+    if ((group_id < 0) || (group_id >= (int)plot_groups.size()))
+	throw runtime_error("wi_transform::add_plot(): bad group_id specified");
+
+    shared_ptr<plot_group> g = plot_groups[group_id];
+
+    if (nt != g->nt_per_pix * nx)
+	throw runtime_error("wi_transform::add_plot(): requirement (nt == nx*nt_per_pix) failed");
+    if (ny != g->ny)
+	throw runtime_error("wi_transform::add_plot(): ny doesn't match value specified in add_plot_group()");
+
+    if (g->is_empty) {
+	g->is_empty = false;
+	g->curr_it0 = it0;
+    }
+    else if (it0 != g->curr_it1)
+	throw runtime_error("wi_transform::add_plot(): plot time ranges are not contiguous");
+
+    string filename = this->add_file(basename);
+
+    Json::Value file;
+    file["filename"] = filename;
+    file["it0"] = it0;
+    file["nx"] = nx;
+
+    g->curr_it1 = it0 + nt;
+    g->files.append(file);
+    return filename;
+}
+
 
 string wi_transform::add_file(const string &basename)
 {
     return this->outdir_manager->add_file(basename);
 }
-    
+
+
 
 }  // namespace rf_pipelines
