@@ -196,6 +196,14 @@ class py_wi_transform(wi_transform):
     def end_substream(self):
         pass
 
+    # Note that py_wi_transform inherits the following methods from the C++ base class 
+    # 'wi_transform'.  (See method docstrings for more info.)
+    #
+    #   add_plot_group(name, nt_per_pix, ny) -> integer group_id
+    #   add_plot(basename, it0, nt, nx, ny, group_id=0) -> string filename
+    #   add_file(basename) -> string filename
+
+
 
 
 ####################################################################################################

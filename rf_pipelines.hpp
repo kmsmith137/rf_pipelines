@@ -77,7 +77,7 @@ struct wi_stream;
 struct wi_transform;
 class wi_run_state;
 struct outdir_manager;   // declared in rf_pipelines_internals.hpp
-
+struct plot_group;       // declared in rf_pipelines_internals.hpp
 
 namespace constants {
     //
@@ -285,22 +285,43 @@ struct wi_transform {
     ssize_t nt_postpad = 0;   // postpad size for process_chunk(), see below
 
     //
-    // The 'json_output' argument is an optional set of key/value pairs which the transform is free to define.
-    // The rf_pipelines library supplies 'time' and 'plots' fields automatically.
+    // The 'json_misc' argument is an optional set of key/value pairs which the transform is free to define.
     //
-    // Note that 'json_output' is automatically reset between substreams.  Therefore, it's natural to
+    // Note that 'json_misc' is automatically reset between substreams.  Therefore, it's natural to
     // modify it in start_subtream(), process_chunk(), or end_substream(), and it's probably a bug to
     // modify in the transform constructor or start_stream().  (See below.)
     //
-    Json::Value json_output;
+    Json::Value json_misc;
 
-    // Helper functions for writing output files.
-    std::string add_file(const std::string &basename);   // returns full pathname
+    //
+    // These helper functions are used by wi_transforms which write output files (e.g. hdf5, png).
+    //
+    // make_plot_group(): Each transform's output plots are divided into one or more "plot groups".
+    //   For example, the bonsai dedisperser can write one plot group per internally defined tree.
+    //   The 'nt_per_pix' arg is the number of pipeline time samples per x-pixel in the plot.
+    //   The 'ny' arg is the number of y-pixels (assumed to be the same for all plots in the group).
+    //   The return value is the group_id arg needed in add_plot(), and group_ids always go 0,1,...
+    //
+    // add_plot(): Call just before writing a plot.
+    //   The range of time samples in the plot is [it0:it0+nt).
+    //   The pixel dimensions of the plot are (nx,ny).  These are redundant since they can be deduced
+    //     from (it0,nt) but we use them for error checking.
+    //   The return value is the full pathname ('basename' with the stream output_dir prepended)
+    //
+    // add_file(): Call just before writing a non-plot file, to check for filename collisions between transforms.
+    //   The return value is the full pathname ('basename' with stream output_dir prepended)
+    //
+    int add_plot_group(const std::string &name, int nt_per_pix, int ny);   // returns group id
+    std::string add_plot(const std::string &basename, int64_t it0, int nt, int nx, int ny, int group_id=0);
+    std::string add_file(const std::string &basename);
+
 
     // Data used internally by rf_pipelines -- probably a bad idea to use these fields directly!
     // Note: the outdir_manager is a nonempty pointer if and only if the transform is currently running.
+    std::vector<std::shared_ptr<plot_group> > plot_groups;
     std::shared_ptr<outdir_manager> outdir_manager;
     double time_spent_in_transform = 0.0;
+
 
     wi_transform() { }
 

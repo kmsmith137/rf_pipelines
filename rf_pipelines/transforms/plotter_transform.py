@@ -47,17 +47,21 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         if nt_chunk % downsample_nt != 0:
             raise RuntimeError("plotter_transform: current implementation requires 'nt_chunk' to be a multiple of 'downsample_nt'")
 
-        self.img_prefix = img_prefix
-        self.img_nfreq = img_nfreq
-        self.img_nt = img_nt
-        self.nt_chunk_ds = nt_chunk // downsample_nt
-        self.clip_niter = clip_niter
-        self.sigma_clip = sigma_clip
-
         # base class members
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
+
+        self.img_prefix = img_prefix
+        self.img_nfreq = img_nfreq
+        self.img_nt = img_nt
+        self.downsample_nt = downsample_nt
+        self.nt_chunk_ds = nt_chunk // downsample_nt
+        self.clip_niter = clip_niter
+        self.sigma_clip = sigma_clip
+
+        # set up plotting
+        self.add_plot_group("waterfall", nt_per_pix=downsample_nt, ny=img_nfreq)
 
 
     def set_stream(self, s):
@@ -98,17 +102,23 @@ class plotter_transform(rf_pipelines.py_wi_transform):
 
 
     def _write_file(self):
-        filename = self.img_prefix
-        if self.isubstream > 0:
-            filename += str(isubstream+1)
-        filename += ('_%s.png' % self.ifile)
-
         # When we reach end-of-stream, the buffer might be partially full (i.e. self.ipos < self.img_nt).
         # In this case, the plotting convention which I like best cosmetically is to truncate the image if there
         # is only one file in the output (i.e. self.ifile==0), otherwise pad with black.
 
         intensity = self.intensity_buf if (self.ifile > 0) else self.intensity_buf[:,:self.ipos]
         weights = self.weight_buf if (self.ifile > 0) else self.weight_buf[:,:self.ipos]
+
+        basename = self.img_prefix
+        if self.isubstream > 0:
+            basename += str(isubstream+1)
+        basename += ('_%s.png' % self.ifile)
+
+        filename = self.add_plot(basename, 
+                                 it0 = self.ifile * self.img_nt * self.downsample_nt,
+                                 nt = self.img_nt * self.downsample_nt,
+                                 nx = intensity.shape[1], 
+                                 ny = intensity.shape[0])
 
         rf_pipelines.write_png(filename, intensity, weights=weights, transpose=True, ytop_to_bottom=True, 
                                clip_niter=self.clip_niter, sigma_clip=self.sigma_clip)
