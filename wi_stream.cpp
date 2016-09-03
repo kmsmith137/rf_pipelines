@@ -90,7 +90,7 @@ void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const s
 	if (transform->nt_postpad < 0)
 	    throw runtime_error("rf_pipelines: wi_transform::nt_postpad is negative");
     }
-o
+
     // Delegate to stream_body() method implemented in subclass
     wi_run_state run_state(*this, transforms, janitor.manager, json_output, noisy);
     this->stream_body(run_state);
