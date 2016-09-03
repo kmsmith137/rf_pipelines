@@ -62,7 +62,7 @@ class badchannel_mask(rf_pipelines.py_wi_transform):
         # ceiling of the first element -- remember this is in a reversed
         # order, which means, e.g., a[0,1] has become a[1,0] -- and the
         # floor of the second element. Next, we convert them to integers
-        # so they can be feed as indexes into the weights array.
+        # so they can be fed as indexes into the weights array.
         self.index_mask[:,0] = (np.ceil(self.index_mask[:,0])).astype(int)
         self.index_mask[:,1] = (np.floor(self.index_mask[:,1])).astype(int)
 

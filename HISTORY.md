@@ -1,3 +1,23 @@
+- Version 7:
+
+     - From Alex Josephy: four new transforms
+	- std_dev_filter: masks freqs whose standard deviation deviates from the others by some sigma
+        - kurtosis_filter: masks channels on the basis of excess kurtosis 
+	- thermal_noise_weight: optimally weight channels assuming thermal noise (from Kiyo's ch_L1Mock)
+        - RC_detrender: bidirectional high-pass filter designed to remove noise source "steps"
+
+     - From Alex Jospehy: code to group bonsai triggers to form L1 events
+
+     - Bugfix: postpadded transforms didn't work in python (reported by Alex Josephy)
+
+- Version 6:
+
+     - From Masoud: New transform legendre_detrender (polynomial fitting along either time or frequency axis)
+
+     - From Masoud: New transform clipper_transform (clips outlier intensities, relative to a variance
+       estimate which can be computed either in 2D, in 1D along the time axis, or in 1D along the frequency
+       axis)
+
 - Version 5:
 
      - The bonsai trigger hdf5 file output can now be generated in multifile mode.  Previously
