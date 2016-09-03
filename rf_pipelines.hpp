@@ -264,7 +264,9 @@ struct wi_stream {
     // is allowed to overwrite a previous run.
     //
     void run(const std::vector<std::shared_ptr<wi_transform> > &transforms, 
-	     const std::string &outdir=".", bool noisy=true, bool clobber=true);
+	     const std::string &outdir = ".", 
+	     Json::Value *json_output = nullptr,
+	     bool noisy=true, bool clobber=true);
 };
 
 
@@ -471,7 +473,8 @@ class wi_run_state {
 public:
     wi_run_state(const wi_stream &stream, 
 		 const std::vector<std::shared_ptr<wi_transform> > &transforms, 
-		 const std::shared_ptr<outdir_manager> &manager, bool noisy);
+		 const std::shared_ptr<outdir_manager> &manager, 
+		 Json::Value *json_output, bool noisy);
 
     // stream params
     const ssize_t nfreq;
@@ -521,13 +524,15 @@ public:
 
 protected:
     friend void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transforms, 
-			       const std::string &outdir, bool noisy, bool clobber);
+			       const std::string &outdir, Json::Value *json_outputs, bool noisy, bool clobber);
 
     // make noncopyable
     wi_run_state(const wi_run_state &) = delete;
     wi_run_state& operator=(const wi_run_state &) = delete;
 
+    // outputs
     const std::shared_ptr<outdir_manager> manager;
+    Json::Value *json_output;
 
     // transform list
     const int ntransforms;
@@ -556,7 +561,7 @@ protected:
     wraparound_buf main_buffer;
     std::vector<wraparound_buf> prepad_buffers;
     
-    void write_per_substream_json_file();
+    void output_substream_json();
     void clear_per_substream_data();
 };
 

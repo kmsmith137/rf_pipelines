@@ -14,10 +14,11 @@ namespace rf_pipelines {
 #endif
 
 
-wi_run_state::wi_run_state(const wi_stream &stream, const vector<shared_ptr<wi_transform> > &transforms_, const shared_ptr<outdir_manager> &manager_, bool noisy_) :
+wi_run_state::wi_run_state(const wi_stream &stream, const vector<shared_ptr<wi_transform> > &transforms_, const shared_ptr<outdir_manager> &manager_, Json::Value *json_output_, bool noisy_) :
     nfreq(stream.nfreq),
     nt_stream_maxwrite(stream.nt_maxwrite),
     manager(manager_),
+    json_output(json_output_),
     ntransforms(transforms_.size()),
     transforms(transforms_),
     dt_sample(stream.dt_sample),
@@ -37,6 +38,9 @@ wi_run_state::wi_run_state(const wi_stream &stream, const vector<shared_ptr<wi_t
 	throw runtime_error("wi_run_state constructor called on empty transform list");
     if (!manager)
 	throw runtime_error("wi_run_state constructor called with empty manager pointer");
+
+    if (json_output != nullptr)
+	json_output->clear();
 }
 
 
@@ -249,7 +253,7 @@ void wi_run_state::end_substream()
 	    cerr << "    Transform " << it << ": " << transforms[it]->time_spent_in_transform << " sec  [" << transforms[it]->get_name() << "]\n";
     }
 
-    this->write_per_substream_json_file();
+    this->output_substream_json();
     this->clear_per_substream_data();
 
     // Deallocate buffers and advance state
@@ -262,7 +266,7 @@ void wi_run_state::end_substream()
 }
 
 
-void wi_run_state::write_per_substream_json_file()
+void wi_run_state::output_substream_json()
 {
     Json::Value json_all;
     json_all["nsamples"] = Json::Value::Int64(stream_ipos);
@@ -300,6 +304,9 @@ void wi_run_state::write_per_substream_json_file()
     }
 
     manager->write_per_substream_json_file(isubstream, json_all, noisy);
+
+    if (this->json_output != nullptr)
+	this->json_output->append(json_all);
 }
 
 
