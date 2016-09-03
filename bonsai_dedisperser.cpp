@@ -85,6 +85,11 @@ void bonsai_dedisperser::start_substream(int isubstream, double t0)
     if (trigger_filename.size())
 	base->start_trigger_file(trigger_filename, nt_per_file);
 
+    base->global_max_trigger_active = true;
+    base->global_max_trigger = 0.0;
+    base->global_max_trigger_dm = 0.0;
+    base->global_max_trigger_arrival_time = 0.0;
+
     base->spawn_slave_threads();
 }
 
@@ -101,9 +106,11 @@ void bonsai_dedisperser::end_substream()
     if (trigger_filename.size())
 	base->end_trigger_file();
 
-    base->terminate();
+    this->json_misc["frb_global_max_trigger"] = base->global_max_trigger;
+    this->json_misc["frb_global_max_trigger_dm"] = base->global_max_trigger_dm;
+    this->json_misc["frb_global_max_trigger_tfinal"] = base->global_max_trigger_arrival_time;
 
-    // FIXME should use json_misc to write more outputs, e.g. max signal-to-noise of all triggers.
+    base->terminate();
 }
 
 
