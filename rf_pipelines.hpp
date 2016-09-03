@@ -448,7 +448,9 @@ struct wraparound_buf {
 // 
 class wi_run_state {
 public:
-    wi_run_state(const wi_stream &stream, const std::vector<std::shared_ptr<wi_transform> > &transforms, bool noisy);
+    wi_run_state(const wi_stream &stream, 
+		 const std::vector<std::shared_ptr<wi_transform> > &transforms, 
+		 const std::shared_ptr<outdir_manager> &manager, bool noisy);
 
     // stream params
     const ssize_t nfreq;
@@ -504,6 +506,8 @@ protected:
     wi_run_state(const wi_run_state &) = delete;
     wi_run_state& operator=(const wi_run_state &) = delete;
 
+    const std::shared_ptr<outdir_manager> manager;
+
     // transform list
     const int ntransforms;
     const std::vector<std::shared_ptr<wi_transform> > transforms;
@@ -530,6 +534,9 @@ protected:
     // buffers
     wraparound_buf main_buffer;
     std::vector<wraparound_buf> prepad_buffers;
+    
+    void write_per_substream_json_file();
+    void clear_per_substream_data();
 };
 
 
