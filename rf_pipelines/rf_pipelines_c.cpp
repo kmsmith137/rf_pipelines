@@ -29,7 +29,7 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
     virtual ~upcalling_wi_transform() { }
 
     // returns borrowed reference
-    PyObject *get_pyobj()
+    PyObject *get_pyobj() const
     {
 	PyObject *ret = PyWeakref_GetObject(weakref.ptr);
 	if (!ret)
@@ -54,7 +54,7 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	return object(p, false);
     }
 
-    virtual void set_stream(const rf_pipelines::wi_stream &stream)
+    virtual void set_stream(const rf_pipelines::wi_stream &stream) override
     {
 	PyObject *sp = make_temporary_stream(stream);
 	object s(sp, false);
@@ -66,13 +66,13 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	    throw runtime_error("fatal: wi_transform.set_stream() callback kept a reference to the stream");
     }
 
-    virtual void start_substream(int isubstream, double t0)
+    virtual void start_substream(int isubstream, double t0) override
     {	
 	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"start_substream", (char *)"id", isubstream, t0);
 	object ret(p, false);  // a convenient way to ensure Py_DECREF gets called, and throw an exception on failure
     }
 
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
     {
 	object np_intensity = array2d_to_python(nfreq, nt_chunk + nt_postpad, intensity, stride);
 	object np_weights = array2d_to_python(nfreq, nt_chunk + nt_postpad, weights, stride);
@@ -102,10 +102,23 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	    throw runtime_error("fatal: wi_transform.process_chunk() callback kept a reference to the 'pp_weights' array");
     }
 
-    virtual void end_substream()
+    virtual void end_substream() override
     {
 	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"end_substream", NULL);
 	object ret(p, false);
+    }
+
+    virtual string get_name() const override
+    {
+	PyObject *sobj = PyObject_Str(this->get_pyobj());
+	object ret(sobj, false);
+
+	// Returns a pointer to an internal buffer, not a copy, so no free() necessary.
+	char *s = PyString_AsString(sobj);
+	if (!s)
+	    throw python_exception();
+
+	return string(s);
     }
 };
 
@@ -331,19 +344,24 @@ struct exception_monitor : public rf_pipelines::wi_transform
     }
 
     virtual ~exception_monitor() { }
-    virtual void start_substream(int isubstream, double t0) { }
-    virtual void end_substream() { }
 
-    virtual void set_stream(const rf_pipelines::wi_stream &stream)
+    virtual void set_stream(const rf_pipelines::wi_stream &stream) override
     {
 	this->nfreq = stream.nfreq;
     }
 
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
+    virtual void start_substream(int isubstream, double t0) override { }
+
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
     {
 	if (PyErr_Occurred() || PyErr_CheckSignals())
 	    throw python_exception();
     }
+
+    virtual void end_substream() override { }
+    
+    // should never be called
+    virtual string get_name() const override { return "exception_monitor"; }
 };
 
 
@@ -659,29 +677,39 @@ struct wi_stream_object {
 	return s->pbare;
     }
     
-    static PyObject *run(PyObject *self, PyObject *arg)
+    static PyObject *run(PyObject *self, PyObject *args, PyObject *kwds)
     {
+	static const char *kwlist[] = { "transforms", "outdir", "noisy", "clobber", NULL };
+
+	PyObject *transforms_obj = nullptr;
+	const char *outdir = ".";
+	int noisy = 1;
+	int clobber = 1;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|sii", (char **)kwlist, &transforms_obj, (char **)&outdir, &noisy, &clobber))
+	    return NULL;
+
 	rf_pipelines::wi_stream *stream = get_pbare(self);
 
-	PyObject *iter = PyObject_GetIter(arg);
-	if (!iter)
-	    throw runtime_error("rf_pipelines: expected argument to wi_stream.run() to be a list/iterator");
+	PyObject *transforms_iter = PyObject_GetIter(transforms_obj);
+	if (!transforms_iter)
+	    throw runtime_error("rf_pipelines: expected 'transforms' argument to wi_stream.run() to be a list/iterator");
 
-	object iter_reference(iter, false);
+	object iter_reference(transforms_iter, false);
 	vector<object> item_references;
 
 	vector<shared_ptr<rf_pipelines::wi_transform> > transform_list;
 	transform_list.push_back(make_shared<exception_monitor> (stream->nt_maxwrite));
 
 	for (;;) {
-	    PyObject *item_ptr = PyIter_Next(iter);
+	    PyObject *item_ptr = PyIter_Next(transforms_iter);
 	    if (!item_ptr)
 		break;
 
 	    item_references.push_back(object(item_ptr,false));
 
 	    if (!wi_transform_object::isinstance(item_ptr))
-		throw runtime_error("rf_pipelines: expected argument to wi_stream.run() to be a list/iterator of wi_transform objects");
+		throw runtime_error("rf_pipelines: expected 'transforms' argument to wi_stream.run() to be a list/iterator of wi_transform objects");
 
 	    transform_list.push_back(wi_transform_object::get_pshared(item_ptr));
 	}	
@@ -689,8 +717,7 @@ struct wi_stream_object {
 	if (PyErr_Occurred())
 	    throw python_exception();
 
-	bool noisy=true;  // FIXME make this selectable from python
-	stream->run(transform_list, noisy);
+	stream->run(transform_list, outdir, noisy, clobber);
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -761,7 +788,7 @@ struct wi_stream_object {
 
 
 static PyMethodDef wi_stream_methods[] = {
-    { "run", tc_wrap2<wi_stream_object::run>, METH_O, wi_stream_object::dummy_docstring },
+    { "run", (PyCFunction) tc_wrap3<wi_stream_object::run>, METH_VARARGS | METH_KEYWORDS, wi_stream_object::dummy_docstring },
     { NULL, NULL, 0, NULL }
 };
 

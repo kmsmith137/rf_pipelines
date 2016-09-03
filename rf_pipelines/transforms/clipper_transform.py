@@ -123,3 +123,12 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         if self.test: 
             unmasked_percentage = np.count_nonzero(weights_hres) / float(weights_hres.size) * 100.
             print unmasked_percentage, "% not masked."
+
+    def __str__(self):
+        ret = 'clipper_transform(thr=%f, axis=%d, nt_chunk=%d,' % (self.thr, self.axis, self.nt_chunk)
+        if self.dsample_nfreq is not None:
+            ret += ', dsample_nfreq=%d' % self.dsample_nfreq
+        if self.dsample_nt is not None:
+            ret += ', dsample_nt=%d' % self.dsample_nt
+        ret += ')'
+        return ret

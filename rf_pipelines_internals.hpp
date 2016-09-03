@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstring>
 #include <stdexcept>
+#include <sys/time.h>
 
 #include "rf_pipelines.hpp"
 
@@ -35,9 +36,35 @@ namespace rf_pipelines {
 #endif
 
 
+//
+// A note for the future: if rf_pipelines is ever made multithreaded, then there are
+// some race conditions related to the output_tracker which will need to be fixed.  The
+// basename_set should be protected by a lock, and we also probably want a lock to
+// protect the wi_transform::output_output_tracker pointer itself.  We may also want the
+// output_tracker to create a lockfile in the output directory.
+//
+struct outdir_manager {
+    std::string outdir;  // includes trailing slash
+    bool clobber_ok = true;
+
+    std::set<std::string> basename_set;
+
+    // Constructor creates the output directory.
+    outdir_manager(const std::string &outdir, bool clobber_ok);
+
+    // Returns the full pathname, throws exception if filename has already been written in this pipeline run.
+    std::string add_file(const std::string &basename);
+
+    void write_json_file(int isubstream, const Json::Value &data);
+
+    static bool is_json_basename(const std::string &basename);
+};
+
+
 // Non-inline helper functions (more to come?)
 extern bool file_exists(const std::string &filename);
-extern void listdir(std::vector<std::string> &filenames, const std::string &dirname);
+extern void makedirs(const std::string &dirname);
+extern std::vector<std::string> listdir(const std::string &dirname);
 
 
 // Inlines follow...
@@ -95,6 +122,11 @@ inline ssize_t gcd(ssize_t m, ssize_t n)
     return m;
 }
 
+inline bool startswith(const std::string &str, const std::string &prefix)
+{
+    return std::equal(prefix.begin(), prefix.end(), str.begin());
+}
+
 inline bool endswith(const std::string &str, const std::string &suffix)
 {
     return std::equal(suffix.rbegin(), suffix.rend(), str.rbegin());
@@ -126,6 +158,19 @@ template<typename T> static inline void deallocate(std::vector<T> &v)
 {
     std::vector<T> w;
     v.swap(w);
+}
+
+inline double time_diff(const struct timeval &tv1, const struct timeval &tv2)
+{
+    return (tv2.tv_sec - tv1.tv_sec) + 1.0e-6 * (tv2.tv_usec - tv1.tv_usec);
+}
+
+inline struct timeval get_time()
+{
+    struct timeval ret;
+    if (gettimeofday(&ret, NULL) < 0)
+	throw std::runtime_error("gettimeofday() failed");
+    return ret;
 }
 
 

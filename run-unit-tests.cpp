@@ -161,11 +161,12 @@ struct test_wi_transform : public wi_transform {
 	this->curr_it = 0;
     }
 
-    virtual void set_stream(const wi_stream &stream) { return; }
-    virtual void start_substream(int isubstream, double t0) { this->t0_substream = t0; }
-    virtual void end_substream() { return; }
+    virtual void set_stream(const wi_stream &stream) override { return; }
+    virtual void start_substream(int isubstream, double t0) override { this->t0_substream = t0; }
+    virtual void end_substream() override { return; }
+    virtual string get_name() const override { return "test_transform"; }
 
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
     {
 	double t0_expected = t0_substream + curr_it * dt_sample;
 	double t1_expected = t0_substream + (curr_it + nt_chunk) * dt_sample;
@@ -242,7 +243,7 @@ static void run_pipeline_unit_tests()
 	    transforms[itr] = prev = make_shared<test_wi_transform> (stream, prev);
 
 	bool noisy=false;
-	stream.run(transforms, noisy);
+	stream.run(transforms, ".", noisy);
     }
 
     cerr << "done\n";

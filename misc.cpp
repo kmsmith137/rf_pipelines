@@ -2,6 +2,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <sstream>
 
 #include "rf_pipelines_internals.hpp"
 
@@ -11,8 +12,6 @@ namespace rf_pipelines {
 #if 0
 };  // pacify emacs c-mode!
 #endif
-
-// not much here for now, but I suspect this source file will grow over time...
 
 
 bool file_exists(const string &filename)
@@ -29,9 +28,9 @@ bool file_exists(const string &filename)
 }
 
 
-void listdir(vector<string> &filenames, const string &dirname)
+vector<string> listdir(const string &dirname)
 {
-    filenames.resize(0);
+    vector<string> filenames;
 
     DIR *dir = opendir(dirname.c_str());
     if (!dir)
@@ -53,6 +52,49 @@ void listdir(vector<string> &filenames, const string &dirname)
 	    break;
 
 	filenames.push_back(entry->d_name);
+    }
+
+    return filenames;
+}
+
+
+// FIXME currently only creates the last directory, e.g. if called with dirname="/a/b/c"
+// it assumes that /a/b exists and only creates directory "c".
+void makedirs(const string &dirname)
+{
+    int err = mkdir(dirname.c_str(), 0777);
+
+    if (!err)
+	return;
+
+    if (errno != EEXIST) {
+	stringstream ss;
+	ss << "couldn't create directory " << dirname << ": " << strerror(errno);
+	
+	string err_msg = ss.str();
+	cerr << err_msg << "\n";
+	throw runtime_error(err_msg);
+    }
+    
+    struct stat s;
+    err = stat(dirname.c_str(), &s);
+    
+    if (err < 0) {
+	stringstream ss;
+	ss << "couldn't stat file " << dirname << ": " << strerror(errno);
+	
+	string err_msg = ss.str();
+	cerr << err_msg << "\n";
+	throw runtime_error(err_msg);
+    }
+
+    if (!S_ISDIR(s.st_mode)) {
+	stringstream ss;
+	ss << "couldn't create directory " << dirname << ": file already exists and is not a directory";
+	
+	string err_msg = ss.str();
+	cerr << err_msg << "\n";
+	throw runtime_error(err_msg);
     }
 }
 

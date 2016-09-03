@@ -101,6 +101,11 @@ struct chime_file_writer : public wi_transform {
 	// Resetting this pointer will close file
 	this->ofile.reset();
     }
+
+    virtual string get_name() const override
+    {
+	return "chime_file_writer(" + filename + ")";
+    }
 };
 
 
