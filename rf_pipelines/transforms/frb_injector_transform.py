@@ -72,11 +72,6 @@ class frb_injector_transform(rf_pipelines.py_wi_transform):
         # since this is probably unintentional.
         (pulse_t0, pulse_t1) = self.pulse.get_endpoints()
 
-        print >>sys.stderr, 'XXX pulse_t0 =', pulse_t0
-        print >>sys.stderr, 'XXX pulse_t1 =', pulse_t1
-        print >>sys.stderr, 'XXX substream_t0 =', self.substream_t0
-        print >>sys.stderr, 'XXX substream_t1 =', self.substream_t1
-
         if (pulse_t0 >= self.substream_t0) and (pulse_t1 <= self.substream_t1):
             return
 

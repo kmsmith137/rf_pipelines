@@ -74,8 +74,8 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
     {
-	object np_intensity = array2d_to_python(nfreq, nt_chunk, intensity, stride);
-	object np_weights = array2d_to_python(nfreq, nt_chunk, weights, stride);
+	object np_intensity = array2d_to_python(nfreq, nt_chunk + nt_postpad, intensity, stride);
+	object np_weights = array2d_to_python(nfreq, nt_chunk + nt_postpad, weights, stride);
 	object np_pp_intensity;
 	object np_pp_weights;
 
