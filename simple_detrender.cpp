@@ -22,11 +22,11 @@ struct simple_detrender : public wi_transform {
     // Since the simple_detrender doesn't maintain state between chunks, we don't need to
     // know when substreams begin and end.
 
-    virtual void set_stream(const wi_stream &stream);
-    virtual void start_substream(int isubstream, double t0) { }
-    virtual void end_substream() { }
-
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride);
+    virtual void set_stream(const wi_stream &stream) override;
+    virtual void start_substream(int isubstream, double t0) override { }
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override;
+    virtual void end_substream() override { }
+    virtual string get_name() const override;
 };
 
 
@@ -88,11 +88,19 @@ void simple_detrender::process_chunk(double t0, double t1, float *intensity, flo
     }
 }
 
+
+string simple_detrender::get_name() const
+{
+    return "simple_detrender(" + to_string(nt_chunk) + ")";
+}
+
+
 // Externally visible factory function declared in rf_transforms.hpp
 shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_chunk)
 {
     return make_shared<simple_detrender> (nt_chunk);
 }
+
 
 
 }  // namespace rf_pipelines

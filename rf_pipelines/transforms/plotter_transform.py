@@ -117,3 +117,6 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         self.weight_buf[:,:] = 0.
         self.ifile += 1
         self.ipos = 0
+
+    def __str__(self):
+        return 'plotter_transform'

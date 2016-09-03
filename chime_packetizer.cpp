@@ -44,6 +44,7 @@ struct chime_packetizer : public wi_transform {
     virtual void start_substream(int isubstream, double t0);
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride);
     virtual void end_substream();
+    virtual std::string get_name() const { return "chime_packetizer"; }
 };
 
 

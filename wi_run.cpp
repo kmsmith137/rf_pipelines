@@ -14,22 +14,50 @@ namespace rf_pipelines {
 #endif
 
 
-void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transforms, bool noisy)
-{
-    // Argument checking
+//
+// A helper class which initializes the wi_transform::outdir_manager pointer in its constructor, 
+// and resets it in its destructor.  This is convenient for ensuring that the pointer always gets
+// cleared, e.g. if an exception is thrown.  We also use this class to detect transform reuse
+// (currently treated as an error).
+//
+struct outdir_janitor {
+    shared_ptr<wi_transform> transform;
 
-    if (transforms.size() == 0)
-	throw runtime_error("wi_stream::run() called on empty transform list");
+    outdir_janitor(const shared_ptr<wi_transform> &transform_, const shared_ptr<outdir_manager> &manager) :
+	transform(transform_)
+    {
+	rf_assert(transform);
+	rf_assert(manager);
 
-    for (unsigned int it = 0; it < transforms.size(); it++) {
-	if (!transforms[it])
-	    throw runtime_error("rf_pipelines: empty transform pointer passed to wi_stream::run()");
+	if (transform->outdir_manager) {
+	    string name = transform->get_name();
+	    throw runtime_error("Fatal: transform->outdir_manager initialized twice.  This probably means a transform is being reused (transform name=" + name + ")");
+	}
+
+	transform->outdir_manager = manager;
     }
+
+    ~outdir_janitor() { transform->outdir_manager.reset(); }
+
+    // noncopyable
+    outdir_janitor(const outdir_janitor &) = delete;
+    outdir_janitor &operator=(const outdir_janitor &) = delete;
+};
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const string &outdir, bool noisy, bool clobber)
+{
+    int ntransforms = transforms.size();
 
     // Call stream_start().  When it returns, all stream parameters should be initialized.
 
     this->stream_start();
 
+    if (ntransforms == 0)
+	throw runtime_error("wi_stream::run() called on empty transform list");
     if (nfreq <= 0)
 	throw runtime_error("wi_stream::nfreq is non-positive or uninitialized");
     if (freq_lo_MHz <= 0.0)
@@ -43,13 +71,21 @@ void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transform
 
     // Initialize transforms by calling wi_transform::set_stream(), and check that all transform parameters are initialized.
 
-    for (unsigned int it = 0; it < transforms.size(); it++) {
+    auto outdir_manager = make_shared<rf_pipelines::outdir_manager> (outdir, clobber);
+    vector<shared_ptr<outdir_janitor> > janitor_list(ntransforms);
+
+    for (int it = 0; it < ntransforms; it++) {
+	if (!transforms[it])
+	    throw runtime_error("rf_pipelines: empty transform pointer passed to wi_stream::run()");
+
+	janitor_list[it] = make_shared<outdir_janitor> (transforms[it], outdir_manager);
+
 	transforms[it]->set_stream(*this);
 
 	if (transforms[it]->nfreq != this->nfreq)
 	    throw runtime_error("rf_pipelines: transform's value of 'nfreq' does not match stream's value of 'nfreq'");
 	if (transforms[it]->nt_chunk <= 0)
-	    throw runtime_error("rf_piptlines: transform's value of 'nt_chunk' is non-positive or uninitialized");
+	    throw runtime_error("rf_pipelines: transform's value of 'nt_chunk' is non-positive or uninitialized");
 	if (transforms[it]->nt_prepad < 0)
 	    throw runtime_error("rf_pipelines: wi_transform::nt_prepad is negative");
 	if (transforms[it]->nt_postpad < 0)
@@ -77,7 +113,7 @@ void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transform
 // -------------------------------------------------------------------------------------------------
 
 
-wi_run_state::wi_run_state(const wi_stream &stream, const std::vector<std::shared_ptr<wi_transform> > &transforms_, bool noisy_) :
+wi_run_state::wi_run_state(const wi_stream &stream, const vector<shared_ptr<wi_transform> > &transforms_, bool noisy_) :
     nfreq(stream.nfreq),
     nt_stream_maxwrite(stream.nt_maxwrite),
     ntransforms(transforms_.size()),
@@ -150,6 +186,13 @@ void wi_run_state::start_substream(double t0)
 
 	// shift prepad buffer by n0 as noted above
 	this->prepad_buffers[it].append_zeros(n0);
+    }
+
+    // State clearing between substreams
+    for (int it = 0; it < ntransforms; it++) {
+	transforms[it]->time_spent_in_transform = 0.0;
+	transforms[it]->json_output.clear();
+	transforms[it]->json_output["name"] = transforms[it]->get_name();
     }
 
     this->state = 1;
@@ -242,7 +285,10 @@ void wi_run_state::finalize_write(ssize_t nt)
 	    // Transform is called here.
 	    double t0 = this->stream_curr_time + dt_sample * (transform_ipos[it] - stream_ipos);
 	    double t1 = this->stream_curr_time + dt_sample * (transform_ipos[it] - stream_ipos + n1);
+
+	    struct timeval tv0 = get_time();
 	    transforms[it]->process_chunk(t0, t1, intensity, weights, stride, pp_intensity, pp_weights, pp_stride);
+	    transforms[it]->time_spent_in_transform += time_diff(tv0, get_time());
 
 	    // Note (n1) here, versus (n1+n2) in call to finalize_write() below.
 	    main_buffer.finalize_write(transform_ipos[it], n1);
@@ -306,8 +352,19 @@ void wi_run_state::end_substream()
     this->state = 4;
     this->isubstream++;
 
-    if (noisy)
+    if (noisy) {
 	cerr << ("rf_pipelines: processed " + to_string(save_ipos) + " samples\n");
+	for (int it = 0; it < ntransforms; it++)
+	    cerr << "    Transform " << it << ": " << transforms[it]->time_spent_in_transform << " sec  [" << transforms[it]->get_name() << "]\n";
+    }
+
+    Json::Value json_output;
+
+    for (int it = 0; it < ntransforms; it++) {
+	Json::Value &t = transforms[it]->json_output;
+	t["time"] = transforms[it]->time_spent_in_transform;
+	json_output.append(t);
+    }
 }
 
 

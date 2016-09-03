@@ -62,9 +62,11 @@
 #error "This source file needs to be compiled with C++0x support (g++ -std=c++0x)"
 #endif
 
-#include <iostream>
+#include <set>
 #include <vector>
 #include <memory>
+#include <iostream>
+#include <json/json.h>
 
 namespace rf_pipelines {
 #if 0
@@ -74,6 +76,7 @@ namespace rf_pipelines {
 struct wi_stream;
 struct wi_transform;
 class wi_run_state;
+struct outdir_manager;   // declared in rf_pipelines_internals.hpp
 
 
 namespace constants {
@@ -283,9 +286,13 @@ struct wi_stream {
     //
     virtual void stream_body(wi_run_state &run_state) = 0;
 
+    //
     // This non-virtual function isn't defined by the wi_stream subclass, it's called 
-    // "from the outside" to run the rf_pipeline.
-    void run(const std::vector<std::shared_ptr<wi_transform> > &transforms, bool noisy=true);
+    // "from the outside" to run the rf_pipeline.  If 'clobber' is true, then the pipeline
+    // is allowed to overwrite a previous run.
+    //
+    void run(const std::vector<std::shared_ptr<wi_transform> > &transforms, 
+	     const std::string &outdir=".", bool noisy=true, bool clobber=true);
 };
 
 
@@ -304,12 +311,31 @@ struct wi_transform {
     ssize_t nt_chunk = 0;     // chunk size for process_chunk(), see below
     ssize_t nt_prepad = 0;    // prepad size for process_chunk(), see below
     ssize_t nt_postpad = 0;   // postpad size for process_chunk(), see below
-    
+
+    //
+    // The 'json_output' argument is an optional set of key/value pairs which the transform is free to define.
+    // The rf_pipelines library supplies 'time' and 'plots' fields automatically.
+    //
+    // Note that 'json_output' is automatically reset between substreams.  Therefore, it's natural to
+    // modify it in start_subtream(), process_chunk(), or end_substream(), and it's probably a bug to
+    // modify in the transform constructor or start_stream().  (See below.)
+    //
+    Json::Value json_output;
+
+    // Helper functions for writing output files.
+    std::string add_file(const std::string &basename);   // returns full pathname
+
+    // Data used internally by rf_pipelines -- probably a bad idea to use these fields directly!
+    // Note: the outdir_manager is a nonempty pointer if and only if the transform is currently running.
+    std::shared_ptr<outdir_manager> outdir_manager;
+    double time_spent_in_transform = 0.0;
+
     wi_transform() { }
 
     virtual ~wi_transform() { }
 
-    // The subclass must define the four virtual functions which follow.
+
+    // --------------- The subclass must define the five pure virtual functions which follow ---------------
 
     //
     // set_stream(): this is called once, at the beginning of a pipeline run.
@@ -392,6 +418,9 @@ struct wi_transform {
 
     // end_substream(): counterpart to start_substream() above
     virtual void end_substream() = 0;
+    
+    // Note: the transform name will appear in the json output, and in python __str__().
+    virtual std::string get_name() const = 0;
 };
 
 
@@ -496,7 +525,8 @@ public:
     void end_substream();
 
 protected:
-    friend void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transforms, bool noisy);
+    friend void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transforms, 
+			       const std::string &outdir, bool noisy, bool clobber);
 
     // make noncopyable
     wi_run_state(const wi_run_state &) = delete;

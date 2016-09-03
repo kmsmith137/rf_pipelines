@@ -127,7 +127,10 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
             # Use self.P to evaluate the poly (defined by c)
             # over the fit domain.
             return np.dot(c, self.P)
-    
+
+    def __str__(self):
+        return 'legendre_detrender(deg=%d, axis=%d, nt_chunk=%d)' % (self.deg, self.axis, self.nt_chunk)
+
     def __test(self, weights, intensity, mask_level=0.9, test_mode=1):
         """This private method replaces the weights and intensity
         arrays with a new set of simulated arrays.

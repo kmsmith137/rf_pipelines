@@ -104,8 +104,8 @@ class py_wi_transform(wi_transform):
     instead of the C++ class 'wi_transform'.  An object of type 'py_wi_transform' can be inserted
     into a pipeline using the usual run() syntax:
 
-       s.run([t1,t2,...,tN])    # where s is an object of type wi_stream
-                                # and each t_i is an object of type wi_transform
+       # Here, 's' is an object of type wi_stream, and each t_i is an object of type wi_transform
+       s.run([t1,t2,...,tN], outdir='.', noisy=True, clobber=True)
 
     Your subclass of 'py_wi_transform' should override the following methods:
     
@@ -216,7 +216,9 @@ class py_wi_stream(wi_stream):
     defined by the C++ part of the library.  All Python documentation is in this docstring!
 
     The wi_stream class defines a method
-        run(self, transform_list)
+
+        run(self, transform_list, outdir='.', noisy=True, clobber=True)
+
     which is called to run a pipeline.  Here, transform_list is a list (or generator) of objects
     of type wi_transform (or py_wi_transform).
 

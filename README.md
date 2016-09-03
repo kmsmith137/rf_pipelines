@@ -19,6 +19,11 @@ For a high-level overview, here are some slides from CHIME telecons:
   - libhdf5 (https://www.hdfgroup.org/HDF5/release/obtain5.html)
     Note that this is a link to HDF5 v1.8.  I imagine v1.10 also works but haven't tested it yet.
 
+  - jsoncpp (https://github.com/open-source-parsers/jsoncpp)
+    One-line install:
+       brew install jsoncpp  (osx)
+       yum install jsoncpp-devel  (linux centos)
+
   - Optional but recommended: The 'PIL' python imaging library (you can test whether you have 
     it with 'import PIL' from python).  If you need to install it, I recommend the 'Pillow' 
     variant (pip install Pillow)
