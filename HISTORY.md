@@ -1,3 +1,9 @@
+- network_streams branch:
+
+     - API change: substream_start()
+
+     - Network stream and packetizing transform
+
 - KMS branch:
 
      - Backwards-incompatible: jsoncpp library now required
