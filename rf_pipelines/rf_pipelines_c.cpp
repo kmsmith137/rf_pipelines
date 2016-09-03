@@ -397,7 +397,13 @@ struct wi_run_state_object {
 	return Py_None;
     }
 
+    //
+    // From rf_pipelines/__init__.py:
+    //    "Comment: the python stream API has an extra copy relative to the C++ API, so python streams may be a little
+    //     slower than C++ streams, but it's hard to do anything about this!"
+    //
     // void write(intensity, weight, t0=None)
+    //
     static PyObject *write(PyObject *self, PyObject *args, PyObject *kwds)
     {
 	rf_pipelines::wi_run_state *run_state = get_pbare(self);

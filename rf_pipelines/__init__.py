@@ -268,6 +268,13 @@ class py_wi_stream(wi_stream):
                for ...:
                    run_state.write()         # inner loop over data blocks
                run_state.end_substream()    
+
+    For an example, check out the 'frb_olympics' github repo, and see 'rerunnable_gaussian_noise_stream'
+    in frb_olympics/frb_olympics.py.  (Unfortunately, there's no example of a python stream in the rf_pipelines
+    repo itself, so I have to recommend an example in a different repo!)
+
+    Comment: the python stream API has an extra copy relative to the C++ API, so python streams may be a little
+    slower than C++ streams, but it's hard to do anything about this!
     """
 
     def __init__(self, nfreq, freq_lo_MHz, freq_hi_MHz, dt_sample, nt_maxwrite):
