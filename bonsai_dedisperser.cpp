@@ -101,6 +101,9 @@ bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const
     this->nt_prepad = 0;
 
     if (trigger_plot_stem.size() > 0) {
+	if (nt_per_file <= 0)
+	    throw runtime_error("rf_pipelines::bonsai_dedisperser: if the 'trigger_plot_stem' arg is specified, then 'nt_per_file' must also be specified and > 0");
+
 	for (int itree = 0; itree < config->ntrees; itree++) {
 	    int ndm_coarse = config->tree_size[itree] / config->ndm_per_trigger[itree];
 	    int nt_per_trigger = (config->nds[itree] * config->nt_per_trigger[itree]) / config->nups[itree];
