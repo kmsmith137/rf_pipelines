@@ -98,6 +98,8 @@ void bonsai_dedisperser::set_stream(const wi_stream &stream)
 
 void bonsai_dedisperser::start_substream(int isubstream, double t0)
 {
+    // Note: it's OK to reuse the same bonsai_dedisperser object between multiple pipeline runs,
+    // but we currently can't handle the case of a run which defines multiple substreams.
     if (isubstream > 0)
 	throw runtime_error("bonsai_dedisperser: currently can't process a stream which defines multiple substreams");
 
