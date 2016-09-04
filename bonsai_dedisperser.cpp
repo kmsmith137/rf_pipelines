@@ -24,9 +24,12 @@ shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_
 
 struct bonsai_dedisperser : public wi_transform {
     string config_filename;
-    shared_ptr<bonsai::dedisperser> base;
     string trigger_filename;
     int nt_per_file;
+    int ibeam;
+
+    shared_ptr<bonsai::config_params> config;
+    shared_ptr<bonsai::dedisperser> dedisperser;
 
     bonsai_dedisperser(const string &config_hdf5_filename, const string &output_hdf5_filename, int nt_per_file, int ibeam);
 
@@ -38,25 +41,22 @@ struct bonsai_dedisperser : public wi_transform {
 };
 
 
-bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const string &output_hdf5_filename, int nt_per_file, int ibeam)
+bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const string &output_hdf5_filename, int nt_per_file_, int ibeam_) :
+    config_filename(config_hdf5_filename),
+    trigger_filename(output_hdf5_filename),
+    nt_per_file(nt_per_file_),
+    ibeam(ibeam_)
 {
-    this->config_filename = config_hdf5_filename;
-
     if (!endswith(config_hdf5_filename,".hdf5") && !endswith(config_hdf5_filename,".h5"))
 	cerr << "rf_pipelines: warning: bonsai config filename doesn't end with .h5 or .hdf5, note that the bonsai_dedisperser requires an hdf5 file created with bonsai-mkweight\n";
     if (output_hdf5_filename.size() &&  !endswith(output_hdf5_filename,".hdf5") && !endswith(output_hdf5_filename,".h5"))
 	cerr << "rf_pipelines: warning: bonsai output filename doesn't end with .h5 or .hdf5\n";
 
-    bool init_weights = true;
-    bonsai::config_params cp(config_hdf5_filename, init_weights);
-
-    this->base = make_shared<bonsai::dedisperser> (cp, ibeam, init_weights);
-    this->trigger_filename = output_hdf5_filename;
-    this->nt_per_file = nt_per_file;
+    this->config = make_shared<bonsai::config_params> (config_hdf5_filename, true);   // init_weights=true
 
     // initialize members of wi_transform base class
-    this->nfreq = base->nchan;
-    this->nt_chunk = base->nt_data;
+    this->nfreq = config->nchan;
+    this->nt_chunk = config->nt_data;
     this->nt_postpad = 0;
     this->nt_prepad = 0;
 }
@@ -66,13 +66,13 @@ void bonsai_dedisperser::set_stream(const wi_stream &stream)
 {
     // Check that stream params match bonsai config
 
-    if (stream.nfreq != this->nfreq)
+    if (stream.nfreq != config->nchan)
 	throw runtime_error("rf_transforms: value of 'nfreq' in stream doesn't match value in bonsai config");
-    if (reldist(stream.freq_lo_MHz, base->freq_lo_MHz) > 1.0e-4)
+    if (reldist(stream.freq_lo_MHz, config->freq_lo_MHz) > 1.0e-4)
 	throw runtime_error("rf_transforms: value of 'freq_lo_MHz' in stream doesn't match value in bonsai config");
-    if (reldist(stream.freq_hi_MHz, base->freq_hi_MHz) > 1.0e-4)
+    if (reldist(stream.freq_hi_MHz, config->freq_hi_MHz) > 1.0e-4)
 	throw runtime_error("rf_transforms: value of 'freq_hi_MHz' in stream doesn't match value in bonsai config");
-    if (reldist(stream.dt_sample, base->dt_sample) > 1.0e-3)
+    if (reldist(stream.dt_sample, config->dt_sample) > 1.0e-3)
 	throw runtime_error("rf_transforms: value of 'dt_sample' in stream doesn't match value in bonsai config");
 }
 
@@ -82,35 +82,37 @@ void bonsai_dedisperser::start_substream(int isubstream, double t0)
     if (isubstream > 0)
 	throw runtime_error("bonsai_dedisperser: currently can't process a stream which defines multiple substreams");
 
+    this->dedisperser = make_shared<bonsai::dedisperser> (*config, ibeam, true);   // init_weights=true
+
     if (trigger_filename.size())
-	base->start_trigger_file(trigger_filename, nt_per_file);
+	dedisperser->start_trigger_file(trigger_filename, nt_per_file);
 
-    base->global_max_trigger_active = true;
-    base->global_max_trigger = 0.0;
-    base->global_max_trigger_dm = 0.0;
-    base->global_max_trigger_arrival_time = 0.0;
+    dedisperser->global_max_trigger_active = true;
+    dedisperser->global_max_trigger = 0.0;
+    dedisperser->global_max_trigger_dm = 0.0;
+    dedisperser->global_max_trigger_arrival_time = 0.0;
 
-    base->spawn_slave_threads();
+    dedisperser->spawn_slave_threads();
 }
 
 
 void bonsai_dedisperser::process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
 {
     // Note: rf_pipelines and bonsai use the same frequency channel ordering (highest-to-lowest), so we can pass the arrays and stride "as is"
-    base->run(intensity, weights, stride);
+    dedisperser->run(intensity, weights, stride);
 }
 
 
 void bonsai_dedisperser::end_substream()
 {
     if (trigger_filename.size())
-	base->end_trigger_file();
+	dedisperser->end_trigger_file();
 
-    this->json_misc["frb_global_max_trigger"] = base->global_max_trigger;
-    this->json_misc["frb_global_max_trigger_dm"] = base->global_max_trigger_dm;
-    this->json_misc["frb_global_max_trigger_tfinal"] = base->global_max_trigger_arrival_time;
+    this->json_misc["frb_global_max_trigger"] = dedisperser->global_max_trigger;
+    this->json_misc["frb_global_max_trigger_dm"] = dedisperser->global_max_trigger_dm;
+    this->json_misc["frb_global_max_trigger_tfinal"] = dedisperser->global_max_trigger_arrival_time;
 
-    base->terminate();
+    dedisperser->terminate();
 }
 
 
