@@ -49,6 +49,7 @@ void wi_run_state::start_substream(double t0)
     if ((this->state > 0) && (this->state < 4))
 	throw runtime_error("rf_transforms: logic error in stream: double call to start_substream() (maybe a call to end_substream() is missing somewhere?)");
 
+    this->clear_per_substream_data();
     this->substream_start_time = t0;
     this->stream_curr_time = t0;
 
@@ -96,7 +97,6 @@ void wi_run_state::start_substream(double t0)
 	this->prepad_buffers[it].append_zeros(n0);
     }
 
-    this->clear_per_substream_data();
     this->state = 1;
 }
 
