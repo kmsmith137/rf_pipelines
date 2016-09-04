@@ -135,6 +135,11 @@ void bonsai_dedisperser::start_substream(int isubstream, double t0)
     if (isubstream > 0)
 	throw runtime_error("bonsai_dedisperser: currently can't process a stream which defines multiple substreams");
 
+    // FIXME: write more config info?
+    // Note that 'json_misc' is per-substream, so we can't put this initialization in set_stream() or the constructor
+    for (int itree = 0; itree < config->ntrees; itree++)
+	this->json_misc["max_dm"].append(config->max_dm[itree]);
+
     this->dedisperser = make_shared<my_dedisperser_subclass> (this);
     
     if (trigger_hdf5_filename.size())
