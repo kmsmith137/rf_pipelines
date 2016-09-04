@@ -753,14 +753,15 @@ struct wi_stream_object {
     
     static PyObject *run(PyObject *self, PyObject *args, PyObject *kwds)
     {
-	static const char *kwlist[] = { "transforms", "outdir", "noisy", "clobber", NULL };
+	static const char *kwlist[] = { "transforms", "outdir", "noisy", "clobber", "return_json", NULL };
 
 	PyObject *transforms_obj = nullptr;
 	const char *outdir = ".";
 	int noisy = 1;
 	int clobber = 1;
+	int return_json = 0;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|sii", (char **)kwlist, &transforms_obj, (char **)&outdir, &noisy, &clobber))
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|siii", (char **)kwlist, &transforms_obj, (char **)&outdir, &noisy, &clobber, &return_json))
 	    return NULL;
 
 	rf_pipelines::wi_stream *stream = get_pbare(self);
@@ -791,10 +792,18 @@ struct wi_stream_object {
 	if (PyErr_Occurred())
 	    throw python_exception();
 
-	stream->run(transform_list, outdir, noisy, clobber);
+	Json::Value json_out;
+	Json::Value *json_outp = return_json ? &json_out : nullptr;
+	stream->run(transform_list, outdir, json_outp, noisy, clobber);
 
-	Py_INCREF(Py_None);
-	return Py_None;
+	if (!return_json) {
+	    Py_INCREF(Py_None);
+	    return Py_None;
+	}
+
+	Json::FastWriter w;
+	string ret = w.write(json_out);
+	return Py_BuildValue("s", ret.c_str());   // Note: Py_BuildValue() copies the string
     }
 
     // Properties
