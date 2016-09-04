@@ -14,7 +14,7 @@ namespace rf_pipelines {
 
 #ifndef HAVE_BONSAI
 
-shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_filename, const std::string &output_hdf5_filename, int nt_per_file, int ibeam)
+shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_filename, const std::string &trigger_hdf5_filename, const std::string &trigger_plot_stem, int nt_per_file, int ibeam)
 {
     throw runtime_error("make_bonsai_dedisperser() was called, but this rf_pipelines instance was compiled without bonsai");
 }
@@ -24,14 +24,15 @@ shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_
 
 struct bonsai_dedisperser : public wi_transform {
     string config_filename;
-    string trigger_filename;
+    string trigger_hdf5_filename;
+    string trigger_plot_stem;
     int nt_per_file;
     int ibeam;
 
     shared_ptr<bonsai::config_params> config;
     shared_ptr<bonsai::dedisperser> dedisperser;
 
-    bonsai_dedisperser(const string &config_hdf5_filename, const string &output_hdf5_filename, int nt_per_file, int ibeam);
+    bonsai_dedisperser(const string &config_hdf5_filename, const string &trigger_hdf5_filename, const string &trigger_plot_stem, int nt_per_file, int ibeam);
 
     virtual void set_stream(const wi_stream &stream) override;
     virtual void start_substream(int isubstream, double t0) override;
@@ -44,6 +45,7 @@ struct bonsai_dedisperser : public wi_transform {
 // A minimal bonsai::dedisperser subclass which ensures that output files (including plots)
 // get the "standard" rf_pipelines processing (e.g. filenames end up in json output).
 struct my_dedisperser_subclass : public bonsai::dedisperser {
+    // FIXME this bare pointer is kind of ugly, any way to improve?
     bonsai_dedisperser *transform;
 
     my_dedisperser_subclass(bonsai_dedisperser *transform_)
@@ -57,18 +59,37 @@ struct my_dedisperser_subclass : public bonsai::dedisperser {
 	transform->json_misc["trigger_files"].append(filename);
 	bonsai::dedisperser::_open_trigger_file(filename, datetime0_str, datetime_str);
     }
+
+    virtual string _make_trigger_plot_filename(int itree, int ifile)
+    {
+	auto config = transform->config;
+
+	int ndm = this->trigger_plot_ndm[itree];
+	int nt_coarse_curr = this->trigger_plot_nt_curr[itree];
+	int nt_coarse_max = this->trigger_plot_nt_max[itree];
+	int nt_per_trigger = (config->nds[itree] * config->nt_per_trigger[itree]) / config->nups[itree];
+
+	ssize_t it0 = ssize_t(ifile) * ssize_t(nt_coarse_max) * ssize_t(nt_per_trigger);
+	ssize_t nt = ssize_t(nt_coarse_curr) * ssize_t(nt_per_trigger);
+
+	string basename = dedisperser::_make_trigger_plot_filename(itree, ifile);
+	string filename = transform->add_plot(basename, it0, nt, nt_coarse_curr, ndm, itree);
+
+	return filename;
+    }
 };
 
 
-bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const string &output_hdf5_filename, int nt_per_file_, int ibeam_) :
+bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const string &trigger_hdf5_filename_, const string &trigger_plot_stem_, int nt_per_file_, int ibeam_) :
     config_filename(config_hdf5_filename),
-    trigger_filename(output_hdf5_filename),
+    trigger_hdf5_filename(trigger_hdf5_filename_),
+    trigger_plot_stem(trigger_plot_stem_),
     nt_per_file(nt_per_file_),
     ibeam(ibeam_)
 {
-    if (!endswith(config_hdf5_filename,".hdf5") && !endswith(config_hdf5_filename,".h5"))
+    if (!endswith(config_filename,".hdf5") && !endswith(config_filename,".h5"))
 	cerr << "rf_pipelines: warning: bonsai config filename doesn't end with .h5 or .hdf5, note that the bonsai_dedisperser requires an hdf5 file created with bonsai-mkweight\n";
-    if (output_hdf5_filename.size() &&  !endswith(output_hdf5_filename,".hdf5") && !endswith(output_hdf5_filename,".h5"))
+    if (trigger_hdf5_filename.size() &&  !endswith(trigger_hdf5_filename,".hdf5") && !endswith(trigger_hdf5_filename,".h5"))
 	cerr << "rf_pipelines: warning: bonsai output filename doesn't end with .h5 or .hdf5\n";
 
     this->config = make_shared<bonsai::config_params> (config_hdf5_filename, true);   // init_weights=true
@@ -78,6 +99,14 @@ bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const
     this->nt_chunk = config->nt_data;
     this->nt_postpad = 0;
     this->nt_prepad = 0;
+
+    if (trigger_plot_stem.size() > 0) {
+	for (int itree = 0; itree < config->ntrees; itree++) {
+	    int ndm_coarse = config->tree_size[itree] / config->ndm_per_trigger[itree];
+	    int nt_per_trigger = (config->nds[itree] * config->nt_per_trigger[itree]) / config->nups[itree];
+	    this->add_plot_group("bonsai_tree" + to_string(itree), nt_per_trigger, ndm_coarse);
+	}
+    }
 }
 
 
@@ -105,8 +134,10 @@ void bonsai_dedisperser::start_substream(int isubstream, double t0)
 
     this->dedisperser = make_shared<my_dedisperser_subclass> (this);
     
-    if (trigger_filename.size())
-	dedisperser->start_trigger_file(this->trigger_filename, this->nt_per_file);
+    if (trigger_hdf5_filename.size())
+	dedisperser->start_trigger_file(this->trigger_hdf5_filename, this->nt_per_file);
+    if (trigger_plot_stem.size())
+	dedisperser->start_trigger_plots(this->trigger_plot_stem, this->nt_per_file);
     
     dedisperser->global_max_trigger_active = true;
     dedisperser->global_max_trigger = 0.0;
@@ -126,8 +157,10 @@ void bonsai_dedisperser::process_chunk(double t0, double t1, float *intensity, f
 
 void bonsai_dedisperser::end_substream()
 {
-    if (trigger_filename.size())
+    if (trigger_hdf5_filename.size())
 	dedisperser->end_trigger_file();
+    if (trigger_plot_stem.size())
+	dedisperser->end_trigger_plots();
 
     this->json_misc["frb_global_max_trigger"] = dedisperser->global_max_trigger;
     this->json_misc["frb_global_max_trigger_dm"] = dedisperser->global_max_trigger_dm;
@@ -143,9 +176,9 @@ string bonsai_dedisperser::get_name() const
 }
 
 
-shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_filename, const std::string &output_hdf5_filename, int nt_per_file, int ibeam)
+shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_filename, const std::string &trigger_hdf5_filename, const std::string &trigger_plot_stem, int nt_per_file, int ibeam)
 {
-    return make_shared<bonsai_dedisperser> (config_hdf5_filename, output_hdf5_filename, nt_per_file, ibeam);
+    return make_shared<bonsai_dedisperser> (config_hdf5_filename, trigger_hdf5_filename, trigger_plot_stem, nt_per_file, ibeam);
 }
 
 #endif  // HAVE_BONSAI
