@@ -41,6 +41,25 @@ struct bonsai_dedisperser : public wi_transform {
 };
 
 
+// A minimal bonsai::dedisperser subclass which ensures that output files (including plots)
+// get the "standard" rf_pipelines processing (e.g. filenames end up in json output).
+struct my_dedisperser_subclass : public bonsai::dedisperser {
+    bonsai_dedisperser *transform;
+
+    my_dedisperser_subclass(bonsai_dedisperser *transform_)
+	: bonsai::dedisperser(*transform_->config, transform_->ibeam, true),  // init_weights=true
+	  transform(transform_)
+    { }
+
+    virtual void _open_trigger_file(const string &basename, const string &datetime0_str, const string &datetime_str)
+    {
+	string filename = transform->add_file(basename);
+	transform->json_misc["trigger_files"].append(filename);
+	bonsai::dedisperser::_open_trigger_file(filename, datetime0_str, datetime_str);
+    }
+};
+
+
 bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const string &output_hdf5_filename, int nt_per_file_, int ibeam_) :
     config_filename(config_hdf5_filename),
     trigger_filename(output_hdf5_filename),
@@ -82,16 +101,16 @@ void bonsai_dedisperser::start_substream(int isubstream, double t0)
     if (isubstream > 0)
 	throw runtime_error("bonsai_dedisperser: currently can't process a stream which defines multiple substreams");
 
-    this->dedisperser = make_shared<bonsai::dedisperser> (*config, ibeam, true);   // init_weights=true
-
+    this->dedisperser = make_shared<my_dedisperser_subclass> (this);
+    
     if (trigger_filename.size())
-	dedisperser->start_trigger_file(trigger_filename, nt_per_file);
-
+	dedisperser->start_trigger_file(this->trigger_filename, this->nt_per_file);
+    
     dedisperser->global_max_trigger_active = true;
     dedisperser->global_max_trigger = 0.0;
     dedisperser->global_max_trigger_dm = 0.0;
     dedisperser->global_max_trigger_arrival_time = 0.0;
-
+    
     dedisperser->spawn_slave_threads();
 }
 
