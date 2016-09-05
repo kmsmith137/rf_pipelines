@@ -268,6 +268,10 @@ void wi_run_state::end_substream()
 
 void wi_run_state::output_substream_json()
 {
+    // If json output is neither being written to a file nor returned to the caller of run(), then there's nothing to do.
+    if ((this->manager->outdir.size() == 0) && (this->json_output == nullptr))
+	return;
+	
     Json::Value json_all;
     json_all["nsamples"] = Json::Value::Int64(stream_ipos);
     // more things will go here!
@@ -303,7 +307,8 @@ void wi_run_state::output_substream_json()
 	json_all["transforms"].append(json_t);
     }
 
-    manager->write_per_substream_json_file(isubstream, json_all, noisy);
+    if (manager->outdir.size() > 0)
+	manager->write_per_substream_json_file(isubstream, json_all, noisy);
 
     if (this->json_output != nullptr)
 	this->json_output->append(json_all);

@@ -55,6 +55,11 @@ string wi_transform::add_plot(const string &basename, int64_t it0, int nt, int n
 
 string wi_transform::add_file(const string &basename)
 {
+    if (!outdir_manager)
+	throw runtime_error("rf_pipelines: internal error: no outdir_manager in wi_transform::add_file()");
+    if (outdir_manager->outdir.size() == 0)
+	throw runtime_error("rf_pipelines: transform '" + this->get_name() + "' attempted to write output file, but outdir=None was specified in the stream constructor");
+
     return this->outdir_manager->add_file(basename);
 }
 

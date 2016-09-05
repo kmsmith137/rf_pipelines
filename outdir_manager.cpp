@@ -11,15 +11,15 @@ namespace rf_pipelines {
 
     
 outdir_manager::outdir_manager(const string &outdir_, bool clobber_ok_) :
+    outdir(outdir_),
     clobber_ok(clobber_ok_)
 {
+    if (outdir.size() == 0)
+	return;
+
     // Ensure trailing slash
-    if (outdir_.size() == 0)
-	this->outdir = "./";
-    else if (outdir_.back() == '/')
-	this->outdir = outdir_;
-    else
-	this->outdir = outdir_ + "/";
+    if (outdir.back() != '/')
+	outdir = outdir + "/";
 
     makedirs(outdir);
 	
@@ -36,6 +36,9 @@ outdir_manager::outdir_manager(const string &outdir_, bool clobber_ok_) :
 // Returns the full pathname
 string outdir_manager::add_file(const string &basename)
 {
+    if (outdir.size() == 0)
+	throw runtime_error("rf_pipelines: transform attempted to write output file, but outdir=None was specified in the stream constructor");
+
     bool is_new = basename_set.insert(basename).second;
     string ret = outdir + basename;
 
