@@ -755,16 +755,19 @@ struct wi_stream_object {
     {
 	static const char *kwlist[] = { "transforms", "outdir", "noisy", "clobber", "return_json", NULL };
 
+	rf_pipelines::wi_stream *stream = get_pbare(self);
 	PyObject *transforms_obj = nullptr;
-	const char *outdir = ".";
+	PyObject *outdir_obj = nullptr;
 	int noisy = 1;
 	int clobber = 1;
 	int return_json = 0;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|siii", (char **)kwlist, &transforms_obj, (char **)&outdir, &noisy, &clobber, &return_json))
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|Oiii", (char **)kwlist, &transforms_obj, &outdir_obj, &noisy, &clobber, &return_json))
 	    return NULL;
 
-	rf_pipelines::wi_stream *stream = get_pbare(self);
+	string outdir;
+	if (outdir_obj != Py_None)
+	    outdir = string_from_python(outdir_obj);
 
 	PyObject *transforms_iter = PyObject_GetIter(transforms_obj);
 	if (!transforms_iter)
@@ -805,6 +808,27 @@ struct wi_stream_object {
 	string ret = w.write(json_out);
 	return Py_BuildValue("s", ret.c_str());   // Note: Py_BuildValue() copies the string
     }
+
+    static constexpr const char *run_docstring =
+	"run(self, transform_list, outdir='.', noisy=True, clobber=True, return_json=False)\n"
+	"\n"
+	"This function is called to run an rf_pipeline.  Arguments:\n"
+        "\n"
+	"  - 'transform_list' is a list (or generator) of objects of type wi_transform (including\n"
+	"     its subclass py_wi_transform).\n"
+	"\n"
+	"  - 'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will\n"
+	"     be written, in addition to other transform-specific output files such as plots\n"
+	"\n"
+	"  -  If 'outdir' is None or an empty string, then the json file will not be written,\n"
+	"     and any transform which tries to write an output file (such as a plotter_transform)\n"
+	"     will throw an exception.\n"
+	"\n"
+	"  -  If 'clobber' is False, then an exception will be thrown if the pipeline tries to\n"
+	"     overwrite an old rf_pipelines.json file.\n"
+	"\n"
+	"  -  If 'return_json' is True, then the return value from run() will be the rf_pipelines\n"
+	"     json output (i.e. same data which is written to rf_pipelines.json)\n";
 
     // Properties
 
@@ -871,7 +895,7 @@ struct wi_stream_object {
 
 
 static PyMethodDef wi_stream_methods[] = {
-    { "run", (PyCFunction) tc_wrap3<wi_stream_object::run>, METH_VARARGS | METH_KEYWORDS, wi_stream_object::dummy_docstring },
+    { "run", (PyCFunction) tc_wrap3<wi_stream_object::run>, METH_VARARGS | METH_KEYWORDS, wi_stream_object::run_docstring },
     { NULL, NULL, 0, NULL }
 };
 

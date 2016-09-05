@@ -457,5 +457,13 @@ inline double double_from_python(PyObject *obj)
     return ret;
 }
 
+inline std::string string_from_python(PyObject *obj)
+{
+    char *ret = PyString_AsString(obj);
+    if (!ret)
+	throw python_exception();
+    return ret;
+}
+
 
 #endif  // _PYTHON_EXTENSION_HELPERS_HPP
