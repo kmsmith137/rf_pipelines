@@ -757,10 +757,11 @@ struct wi_stream_object {
     static PyObject *run(PyObject *self, PyObject *args, PyObject *kwds)
     {
 	static const char *kwlist[] = { "transforms", "outdir", "noisy", "clobber", "return_json", NULL };
+	object default_outdir(Py_BuildValue("s","."), false);
 
 	rf_pipelines::wi_stream *stream = get_pbare(self);
 	PyObject *transforms_obj = Py_None;
-	PyObject *outdir_obj = Py_None;
+	PyObject *outdir_obj = default_outdir.ptr;
 	int noisy = 1;
 	int clobber = 1;
 	int return_json = 0;
