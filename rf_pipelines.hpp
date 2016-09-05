@@ -259,9 +259,20 @@ struct wi_stream {
     virtual void stream_body(wi_run_state &run_state) = 0;
 
     //
-    // This non-virtual function isn't defined by the wi_stream subclass, it's called 
-    // "from the outside" to run the rf_pipeline.  If 'clobber' is true, then the pipeline
-    // is allowed to overwrite a previous run.
+    // This non-virtual function runs the rf_pipeline.
+    //
+    // 'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will
+    // be written, in addition to other transform-specific output files such as plots. 
+    //
+    // If 'outdir' is an empty string, then the json file will not be written, and 
+    // any transform which tries to write an output file (such as a plotter_transform)
+    // will throw an exception.
+    //
+    // If the 'json_output' pointer is non-null, then the pipeline's json output is
+    // written there (i.e. same data which is written to rf_pipelines.json)
+    //
+    // If 'clobber' is false, then an exception will be thrown if the pipeline tries to
+    // overwrite an old rf_pipelines.json file.
     //
     void run(const std::vector<std::shared_ptr<wi_transform> > &transforms, 
 	     const std::string &outdir = ".", 

@@ -218,10 +218,25 @@ class py_wi_stream(wi_stream):
 
     The wi_stream class defines a method
 
-        run(self, transform_list, outdir='.', noisy=True, clobber=True)
+        run(self, transform_list, outdir='.', noisy=True, clobber=True, return_json=False)
 
-    which is called to run a pipeline.  Here, transform_list is a list (or generator) of objects
-    of type wi_transform (or py_wi_transform).
+    which is called to run a pipeline.  Here, 
+
+       - 'transform_list' is a list (or generator) of objects of type wi_transform (including
+         its subclass py_wi_transform).
+
+       - 'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will
+         be written, in addition to other transform-specific output files such as plots. 
+
+         If 'outdir' is None or an empty string, then the json file will not be written,
+         and any transform which tries to write an output file (such as a plotter_transform)
+         will throw an exception.
+    
+       - If 'clobber' is False, then an exception will be thrown if the pipeline tries to
+         overwrite an old rf_pipelines.json file.
+
+       - If 'return_json' is True, then the return value from run() will be the rf_pipelines
+         json output (i.e. same data which is written to rf_pipelines.json)
 
     The wi_stream class defines the following members:
          nfreq            number of frequency channels
