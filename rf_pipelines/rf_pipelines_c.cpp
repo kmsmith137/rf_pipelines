@@ -832,7 +832,10 @@ struct wi_stream_object {
 	"     overwrite an old rf_pipelines.json file.\n"
 	"\n"
 	"  -  If 'return_json' is True, then the return value from run() will be the rf_pipelines\n"
-	"     json output (i.e. same data which is written to rf_pipelines.json)\n";
+	"     json output (i.e. same data which is written to rf_pipelines.json)\n"
+	"\n"
+	"     A kludge: eventually, the run() return value will be a json object, but for now it returns\n"
+	"     the string representation, which can be converted to a json object by calling json.loads().\n";
 
     // Properties
 

@@ -246,7 +246,10 @@ class py_wi_stream(wi_stream):
          overwrite an old rf_pipelines.json file.
 
        - If 'return_json' is True, then the return value from run() will be the rf_pipelines
-         json output (i.e. same data which is written to rf_pipelines.json)
+         json output (i.e. same data which is written to rf_pipelines.json).
+         
+         A kludge: eventually, the run() return value will be a json object, but for now it returns 
+         the string representation, which can be converted to a json object by calling json.loads().
 
     The wi_stream class defines the following members:
          nfreq            number of frequency channels
