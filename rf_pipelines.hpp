@@ -41,18 +41,19 @@
 //
 // Factory functions which return streams (std::shared_ptr<wi_stream>):
 //
-//   make_psrfits_stream(f)        -> reads data from psrfits file (e.g. GBNCC data)
-//   make_chime_stream()           -> reads data from file in CHIME hdf5 format
-//   make_gaussian_noise_stream()  -> outputs gaussian random data
+//   make_chime_stream_from_acqdir()
+//   make_chime_stream_from_filename()
+//   make_chime_stream_from_filename_list()
+//   make_gaussian_noise_stream()
+//   make_psrfits_stream()
 //
 // Factory functions which return transforms (std::shared_ptr<wi_transform>):
 //
-//   make_simple_detreneder()
-//      -> a really boneheaded detrending transform which just subtracts the mean in chunks
-//   make_chime_file_writer()
-//      -> writes stream to a single file in CHIME hdf5 format
-//   make_bonsai_dedisperser() 
-//      -> runs data through the bonsai dedisperser (dedispersion output is written to an hdf5 file)
+//   make_bonsai_dedisperser()     runs data through bonsai dedisperser
+//   make_chime_file_writer()      write stream to a single file in CHIME hdf5 format
+//   make_simple_detreneder()      really boneheaded detrending algorithm (better detrending is available in python, but it's slow!)
+//
+// See below for more info on all these functions!
 //
 
 #ifndef _RF_PIPELINES_HPP

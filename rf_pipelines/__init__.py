@@ -46,18 +46,25 @@ the individual docstrings.
 
 Streams:
 
-   chime_stream_from_filename(filename, nt_chunk=0)
-   chime_stream_from_filename_list(filename_list, nt_chunk=0)
-   chime_stream_from_acqdir(dirname, nt_chunk=0)
-   psrfits_stream(fits_filename)
-   gaussian_noise_stream(nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms=1.0, nt_chunk=0)
+   chime_stream_from_acqdir()
+   chime_stream_from_filename()
+   chime_stream_from_filename_list()
+   gaussian_noise_stream()
+   psrfits_stream()
 
 Transforms:
 
-   simple_detrender(nt_chunk)
-   plotter_transform(img_prefix, img_nfreq, img_nt, downsample_nt=1, nt_chunk=0)
-   frb_injector_transform(snr, undispersed_arrival_time, dm, intrinsic_width=0.0, sm=0.0, spectral_index=0.0, sample_rms=1.0, nt_chunk=1024)
-   bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, ibeam=0)
+   badchannel_mask()          masks list of frequency ranges specified in external file
+   bonsai_dedisperser()       runs data through bonsai dedisperser
+   chime_file_writer()        write stream to a single file in CHIME hdf5 format
+   clipper_transform()        masks data based on intensity values
+   frb_injector_transform()   simulates an FRB (currently S/N calculation only works for toy noise models)
+   kurtosis_filter()          masks data based on kurtosis
+   plotter_transform()        makes waterfall plots at a specified place in the pipeline, very useful for debugging
+   RC_detrender()             exponential detrender, with bidirectional feature intended to remove "step-like" features
+   simple_detreneder()        really boneheaded detrending algorithm (better detrending is available in python, but it's slow!)
+   std_dev_filter()           masks data based on variance
+   thermal_noise_weight()     applies optimal weighting assuming flat gains and variance proportional to intensity
 """
 
 
