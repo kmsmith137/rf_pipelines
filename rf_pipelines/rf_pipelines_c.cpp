@@ -170,6 +170,17 @@ struct wi_transform_object {
     }
 
 
+    static PyObject *name_getter(PyObject *self, void *closure)
+    {
+	return Py_BuildValue("s", get_pbare(self)->name.c_str());   // Note: Py_BuildValue() copies the string
+    }
+
+    static int name_setter(PyObject *self, PyObject *value, void *closure)
+    {
+	get_pbare(self)->name = string_from_python(value);
+	return 0;
+    }
+
     static PyObject *nfreq_getter(PyObject *self, void *closure)
     {
 	return Py_BuildValue("i", get_pbare(self)->nfreq);
@@ -279,11 +290,13 @@ struct wi_transform_object {
 	return Py_BuildValue("s", ret.c_str());   // Note: Py_BuildValue() copies the string
     }
 
+    static constexpr const char *name_docstring =
+	"Transform name (string).  Ends up in rf_pipelines.json.  Should be initialized in the transform constructor.";
+
     static constexpr const char *add_file_docstring = 
 	"Usage: add_file(basename) -> string\n\n"
 	"    Call just before writing a non-plot file, to check for filename collisions between transforms.\n"
 	"    The return value is the full pathname ('basename' with stream output_dir prepended)\n";
-
 
     static constexpr const char *dummy_docstring = 
 	"wi_transform is a C++ base class, and transforms written in C++ inherit from it.\n"
@@ -293,6 +306,11 @@ struct wi_transform_object {
 
 
 static PyGetSetDef wi_transform_getseters[] = {
+    { (char *)"name",
+      tc_wrap_getter<wi_transform_object::name_getter>, 
+      tc_wrap_setter<wi_transform_object::name_setter>, 
+      (char *)wi_transform_object::name_docstring, NULL },
+      
     { (char *)"nfreq", 
       tc_wrap_getter<wi_transform_object::nfreq_getter>, 
       tc_wrap_setter<wi_transform_object::nfreq_setter>, 

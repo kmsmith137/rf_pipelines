@@ -100,6 +100,9 @@ class py_wi_transform(wi_transform):
        # Here, 's' is an object of type wi_stream, and each t_i is an object of type wi_transform
        s.run([t1,t2,...,tN], outdir='.', noisy=True, clobber=True)
 
+    The 'py_wi_transform' constructor may want to initialize self.name, a "transform name" string
+    which ends up in rf_pipelines.json.
+
     Your subclass of 'py_wi_transform' should override the following methods:
     
 
@@ -184,6 +187,10 @@ class py_wi_transform(wi_transform):
     end_substream(): counterpart to start_substream() above.
     """
 
+    def __init__(self, name=None):
+        """Base class constructor is just a reminder to set self.name, and supplies a default value."""
+        self.name = name if (name is not None) else self.__class__.__name__
+
     def set_stream(self, stream):
         pass
 
@@ -195,6 +202,9 @@ class py_wi_transform(wi_transform):
 
     def end_substream(self):
         pass
+
+    def __str__(self):
+        return self.name if (self.name is not None) else self.__class__.__name__
 
     # Note that py_wi_transform inherits the following methods from the C++ base class 
     # 'wi_transform'.  (See method docstrings for more info.)

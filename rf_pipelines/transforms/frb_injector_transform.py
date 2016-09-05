@@ -12,6 +12,7 @@ class frb_injector_transform(rf_pipelines.py_wi_transform):
         self.undispersed_arrival_time = undispersed_arrival_time
         self.sample_rms = sample_rms
 
+        self.name = 'frb_injector_transform'
         self.nfreq = 0     # to be initialized in set_stream()
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
@@ -82,6 +83,3 @@ class frb_injector_transform(rf_pipelines.py_wi_transform):
 
         print >>sys.stderr, ('frb_injector_transform: warning: %f percent of pulse was outside stream endpoints' % (100. * missing_frac))
 
-
-    def __str__(self):
-        return 'frb_injector_transform'

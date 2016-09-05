@@ -48,6 +48,7 @@ class plotter_transform(rf_pipelines.py_wi_transform):
             raise RuntimeError("plotter_transform: current implementation requires 'nt_chunk' to be a multiple of 'downsample_nt'")
 
         # base class members
+        self.name = 'plotter_transform'
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
@@ -127,6 +128,3 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         self.weight_buf[:,:] = 0.
         self.ifile += 1
         self.ipos = 0
-
-    def __str__(self):
-        return 'plotter_transform'
