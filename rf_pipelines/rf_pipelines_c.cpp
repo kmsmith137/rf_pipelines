@@ -107,19 +107,6 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"end_substream", NULL);
 	object ret(p, false);
     }
-
-    virtual string get_name() const override
-    {
-	PyObject *sobj = PyObject_Str(this->get_pyobj());
-	object ret(sobj, false);
-
-	// Returns a pointer to an internal buffer, not a copy, so no free() necessary.
-	char *s = PyString_AsString(sobj);
-	if (!s)
-	    throw python_exception();
-
-	return string(s);
-    }
 };
 
 
@@ -414,6 +401,7 @@ struct exception_monitor : public rf_pipelines::wi_transform
 {
     exception_monitor(ssize_t nt_chunk_)
     {
+	this->name = "exception_monitor";
 	this->nt_chunk = nt_chunk_;
     }
 
@@ -433,9 +421,6 @@ struct exception_monitor : public rf_pipelines::wi_transform
     }
 
     virtual void end_substream() override { }
-    
-    // should never be called
-    virtual string get_name() const override { return "exception_monitor"; }
 };
 
 

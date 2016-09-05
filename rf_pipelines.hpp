@@ -286,6 +286,9 @@ struct wi_stream {
 // (This may be too simple to be an ideal example, I might suggest something different later!)
 //
 struct wi_transform {
+    // Subclass should initialize the transform name in its constructor.
+    // The transform name will appear in the json output, and in python __str__().
+    std::string name;
 
     // The following members must be initialized by the subclass.  The initialization may be
     // done either in the subclass constructor, or in the member function wi_stream::set_stream()
@@ -424,9 +427,6 @@ struct wi_transform {
 
     // end_substream(): counterpart to start_substream() above
     virtual void end_substream() = 0;
-    
-    // Note: the transform name will appear in the json output, and in python __str__().
-    virtual std::string get_name() const = 0;
 };
 
 

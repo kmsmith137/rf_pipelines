@@ -38,7 +38,6 @@ struct bonsai_dedisperser : public wi_transform {
     virtual void start_substream(int isubstream, double t0) override;
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override;
     virtual void end_substream() override;
-    virtual string get_name() const override;
 };
 
 
@@ -95,6 +94,7 @@ bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const
     this->config = make_shared<bonsai::config_params> (config_hdf5_filename, true);   // init_weights=true
 
     // initialize members of wi_transform base class
+    this->name = "bonsai_dedisperser(" + config_filename + ")";
     this->nfreq = config->nchan;
     this->nt_chunk = config->nt_data;
     this->nt_postpad = 0;
@@ -175,12 +175,6 @@ void bonsai_dedisperser::end_substream()
     this->json_misc["frb_global_max_trigger_tfinal"] = dedisperser->global_max_trigger_arrival_time;
 
     dedisperser->terminate();
-}
-
-
-string bonsai_dedisperser::get_name() const
-{
-    return "bonsai_dedisperser(" + config_filename + ")";
 }
 
 

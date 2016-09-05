@@ -250,7 +250,7 @@ void wi_run_state::end_substream()
     if (noisy) {
 	cerr << ("rf_pipelines: processed " + to_string(save_ipos) + " samples\n");
 	for (int it = 0; it < ntransforms; it++)
-	    cerr << "    Transform " << it << ": " << transforms[it]->time_spent_in_transform << " sec  [" << transforms[it]->get_name() << "]\n";
+	    cerr << "    Transform " << it << ": " << transforms[it]->time_spent_in_transform << " sec  [" << transforms[it]->name << "]\n";
     }
 
     this->output_substream_json();
@@ -277,16 +277,8 @@ void wi_run_state::output_substream_json()
     // more things will go here!
 
     for (const shared_ptr<wi_transform> &t: transforms) {
-	string transform_name = "<error in wi_transform::get_name()>";
-
-	try {
-	    transform_name = t->get_name();
-	} catch (...) {
-	    cerr << "warning: wi_transform::get_name() threw exception";
-	}
-
 	Json::Value &json_t = t->json_misc;   // includes everything except "time" and "plots"
-	json_t["name"] = transform_name;
+	json_t["name"] = t->name;
 	json_t["time"] = t->time_spent_in_transform;
 
 	for (const shared_ptr<plot_group> &g: t->plot_groups) {

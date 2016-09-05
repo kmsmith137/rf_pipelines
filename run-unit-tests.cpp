@@ -136,6 +136,7 @@ struct test_wi_transform : public wi_transform {
     test_wi_transform(const test_wi_stream &stream, const std::shared_ptr<test_wi_transform> &prev_transform)
     {
 	// initialize fields in base class
+	this->name = "test_transform";
 	this->nfreq = stream.nfreq;
 	this->nt_chunk = randint(1, 21);
 	this->nt_prepad = max(randint(-15,21), (ssize_t)0);    // order-one probability of zero
@@ -164,7 +165,6 @@ struct test_wi_transform : public wi_transform {
     virtual void set_stream(const wi_stream &stream) override { return; }
     virtual void start_substream(int isubstream, double t0) override { this->t0_substream = t0; }
     virtual void end_substream() override { return; }
-    virtual string get_name() const override { return "test_transform"; }
 
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
     {

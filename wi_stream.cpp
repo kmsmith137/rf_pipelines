@@ -42,10 +42,8 @@ struct outdir_janitor {
     {
 	rf_assert(transform);
 
-	if (transform->outdir_manager) {
-	    string name = transform->get_name();
-	    throw runtime_error("Fatal: transform->outdir_manager initialized twice.  This probably means a transform is being reused (transform name=" + name + ")");
-	}
+	if (transform->outdir_manager)
+	    throw runtime_error("Fatal: transform->outdir_manager initialized twice.  This probably means a transform is being reused (transform name=" + transform->name + ")");
 
 	transform->outdir_manager = manager;
 	this->transform_list.push_back(transform);
@@ -77,6 +75,8 @@ void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const s
     for (const shared_ptr<wi_transform> &transform: transforms) {
 	if (!transform)
 	    throw runtime_error("rf_pipelines: empty transform pointer passed to wi_stream::run()");
+	if (transform->name.size() == 0)
+	    throw runtime_error("rf_pipelines: a C++ transform failed to initialize its 'name' field");
 
 	janitor.set_outdir_manager(transform);
 	transform->set_stream(*this);

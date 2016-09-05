@@ -4,7 +4,9 @@
 
      - Backwards-incompatible: transform reuse now treated as an error
 
-     - There may be a backwards-incompatible change in the transform API
+     - Transform has a 'name' which is initialized in its constructor.	
+       This goes into json output, and python __str__.
+       C++ transforms must explicitly initialize the name; python transforms have a default initializer based on subclass name.
 
      - JSON output
 
