@@ -79,6 +79,7 @@ void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const s
 	    throw runtime_error("rf_pipelines: a C++ transform failed to initialize its 'name' field");
 
 	janitor.set_outdir_manager(transform);
+	transform->json_per_stream.clear();
 	transform->set_stream(*this);
 	
 	if (transform->nfreq != this->nfreq)

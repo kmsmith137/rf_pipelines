@@ -113,6 +113,8 @@ Here are some to do items which anyone could work on:
 
   - Mask-expanding transform
 
+  - Currently per-transform json data can't be written from python.
+
 ### LOW-LEVEL TO DO LIST
 
 I plan to get back to these in a few weeks:

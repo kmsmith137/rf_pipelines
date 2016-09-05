@@ -55,7 +55,7 @@ struct my_dedisperser_subclass : public bonsai::dedisperser {
     virtual void _open_trigger_file(const string &basename, const string &datetime0_str, const string &datetime_str)
     {
 	string filename = transform->add_file(basename);
-	transform->json_misc["trigger_files"].append(filename);
+	transform->json_per_substream["trigger_files"].append(filename);
 	bonsai::dedisperser::_open_trigger_file(filename, datetime0_str, datetime_str);
     }
 
@@ -100,6 +100,10 @@ bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const
     this->nt_postpad = 0;
     this->nt_prepad = 0;
 
+    // FIXME: write more config info?
+    for (int itree = 0; itree < config->ntrees; itree++)
+	this->json_persistent["max_dm"].append(config->max_dm[itree]);
+
     if (trigger_plot_stem.size() > 0) {
 	if (nt_per_file <= 0)
 	    throw runtime_error("rf_pipelines::bonsai_dedisperser: if the 'trigger_plot_stem' arg is specified, then 'nt_per_file' must also be specified and > 0");
@@ -135,11 +139,6 @@ void bonsai_dedisperser::start_substream(int isubstream, double t0)
     if (isubstream > 0)
 	throw runtime_error("bonsai_dedisperser: currently can't process a stream which defines multiple substreams");
 
-    // FIXME: write more config info?
-    // Note that 'json_misc' is per-substream, so we can't put this initialization in set_stream() or the constructor
-    for (int itree = 0; itree < config->ntrees; itree++)
-	this->json_misc["max_dm"].append(config->max_dm[itree]);
-
     this->dedisperser = make_shared<my_dedisperser_subclass> (this);
     
     if (trigger_hdf5_filename.size())
@@ -170,9 +169,9 @@ void bonsai_dedisperser::end_substream()
     if (trigger_plot_stem.size())
 	dedisperser->end_trigger_plots();
 
-    this->json_misc["frb_global_max_trigger"] = dedisperser->global_max_trigger;
-    this->json_misc["frb_global_max_trigger_dm"] = dedisperser->global_max_trigger_dm;
-    this->json_misc["frb_global_max_trigger_tfinal"] = dedisperser->global_max_trigger_arrival_time;
+    this->json_per_substream["frb_global_max_trigger"] = dedisperser->global_max_trigger;
+    this->json_per_substream["frb_global_max_trigger_dm"] = dedisperser->global_max_trigger_dm;
+    this->json_per_substream["frb_global_max_trigger_tfinal"] = dedisperser->global_max_trigger_arrival_time;
 
     dedisperser->terminate();
 }

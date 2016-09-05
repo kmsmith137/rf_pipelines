@@ -283,7 +283,7 @@ struct wi_stream {
 
 
 //
-// Note: for a reference example showing how to implement a wi_stream, check out simple_detrender.cpp.
+// Note: for a reference example showing how to implement a wi_transform, check out simple_detrender.cpp.
 // (This may be too simple to be an ideal example, I might suggest something different later!)
 //
 struct wi_transform {
@@ -302,13 +302,15 @@ struct wi_transform {
     ssize_t nt_postpad = 0;   // postpad size for process_chunk(), see below
 
     //
-    // The 'json_misc' argument is an optional set of key/value pairs which the transform is free to define.
+    // Each transform can define key/value pairs which get written to the pipeline json output file.
+    // This data is always written on a per-substream basis, but it's convenient not to reinitialize it
+    // for every substream.  Therefore we define three json objects which differ in when they get cleared.
     //
-    // Note that 'json_misc' is automatically reset between substreams.  Therefore, it's natural to
-    // modify it in start_subtream(), process_chunk(), or end_substream(), and it's probably a bug to
-    // modify in the transform constructor or start_stream().  (See below.)
+    // FIXME there is currently no way to modify these from python.
     //
-    Json::Value json_misc;
+    Json::Value json_persistent;       // never cleared
+    Json::Value json_per_stream;       // cleared just before start_stream()
+    Json::Value json_per_substream;    // cleared just before start_substream()
 
     //
     // These helper functions are used by wi_transforms which write output files (e.g. hdf5, png).

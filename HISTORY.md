@@ -9,6 +9,7 @@
        C++ transforms must explicitly initialize the name; python transforms have a default initializer based on subclass name.
 
      - JSON output
+       (To do: per-transform json data can't currently be written from python)
 
      - run() syntax changed
 

@@ -14,6 +14,19 @@ namespace rf_pipelines {
 #endif
 
 
+static void merge_json(Json::Value &dst, const Json::Value &src)
+{
+    if (src.isNull())
+	return;
+
+    if (!src.isObject())
+	throw runtime_error("expected json value to be of 'object' type");
+
+    for (const auto &key : src.getMemberNames())
+        dst[key] = src[key];
+}
+
+
 wi_run_state::wi_run_state(const wi_stream &stream, const vector<shared_ptr<wi_transform> > &transforms_, const shared_ptr<outdir_manager> &manager_, Json::Value *json_output_, bool noisy_) :
     nfreq(stream.nfreq),
     nt_stream_maxwrite(stream.nt_maxwrite),
@@ -272,38 +285,42 @@ void wi_run_state::output_substream_json()
     if ((this->manager->outdir.size() == 0) && (this->json_output == nullptr))
 	return;
 	
-    Json::Value json_all;
-    json_all["nsamples"] = Json::Value::Int64(stream_ipos);
+    Json::Value json_substream;
+    json_substream["nsamples"] = Json::Value::Int64(stream_ipos);
     // more things will go here!
 
     for (const shared_ptr<wi_transform> &t: transforms) {
-	Json::Value &json_t = t->json_misc;   // includes everything except "time" and "plots"
-	json_t["name"] = t->name;
-	json_t["time"] = t->time_spent_in_transform;
+	Json::Value json_transform;
+	json_transform["name"] = t->name;
+	json_transform["time"] = t->time_spent_in_transform;
+
+	merge_json(json_transform, t->json_persistent);
+	merge_json(json_transform, t->json_per_stream);
+	merge_json(json_transform, t->json_per_substream);
 
 	for (const shared_ptr<plot_group> &g: t->plot_groups) {
 	    if (g->is_empty)
 		continue;
 
-	    Json::Value json_g;
-	    json_g["name"] = g->name;
-	    json_g["nt_per_pix"] = g->nt_per_pix;
-	    json_g["ny"] = g->ny;
-	    json_g["it0"] = Json::Value::Int64(g->curr_it0);
-	    json_g["it1"] = Json::Value::Int64(g->curr_it1);
-	    json_g["files"].append(g->files);
+	    Json::Value json_pg;
+	    json_pg["name"] = g->name;
+	    json_pg["nt_per_pix"] = g->nt_per_pix;
+	    json_pg["ny"] = g->ny;
+	    json_pg["it0"] = Json::Value::Int64(g->curr_it0);
+	    json_pg["it1"] = Json::Value::Int64(g->curr_it1);
+	    json_pg["files"].append(g->files);
 
-	    json_t["plots"].append(json_g);
+	    json_transform["plots"].append(json_pg);
 	}
 
-	json_all["transforms"].append(json_t);
+	json_substream["transforms"].append(json_transform);
     }
 
     if (manager->outdir.size() > 0)
-	manager->write_per_substream_json_file(isubstream, json_all, noisy);
+	manager->write_per_substream_json_file(isubstream, json_substream, noisy);
 
     if (this->json_output != nullptr)
-	this->json_output->append(json_all);
+	this->json_output->append(json_substream);
 }
 
 
@@ -311,7 +328,7 @@ void wi_run_state::clear_per_substream_data()
 {
     for (const shared_ptr<wi_transform> &t: transforms) {
 	t->time_spent_in_transform = 0.0;
-	t->json_misc.clear();
+	t->json_per_substream.clear();
 
 	for (const shared_ptr<plot_group> &g: t->plot_groups) {
 	    g->is_empty = true;
