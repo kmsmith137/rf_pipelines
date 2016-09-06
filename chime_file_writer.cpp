@@ -111,7 +111,8 @@ shared_ptr<wi_transform> make_chime_file_writer(const string &filename, bool clo
     return make_shared<chime_file_writer> (filename, clobber, bitshuffle, nt_chunk);
 }
 
+#endif  // HAVE_CH_FRB_IO
+
 
 }  // namespace rf_pipelines
 
-#endif  // HAVE_CH_FRB_IO
