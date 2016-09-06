@@ -175,3 +175,68 @@ def tile_arr(arr, axis, nfreq, nt_chunk):
         return np.tile(arr, (nfreq, 1))
     else:
         return np.transpose(np.tile(arr, (nt_chunk, 1)))
+
+
+####################################################################################################
+
+
+def json_show(obj, depth=1):
+    """
+    Prints a partially-expanded summary of json object 'obj' to stdout.
+    The 'depth' parameter controls the amount of expansion.
+    """
+
+    print json_str(obj, depth, indent='')
+
+    
+def json_str(obj, depth=1, indent=''):
+    """
+    Returns a partially-expanded summary of json object 'obj' as a string.
+
+    The 'depth' parameter has the following meaning:
+       depth < 0:   one-word summary (e.g. if obj is a list then 'list' will be returned)
+       depth = 0:   one-line summary, long lists/dicts will be abbreviated
+       depth = 1:   multi-line summary, all entries of lists/dicts will be shown
+       depth > 1:   multi-line summary, sublists/subdicts will be partially expanded to (depth-1).
+    """
+
+    if isinstance(obj, basestring):
+        return '"%s"' % obj
+
+    if isinstance(obj,int) or isinstance(obj,float) or isinstance(obj,bool):
+        return repr(obj)
+
+    if isinstance(obj, list):
+        if depth < 0:
+            return 'list'
+
+        if depth > 0:
+            x = [ '%s    %s\n' % (indent, json_str(t,depth-1,indent+'    ')) for t in obj ]
+            return '[\n%s%s]' % (''.join(x), indent)
+
+        if len(obj) > 4:
+            return '[ %s, %s, ..., %s ]' % (json_str(obj[0],-1), json_str(obj[1],-1), json_str(obj[-1],-1))
+
+        x = [ json_str(t,-1) for t in obj ]
+        return '[ %s ]' % (', '.join(x))
+
+    if isinstance(obj, dict):
+        if depth < 0:
+            return 'dict'
+
+        if depth > 0:
+            x = [ ((isinstance(v,dict) or isinstance(v,list)), k) for (k,v) in obj.iteritems() ]
+            x = [ (k,obj[k]) for (t,k) in sorted(x) ]
+            x = [ '%s    "%s": %s\n' % (indent, k, json_str(v,depth-1,indent+'    ')) for (k,v) in x ]
+            return '{\n%s%s}' % (''.join(x), indent)
+
+        x = sorted(obj.keys())
+        
+        if len(obj) > 4:
+            return '{ "%s":%s, "%s":%s, ..., "%s":%s }' % (x[0], json_str(obj[x[0]],-1), x[1], json_str(obj[x[1]],-1), x[-1], json_str(obj[x[-1]],-1))
+
+        x = [ '"%s":%s' % (k,json_str(obj[k],-1)) for k in x ]
+        return '{ %s }' % (', '.join(x))
+    
+    raise RuntimeError('rf_pipelines.json_str(): unrecognized object')
+
