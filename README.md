@@ -25,12 +25,12 @@ For a high-level overview, here are some slides from CHIME telecons:
 
     In linux, you can probably install with `yum install jsoncpp-devel`
 
-    If you have to build from scratch, you can probably do:
+    Building jsoncpp from scratch is a pain, but the following procedure worked for me:
     ```
     git clone https://github.com/open-source-parsers/jsoncpp
     mkdir -p build/debug
     cd build/debug
-    cmake -DCMAKE_INSTALL_PREFIX:PATH=$HOME -G "Unix Makefiles" ../..
+    cmake -DCMAKE_INSTALL_PREFIX:PATH=$HOME -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_C_FLAGS=-fPIC -DCMAKE_BUILD_TYPE=debug -G "Unix Makefiles" ../..
     make install
     ```
 
