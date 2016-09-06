@@ -20,9 +20,19 @@ For a high-level overview, here are some slides from CHIME telecons:
     Note that this is a link to HDF5 v1.8.  I imagine v1.10 also works but haven't tested it yet.
 
   - jsoncpp (https://github.com/open-source-parsers/jsoncpp)
-    One-line install:
-       brew install jsoncpp  (osx)
-       yum install jsoncpp-devel  (linux centos)
+
+    On osx, you can probably install with: `brew install jsoncpp`
+
+    In linux, you can probably install with `yum install jsoncpp-devel`
+
+    If you have to build from scratch, you can probably do:
+    ```
+    git clone https://github.com/open-source-parsers/jsoncpp
+    mkdir -p build/debug
+    cd build/debug
+    cmake -DCMAKE_INSTALL_PREFIX:PATH=$HOME -G "Unix Makefiles" ../..
+    make install
+    ```
 
   - Optional but recommended: The 'PIL' python imaging library (you can test whether you have 
     it with 'import PIL' from python).  If you need to install it, I recommend the 'Pillow' 
