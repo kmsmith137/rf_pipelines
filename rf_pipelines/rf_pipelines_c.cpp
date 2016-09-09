@@ -417,10 +417,9 @@ bool wi_transform_object::isinstance(PyObject *obj)
 
 struct exception_monitor : public rf_pipelines::wi_transform
 {
-    exception_monitor(ssize_t nt_chunk_)
+    exception_monitor()
     {
 	this->name = "exception_monitor";
-	this->nt_chunk = nt_chunk_;
     }
 
     virtual ~exception_monitor() { }
@@ -428,6 +427,7 @@ struct exception_monitor : public rf_pipelines::wi_transform
     virtual void set_stream(const rf_pipelines::wi_stream &stream) override
     {
 	this->nfreq = stream.nfreq;
+	this->nt_chunk = stream.nt_maxwrite;
     }
 
     virtual void start_substream(int isubstream, double t0) override { }
@@ -787,7 +787,7 @@ struct wi_stream_object {
 	vector<object> item_references;
 
 	vector<shared_ptr<rf_pipelines::wi_transform> > transform_list;
-	transform_list.push_back(make_shared<exception_monitor> (stream->nt_maxwrite));
+	transform_list.push_back(make_shared<exception_monitor> ());
 
 	for (;;) {
 	    PyObject *item_ptr = PyIter_Next(transforms_iter);
