@@ -266,7 +266,10 @@ class py_wi_stream(wi_stream):
          dt_sample        length of a sample in seconds
          nt_maxwrite      block size of stream (defined as max number of time samples per call to setup_write())
 
-    These are initialized in the constructor and can never be changed afterwards.
+    These can be initialized either in the stream constructor, or in the optional stream_start() method.
+    In some cases, it's convenient to defer initialization until stream_start(), since they may not be
+    known until the stream starts running.  An example is a network stream, which may not get the value
+    of dt_sample (say) until the first packet is received.
 
     Note: don't set nt_maxwrite to an excessively large value, since there is an internal
     buffer of approximate size (24 bytes) * nfreq * nt_maxwrite.
@@ -303,7 +306,7 @@ class py_wi_stream(wi_stream):
 
     At the moment the "multiple-substream" feature isn't very well-supported, so it's probably best for all 
     streams to represent their data as a single substream. However, I anticipate it being a useful feature 
-    when we  implement real-time network streams, since we'll want a way to finalize state when the correlator 
+    when we implement real-time network streams, since we'll want a way to finalize state when the correlator 
     goes down (or repoints) and restart when it comes back.
 
     Sumarizing, wi_stream.stream_body() should look something like this.
@@ -324,11 +327,22 @@ class py_wi_stream(wi_stream):
     """
 
     def __init__(self, nfreq, freq_lo_MHz, freq_hi_MHz, dt_sample, nt_maxwrite):
+        # It's not necessary for the subclass constructor to call this base class constructor,
+        # but the five members below must be initialized either in the constructor or stream_start().
         self.nfreq = nfreq
         self.freq_lo_MHz = freq_lo_MHz
         self.freq_hi_MHz = freq_hi_MHz
         self.dt_sample = dt_sample
         self.nt_maxwrite = nt_maxwrite
+
+
+    def stream_start(self):
+        """
+        This optional method can be defined by the stream class, if it's convenient to defer
+        initializations until the stream starts running.  An example is a network stream, which 
+        may not get the value of dt_sample (say) until the first packet is received.
+        """
+        pass
 
 
     def stream_body(self, run_state):

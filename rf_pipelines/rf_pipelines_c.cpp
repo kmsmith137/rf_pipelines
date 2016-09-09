@@ -687,6 +687,12 @@ struct upcalling_wi_stream : public rf_pipelines::wi_stream
 	    throw runtime_error("rf_pipelines: internal error: weak reference expired [should never happen]");
 	return ret;
     }
+
+    virtual void stream_start()
+    {
+	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"stream_start", NULL);
+	object ret(p, false);
+    }
     
     virtual void stream_body(rf_pipelines::wi_run_state &run_state)
     {
