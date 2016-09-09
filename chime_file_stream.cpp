@@ -252,7 +252,7 @@ shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &dirname, ssize
     bool allow_empty = false;
     vector<string> filename_list;
     list_chime_acqdir(filename_list, dirname, allow_empty);
-    cerr << dirname << ": " << filename_list.size() << " data files found in acqdir";
+    cerr << dirname << ": " << filename_list.size() << " data files found in acqdir\n";
 
     return make_chime_stream_from_filename_list(filename_list, nt_chunk, noise_source_align);
 }
