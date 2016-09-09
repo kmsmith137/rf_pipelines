@@ -1,22 +1,28 @@
 - network_streams branch:
 
-     - API change: substream_start()
+     - API change: stream_start()
 
      - Network stream and packetizing transform
 
-- KMS branch:
+- Version 8:
 
-     - Backwards-incompatible: jsoncpp library now required
+     - Backwards-incompatible: jsoncpp library now required (see README.md for installation instructions)
 
-     - Backwards-incompatible: transform reuse now treated as an error
+     - Backwards-incompatible: it's now considered an error to use the same transform twice in a pipeline.
+       This was necessary in order to implement automatic timing of transforms.
+     
+     - Backwards-incompatible: transforms must initialize self.name in their constructors.
 
-     - There may be a backwards-incompatible change in the transform API
+     - Potentially backwards-incompatible: transforms which write output files should do so through
+       a new interface (transform.add_file(), transform.add_plot())
 
-     - JSON output
+     - Streams can now be written in python (not just transforms).
 
-     - run() syntax changed
+     - Pipelines now write a JSON file containing summary information such as which plots were written.
+       This is intended to be the input to a browser-based pipeline "viewer" being written by Masoud.
 
-     - Python streams implemented
+     - stream.run() syntax changed in a backwards-compatible way, with optional arguments to control	
+       the placement of output files, and retrieve the summary json data.
 
 - Version 7:
 

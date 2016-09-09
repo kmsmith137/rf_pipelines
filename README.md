@@ -20,9 +20,19 @@ For a high-level overview, here are some slides from CHIME telecons:
     Note that this is a link to HDF5 v1.8.  I imagine v1.10 also works but haven't tested it yet.
 
   - jsoncpp (https://github.com/open-source-parsers/jsoncpp)
-    One-line install:
-       brew install jsoncpp  (osx)
-       yum install jsoncpp-devel  (linux centos)
+
+    On osx, you can probably install with: `brew install jsoncpp`
+
+    In linux, you can probably install with `yum install jsoncpp-devel`
+
+    Building jsoncpp from scratch is a pain, but the following procedure worked for me:
+    ```
+    git clone https://github.com/open-source-parsers/jsoncpp
+    mkdir -p build/debug
+    cd build/debug
+    cmake -DCMAKE_INSTALL_PREFIX:PATH=$HOME -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_C_FLAGS=-fPIC -DCMAKE_BUILD_TYPE=debug -G "Unix Makefiles" ../..
+    make install
+    ```
 
   - Optional but recommended: The 'PIL' python imaging library (you can test whether you have 
     it with 'import PIL' from python).  If you need to install it, I recommend the 'Pillow' 
@@ -112,6 +122,8 @@ Here are some to do items which anyone could work on:
     (in case you want to write a trigger postprocessing callback in python)
 
   - Mask-expanding transform
+
+  - Currently per-transform json data can't be written from python.
 
 ### LOW-LEVEL TO DO LIST
 

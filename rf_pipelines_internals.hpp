@@ -44,7 +44,7 @@ namespace rf_pipelines {
 // output_tracker to create a lockfile in the output directory.
 //
 struct outdir_manager {
-    std::string outdir;  // includes trailing slash
+    std::string outdir;  // can be an empty string, otherwise includes trailing slash
     bool clobber_ok = true;
 
     std::set<std::string> basename_set;

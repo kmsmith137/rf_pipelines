@@ -59,6 +59,7 @@ struct chime_file_writer : public wi_transform {
 
     virtual void set_stream(const wi_stream &stream) override
     {
+	this->name = "chime_file_writer(" + filename + ")";
 	this->nfreq = stream.nfreq;
 	this->freq_lo_MHz = stream.freq_lo_MHz;
 	this->freq_hi_MHz = stream.freq_hi_MHz;
@@ -101,11 +102,6 @@ struct chime_file_writer : public wi_transform {
 	// Resetting this pointer will close file
 	this->ofile.reset();
     }
-
-    virtual string get_name() const override
-    {
-	return "chime_file_writer(" + filename + ")";
-    }
 };
 
 
@@ -115,7 +111,8 @@ shared_ptr<wi_transform> make_chime_file_writer(const string &filename, bool clo
     return make_shared<chime_file_writer> (filename, clobber, bitshuffle, nt_chunk);
 }
 
+#endif  // HAVE_CH_FRB_IO
+
 
 }  // namespace rf_pipelines
 
-#endif  // HAVE_CH_FRB_IO

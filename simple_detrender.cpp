@@ -26,7 +26,6 @@ struct simple_detrender : public wi_transform {
     virtual void start_substream(int isubstream, double t0) override { }
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override;
     virtual void end_substream() override { }
-    virtual string get_name() const override;
 };
 
 
@@ -38,6 +37,8 @@ simple_detrender::simple_detrender(ssize_t nt_detrend)
     // By initializing 'nt_chunk' to nt_detrend, rf_pipelines will deliver the data
     // in chunks of size nt_detrend.  This is convenient since the simple_detrender
     // can just process each chunk independently.
+
+    this->name = "simple_detrender(" + to_string(nt_chunk) + ")";
     this->nt_chunk = nt_detrend;
 
     // Note that 'nt_prepad' and nt_postpad are automatically initialized to zero, which
@@ -86,12 +87,6 @@ void simple_detrender::process_chunk(double t0, double t1, float *intensity, flo
 	for (ssize_t it = 0; it < this->nt_chunk; it++)
 	    intensity[ifreq*stride + it] -= (num/den);
     }
-}
-
-
-string simple_detrender::get_name() const
-{
-    return "simple_detrender(" + to_string(nt_chunk) + ")";
 }
 
 

@@ -45,26 +45,27 @@ Here is a list of all streams and transforms currently available.  For documatat
 the individual docstrings.
 
 Streams:
-
-   chime_stream_from_filename(filename, nt_chunk=0)
-   chime_stream_from_filename_list(filename_list, nt_chunk=0)
-   chime_stream_from_acqdir(dirname, nt_chunk=0)
-
-   psrfits_stream(fits_filename)
-
-   gaussian_noise_stream(nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms=1.0, nt_chunk=0)
+   chime_stream_from_acqdir()
+   chime_stream_from_filename()
+   chime_stream_from_filename_list()
+   chime_network_stream()
+   gaussian_noise_stream()
+   psrfits_stream()
 
 Transforms:
 
-   plotter_transform(img_prefix, img_nfreq, img_nt, downsample_nt=1, nt_chunk=0)
-
-   chime_packetizer(dstname, nfreq_per_packet, nt_per_chunk, nt_per_packet, wt_cutoff)
-
-   simple_detrender(nt_chunk)
-
-   frb_injector_transform(snr, undispersed_arrival_time, dm, intrinsic_width=0.0, sm=0.0, spectral_index=0.0, sample_rms=1.0, nt_chunk=1024)
-
-   bonsai_dedisperser(config_hdf5_filename, output_hdf5_filename, ibeam=0)
+   badchannel_mask()          masks list of frequency ranges specified in external file
+   bonsai_dedisperser()       runs data through bonsai dedisperser
+   chime_file_writer()        write stream to a single file in CHIME hdf5 format
+   chime_packetizer()         send stream over network, to a chime_network_stream running on another machine
+   clipper_transform()        masks data based on intensity values
+   frb_injector_transform()   simulates an FRB (currently S/N calculation only works for toy noise models)
+   kurtosis_filter()          masks data based on kurtosis
+   plotter_transform()        makes waterfall plots at a specified place in the pipeline, very useful for debugging
+   RC_detrender()             exponential detrender, with bidirectional feature intended to remove "step-like" features
+   simple_detreneder()        really boneheaded detrending algorithm (better detrending is available in python, but it's slow!)
+   std_dev_filter()           masks data based on variance
+   thermal_noise_weight()     applies optimal weighting assuming flat gains and variance proportional to intensity
 """
 
 
@@ -106,6 +107,9 @@ class py_wi_transform(wi_transform):
 
        # Here, 's' is an object of type wi_stream, and each t_i is an object of type wi_transform
        s.run([t1,t2,...,tN], outdir='.', noisy=True, clobber=True)
+
+    The 'py_wi_transform' constructor may want to initialize self.name, a "transform name" string
+    which ends up in rf_pipelines.json.
 
     Your subclass of 'py_wi_transform' should override the following methods:
     
@@ -191,6 +195,10 @@ class py_wi_transform(wi_transform):
     end_substream(): counterpart to start_substream() above.
     """
 
+    def __init__(self, name=None):
+        """Base class constructor is just a reminder to set self.name, and supplies a default value."""
+        self.name = name if (name is not None) else self.__class__.__name__
+
     def set_stream(self, stream):
         pass
 
@@ -202,6 +210,9 @@ class py_wi_transform(wi_transform):
 
     def end_substream(self):
         pass
+
+    def __str__(self):
+        return self.name if (self.name is not None) else self.__class__.__name__
 
     # Note that py_wi_transform inherits the following methods from the C++ base class 
     # 'wi_transform'.  (See method docstrings for more info.)
@@ -225,10 +236,28 @@ class py_wi_stream(wi_stream):
 
     The wi_stream class defines a method
 
-        run(self, transform_list, outdir='.', noisy=True, clobber=True)
+        run(self, transform_list, outdir='.', noisy=True, clobber=True, return_json=False)
 
-    which is called to run a pipeline.  Here, transform_list is a list (or generator) of objects
-    of type wi_transform (or py_wi_transform).
+    which is called to run a pipeline.  Here, 
+
+       - 'transform_list' is a list (or generator) of objects of type wi_transform (including
+         its subclass py_wi_transform).
+
+       - 'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will
+         be written, in addition to other transform-specific output files such as plots. 
+
+         If 'outdir' is None or an empty string, then the json file will not be written,
+         and any transform which tries to write an output file (such as a plotter_transform)
+         will throw an exception.
+    
+       - If 'clobber' is False, then an exception will be thrown if the pipeline tries to
+         overwrite an old rf_pipelines.json file.
+
+       - If 'return_json' is True, then the return value from run() will be the rf_pipelines
+         json output (i.e. same data which is written to rf_pipelines.json).
+         
+         A kludge: eventually, the run() return value will be a json object, but for now it returns 
+         the string representation, which can be converted to a json object by calling json.loads().
 
     The wi_stream class defines the following members:
          nfreq            number of frequency channels

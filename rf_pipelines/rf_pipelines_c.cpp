@@ -107,19 +107,6 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"end_substream", NULL);
 	object ret(p, false);
     }
-
-    virtual string get_name() const override
-    {
-	PyObject *sobj = PyObject_Str(this->get_pyobj());
-	object ret(sobj, false);
-
-	// Returns a pointer to an internal buffer, not a copy, so no free() necessary.
-	char *s = PyString_AsString(sobj);
-	if (!s)
-	    throw python_exception();
-
-	return string(s);
-    }
 };
 
 
@@ -182,6 +169,17 @@ struct wi_transform_object {
 	return p.get();
     }
 
+
+    static PyObject *name_getter(PyObject *self, void *closure)
+    {
+	return Py_BuildValue("s", get_pbare(self)->name.c_str());   // Note: Py_BuildValue() copies the string
+    }
+
+    static int name_setter(PyObject *self, PyObject *value, void *closure)
+    {
+	get_pbare(self)->name = string_from_python(value);
+	return 0;
+    }
 
     static PyObject *nfreq_getter(PyObject *self, void *closure)
     {
@@ -292,11 +290,13 @@ struct wi_transform_object {
 	return Py_BuildValue("s", ret.c_str());   // Note: Py_BuildValue() copies the string
     }
 
+    static constexpr const char *name_docstring =
+	"Transform name (string).  Ends up in rf_pipelines.json.  Should be initialized in the transform constructor.";
+
     static constexpr const char *add_file_docstring = 
 	"Usage: add_file(basename) -> string\n\n"
 	"    Call just before writing a non-plot file, to check for filename collisions between transforms.\n"
 	"    The return value is the full pathname ('basename' with stream output_dir prepended)\n";
-
 
     static constexpr const char *dummy_docstring = 
 	"wi_transform is a C++ base class, and transforms written in C++ inherit from it.\n"
@@ -306,6 +306,11 @@ struct wi_transform_object {
 
 
 static PyGetSetDef wi_transform_getseters[] = {
+    { (char *)"name",
+      tc_wrap_getter<wi_transform_object::name_getter>, 
+      tc_wrap_setter<wi_transform_object::name_setter>, 
+      (char *)wi_transform_object::name_docstring, NULL },
+      
     { (char *)"nfreq", 
       tc_wrap_getter<wi_transform_object::nfreq_getter>, 
       tc_wrap_setter<wi_transform_object::nfreq_setter>, 
@@ -414,6 +419,7 @@ struct exception_monitor : public rf_pipelines::wi_transform
 {
     exception_monitor(ssize_t nt_chunk_)
     {
+	this->name = "exception_monitor";
 	this->nt_chunk = nt_chunk_;
     }
 
@@ -433,9 +439,6 @@ struct exception_monitor : public rf_pipelines::wi_transform
     }
 
     virtual void end_substream() override { }
-    
-    // should never be called
-    virtual string get_name() const override { return "exception_monitor"; }
 };
 
 
@@ -754,17 +757,21 @@ struct wi_stream_object {
     static PyObject *run(PyObject *self, PyObject *args, PyObject *kwds)
     {
 	static const char *kwlist[] = { "transforms", "outdir", "noisy", "clobber", "return_json", NULL };
+	object default_outdir(Py_BuildValue("s","."), false);
 
-	PyObject *transforms_obj = nullptr;
-	const char *outdir = ".";
+	rf_pipelines::wi_stream *stream = get_pbare(self);
+	PyObject *transforms_obj = Py_None;
+	PyObject *outdir_obj = default_outdir.ptr;
 	int noisy = 1;
 	int clobber = 1;
 	int return_json = 0;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|siii", (char **)kwlist, &transforms_obj, (char **)&outdir, &noisy, &clobber, &return_json))
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|Oiii", (char **)kwlist, &transforms_obj, &outdir_obj, &noisy, &clobber, &return_json))
 	    return NULL;
 
-	rf_pipelines::wi_stream *stream = get_pbare(self);
+	string outdir;
+	if (outdir_obj != Py_None)
+	    outdir = string_from_python(outdir_obj);
 
 	PyObject *transforms_iter = PyObject_GetIter(transforms_obj);
 	if (!transforms_iter)
@@ -805,6 +812,30 @@ struct wi_stream_object {
 	string ret = w.write(json_out);
 	return Py_BuildValue("s", ret.c_str());   // Note: Py_BuildValue() copies the string
     }
+
+    static constexpr const char *run_docstring =
+	"run(self, transform_list, outdir='.', noisy=True, clobber=True, return_json=False)\n"
+	"\n"
+	"This function is called to run an rf_pipeline.  Arguments:\n"
+        "\n"
+	"  - 'transform_list' is a list (or generator) of objects of type wi_transform (including\n"
+	"     its subclass py_wi_transform).\n"
+	"\n"
+	"  - 'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will\n"
+	"     be written, in addition to other transform-specific output files such as plots\n"
+	"\n"
+	"  -  If 'outdir' is None or an empty string, then the json file will not be written,\n"
+	"     and any transform which tries to write an output file (such as a plotter_transform)\n"
+	"     will throw an exception.\n"
+	"\n"
+	"  -  If 'clobber' is False, then an exception will be thrown if the pipeline tries to\n"
+	"     overwrite an old rf_pipelines.json file.\n"
+	"\n"
+	"  -  If 'return_json' is True, then the return value from run() will be the rf_pipelines\n"
+	"     json output (i.e. same data which is written to rf_pipelines.json)\n"
+	"\n"
+	"     A kludge: eventually, the run() return value will be a json object, but for now it returns\n"
+	"     the string representation, which can be converted to a json object by calling json.loads().\n";
 
     // Properties
 
@@ -871,7 +902,7 @@ struct wi_stream_object {
 
 
 static PyMethodDef wi_stream_methods[] = {
-    { "run", (PyCFunction) tc_wrap3<wi_stream_object::run>, METH_VARARGS | METH_KEYWORDS, wi_stream_object::dummy_docstring },
+    { "run", (PyCFunction) tc_wrap3<wi_stream_object::run>, METH_VARARGS | METH_KEYWORDS, wi_stream_object::run_docstring },
     { NULL, NULL, 0, NULL }
 };
 

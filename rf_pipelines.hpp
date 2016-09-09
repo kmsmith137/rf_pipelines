@@ -41,18 +41,19 @@
 //
 // Factory functions which return streams (std::shared_ptr<wi_stream>):
 //
-//   make_psrfits_stream(f)        -> reads data from psrfits file (e.g. GBNCC data)
-//   make_chime_stream()           -> reads data from file in CHIME hdf5 format
-//   make_gaussian_noise_stream()  -> outputs gaussian random data
+//   make_chime_stream_from_acqdir()
+//   make_chime_stream_from_filename()
+//   make_chime_stream_from_filename_list()
+//   make_gaussian_noise_stream()
+//   make_psrfits_stream()
 //
 // Factory functions which return transforms (std::shared_ptr<wi_transform>):
 //
-//   make_simple_detreneder()
-//      -> a really boneheaded detrending transform which just subtracts the mean in chunks
-//   make_chime_file_writer()
-//      -> writes stream to a single file in CHIME hdf5 format
-//   make_bonsai_dedisperser() 
-//      -> runs data through the bonsai dedisperser (dedispersion output is written to an hdf5 file)
+//   make_bonsai_dedisperser()     runs data through bonsai dedisperser
+//   make_chime_file_writer()      write stream to a single file in CHIME hdf5 format
+//   make_simple_detreneder()      really boneheaded detrending algorithm (better detrending is available in python, but it's slow!)
+//
+// See below for more info on all these functions!
 //
 
 #ifndef _RF_PIPELINES_HPP
@@ -287,9 +288,20 @@ struct wi_stream {
     virtual void stream_body(wi_run_state &run_state) = 0;
 
     //
-    // This non-virtual function isn't defined by the wi_stream subclass, it's called 
-    // "from the outside" to run the rf_pipeline.  If 'clobber' is true, then the pipeline
-    // is allowed to overwrite a previous run.
+    // This non-virtual function runs the rf_pipeline.
+    //
+    // 'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will
+    // be written, in addition to other transform-specific output files such as plots. 
+    //
+    // If 'outdir' is an empty string, then the json file will not be written, and 
+    // any transform which tries to write an output file (such as a plotter_transform)
+    // will throw an exception.
+    //
+    // If the 'json_output' pointer is non-null, then the pipeline's json output is
+    // written there (i.e. same data which is written to rf_pipelines.json)
+    //
+    // If 'clobber' is false, then an exception will be thrown if the pipeline tries to
+    // overwrite an old rf_pipelines.json file.
     //
     void run(const std::vector<std::shared_ptr<wi_transform> > &transforms, 
 	     const std::string &outdir = ".", 
@@ -299,10 +311,13 @@ struct wi_stream {
 
 
 //
-// Note: for a reference example showing how to implement a wi_stream, check out simple_detrender.cpp.
+// Note: for a reference example showing how to implement a wi_transform, check out simple_detrender.cpp.
 // (This may be too simple to be an ideal example, I might suggest something different later!)
 //
 struct wi_transform {
+    // Subclass should initialize the transform name in its constructor.
+    // The transform name will appear in the json output, and in python __str__().
+    std::string name;
 
     // The following members must be initialized by the subclass.  The initialization may be
     // done either in the subclass constructor, or in the member function wi_stream::set_stream()
@@ -315,13 +330,15 @@ struct wi_transform {
     ssize_t nt_postpad = 0;   // postpad size for process_chunk(), see below
 
     //
-    // The 'json_misc' argument is an optional set of key/value pairs which the transform is free to define.
+    // Each transform can define key/value pairs which get written to the pipeline json output file.
+    // This data is always written on a per-substream basis, but it's convenient not to reinitialize it
+    // for every substream.  Therefore we define three json objects which differ in when they get cleared.
     //
-    // Note that 'json_misc' is automatically reset between substreams.  Therefore, it's natural to
-    // modify it in start_subtream(), process_chunk(), or end_substream(), and it's probably a bug to
-    // modify in the transform constructor or start_stream().  (See below.)
+    // FIXME there is currently no way to modify these from python.
     //
-    Json::Value json_misc;
+    Json::Value json_persistent;       // never cleared
+    Json::Value json_per_stream;       // cleared just before start_stream()
+    Json::Value json_per_substream;    // cleared just before start_substream()
 
     //
     // These helper functions are used by wi_transforms which write output files (e.g. hdf5, png).
@@ -441,9 +458,6 @@ struct wi_transform {
 
     // end_substream(): counterpart to start_substream() above
     virtual void end_substream() = 0;
-    
-    // Note: the transform name will appear in the json output, and in python __str__().
-    virtual std::string get_name() const = 0;
 };
 
 

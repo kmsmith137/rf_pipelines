@@ -19,6 +19,7 @@ class badchannel_mask(rf_pipelines.py_wi_transform):
     def __init__(self, maskpath, nt_chunk=1024):
         
         self.maskpath = maskpath 
+        self.name = 'badchannel_mask(%s)' % maskpath
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
@@ -85,6 +86,3 @@ class badchannel_mask(rf_pipelines.py_wi_transform):
         # subtracted the max value from the mask.
         for (freq1,freq0) in self.index_mask:
             weights[freq0:freq1,:] = 0.
-
-    def __str__(self):
-        return 'badchannel_mask(%s)' % self.maskpath
