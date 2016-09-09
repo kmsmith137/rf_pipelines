@@ -87,13 +87,13 @@ void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const s
 	transform->set_stream(*this);
 	
 	if (transform->nfreq != this->nfreq)
-	    throw runtime_error("rf_pipelines: transform's value of 'nfreq' does not match stream's value of 'nfreq'");
+	    throw runtime_error("rf_pipelines: transform's value of 'nfreq' does not match stream's value of 'nfreq' (name=" + transform->name + ")");
 	if (transform->nt_chunk <= 0)
-	    throw runtime_error("rf_pipelines: transform's value of 'nt_chunk' is non-positive or uninitialized");
+	    throw runtime_error("rf_pipelines: transform's value of 'nt_chunk' is non-positive or uninitialized (name=" + transform->name + ")");
 	if (transform->nt_prepad < 0)
-	    throw runtime_error("rf_pipelines: wi_transform::nt_prepad is negative");
+	    throw runtime_error("rf_pipelines: wi_transform::nt_prepad is negative (name=" + transform->name + ")");
 	if (transform->nt_postpad < 0)
-	    throw runtime_error("rf_pipelines: wi_transform::nt_postpad is negative");
+	    throw runtime_error("rf_pipelines: wi_transform::nt_postpad is negative (name=" + transform->name + ")");
     }
 
     // Delegate to stream_body() method implemented in subclass
