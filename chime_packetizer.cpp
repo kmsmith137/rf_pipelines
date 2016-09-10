@@ -23,8 +23,6 @@ shared_ptr<wi_transform> make_chime_packetizer(const string &dstname, int nfreq_
 
 
 struct chime_packetizer : public wi_transform {
-    static constexpr int chime_nfreq = 1024;
-
     // Note: inherits { nfreq, nt_chunk, nt_prepad, nt_postpad } from base class wi_transform
 
     string dstname;
@@ -51,6 +49,8 @@ struct chime_packetizer : public wi_transform {
 
 chime_packetizer::chime_packetizer(const string &dstname_, int nfreq_per_packet_, int nt_per_chunk, int nt_per_packet_, float wt_cutoff_, double target_gbps_)
 {
+    constexpr int nfreq_coarse = ch_frb_io::constants::nfreq_coarse;
+
     this->nt_chunk = nt_per_chunk;
     this->name = "chime_packetizer";
 
@@ -63,8 +63,8 @@ chime_packetizer::chime_packetizer(const string &dstname_, int nfreq_per_packet_
     // initialization of the following members is deferred to set_stream() or start_substream()
     //   nfreq, nupfreq, fpga_counts_per_sample, current_fpga_count
 
-    if ((nfreq_per_packet <= 0) || (chime_nfreq % nfreq_per_packet))
-	throw runtime_error("chime_packetizer: currently nfreq_per_packet must be a divisor of " + to_string(chime_nfreq));
+    if ((nfreq_per_packet <= 0) || (nfreq_coarse % nfreq_per_packet))
+	throw runtime_error("chime_packetizer: currently nfreq_per_packet must be a divisor of " + to_string(nfreq_coarse));
     if (nt_per_chunk <= 0)
 	throw runtime_error("chime_packetizer: nt_per_chunk > 0 is required");
     if (nt_per_packet <= 0)
@@ -76,11 +76,13 @@ chime_packetizer::chime_packetizer(const string &dstname_, int nfreq_per_packet_
 
 void chime_packetizer::set_stream(const wi_stream &stream)
 {
-    if (stream.nfreq % chime_nfreq)
-	throw runtime_error("chime_packetizer: currently stream.nfreq must be a multiple of " + to_string(chime_nfreq));
+    constexpr int nfreq_coarse = ch_frb_io::constants::nfreq_coarse;
+
+    if (stream.nfreq % nfreq_coarse)
+	throw runtime_error("chime_packetizer: currently stream.nfreq must be a multiple of " + to_string(nfreq_coarse));
 
     this->nfreq = stream.nfreq;
-    this->nupfreq = stream.nfreq / chime_nfreq;
+    this->nupfreq = stream.nfreq / nfreq_coarse;
 
     // infer fpga_counts_per_sample from stream.dt_sample
     double f = stream.dt_sample / constants::chime_seconds_per_fpga_count;

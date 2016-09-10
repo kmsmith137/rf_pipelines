@@ -45,7 +45,7 @@ chime_network_stream::chime_network_stream(int udp_port, int beam_id)
     // If we ever want to reuse the packet format in a different experiment, this should be fixed by updating the protocol.
     this->freq_lo_MHz = 400.0;
     this->freq_hi_MHz = 800.0;
-    this->nt_maxwrite = ch_frb_io::assembled_chunk::nt_per_chunk;
+    this->nt_maxwrite = ch_frb_io::constants::nt_per_assembled_chunk;
     
     // Initialization of base class members {nfreq, dt_sample} is deferred to stream_start().
 }
@@ -61,7 +61,7 @@ void chime_network_stream::stream_start()
     assembler->wait_for_stream_params(fpga_counts_per_sample, nupfreq);
 
     // now we can initialize {nfreq, dt_sample}
-    this->nfreq = 1024 * nupfreq;                       // FIXME hardcoded 1024
+    this->nfreq = ch_frb_io::constants::nfreq_coarse * nupfreq;
     this->dt_sample = constants::chime_seconds_per_fpga_count * fpga_counts_per_sample;
 }
 
@@ -76,7 +76,7 @@ void chime_network_stream::stream_body(wi_run_state &run_state)
 	if (!alive)
 	    break;
 
-	rf_assert(nfreq == 1024 * chunk->nupfreq);   // FIXME hardcoded 1024
+	rf_assert(this->nfreq == ch_frb_io::constants::nfreq_coarse * chunk->nupfreq);
 
 	double t0 = chunk->chunk_t0 * chunk->fpga_counts_per_sample * constants::chime_seconds_per_fpga_count;
 	const float *src_intensity = chunk->intensity;
