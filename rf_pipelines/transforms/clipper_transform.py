@@ -4,7 +4,7 @@ import rf_pipelines
 class clipper_transform(rf_pipelines.py_wi_transform):
     """
    This transform clips the intensity along a selected 
-   axis -- also works in planar (2d) mode -- and above 
+   axis -- also works in planar (2D) mode -- and above 
    a given threshold. Results are applied to the weights 
    array (i.e., weights[clipped] = 0.) for masking 
    extreme values.
@@ -18,17 +18,17 @@ class clipper_transform(rf_pipelines.py_wi_transform):
     
     Constructor syntax:
 
-      t = clipper_transform(thr=3, axis=2, nt_chunk=1024,\
+      t = clipper_transform(thr=3, axis=None, nt_chunk=1024,\
           dsample_nfreq=None, dsample_nt=None, test=False)
 
       'thr=3.' is the multiplicative factor of maximum threshold,
         e.g., 3 * standard_deviation, meaning that (the absolute
         value of) any sample above this limit is clipped.
 
-      'axis=0' is the axis convention:
+      'axis=None' is the axis convention:
+        None: planar; freq and time. 
         0: along freq; constant time.
         1: along time; constant freq.
-        2: planar; freq and time.
 
       'nt_chunk=1024' is the buffer size.
 
@@ -38,10 +38,10 @@ class clipper_transform(rf_pipelines.py_wi_transform):
       'test=False' enables a test mode.
     """
 
-    def __init__(self, thr=3., axis=2, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False):
+    def __init__(self, thr=3., axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False):
 
-        assert (axis == 0 or axis == 1 or axis == 2),\
-            "axis must be 0 (along freq; constant time), 1 (along time; constant freq), or 2 (planar; freq and time)."
+        assert (axis == None or axis == 0 or axis == 1),\
+            "axis must be None (planar; freq and time), 0 (along freq; constant time), or 1 (along time; constant freq)."
         assert thr >= 1., "threshold must be >= 1."
         assert nt_chunk > 0
 
@@ -97,7 +97,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         # The purpose of this next block of code is to compute 'clip', a 2D array of
         # shape (dsample_nfreq, dsample_nt) which contains the estimated rms.
 
-        if self.axis != 2: # 1d mode
+        if self.axis: # 1D mode
             # Compute (sum_i W_i I_i^2) and (sum_i W_i)
             num = np.sum(weights*(intensity)**2, axis=self.axis)
             den = np.sum(weights, axis=self.axis)
@@ -107,7 +107,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
             clip = rf_pipelines.tile_arr(clip, self.axis, self.dsample_nfreq, self.dsample_nt)   # 2D array
 
         else:
-            # 2d mode
+            # 2D mode (TODO: eliminate this step using 'axis=None')
             num = np.sum(weights * intensity**2)
             den = np.sum(weights)
 

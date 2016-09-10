@@ -18,8 +18,8 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
       'deg=0' is the degree of fit.
       
       'axis=0' is the axis convention:
-        0: along freq; constant time
-        1: along time; constant freq
+        0: along freq; constant time.
+        1: along time; constant freq.
 
       'nt_chunk=1024' is the buffer size.
 
@@ -158,7 +158,7 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
             intensity[:] = np.random.normal(0, 1, intensity.size).reshape(intensity.shape)
             
         if test_mode == 1:
-            # Test by fitting a well-defined poly tiled in 2d.
+            # Test by fitting a well-defined poly tiled in 2D.
             # The poly's coefficients are chosen randomly 
             # (centered at 0 with stdv=10)
             rc = np.random.normal(0, 10, self.deg+1)
@@ -176,7 +176,7 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
             # called in the loop over the unselected axis.
             print rc, "= Actual Coeff"
             
-            # Replace all intensity values by the 2d-tiled
+            # Replace all intensity values by the 2D-tiled
             # simulated chunk.
             intensity[:] = rf_pipelines.tile_arr(\
                     np.dot(rc, self.P), tile_axis,\
