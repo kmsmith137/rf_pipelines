@@ -60,6 +60,8 @@ Transforms:
    clipper_transform()        masks data based on intensity values
    frb_injector_transform()   simulates an FRB (currently S/N calculation only works for toy noise models)
    kurtosis_filter()          masks data based on kurtosis
+   legendre_detrender()       polynomial detrender
+   mask_expander()            expands mask based on weights
    plotter_transform()        makes waterfall plots at a specified place in the pipeline, very useful for debugging
    RC_detrender()             exponential detrender, with bidirectional feature intended to remove "step-like" features
    simple_detreneder()        really boneheaded detrending algorithm (better detrending is available in python, but it's slow!)
@@ -359,6 +361,7 @@ from .transforms.frb_injector_transform import frb_injector_transform
 from .transforms.badchannel_mask import badchannel_mask
 from .transforms.clipper_transform import clipper_transform
 from .transforms.legendre_detrender import legendre_detrender
+from .transforms.mask_expander import mask_expander
 from .transforms.kurtosis_filter import kurtosis_filter
 from .transforms.std_dev_filter import std_dev_filter
 from .transforms.thermal_noise_weight import thermal_noise_weight
