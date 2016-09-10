@@ -51,6 +51,7 @@ struct chime_packetizer : public wi_transform {
 chime_packetizer::chime_packetizer(const string &dstname_, int nfreq_per_packet_, int nt_per_chunk, int nt_per_packet_, float wt_cutoff_)
 {
     this->nt_chunk = nt_per_chunk;
+    this->name = "chime_packetizer";
 
     this->dstname = dstname_;
     this->nfreq_per_packet = nt_per_packet_;
