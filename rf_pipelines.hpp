@@ -183,7 +183,11 @@ std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename
 // This conversion is necessary because the CHIME L0_L1 packet format doesn't support a floating-point
 // weight array.  Samples with weight below the cutoff will be masked.
 //
-extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff);
+// If the 'target_gbps' argument is nonzero, then output will be "throttled" to the target bandwidth, specified
+// in Gbps.  If target_gbps=0, then packets will be sent as quickly as possible.
+//
+extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &dstname, int nfreq_per_packet, int nt_per_chunk, 
+							   int nt_per_packet, float wt_cutoff, double target_gbps);
 
 
 //

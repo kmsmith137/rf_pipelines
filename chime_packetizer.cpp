@@ -31,6 +31,7 @@ struct chime_packetizer : public wi_transform {
     int nfreq_per_packet;
     int nt_per_packet;
     float wt_cutoff;
+    double target_gbps;
 
     int nupfreq;
     int fpga_counts_per_sample;
@@ -38,7 +39,7 @@ struct chime_packetizer : public wi_transform {
 
     shared_ptr<ch_frb_io::intensity_network_ostream> stream_obj;
 
-    chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff);
+    chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps);
 
     virtual void set_stream(const wi_stream &stream);
     virtual void start_substream(int isubstream, double t0);
@@ -48,7 +49,7 @@ struct chime_packetizer : public wi_transform {
 };
 
 
-chime_packetizer::chime_packetizer(const string &dstname_, int nfreq_per_packet_, int nt_per_chunk, int nt_per_packet_, float wt_cutoff_)
+chime_packetizer::chime_packetizer(const string &dstname_, int nfreq_per_packet_, int nt_per_chunk, int nt_per_packet_, float wt_cutoff_, double target_gbps_)
 {
     this->nt_chunk = nt_per_chunk;
     this->name = "chime_packetizer";
@@ -57,6 +58,7 @@ chime_packetizer::chime_packetizer(const string &dstname_, int nfreq_per_packet_
     this->nfreq_per_packet = nt_per_packet_;
     this->nt_per_packet = nt_per_packet_;
     this->wt_cutoff = wt_cutoff_;
+    this->target_gbps = target_gbps_;
     
     // initialization of the following members is deferred to set_stream() or start_substream()
     //   nfreq, nupfreq, fpga_counts_per_sample, current_fpga_count
@@ -93,7 +95,7 @@ void chime_packetizer::set_stream(const wi_stream &stream)
     for (int i = 0; i < nfreq; i++)
 	ifreq_chunk[i] = i;
 
-    this->stream_obj = ch_frb_io::intensity_network_ostream::make(dstname, ibeam, ifreq_chunk, nupfreq, nt_chunk, nfreq_per_packet, nt_per_packet, fpga_counts_per_sample, wt_cutoff);
+    this->stream_obj = ch_frb_io::intensity_network_ostream::make(dstname, ibeam, ifreq_chunk, nupfreq, nt_chunk, nfreq_per_packet, nt_per_packet, fpga_counts_per_sample, wt_cutoff, target_gbps);
 }
 
 
@@ -125,9 +127,9 @@ void chime_packetizer::end_substream()
 }
 
 
-shared_ptr<wi_transform> make_chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff)
+shared_ptr<wi_transform> make_chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps)
 {
-    return make_shared<chime_packetizer> (dstname, nfreq_per_packet, nt_per_chunk, nt_per_packet, wt_cutoff);
+    return make_shared<chime_packetizer> (dstname, nfreq_per_packet, nt_per_chunk, nt_per_packet, wt_cutoff, target_gbps);
 }
 
 

@@ -1139,11 +1139,12 @@ static PyObject *make_chime_packetizer(PyObject *self, PyObject *args)
     int nt_per_chunk;
     int nt_per_packet;
     double wt_cutoff;
+    double target_gbps;
 
-    if (!PyArg_ParseTuple(args, "siiid", &dstname, &nfreq_per_packet, &nt_per_chunk, &nt_per_packet, &wt_cutoff))
+    if (!PyArg_ParseTuple(args, "siiidd", &dstname, &nfreq_per_packet, &nt_per_chunk, &nt_per_packet, &wt_cutoff, &target_gbps))
 	return NULL;
 
-    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_chime_packetizer(dstname, nfreq_per_packet, nt_per_chunk, nt_per_packet, wt_cutoff);
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_chime_packetizer(dstname, nfreq_per_packet, nt_per_chunk, nt_per_packet, wt_cutoff, target_gbps);
     return wi_transform_object::make(ret);
 }
 
