@@ -10,8 +10,6 @@ import sys
 import rf_pipelines
 
 import glob
-import timing
-
 
 if not os.path.exists('bonsai_config.hdf5'):
     print "Before running this script, you need to create the file 'bonsai_config.hdf5', using this command:"
