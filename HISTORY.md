@@ -1,4 +1,4 @@
-- plotter_enhanced:
+- mask_expander:
 
      - From Masoud: New transform mask_expander (masks out weights, relative to a threshold
        value in 2D, in 1D along the time axis, or in 1D along the frequency axis)
