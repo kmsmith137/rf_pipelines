@@ -69,25 +69,16 @@ class mask_expander(rf_pipelines.py_wi_transform):
             else:
                 weights = np.random.normal(self.thr, 0.01, size=weights.shape)
 
-        # Let's make a ref to the weights.
-        weights_origin = weights
-
         # Compute the mean of weights along the seleted axis.
         w_mean = np.mean(weights, axis=self.axis)
-        if self.axis == None:
-            w_mean = np.array([w_mean])
 
-        # Based on the given threshold, replace all elements 
-        # with 0 and 1.
-        np.putmask(w_mean, w_mean <= self.thr, 0.) # Target elements (to be tiled in 1D mode)
-        np.putmask(w_mean, w_mean > self.thr, 1.)
-        
-        # 1D mode: Tile the array so that it matches (in dimension) with the original weights.
-        if self.axis != None:
+        if self.axis is None:
+            if w_mean <= self.thr:
+                weights[:] = 0.
+        else:
             w_mean = rf_pipelines.tile_arr(w_mean, self.axis, self.nfreq, self.nt_chunk)
-        
-        # Expand the mask by zeroing out the target elements in the weights.
-        weights_origin[:] = weights_origin[:] * w_mean[:]
+            np.putmask(weights, w_mean <= self.thr, 0.)
+
 
         if self.test:
             unmasked_fraction = np.count_nonzero(weights_origin) / float(weights_origin.size)
