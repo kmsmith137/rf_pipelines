@@ -58,7 +58,7 @@ void chime_network_stream::stream_start()
     
     // block until first packet is received
     int fpga_counts_per_sample, nupfreq;
-    assembler->wait_for_stream_params(fpga_counts_per_sample, nupfreq);
+    assembler->wait_for_first_packet(fpga_counts_per_sample, nupfreq);
 
     // now we can initialize {nfreq, dt_sample}
     this->nfreq = ch_frb_io::constants::nfreq_coarse * nupfreq;
@@ -103,8 +103,7 @@ void chime_network_stream::stream_body(wi_run_state &run_state)
 	chunk.reset();
     }
     
-    // "true" joins both the network and assembler threads
-    stream->wait_for_end_of_stream(true);
+    stream->join_all_threads();
 
     if (!startflag)
 	throw runtime_error("chime_network_stream: no packets received");
