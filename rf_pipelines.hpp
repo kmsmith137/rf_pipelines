@@ -121,9 +121,11 @@ extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std
 
 //
 // CHIME network stream, using UDP packets in "CHIME L0-L1 format", single-beam for now.
-// This can be generalized later to assemble multiple beams on the same UDP port.
+// This will be generalized soon to assemble multiple beams on the same UDP port.
+// If the 'udp_port' argument is zero, then the default chimefrb port will be used.
+// FIXME should add more optional arguments such as 'mandate_fast_kernels' flag.
 //
-extern std::shared_ptr<wi_stream> make_chime_network_stream(int udp_port, int beam_id=0);
+extern std::shared_ptr<wi_stream> make_chime_network_stream(int udp_port=0, int beam_id=0);
 
 
 // Simple stream which simulates Gaussian random noise
@@ -186,7 +188,7 @@ std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename
 // If the 'target_gbps' argument is nonzero, then output will be "throttled" to the target bandwidth, specified
 // in Gbps.  If target_gbps=0, then packets will be sent as quickly as possible.
 //
-extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &dstname, int nfreq_per_packet, int nt_per_chunk, 
+extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &dstname, int nfreq_coarse_per_packet, int nt_per_chunk, 
 							   int nt_per_packet, float wt_cutoff, double target_gbps);
 
 

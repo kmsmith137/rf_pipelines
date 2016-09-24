@@ -26,7 +26,6 @@ shared_ptr<wi_stream> make_chime_network_stream(int udp_port, int beam_id)
 struct chime_network_stream : public wi_stream
 {
     shared_ptr<ch_frb_io::intensity_network_stream> stream;
-    shared_ptr<ch_frb_io::intensity_beam_assembler> assembler;
 
     chime_network_stream(int udp_port, int beam_id);
     virtual ~chime_network_stream() { }
@@ -38,8 +37,13 @@ struct chime_network_stream : public wi_stream
 
 chime_network_stream::chime_network_stream(int udp_port, int beam_id)
 {
-    this->assembler = ch_frb_io::intensity_beam_assembler::make(beam_id);
-    this->stream = ch_frb_io::intensity_network_stream::make({assembler}, udp_port);
+    ch_frb_io::intensity_network_stream::initializer ini_params;
+    ini_params.beam_ids = { beam_id };
+
+    if (udp_port > 0)
+	ini_params.udp_port = udp_port;
+
+    this->stream = ch_frb_io::intensity_network_stream::make(ini_params);
     
     // The frequency band is not currently part of the L0-L1 packet format, so we just use hardcoded values.
     // If we ever want to reuse the packet format in a different experiment, this should be fixed by updating the protocol.
@@ -56,9 +60,16 @@ void chime_network_stream::stream_start()
     // tells network thread to start reading packets, returns immediately
     stream->start_stream();
     
+    int nupfreq;
+    int nt_per_packet;
+    uint64_t fpga_counts_per_sample;
+    uint64_t fpga_count0;
+
     // block until first packet is received
-    int fpga_counts_per_sample, nupfreq;
-    assembler->wait_for_first_packet(fpga_counts_per_sample, nupfreq);
+    bool alive = stream->get_first_packet_params(nupfreq, nt_per_packet, fpga_counts_per_sample, fpga_count0);
+
+    if (!alive)
+	throw runtime_error("chime_network_stream: no packets received");
 
     // now we can initialize {nfreq, dt_sample}
     this->nfreq = ch_frb_io::constants::nfreq_coarse * nupfreq;
@@ -69,18 +80,16 @@ void chime_network_stream::stream_start()
 void chime_network_stream::stream_body(wi_run_state &run_state)
 {
     bool startflag = false;
-    shared_ptr<ch_frb_io::assembled_chunk> chunk;
 
     for (;;) {
-	bool alive = assembler->get_assembled_chunk(chunk);
-	if (!alive)
+	shared_ptr<ch_frb_io::assembled_chunk> chunk = stream->get_assembled_chunk(0);
+
+	if (!chunk)
 	    break;
 
 	rf_assert(this->nfreq == ch_frb_io::constants::nfreq_coarse * chunk->nupfreq);
 
-	double t0 = chunk->chunk_t0 * chunk->fpga_counts_per_sample * constants::chime_seconds_per_fpga_count;
-	const float *src_intensity = chunk->intensity;
-	const float *src_weights = chunk->weights;
+	double t0 = chunk->isample * chunk->fpga_counts_per_sample * constants::chime_seconds_per_fpga_count;
 
 	if (!startflag) {
 	    run_state.start_substream(t0);
@@ -93,21 +102,11 @@ void chime_network_stream::stream_body(wi_run_state &run_state)
 	bool zero_flag = false;
 
 	run_state.setup_write(nt_maxwrite, dst_intensity, dst_weights, dst_stride, zero_flag, t0);
-
-	for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	    memcpy(dst_intensity + ifreq*dst_stride, src_intensity + ifreq*nt_maxwrite, nt_maxwrite * sizeof(float));
-	    memcpy(dst_weights + ifreq*dst_stride, src_weights + ifreq*nt_maxwrite, nt_maxwrite * sizeof(float));
-	}
-
+	chunk->decode(dst_intensity, dst_weights, dst_stride);
 	run_state.finalize_write(nt_maxwrite);
-	chunk.reset();
     }
     
-    stream->join_all_threads();
-
-    if (!startflag)
-	throw runtime_error("chime_network_stream: no packets received");
-
+    stream->join_threads();
     run_state.end_substream();
 }
 
