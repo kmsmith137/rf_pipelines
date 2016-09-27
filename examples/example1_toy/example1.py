@@ -71,7 +71,7 @@ class toy_transform(rf_pipelines.py_wi_transform):
 # an independent random Gaussian for each (freq channel, time sample) pair.
 
 s = rf_pipelines.gaussian_noise_stream(nfreq = 512,           # Number of frequency channels
-                                       nt_tot = 12000,        # Length of stream in samples
+                                       nt_tot = 12000,        # Length of stream in samples (12 sec)
                                        freq_lo_MHz = 400.0,   # Lower limit of band
                                        freq_hi_MHz = 800.0,   # Upper limit of band
                                        dt_sample= 1.0e-3)     # Sample duration in sec
@@ -82,7 +82,9 @@ t1 = toy_transform(nt_chunk=512)
 
 # Now inject a simulated FRB!
 # We use signal-to-noise 100 so that it will be prominent by eye in plots.
-# The undispersed_arrival_time is in seconds.  For this 
+# The undispersed_arrival_time is in seconds.  
+# For this choice of undispersed_arrival_time and DM, the pulse enters the band 
+# at time t=5.25 sec, and leaves the band at time t=6.25 sec.
 t2 = rf_pipelines.frb_injector_transform(snr=100, undispersed_arrival_time=5, dm=50)
 
 # The plotter_transform can be put anywhere in the transform chain and is very convenient 
