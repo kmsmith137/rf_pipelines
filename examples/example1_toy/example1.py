@@ -29,6 +29,7 @@ class toy_transform(rf_pipelines.py_wi_transform):
         # self.nt_chunk defines the chunk size for passing data into the transform.
         # As explained in the py_wi_transform docstring, each transform can choose 
         # this independently of the other transforms.
+        self.name = 'toy_transform'
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
