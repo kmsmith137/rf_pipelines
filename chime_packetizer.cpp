@@ -1,3 +1,4 @@
+#include <sstream>
 #include "rf_pipelines_internals.hpp"
 
 #ifdef HAVE_CH_FRB_IO
@@ -63,6 +64,7 @@ chime_packetizer::chime_packetizer(const string &dstname, int nfreq_coarse_per_p
     this->ini_params.nt_per_chunk = nt_per_chunk;
     this->ini_params.nt_per_packet = nt_per_packet;
     this->ini_params.wt_cutoff = wt_cutoff;
+    this->ini_params.target_gbps = target_gbps;
 
     this->ini_params.coarse_freq_ids.resize(nfreq_coarse, -1);
     for (int i = 0; i < nfreq_coarse; i++)
@@ -88,8 +90,12 @@ void chime_packetizer::set_stream(const wi_stream &stream)
     double f = stream.dt_sample / constants::chime_seconds_per_fpga_count;
     this->ini_params.fpga_counts_per_sample = int(f+0.5);   // round to nearest integer
 
-    if (fabs(f - ini_params.fpga_counts_per_sample) > 0.01)
-	throw runtime_error("chime_packetizer: currently stream.dt_sample must be a multiple of " + to_string(constants::chime_seconds_per_fpga_count) + " seconds");
+    if (fabs(f - ini_params.fpga_counts_per_sample) > 0.01) {
+	// We use a stringstream here since to_string() gives a weird formatting
+	stringstream ss;
+	ss << "chime_packetizer: currently stream.dt_sample must be a multiple of " << constants::chime_seconds_per_fpga_count <<  " seconds";
+	throw runtime_error(ss.str());
+    }
 
     this->ostream = ch_frb_io::intensity_network_ostream::make(ini_params);
 }
