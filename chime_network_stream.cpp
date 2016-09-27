@@ -72,7 +72,7 @@ void chime_network_stream::stream_start()
 	throw runtime_error("chime_network_stream: no packets received");
 
     // now we can initialize {nfreq, dt_sample}
-    this->nfreq = ch_frb_io::constants::nfreq_coarse * nupfreq;
+    this->nfreq = ch_frb_io::constants::nfreq_coarse_tot * nupfreq;
     this->dt_sample = constants::chime_seconds_per_fpga_count * fpga_counts_per_sample;
 }
 
@@ -87,7 +87,7 @@ void chime_network_stream::stream_body(wi_run_state &run_state)
 	if (!chunk)
 	    break;
 
-	rf_assert(this->nfreq == ch_frb_io::constants::nfreq_coarse * chunk->nupfreq);
+	rf_assert(this->nfreq == ch_frb_io::constants::nfreq_coarse_tot * chunk->nupfreq);
 
 	double t0 = chunk->isample * chunk->fpga_counts_per_sample * constants::chime_seconds_per_fpga_count;
 

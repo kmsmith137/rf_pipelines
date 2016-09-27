@@ -44,7 +44,7 @@ chime_packetizer::chime_packetizer(const string &dstname, int nfreq_coarse_per_p
 {
     // Argument checking
 
-    constexpr int nfreq_coarse = ch_frb_io::constants::nfreq_coarse;
+    constexpr int nfreq_coarse = ch_frb_io::constants::nfreq_coarse_tot;
 
     if ((nfreq_coarse_per_packet <= 0) || (nfreq_coarse % nfreq_coarse_per_packet))
 	throw runtime_error("chime_packetizer: currently nfreq_coarse_per_packet must be a divisor of " + to_string(nfreq_coarse));
@@ -76,7 +76,7 @@ chime_packetizer::chime_packetizer(const string &dstname, int nfreq_coarse_per_p
 
 void chime_packetizer::set_stream(const wi_stream &stream)
 {
-    constexpr int nfreq_coarse = ch_frb_io::constants::nfreq_coarse;
+    constexpr int nfreq_coarse = ch_frb_io::constants::nfreq_coarse_tot;
 
     if (stream.nfreq % nfreq_coarse)
 	throw runtime_error("chime_packetizer: currently stream.nfreq must be a multiple of " + to_string(nfreq_coarse));
