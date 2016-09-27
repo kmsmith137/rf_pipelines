@@ -70,10 +70,11 @@ def chime_stream_from_acqdir(dirname, nt_chunk=0, noise_source_align=0):
     return rf_pipelines_c.make_chime_stream_from_acqdir(dirname, nt_chunk, noise_source_align)
 
 
-def chime_network_stream(udp_port, beam_id=0):
+def chime_network_stream(udp_port=0, beam_id=0):
     """
     CHIME network stream, using UDP packets in "CHIME L0-L1 format", single-beam for now.
     This can be generalized later to assemble multiple beams on the same UDP port.
+    If the 'udp_port' argument is zero, then the default chimefrb port will be used.
     """
 
     return rf_pipelines_c.make_chime_network_stream(udp_port, beam_id)
