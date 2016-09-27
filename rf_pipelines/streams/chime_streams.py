@@ -72,8 +72,11 @@ def chime_stream_from_acqdir(dirname, nt_chunk=0, noise_source_align=0):
 
 def chime_network_stream(udp_port=0, beam_id=0):
     """
-    CHIME network stream, using UDP packets in "CHIME L0-L1 format", single-beam for now.
-    This can be generalized later to assemble multiple beams on the same UDP port.
+    CHIME network stream.  Receives UDP packets in "CHIME L0-L1 format".
+    
+    This interface is less general than the low-level C++ interface in ch_frb_io: 
+    only one beam can be received, and not all boolean options are supported.
+    
     If the 'udp_port' argument is zero, then the default chimefrb port will be used.
     """
 

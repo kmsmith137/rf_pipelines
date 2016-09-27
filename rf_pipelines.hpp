@@ -120,10 +120,12 @@ extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std
 
 
 //
-// CHIME network stream, using UDP packets in "CHIME L0-L1 format", single-beam for now.
-// This will be generalized soon to assemble multiple beams on the same UDP port.
+// CHIME network stream.  Receives UDP packets in "CHIME L0-L1 format".
+//
+// This interface is less general than the low-level interface in ch_frb_io: 
+// only one beam can be received, and not all boolean options are supported.
+//
 // If the 'udp_port' argument is zero, then the default chimefrb port will be used.
-// FIXME should add more optional arguments such as 'mandate_fast_kernels' flag.
 //
 extern std::shared_ptr<wi_stream> make_chime_network_stream(int udp_port=0, int beam_id=0);
 
@@ -177,9 +179,17 @@ std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename
 
 //
 // Converts a stream to UDP packets in "CHIME L0_L1" format, and sends them over the network.
+// This interface is less general than the low-level interface in ch_frb_io: only one beam can
+// be sent, and not all boolean options are supported.
+//
+// Some artificial restrictions: the stream 'nfreq' value must be a multiple of 1024, and
+// the stream 'dt_sample' value must be an integer multiple of 2.56e-6 seconds.  This is because
+// the packet protocol doesn't include a count of total frequency channels, or the fpga clock
+// rate, so these parameters are frozen to the CHIME instrumental values.
+//
 // The 'dstname' argument is a string of the form HOSTNAME:PORT.  For example 'localhost:13178' or
-// 'chimer.physics.ubc.ca:13178'.  (Be careful sending packets over the internet since the bandwidth
-// can be very high!)
+// 'chimer.physics.ubc.ca:13178'.  If the port is omitted then the default chimefrb port is used.
+// (Be careful sending packets over the internet since the bandwidth can be very high!)
 //
 // The 'wt_cutoff' argument is used to convert the rf_pipelines 'weights' array to a boolean mask.
 // This conversion is necessary because the CHIME L0_L1 packet format doesn't support a floating-point
@@ -187,6 +197,10 @@ std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename
 //
 // If the 'target_gbps' argument is nonzero, then output will be "throttled" to the target bandwidth, specified
 // in Gbps.  If target_gbps=0, then packets will be sent as quickly as possible.
+//
+// The nfreq_coarse_per_packet, nt_per_packet arguments define the amount of data sent per packet.
+// The nt_per_chunk arg just determines an internal chunk size and isn't very important (must be
+// a multiple of nt_per_packet; suggest a value like 512).
 //
 extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &dstname, int nfreq_coarse_per_packet, int nt_per_chunk, 
 							   int nt_per_packet, float wt_cutoff, double target_gbps);
