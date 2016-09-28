@@ -1,4 +1,4 @@
-- Verion 9:
+- Version 10:
 
      - Network streams:
          - New stream class chime_network_stream which receives packetized intensity data
@@ -8,6 +8,10 @@
      - Internal API changes which should only affect you if you're writing new streams
        (I don't think anyone is currently doing this, but let me know if you'd like more details)
 
+- Version 9:
+
+     - From Masoud: New transform mask_expander (masks out weights, relative to a threshold
+       value in 2D, in 1D along the time axis, or in 1D along the frequency axis)
 
 - Version 8:
 
@@ -57,19 +61,19 @@
        easier to interpret, since they can be generated in 1-1 correspondence with intensity
        waterfall plots.  (See example3_chime for an example)
 
-- Version 4
+- Version 4:
 
   - plotter_transform: fix bug which sometimes caused outlier intensities to be superfluously masked
   
   - plotter_transform: determine color mapping using outlier-clipped mean/variance (without this, the
     plots were sometimes misleading!)
 
-- Version 3
+- Version 3:
 
   - From Masoud: New transform badchannel_mask, which reads a text file containing a list of bad 
     frequency ranges, and masks channels which overlap (currently python-only)
 
-- Version 2
+- Version 2:
 
   - new transform chime_file_writer, which writes a stream to disk in CHIME hdf5 format.
 
