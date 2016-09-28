@@ -19,6 +19,8 @@ For a high-level overview, here are some slides from CHIME telecons:
   - libhdf5 (https://www.hdfgroup.org/HDF5/release/obtain5.html)
     Note that this is a link to HDF5 v1.8.  I imagine v1.10 also works but haven't tested it yet.
 
+  - The following python modules: numpy, scipy, h5py.  (Installation hint: `sudo pip install <module_name>`)
+
   - jsoncpp (https://github.com/open-source-parsers/jsoncpp)
 
     On osx, you can probably install with: `brew install jsoncpp`
