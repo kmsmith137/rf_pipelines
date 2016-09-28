@@ -12,3 +12,6 @@ This code is best "documented by example":
 
   - [example4_cpp_toy] (example4_cpp_toy):
     Illustrates running rf_pipelines through its C++ interface
+
+  - [example5_network] (example5_network):
+    Illustrates network streams in python (both send and receive).
