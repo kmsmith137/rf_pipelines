@@ -81,7 +81,7 @@ void chime_packetizer::set_stream(const wi_stream &stream)
     constexpr int nfreq_coarse = ch_frb_io::constants::nfreq_coarse_tot;
 
     if (stream.nfreq % nfreq_coarse)
-	throw runtime_error("chime_packetizer: currently stream.nfreq must be a multiple of " + to_string(nfreq_coarse));
+	throw runtime_error("chime_packetizer: currently stream.nfreq must be a multiple of " + to_string(nfreq_coarse) + " (see comment in rf_pipelines.hpp)");
 
     this->nfreq = stream.nfreq;
     this->ini_params.nupfreq = stream.nfreq / nfreq_coarse;
@@ -93,7 +93,7 @@ void chime_packetizer::set_stream(const wi_stream &stream)
     if (fabs(f - ini_params.fpga_counts_per_sample) > 0.01) {
 	// We use a stringstream here since to_string() gives a weird formatting
 	stringstream ss;
-	ss << "chime_packetizer: currently stream.dt_sample must be a multiple of " << constants::chime_seconds_per_fpga_count <<  " seconds";
+	ss << "chime_packetizer: currently stream.dt_sample must be a multiple of " << constants::chime_seconds_per_fpga_count <<  " seconds (see comment in rf_pipelines.hpp)";
 	throw runtime_error(ss.str());
     }
 
