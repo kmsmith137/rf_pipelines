@@ -1,8 +1,13 @@
-- network_streams branch:
+- Verion 9:
 
-     - API change: stream_start()
+     - Network streams:
+         - New stream class chime_network_stream which receives packetized intensity data
+	 - New transform chime_packetizer which sends packetized data
+	 - New example (examples/example5_network) to illustrate how these are used
 
-     - Network stream and packetizing transform
+     - Internal API changes which should only affect you if you're writing new streams
+       (I don't think anyone is currently doing this, but let me know if you'd like more details)
+
 
 - Version 8:
 
