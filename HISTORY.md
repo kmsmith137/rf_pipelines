@@ -5,6 +5,9 @@
 	 - New transform chime_packetizer which sends packetized data
 	 - New example (examples/example5_network) to illustrate how these are used
 
+     - Example scripts (examples/example5_network) illustrating python interface to
+       chimefrb networking code.
+
      - Internal API changes which should only affect you if you're writing new streams
        (I don't think anyone is currently doing this, but let me know if you'd like more details)
 
