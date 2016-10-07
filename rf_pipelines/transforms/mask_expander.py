@@ -52,6 +52,7 @@ class mask_expander(rf_pipelines.py_wi_transform):
         self.thr = thr
         self.axis = axis
         self.nt_chunk = nt_chunk
+        self.name = 'mask_expander(thr=%f, axis=%s, nt_chunk=%d)' % (thr, axis, nt_chunk)
 
     def set_stream(self, stream):        
         self.nfreq = stream.nfreq

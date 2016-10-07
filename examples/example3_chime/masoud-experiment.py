@@ -24,7 +24,7 @@ if not os.path.exists('bonsai_config.hdf5'):
 #       and the utility 'ch-show-intensity-file' makes a quick waterfall plot.
 
 #filename_list = [ '00000131.h5', '00000147.h5', '00000163.h5' ]
-filename_list = [ '00000147.h5' ]
+filename_list = [ '00000147.h5', '00000163.h5' ]
 filename_list = [ os.path.join('/data/pathfinder/16-07-08',f) for f in filename_list ]
 
 # first run ---> 0:50 ; ~35 min
@@ -79,9 +79,9 @@ c3 = rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=1024,\
         dsample_nfreq=1024/128, dsample_nt=1024)
 
 # mask expanders
-x1 = rf_pipelines.mask_expander(thr=0.4, axis=None, nt_chunk=16, test=True)
-x2 = rf_pipelines.mask_expander(thr=0.1, axis=0, nt_chunk=1024, test=True)
-x3 = rf_pipelines.mask_expander(thr=0.5, axis=1, nt_chunk=512, test=False)
+x1 = rf_pipelines.mask_expander(thr=0.4, axis=None, nt_chunk=16)
+x2 = rf_pipelines.mask_expander(thr=0.1, axis=0, nt_chunk=1024)
+x3 = rf_pipelines.mask_expander(thr=0.5, axis=1, nt_chunk=512)
 
 # Post-fit clippers
 c4 = rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=2048,\
