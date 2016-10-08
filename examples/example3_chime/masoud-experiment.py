@@ -7,9 +7,8 @@
 
 import os
 import sys
-import rf_pipelines
-
 import glob
+import rf_pipelines
 
 if not os.path.exists('bonsai_config.hdf5'):
     print "Before running this script, you need to create the file 'bonsai_config.hdf5', using this command:"
@@ -24,15 +23,7 @@ if not os.path.exists('bonsai_config.hdf5'):
 #       and the utility 'ch-show-intensity-file' makes a quick waterfall plot.
 
 #filename_list = [ '00000131.h5', '00000147.h5', '00000163.h5' ]
-filename_list = [ '00000147.h5', '00000163.h5' ]
 filename_list = [ os.path.join('/data/pathfinder/16-07-08',f) for f in filename_list ]
-
-# first run ---> 0:50 ; ~35 min
-# second run ---> 0:416 ; ????
-# issues: vertical RFIs (frames #8, #30) >>> one solution: dc loop in kendrick-experiment.py; 
-#         gaps btwn disconnected runs, potential to miss FRBs;
-#         high var in triggers; 
-#         mean of the first clipper;
 #filename_list = sorted(glob.glob('/data/pathfinder/16-07-07-b0329/*.h5'))
 print filename_list
 
@@ -72,8 +63,7 @@ t3 = rf_pipelines.simple_detrender(1024)
 c1 = rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=1024,\
         dsample_nfreq=1024, dsample_nt=1024/256, test=False)
 
-c2 = rf_pipelines.clipper_transform(thr=3, nt_chunk=1024,\
-        dsample_nfreq=1024, dsample_nt=1024/256)
+c2 = rf_pipelines.clipper_transform(thr=3, nt_chunk=1024)
 
 c3 = rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=1024,\
         dsample_nfreq=1024/128, dsample_nt=1024)
@@ -94,11 +84,9 @@ c6 = rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=1024,\
         dsample_nfreq=1024, dsample_nt=4)
 
 # Legendre detrenders
-l1 = rf_pipelines.legendre_detrender(deg=4, axis=1, nt_chunk=64, test=False)
-
+l1 = rf_pipelines.legendre_detrender(deg=0, axis=0, nt_chunk=1024, test=False)
 l2 = rf_pipelines.legendre_detrender(deg=4, axis=1, nt_chunk=1024)
 l3 = rf_pipelines.legendre_detrender(deg=10, axis=0, nt_chunk=1024)
-
 l4 = rf_pipelines.legendre_detrender(deg=10, axis=0, nt_chunk=1024)
 
 # This plotter_transform is after the detrender, so it generates detrended plots.
@@ -112,16 +100,11 @@ t4 = rf_pipelines.plotter_transform('detrended_chime', img_nfreq=512, img_nt=120
 #
 # The bonsai_config.hdf5 input file can be made with 'bonsai-mkweight'.
 # The triggers.hdf5 file can be plotted with 'bonsai-plot-triggers.py'.
-
 t5 = rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5', nt_per_file=16*1200)
 
 s.run([frb,t1,t2,\
-    l1,\
-    c1,c2,c3,\
-    l2,l3,\
-    c4,c5,c6,\
-    x1,x2,x3,l4,\
+    l1,c2,\
     t4,t5])
 
-print "example3.py completed successfully"
+print "masoud-experiment.py completed successfully"
 print "You can plot the bonsai triggers with 'bonsai-plot-triggers.py triggers.hdf5'"
