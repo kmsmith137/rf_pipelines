@@ -157,7 +157,10 @@ def wi_downsample(intensity, weights, new_nfreq, new_ntime):
     wi = wi / np.where(mask, w, 1.0) # wi = [1,2,0] / [1,2,1] = [1,1,0] 
     wi = np.where(mask, wi, 0.0) # wi = [1,1,0] (Masoud: this line can be removed)
     # Masoud: `w` needs to be divided by (nfreq//new_nfreq * ntime//new_ntime).
+    (nfreq, ntime) = intensity.shape
+    print np.min(w), np.max(w), "before"
     w = w / (nfreq//new_nfreq * ntime//new_ntime)
+    print np.min(w), np.max(w), "after"
     return (wi, w)
 
 # ------------------------------------------------------------------

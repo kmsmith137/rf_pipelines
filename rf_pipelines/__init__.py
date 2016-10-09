@@ -386,7 +386,7 @@ from .transforms.RC_detrender import RC_detrender
 
 # Helper routines for implementing new transforms in python.
 
-from .utils import write_png, wi_downsample, upsample, tile_arr
+from .utils import write_png, wi_downsample, upsample, tile_arr, weighted_mean_and_rms
 
 # Grouping code to handle output of bonsai_dedisperser
 from grouper import group_bonsai_output

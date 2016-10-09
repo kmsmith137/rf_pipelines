@@ -108,7 +108,8 @@ class clipper_transform(rf_pipelines.py_wi_transform):
 
         else:
             # 2D mode (TODO: eliminate this step using 'axis=None')
-            num = np.sum(weights * intensity**2)
+            (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, niter=1, sigma_clip=3.0)
+            num = np.sum(weights * (intensity-mean)**2)
             den = np.sum(weights)
 
             if den == 0.:

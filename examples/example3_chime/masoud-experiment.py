@@ -22,7 +22,7 @@ if not os.path.exists('bonsai_config.hdf5'):
 # Note: The utility 'ch-show-intensity-file' may be useful for quickly inspecting a CHIME hdf5 file.
 #       and the utility 'ch-show-intensity-file' makes a quick waterfall plot.
 
-#filename_list = [ '00000131.h5', '00000147.h5', '00000163.h5' ]
+filename_list = [ '00000131.h5', '00000147.h5', '00000163.h5' ]
 filename_list = [ os.path.join('/data/pathfinder/16-07-08',f) for f in filename_list ]
 #filename_list = sorted(glob.glob('/data/pathfinder/16-07-07-b0329/*.h5'))
 print filename_list
@@ -60,13 +60,14 @@ t3 = rf_pipelines.simple_detrender(1024)
 # Localize Vertical RFIs: dsample along time; clip along freq
 # -------------------------------------------------------------
 # Pre-fit clippers
-c1 = rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=1024,\
-        dsample_nfreq=1024, dsample_nt=1024/256, test=False)
+c1 = rf_pipelines.clipper_transform(thr=3, axis=None, nt_chunk=1024,\
+        dsample_nfreq=1024/2, dsample_nt=1024/16)
 
-c2 = rf_pipelines.clipper_transform(thr=3, nt_chunk=1024)
+c2 = rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=1024,\
+        dsample_nfreq=1024/2, dsample_nt=1024/16)
 
 c3 = rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=1024,\
-        dsample_nfreq=1024/128, dsample_nt=1024)
+        dsample_nfreq=1024/2, dsample_nt=1024/16)
 
 # mask expanders
 x1 = rf_pipelines.mask_expander(thr=0.4, axis=None, nt_chunk=16)
@@ -74,18 +75,18 @@ x2 = rf_pipelines.mask_expander(thr=0.1, axis=0, nt_chunk=1024)
 x3 = rf_pipelines.mask_expander(thr=0.5, axis=1, nt_chunk=512)
 
 # Post-fit clippers
-c4 = rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=2048,\
-        dsample_nfreq=1024/64, dsample_nt=1024)
+c4 = rf_pipelines.clipper_transform(thr=3, axis=None, nt_chunk=1024,\
+        dsample_nfreq=1024, dsample_nt=1024)
 
-c5 = rf_pipelines.clipper_transform(thr=3, nt_chunk=1024,\
-        dsample_nfreq=1024/4, dsample_nt=1024/256)
+c5 = rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=1024,\
+        dsample_nfreq=1024, dsample_nt=1024)
 
-c6 = rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=1024,\
+c6 = rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=1024,\
         dsample_nfreq=1024, dsample_nt=4)
 
 # Legendre detrenders
 l1 = rf_pipelines.legendre_detrender(deg=0, axis=0, nt_chunk=1024, test=False)
-l2 = rf_pipelines.legendre_detrender(deg=4, axis=1, nt_chunk=1024)
+l2 = rf_pipelines.legendre_detrender(deg=0, axis=1, nt_chunk=1024)
 l3 = rf_pipelines.legendre_detrender(deg=10, axis=0, nt_chunk=1024)
 l4 = rf_pipelines.legendre_detrender(deg=10, axis=0, nt_chunk=1024)
 
@@ -103,7 +104,7 @@ t4 = rf_pipelines.plotter_transform('detrended_chime', img_nfreq=512, img_nt=120
 t5 = rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5', nt_per_file=16*1200)
 
 s.run([frb,t1,t2,\
-    l1,c2,\
+    c1,\
     t4,t5])
 
 print "masoud-experiment.py completed successfully"
