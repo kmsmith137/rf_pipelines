@@ -32,7 +32,7 @@ class mask_expander(rf_pipelines.py_wi_transform):
       
       'thr=0.2' should be between 0 and 1. Any selected
         weights sub-array with a mean value less than or 
-        equal to the threshold is totally masked by this 
+        equal to this threshold is totally masked by the 
         transform.
 
       'axis=None' is the axis convention:
