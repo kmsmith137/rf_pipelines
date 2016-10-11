@@ -60,14 +60,14 @@ t3 = rf_pipelines.simple_detrender(1024)
 # Localize Vertical RFIs: dsample along time; clip along freq
 # -------------------------------------------------------------
 # Pre-fit clippers
-c1 = rf_pipelines.clipper_transform(thr=3, axis=None, nt_chunk=1024/256,
+c1 = rf_pipelines.clipper_transform(thr=3, axis=None, nt_chunk=1024,
         dsample_nfreq=1024/2, dsample_nt=None)
 
-c2 = rf_pipelines.clipper_transform(thr=3, axis=None, nt_chunk=1024,
-        dsample_nfreq=1024/2, dsample_nt=1024/16)
+c2 = rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=1024,
+        dsample_nfreq=1024/2, dsample_nt=1024/512)
 
-c3 = rf_pipelines.clipper_transform(thr=3, axis=None, nt_chunk=1024/2,
-        dsample_nfreq=1024/2, dsample_nt=1024/16)
+c3 = rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=1024,
+        dsample_nfreq=1024/512, dsample_nt=1024/16)
 
 c4 = rf_pipelines.clipper_transform(thr=3, axis=None, nt_chunk=1024,
         dsample_nfreq=1024/2, dsample_nt=1024/16)
@@ -87,9 +87,9 @@ x2 = rf_pipelines.mask_expander(thr=0.2, axis=0, nt_chunk=1024)
 x3 = rf_pipelines.mask_expander(thr=0.2, axis=1, nt_chunk=1024)
 
 # Legendre detrenders
-l1 = rf_pipelines.legendre_detrender(deg=4, axis=0, nt_chunk=1024, test=False)
-l2 = rf_pipelines.legendre_detrender(deg=4, axis=1, nt_chunk=1024)
-l3 = rf_pipelines.legendre_detrender(deg=10, axis=0, nt_chunk=1024)
+l1 = rf_pipelines.legendre_detrender(deg=4, axis=1, nt_chunk=1024, test=False)
+l2 = rf_pipelines.legendre_detrender(deg=4, axis=0, nt_chunk=1024)
+l3 = rf_pipelines.legendre_detrender(deg=10, axis=1, nt_chunk=1024)
 l4 = rf_pipelines.legendre_detrender(deg=10, axis=0, nt_chunk=1024)
 
 # This plotter_transform is after the detrender, so it generates detrended plots.
@@ -106,7 +106,7 @@ t4 = rf_pipelines.plotter_transform('detrended_chime', img_nfreq=512, img_nt=120
 t5 = rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5', nt_per_file=16*1200)
 
 s.run([frb,t1,t2,
-    c1,
+    l1,l2,c1,c2,c3,l3,l4,
   #  c3,c4,
     t4,t5])
 

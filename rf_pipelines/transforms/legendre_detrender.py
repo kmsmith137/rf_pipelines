@@ -105,7 +105,7 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
         # In the future, we shall implement a robust 
         # algorithm for catching poorly-conditioned matrices 
         # (see "chime_zerodm_notes").
-        if np.sum(w) == 0.:
+        if np.sum(w) < 20: # TODO
             return np.zeros(self.N)
 
         else:

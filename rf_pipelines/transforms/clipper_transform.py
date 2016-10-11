@@ -118,7 +118,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
             clip = np.zeros((self.dsample_nfreq, self.dsample_nt))
             
             rms = np.sqrt(num/den)
-            if rms < 0.01:
+            if rms < 0.007:
                 clip[:] = np.sqrt(num/den)
             else:
                 clip[:] = 0.
