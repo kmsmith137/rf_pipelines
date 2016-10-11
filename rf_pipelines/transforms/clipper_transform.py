@@ -116,12 +116,18 @@ class clipper_transform(rf_pipelines.py_wi_transform):
                 return
 
             clip = np.zeros((self.dsample_nfreq, self.dsample_nt))
-            clip[:] = np.sqrt(num/den)
+            
+            rms = np.sqrt(num/den)
+            if rms < 0.01:
+                clip[:] = np.sqrt(num/den)
+            else:
+                clip[:] = 0.
 
         assert weights.shape == intensity.shape == clip.shape
 
         # Boolean array which is True for masked values
         mask = np.abs(intensity) > (self.thr * clip)
+
         if self.coarse_grained:
             mask = rf_pipelines.upsample(mask, self.nfreq, self.nt_chunk)
 
