@@ -98,7 +98,6 @@ def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False
     weights = weights/wmax
 
     # color in range [0,1].
-    # Masoud: implement '/rms' in 2d clipper:
     color = 0.5 + 0.16*(arr-mean)/rms    # factor 0.16 preserves convention from some old code
     color = np.maximum(color, 0.0001)    # 0.0001 instead of 0.0, to make roundoff-robust
     color = np.minimum(color, 0.9999)    # 0.9999 instead of 1.0, to make roundoff-robust
@@ -126,12 +125,9 @@ def _downsample_2d(arr, new_nfreq, new_ntime):
     (nfreq, ntime) = arr.shape
     assert nfreq % new_nfreq == 0
     assert ntime % new_ntime == 0
-    # ------------------------------------------------------------------
-    # Masoud: no bugs in the next 3 lines.
-    # ------------------------------------------------------------------
     arr = np.reshape(arr, (new_nfreq, nfreq//new_nfreq, new_ntime, ntime//new_ntime))
-    arr = np.sum(arr, axis=3) #***
-    arr = np.sum(arr, axis=1) #***
+    arr = np.sum(arr, axis=3)
+    arr = np.sum(arr, axis=1)
     return arr
 
 
@@ -140,28 +136,13 @@ def wi_downsample(intensity, weights, new_nfreq, new_ntime):
 
     wi = _downsample_2d(weights * intensity, new_nfreq, new_ntime)
     w = _downsample_2d(weights, new_nfreq, new_ntime)
-        # ------------------------------------------------------------------
-        # Masoud: at this point, `w` can have elements > 1 because we 
-        # summed weights (without normalizing) along two axes (see *** in 
-        # the comments above)
-        #
-        # let   wi=[1e4,1,1,1,30,30], w=[0,1,1,1,0,0] 
-        #
-        # dsampling by a factor of 2, we want to get: wi=[1,1,0], w=[0.5,1,0]
-        #
-        # but up to this line, we've got: wi=[1,2,0], w=[1,2,0]
-        #
-        # QUESTION: what happens when we upsample the dsampled array?! 
-        # any complications in handling outliers?
-        # ------------------------------------------------------------------
-    mask = (w > 0.0) # mask=[T,T,F]
-    wi = wi / np.where(mask, w, 1.0) # wi = [1,2,0] / [1,2,1] = [1,1,0] 
-    wi = np.where(mask, wi, 0.0) # wi = [1,1,0] (Masoud: this line can be removed)
-    # Masoud: `w` needs to be divided by (nfreq//new_nfreq * ntime//new_ntime).
+    mask = (w > 0.0)
+    
+    wi = wi / np.where(mask, w, 1.0) 
+    wi = np.where(mask, wi, 0.0)
+
     (nfreq, ntime) = intensity.shape
-    #print np.min(w), np.max(w), "before"
     w = w / (nfreq//new_nfreq * ntime//new_ntime)
-    #print np.min(w), np.max(w), "after"
     return (wi, w)
 
 def upsample(arr, new_nfreq, new_nt):
