@@ -164,10 +164,6 @@ def wi_downsample(intensity, weights, new_nfreq, new_ntime):
     #print np.min(w), np.max(w), "after"
     return (wi, w)
 
-# ------------------------------------------------------------------
-# Masoud: upsample() does what we want for intensity.. 
-# have to think about the weights array.
-# ------------------------------------------------------------------
 def upsample(arr, new_nfreq, new_nt):
     """Upsamples a 2d array"""
 
