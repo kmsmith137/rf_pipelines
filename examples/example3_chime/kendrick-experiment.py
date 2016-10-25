@@ -97,14 +97,6 @@ t4 = rf_pipelines.plotter_transform('detrended_chime', img_nfreq=512, img_nt=120
 # The bonsai_config.hdf5 input file can be made with 'bonsai-mkweight'.
 # The triggers.hdf5 file can be plotted with 'bonsai-plot-triggers.py'.
 
-
-#s.run([frb,t1,t2,\
-#    l1,\
-#    c1,c2,c3,\
-#    l2,l3,\
-#    c4,c5,c6,l4,\
-#    t4,t5])
-
 class detrend_clip_pair(rf_pipelines.py_wi_transform):
     def __init__(self, detrender, clipper):
         assert isinstance(detrender, rf_pipelines.wi_transform)
@@ -133,8 +125,6 @@ class detrend_clip_pair(rf_pipelines.py_wi_transform):
     def end_substream(self):
         self.detrender.end_substream()
         self.clipper.end_substream()
-
-
 
 detrend_deg = 1
 detrend_nt = 128
