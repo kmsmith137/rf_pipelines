@@ -24,7 +24,8 @@ if not os.path.exists('bonsai_config.hdf5'):
 
 filename_list = [ '00000131.h5', '00000147.h5', '00000163.h5' ]
 filename_list = [ os.path.join('/data/pathfinder/16-07-08',f) for f in filename_list ]
-filename_list = sorted(glob.glob('/data/pathfinder/16-07-07-b0329/*.h5'))[0:8]
+filename_list = sorted(glob.glob('/data/pathfinder/16-07-08/*.h5'))[0:16]
+print filename_list
 
 # Construct CHIME stream object.  
 #
