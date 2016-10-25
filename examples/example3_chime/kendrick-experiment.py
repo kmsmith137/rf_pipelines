@@ -24,7 +24,7 @@ if not os.path.exists('bonsai_config.hdf5'):
 
 filename_list = [ '00000131.h5', '00000147.h5', '00000163.h5' ]
 filename_list = [ os.path.join('/data/pathfinder/16-07-08',f) for f in filename_list ]
-filename_list = sorted(glob.glob('/data/pathfinder/16-07-08/*.h5'))[0:16]
+filename_list = sorted(glob.glob('/data/pathfinder/16-07-08/*.h5'))
 print filename_list
 
 # Construct CHIME stream object.  
@@ -97,7 +97,7 @@ class detrend_clip_pair(rf_pipelines.py_wi_transform):
 detrend_deg = 1
 detrend_nt = 128
 clipper_nt = 4096
-niterations = 2
+niterations = 4
 
 def make_dc_chain(ix):
     return [ rf_pipelines.legendre_detrender(deg=detrend_deg, axis=1, nt_chunk=detrend_nt, test=False),
@@ -118,7 +118,7 @@ transform_chain = [ rf_pipelines.plotter_transform('raw', img_nfreq=512, img_nt=
 for ix in xrange(niterations):
     transform_chain += make_dc_chain(ix)
 
-transform_chain += [ rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5', nt_per_file=16*1200) ]
+transform_chain += [ rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5', nt_per_file=16*2400) ]
 
 s.run(transform_chain)
 
