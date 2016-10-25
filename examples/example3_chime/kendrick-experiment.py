@@ -7,6 +7,7 @@
 
 import os
 import sys
+import glob
 import rf_pipelines
 
 if not os.path.exists('bonsai_config.hdf5'):
@@ -23,8 +24,8 @@ if not os.path.exists('bonsai_config.hdf5'):
 
 filename_list = [ '00000131.h5', '00000147.h5', '00000163.h5' ]
 filename_list = [ os.path.join('/data/pathfinder/16-07-08',f) for f in filename_list ]
+filename_list = sorted(glob.glob('/data/pathfinder/16-07-07-b0329/*.h5'))[0:8]
 
-#
 # Construct CHIME stream object.  
 #
 # We use the noise_source_align optional arg, which ensures that the noise source is aligned 
@@ -50,40 +51,6 @@ t2 = rf_pipelines.badchannel_mask('/data/pathfinder/rfi_masks/rfi_20160705.dat',
 # The argument to the simple_detrender constructor is the detrender chunk size.
 # The value of 'noise_source_align' above should be chosen to equal this.
 t3 = rf_pipelines.simple_detrender(1024)
-
-# -------------------------------------------------------------
-# ------------------ Clipper Transforms -----------------------
-# -------------------------------------------------------------
-# Localize Horizontal RFIs: dsample along freq; clip along time
-# Localize Vertical RFIs: dsample along time; clip along freq
-# -------------------------------------------------------------
-# Pre-fit clippers
-c1 = rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=1024,\
-        dsample_nfreq=1024, dsample_nt=1024/256, test=False)
-
-c2 = rf_pipelines.clipper_transform(thr=3, nt_chunk=1024,\
-        dsample_nfreq=1024, dsample_nt=1024/256)
-
-c3 = rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=1024,\
-        dsample_nfreq=1024/128, dsample_nt=1024)
-
-# Post-fit clippers
-c4 = rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=2048,\
-        dsample_nfreq=1024/64, dsample_nt=1024)
-
-c5 = rf_pipelines.clipper_transform(thr=3, nt_chunk=1024,\
-        dsample_nfreq=1024/4, dsample_nt=1024/256)
-
-c6 = rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=1024,\
-        dsample_nfreq=1024, dsample_nt=4)
-
-# Legendre detrenders
-l1 = rf_pipelines.legendre_detrender(deg=4, axis=1, nt_chunk=1024, test=False)
-
-l2 = rf_pipelines.legendre_detrender(deg=4, axis=1, nt_chunk=1024)
-l3 = rf_pipelines.legendre_detrender(deg=10, axis=0, nt_chunk=1024)
-
-l4 = rf_pipelines.legendre_detrender(deg=10, axis=0, nt_chunk=1024)
 
 # This plotter_transform is after the detrender, so it generates detrended plots.
 t4 = rf_pipelines.plotter_transform('detrended_chime', img_nfreq=512, img_nt=1200, downsample_nt=16)
@@ -129,17 +96,22 @@ class detrend_clip_pair(rf_pipelines.py_wi_transform):
 detrend_deg = 1
 detrend_nt = 128
 clipper_nt = 4096
-niterations = 5
+niterations = 2
 
 def make_dc_chain(ix):
     return [ rf_pipelines.legendre_detrender(deg=detrend_deg, axis=1, nt_chunk=detrend_nt, test=False),
-             rf_pipelines.plotter_transform('clipper_input%d' % ix, img_nfreq=512, img_nt=1200, downsample_nt=16),
-             rf_pipelines.clipper_transform(thr=4, axis=0, nt_chunk=clipper_nt, dsample_nfreq=1024, dsample_nt=clipper_nt/256, test=False),
-             rf_pipelines.clipper_transform(thr=4, nt_chunk=clipper_nt, dsample_nfreq=1024, dsample_nt=clipper_nt/256),
+             #rf_pipelines.plotter_transform('clipper_input%d' % ix, img_nfreq=512, img_nt=1200, downsample_nt=16),
+             rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=clipper_nt, dsample_nfreq=1024/2, dsample_nt=clipper_nt/128, test=False),
+             rf_pipelines.clipper_transform(thr=3, nt_chunk=clipper_nt, dsample_nfreq=1024/2, dsample_nt=clipper_nt/64),
              rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=clipper_nt, dsample_nfreq=1024/128, dsample_nt=clipper_nt),
-             rf_pipelines.plotter_transform('clipper_output%d' % ix, img_nfreq=512, img_nt=1200, downsample_nt=16) ]
+             rf_pipelines.mask_expander(thr=0.3, nt_chunk=clipper_nt/2**10),
+             rf_pipelines.mask_expander(thr=0.3, nt_chunk=clipper_nt/2**8),
+             rf_pipelines.mask_expander(thr=0.3, nt_chunk=clipper_nt/2**6),
+             rf_pipelines.mask_expander(thr=0.3, nt_chunk=clipper_nt/2**4),
+             rf_pipelines.legendre_detrender(deg=4, axis=0, nt_chunk=detrend_nt, test=False),
+             rf_pipelines.plotter_transform('clipper_output%d' % ix, img_nfreq=512, img_nt=2400, downsample_nt=16) ]
 
-transform_chain = [ rf_pipelines.plotter_transform('raw', img_nfreq=512, img_nt=1200, downsample_nt=16),
+transform_chain = [ rf_pipelines.plotter_transform('raw', img_nfreq=512, img_nt=2400, downsample_nt=16),
                     rf_pipelines.badchannel_mask('/data/pathfinder/rfi_masks/rfi_20160705.dat', nt_chunk=512) ]
 
 for ix in xrange(niterations):
@@ -149,6 +121,5 @@ transform_chain += [ rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'trig
 
 s.run(transform_chain)
 
-print "example3.py completed successfully"
+print "kendrick-experiment.py completed successfully"
 print "You can plot the bonsai triggers with 'bonsai-plot-triggers.py triggers.hdf5'"
-
