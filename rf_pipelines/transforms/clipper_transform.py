@@ -97,31 +97,13 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         # The purpose of this next block of code is to compute 'clip', a 2D array of
         # shape (dsample_nfreq, dsample_nt) which contains the estimated rms.
 
-        if self.axis is not None: # 1D mode
-            # Compute (sum_i W_i I_i^2) and (sum_i W_i)
-            num = np.sum(weights*(intensity)**2, axis=self.axis)
-            den = np.sum(weights, axis=self.axis)
-            np.putmask(den, den==0., 1.0)     # replace 0.0 by 1.0 to avoid divide-by-zero
+        # Compute (sum_i W_i I_i^2) and (sum_i W_i)
+        num = np.sum(weights*(intensity)**2, axis=self.axis)
+        den = np.sum(weights, axis=self.axis)
+        np.putmask(den, den==0., 1.0)     # replace 0.0 by 1.0 to avoid divide-by-zero
 
-            clip = np.sqrt(num/den)      # 1D array
-            clip = rf_pipelines.tile_arr(clip, self.axis, self.dsample_nfreq, self.dsample_nt)   # 2D array
-
-        else:
-            # 2D mode (TODO: eliminate this step using 'axis=None')
-            (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, niter=1, sigma_clip=3.0)
-            num = np.sum(weights * (intensity-mean)**2)
-            den = np.sum(weights)
-
-            if den == 0.:
-                return
-
-            clip = np.zeros((self.dsample_nfreq, self.dsample_nt))
-            
-            #rms = np.sqrt(num/den)
-            #if rms < 0.007:
-            clip[:] = np.sqrt(num/den)
-            #else:
-            #    clip[:] = 0.
+        clip = np.sqrt(num/den)
+        clip = rf_pipelines.tile_arr(clip, self.axis, self.dsample_nfreq, self.dsample_nt)
 
         assert weights.shape == intensity.shape == clip.shape
 

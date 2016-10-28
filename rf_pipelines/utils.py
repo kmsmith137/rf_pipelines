@@ -30,7 +30,7 @@ def weighted_mean_and_rms(arr, weights, niter=1, sigma_clip=3.0):
             return (mean, 0.0)
 
         mean = np.sum(weights*arr) / np.sum(weights)
-        var = np.sum((weights*(arr-mean))**2) / np.sum(weights**2)
+        var = np.sum(weights*(arr-mean)**2) / np.sum(weights)
 
         if var <= 0.0:
             return (mean, rms)
@@ -162,21 +162,25 @@ def upsample(arr, new_nfreq, new_nt):
     return np.reshape(ret, (new_nfreq, new_nt))
 
 def tile_arr(arr, axis, nfreq, nt_chunk):
-    """tiles (i.e., copies) a 1d array along the selected axis. 
+    """tiles (i.e., copies) a scalar or a 1d array to a 2d array.
     It's used for matching 1d and 2d arrays in element-by-element 
     operations. It can also be useful in creating 2d simulations.
     
     Axis convention:
+    None: planar; freq and time.
     0: tile along freq; constant time
     1: tile along time; constant freq
     """
     
-    assert arr.ndim == 1
+    assert (arr.ndim == 0 or arr.ndim ==1)
+    assert (axis == None) or (axis == 0) or (axis == 1),\
+            "axis must be None (planar; freq and time), 0 (along freq; constant time), or 1 (along time; constant freq)."
     if axis == 0:
-        return np.tile(arr, (nfreq, 1))
+        return np.tile(arr, (nfreq,1))
+    elif axis == 1:
+        return np.transpose(np.tile(arr, (nt_chunk,1)))
     else:
-        return np.transpose(np.tile(arr, (nt_chunk, 1)))
-
+        return np.tile(arr, (nfreq,nt_chunk))
 
 ####################################################################################################
 
