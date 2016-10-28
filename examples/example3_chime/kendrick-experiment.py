@@ -22,9 +22,10 @@ if not os.path.exists('bonsai_config.hdf5'):
 # Note: The utility 'ch-show-intensity-file' may be useful for quickly inspecting a CHIME hdf5 file.
 #       and the utility 'ch-show-intensity-file' makes a quick waterfall plot.
 
-filename_list = [ '00000131.h5', '00000147.h5', '00000163.h5' ]
-filename_list = [ os.path.join('/data/pathfinder/16-07-08',f) for f in filename_list ]
-filename_list = sorted(glob.glob('/data/pathfinder/16-07-08/*.h5'))
+#filename_list = [ '00000131.h5', '00000147.h5', '00000163.h5' ]
+#filename_list = [ os.path.join('/data/pathfinder/16-07-08',f) for f in filename_list ]
+#filename_list = sorted(glob.glob('/data/pathfinder/16-07-08/*.h5'))
+filename_list = sorted(glob.glob('/data/pathfinder/16-09-19-incoherent-without-noise-source/*.h5'))
 print filename_list
 
 # Construct CHIME stream object.  
