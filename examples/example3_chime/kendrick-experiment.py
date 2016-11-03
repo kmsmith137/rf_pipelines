@@ -22,19 +22,19 @@ if not os.path.exists('bonsai_config.hdf5'):
 # Note: The utility 'ch-show-intensity-file' may be useful for quickly inspecting a CHIME hdf5 file.
 #       and the utility 'ch-show-intensity-file' makes a quick waterfall plot.
 
-run = 2
+run = 1
 
 if run == 1:
     filename_list = sorted(glob.glob('/data/pathfinder/16-07-08/*.h5'))
     
-    filename_list = [ '00000147.h5', '00000163.h5', '00000180.h5', '00000196.h5']
-    #filename_list = [ '00002326.h5', '00002342.h5', '00002359.h5', '00002375.h5', '00002392.h5', '00002408.h5', '00002424.h5' ]
+    #filename_list = [ '00000147.h5', '00000163.h5', '00000180.h5', '00000196.h5']
+    filename_list = [ '00002326.h5', '00002342.h5', '00002359.h5', '00002375.h5', '00002392.h5', '00002408.h5', '00002424.h5' ]
     filename_list = [ os.path.join('/data/pathfinder/16-07-08',f) for f in filename_list ]
     
 if run == 2:
     filename_list = sorted(glob.glob('/data/pathfinder/16-09-19-incoherent-without-noise-source/*.h5'))[0:13]
     
-    filename_list = [ '00000327.h5', '00000344.h5', '00000360.h5']#, '00000376.h5', '00000393.h5', '00000409.h5', '00000426.h5' ]
+    filename_list = [ '00000327.h5', '00000344.h5', '00000360.h5', '00000376.h5', '00000393.h5', '00000409.h5', '00000426.h5' ]
     filename_list = [ os.path.join('/data/pathfinder/16-09-19-incoherent-without-noise-source',f) for f in filename_list ]
 
 print filename_list
@@ -106,22 +106,24 @@ class detrend_clip_pair(rf_pipelines.py_wi_transform):
         self.detrender.end_substream()
         self.clipper.end_substream()
 
-detrend_deg = 4
-detrend_nt = 1024
+detrend_deg = 2
+detrend_nt = 2048
 clipper_nt = 4096
-niterations = 4
+niterations = 6
 
 def make_dc_chain(ix):
     return [ rf_pipelines.legendre_detrender(deg=detrend_deg, axis=1, nt_chunk=detrend_nt),
-             rf_pipelines.legendre_detrender(deg=4, axis=0, nt_chunk=detrend_nt),
+             rf_pipelines.legendre_detrender(deg=2, axis=0, nt_chunk=detrend_nt),
              rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=clipper_nt, dsample_nfreq=1024/2, dsample_nt=clipper_nt/128),
+             rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=clipper_nt, dsample_nfreq=1024, dsample_nt=clipper_nt),
+             rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=clipper_nt, dsample_nfreq=1024, dsample_nt=clipper_nt),
              rf_pipelines.clipper_transform(thr=3, nt_chunk=clipper_nt, dsample_nfreq=1024/2, dsample_nt=clipper_nt/64),
-             rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=clipper_nt, dsample_nfreq=1024/128, dsample_nt=clipper_nt),
+             rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=clipper_nt, dsample_nfreq=1024/128, dsample_nt=clipper_nt/4),
              rf_pipelines.mask_expander(thr=0.3, nt_chunk=clipper_nt/2**10),
              rf_pipelines.mask_expander(thr=0.3, nt_chunk=clipper_nt/2**8),
              rf_pipelines.mask_expander(thr=0.3, nt_chunk=clipper_nt/2**6),
              rf_pipelines.mask_expander(thr=0.3, nt_chunk=clipper_nt/2**4),
-             rf_pipelines.legendre_detrender(deg=4, axis=0, nt_chunk=detrend_nt),
+             rf_pipelines.legendre_detrender(deg=10, axis=0, nt_chunk=detrend_nt),
              rf_pipelines.plotter_transform('clipper_output%d' % ix, img_nfreq=512, img_nt=2400, downsample_nt=16) ]
 
 transform_chain = [ rf_pipelines.plotter_transform('raw', img_nfreq=512, img_nt=2400, downsample_nt=16),
