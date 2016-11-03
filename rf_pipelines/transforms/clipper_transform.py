@@ -48,7 +48,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         assert (dsample_nt is None or dsample_nt > 0), "Invalid downsampling number along the time axis!"
         assert (dsample_nfreq is None or dsample_nfreq > 0), "Invalid downsampling number along the freq axis!"
 
-        name = 'clipper_transform(thr=%f, axis=%s, nt_chunk=%d,' % (thr, axis, nt_chunk)
+        name = 'clipper_transform(thr=%f, axis=%s, nt_chunk=%d' % (thr, axis, nt_chunk)
         if dsample_nfreq is not None:
             name += ', dsample_nfreq=%d' % dsample_nfreq
         if dsample_nt is not None:
@@ -98,8 +98,9 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         # shape (dsample_nfreq, dsample_nt) which contains the estimated rms.
 
         # Compute (sum_i W_i I_i^2) and (sum_i W_i)
-        num = np.sum(weights*(intensity)**2, axis=self.axis)
-        den = np.sum(weights, axis=self.axis)
+        num = np.asarray(np.sum(weights*(intensity)**2, axis=self.axis))
+        den = np.asarray(np.sum(weights, axis=self.axis))
+        
         np.putmask(den, den==0., 1.0)     # replace 0.0 by 1.0 to avoid divide-by-zero
 
         clip = np.sqrt(num/den)
