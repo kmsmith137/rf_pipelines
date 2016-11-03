@@ -34,7 +34,7 @@ if run == 1:
 if run == 2:
     filename_list = sorted(glob.glob('/data/pathfinder/16-09-19-incoherent-without-noise-source/*.h5'))[0:13]
     
-    filename_list = [ '00000327.h5', '00000344.h5', '00000360.h5', '00000376.h5', '00000393.h5', '00000409.h5', '00000426.h5' ]
+    filename_list = [ '00000327.h5', '00000344.h5', '00000360.h5']#, '00000376.h5', '00000393.h5', '00000409.h5', '00000426.h5' ]
     filename_list = [ os.path.join('/data/pathfinder/16-09-19-incoherent-without-noise-source',f) for f in filename_list ]
 
 print filename_list
@@ -106,22 +106,22 @@ class detrend_clip_pair(rf_pipelines.py_wi_transform):
         self.detrender.end_substream()
         self.clipper.end_substream()
 
-detrend_deg = 1
-detrend_nt = 128
+detrend_deg = 4
+detrend_nt = 1024
 clipper_nt = 4096
 niterations = 4
 
 def make_dc_chain(ix):
-    return [ rf_pipelines.legendre_detrender(deg=detrend_deg, axis=1, nt_chunk=detrend_nt, test=False),
-             #rf_pipelines.plotter_transform('clipper_input%d' % ix, img_nfreq=512, img_nt=1200, downsample_nt=16),
-             rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=clipper_nt, dsample_nfreq=1024/2, dsample_nt=clipper_nt/128, test=False),
+    return [ rf_pipelines.legendre_detrender(deg=detrend_deg, axis=1, nt_chunk=detrend_nt),
+             rf_pipelines.legendre_detrender(deg=4, axis=0, nt_chunk=detrend_nt),
+             rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=clipper_nt, dsample_nfreq=1024/2, dsample_nt=clipper_nt/128),
              rf_pipelines.clipper_transform(thr=3, nt_chunk=clipper_nt, dsample_nfreq=1024/2, dsample_nt=clipper_nt/64),
              rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=clipper_nt, dsample_nfreq=1024/128, dsample_nt=clipper_nt),
              rf_pipelines.mask_expander(thr=0.3, nt_chunk=clipper_nt/2**10),
              rf_pipelines.mask_expander(thr=0.3, nt_chunk=clipper_nt/2**8),
              rf_pipelines.mask_expander(thr=0.3, nt_chunk=clipper_nt/2**6),
              rf_pipelines.mask_expander(thr=0.3, nt_chunk=clipper_nt/2**4),
-             rf_pipelines.legendre_detrender(deg=4, axis=0, nt_chunk=detrend_nt, test=False),
+             rf_pipelines.legendre_detrender(deg=4, axis=0, nt_chunk=detrend_nt),
              rf_pipelines.plotter_transform('clipper_output%d' % ix, img_nfreq=512, img_nt=2400, downsample_nt=16) ]
 
 transform_chain = [ rf_pipelines.plotter_transform('raw', img_nfreq=512, img_nt=2400, downsample_nt=16),
