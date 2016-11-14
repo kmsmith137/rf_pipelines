@@ -48,5 +48,5 @@ transform_chain += [ rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'trig
 
 s.run(transform_chain)
 
-print "kendrick-experiment.py completed successfully"
+print "pipeline_v1.py completed successfully"
 print "You can plot the bonsai triggers with 'bonsai-plot-triggers.py triggers.hdf5'"
