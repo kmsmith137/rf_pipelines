@@ -16,24 +16,15 @@ if not os.path.exists('bonsai_config.hdf5'):
 filename_list = [ '00000327.h5', '00000344.h5', '00000360.h5', '00000376.h5', '00000393.h5', '00000409.h5', '00000426.h5' ]
 filename_list = [ os.path.join('/data/pathfinder/16-09-19-incoherent-without-noise-source',f) for f in filename_list ]
 
-# Construct CHIME stream object.  
-#
-# We use the noise_source_align optional arg, which ensures that the noise source is aligned 
-# with the detrender chunks, by discarding a small amount of initial data if necessary.  Note 
-# that the value of 'noise_source_align' should be equal to the DETRENDER chunk size, not the
-# chime_stream's nt_chunk.  (In this example the two happen to be equal.)
-s = rf_pipelines.chime_stream_from_filename_list(filename_list, nt_chunk=1024, noise_source_align=1024)
-
-#frb = rf_pipelines.frb_injector_transform(snr=30, undispersed_arrival_time=2105.0,
-#        sample_rms=0.005, dm=500.)
-
-detrend_deg = 2
 detrend_nt = 2048
 clipper_nt = 4096
 niterations = 6
 
+s = rf_pipelines.chime_stream_from_filename_list(filename_list, nt_chunk=1024, noise_source_align=detrend_nt)
+#frb = rf_pipelines.frb_injector_transform(snr=30, undispersed_arrival_time=2105.0, sample_rms=0.005, dm=500.)
+
 def make_dc_chain(ix):
-    return [ rf_pipelines.legendre_detrender(deg=detrend_deg, axis=1, nt_chunk=detrend_nt),
+    return [ rf_pipelines.legendre_detrender(deg=2, axis=1, nt_chunk=detrend_nt),
              rf_pipelines.legendre_detrender(deg=2, axis=0, nt_chunk=detrend_nt),
              rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=clipper_nt, dsample_nfreq=1024/2, dsample_nt=clipper_nt/128),
              rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=clipper_nt, dsample_nfreq=1024, dsample_nt=clipper_nt),
