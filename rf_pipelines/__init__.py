@@ -383,6 +383,7 @@ from .transforms.kurtosis_filter import kurtosis_filter
 from .transforms.std_dev_filter import std_dev_filter
 from .transforms.thermal_noise_weight import thermal_noise_weight
 from .transforms.RC_detrender import RC_detrender
+from .transforms.chain_iterator import chain_iterator
 
 # Helper routines for implementing new transforms in python.
 
