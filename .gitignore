@@ -5,5 +5,6 @@
 *.py.swp
 run-unit-tests
 examples/example4_cpp_toy/example4
+examples/example3_chime/bonsai_config.hdf5
 Makefile.local
 TODO
