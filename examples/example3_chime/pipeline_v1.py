@@ -25,17 +25,16 @@ s = rf_pipelines.chime_stream_from_filename_list(filename_list, nt_chunk=1024, n
 
 def make_dc_chain(ix):
     return [ rf_pipelines.legendre_detrender(deg=2, axis=1, nt_chunk=detrend_nt),
-             rf_pipelines.legendre_detrender(deg=2, axis=0, nt_chunk=detrend_nt),
+             rf_pipelines.legendre_detrender(deg=20, axis=0, nt_chunk=detrend_nt),
              rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=clipper_nt, dsample_nfreq=1024/2, dsample_nt=clipper_nt/128),
-             rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=clipper_nt, dsample_nfreq=1024, dsample_nt=clipper_nt),
-             rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=clipper_nt, dsample_nfreq=1024, dsample_nt=clipper_nt),
-             rf_pipelines.clipper_transform(thr=3, nt_chunk=clipper_nt, dsample_nfreq=1024/2, dsample_nt=clipper_nt/64),
+             rf_pipelines.clipper_transform(thr=3, axis=0, nt_chunk=clipper_nt),
              rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=clipper_nt, dsample_nfreq=1024/128, dsample_nt=clipper_nt/4),
+             rf_pipelines.clipper_transform(thr=3, axis=1, nt_chunk=clipper_nt),
+             rf_pipelines.clipper_transform(thr=3, nt_chunk=clipper_nt, dsample_nfreq=1024/2, dsample_nt=clipper_nt/64),
              rf_pipelines.mask_expander(thr=0.3, nt_chunk=clipper_nt/2**10),
              rf_pipelines.mask_expander(thr=0.3, nt_chunk=clipper_nt/2**8),
              rf_pipelines.mask_expander(thr=0.3, nt_chunk=clipper_nt/2**6),
              rf_pipelines.mask_expander(thr=0.3, nt_chunk=clipper_nt/2**4),
-             rf_pipelines.legendre_detrender(deg=10, axis=0, nt_chunk=detrend_nt),
              rf_pipelines.plotter_transform('clipper_output%d' % ix, img_nfreq=512, img_nt=2400, downsample_nt=16) ]
 
 transform_chain = [ rf_pipelines.plotter_transform('raw', img_nfreq=512, img_nt=2400, downsample_nt=16),
