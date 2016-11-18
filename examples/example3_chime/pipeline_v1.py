@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os
 import sys
+import glob
 import rf_pipelines
 
 if not os.path.exists('bonsai_config.hdf5'):
