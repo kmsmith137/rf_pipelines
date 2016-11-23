@@ -54,6 +54,7 @@ class std_dev_filter(rf_pipelines.py_wi_transform):
         if self.axis == 1:
             mask_axis = 0
         
-        mask = np.abs(sd-sd.mean(axis=mask_axis)) > (self.thr * rf_pipelines.tile_arr(sd.std(axis=mask_axis), mask_axis, self.nfreq, self.nt_chunk))
-        assert mask.shape == weights.shape
+        sd_sd = rf_pipelines.tile_arr(sd.std(axis=mask_axis), mask_axis, self.nfreq, self.nt_chunk)
+        sd_mean = rf_pipelines.tile_arr(sd.mean(axis=mask_axis), mask_axis, self.nfreq, self.nt_chunk)
+        mask = np.abs(sd - sd_mean) > (self.thr * sd_sd)
         np.putmask(weights, mask, 0.)
