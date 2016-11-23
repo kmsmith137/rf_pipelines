@@ -3,12 +3,12 @@ import rf_pipelines
 
 class std_dev_filter(rf_pipelines.py_wi_transform):
     """
-   Masks weights array based on the weighted 
+   FIXME: Masks weights array based on the weighted 
    (intensity) std.dev deviating by some sigma.   
    
     Constructor syntax:
 
-      t = std_dev_filter(thr=6., axis=0, nt_chunk=1024)
+      FIXME: t = std_dev_filter(thr=3., axis=None, nt_chunk=1024)
 
       FIXME: 'thr=3.' is the sigma value to clip (computed wrt the array of all channel
           standard deviations). Note: clipping based on absolute value of deviations
@@ -21,7 +21,7 @@ class std_dev_filter(rf_pipelines.py_wi_transform):
       'nt_chunk=1024' is the buffer size.
     """
 
-    def __init__(self, thr=6., axis=None, nt_chunk=1024):
+    def __init__(self, thr=3., axis=None, nt_chunk=1024):
         
         assert thr >= 1., "threshold must be >= 1."
         assert (axis == None or axis == 0 or axis == 1),\
@@ -41,6 +41,19 @@ class std_dev_filter(rf_pipelines.py_wi_transform):
         self.nfreq = stream.nfreq
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        # TODO 1d time, 2d global; weighted stdv
-        sd = np.ma.masked_where(weights==0.,intensity,copy=False).std(self.axis)
-        weights[abs(sd-sd.mean()) > self.thr*sd.std()] = 0.
+        
+        num = np.asarray(np.sum(weights*(intensity)**2, axis=self.axis))
+        den = np.asarray(np.sum(weights, axis=self.axis))
+
+        np.putmask(den, den==0., 1.0)     # replace 0.0 by 1.0 to avoid divide-by-zero
+        sd = np.sqrt(num/den)
+        sd = rf_pipelines.tile_arr(sd, self.axis, self.nfreq, self.nt_chunk)
+        
+        if self.axis == 0:
+            mask_axis = 1
+        if self.axis == 1:
+            mask_axis = 0
+        
+        mask = np.abs(sd-sd.mean(axis=mask_axis)) > (self.thr * rf_pipelines.tile_arr(sd.std(axis=mask_axis), mask_axis, self.nfreq, self.nt_chunk))
+        assert mask.shape == weights.shape
+        np.putmask(weights, mask, 0.)
