@@ -108,11 +108,15 @@ class clipper_transform(rf_pipelines.py_wi_transform):
 
         assert weights.shape == intensity.shape == clip.shape
         
-        (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, 6, 3)
-        clip[:] = rms
+        if self.axis == None:
+            (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, 6, 3)
+            clip[:] = rms
 
-        # Boolean array which is True for masked values
-        mask = np.abs(intensity-mean) > (self.thr * clip)
+            # Boolean array which is True for masked values
+            mask = np.abs(intensity-mean) > (self.thr * clip)
+        
+        if self.axis != None:
+            mask = np.abs(intensity) > (self.thr * clip)
 
         if self.coarse_grained:
             mask = rf_pipelines.upsample(mask, self.nfreq, self.nt_chunk)
