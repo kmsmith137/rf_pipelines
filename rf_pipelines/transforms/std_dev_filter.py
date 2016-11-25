@@ -1,17 +1,40 @@
 import numpy as np
 import rf_pipelines
 
+def filter_stdv(intensity, weights, thr, axis):
+    """Helper function for std_dev_filter. Modifies 'weights' array in place."""
+
+    (nfreq, nt_chunk) = intensity.shape
+    
+    # Compute the weighted standard deviation of the intensity
+    # array along the selected axis.
+    num = np.asarray(np.sum(weights*(intensity)**2, axis=axis))
+    den = np.asarray(np.sum(weights, axis=axis))
+    
+    np.putmask(den, den==0., 1.0)
+    sd = np.sqrt(num/den)
+
+    # Tile 'sd' so that it matches with intensity.shape.
+    sd = rf_pipelines.tile_arr(sd, axis, nfreq, nt_chunk)
+
+    # This block of code creates a mask, and hence filters, 
+    # based on the mean and stdv of 'sd' along the other axis.
+    axis = np.abs(axis-1)
+    sd_stdv = rf_pipelines.tile_arr(sd.std(axis=axis), axis, nfreq, nt_chunk)
+    sd_mean = rf_pipelines.tile_arr(sd.mean(axis=axis), axis, nfreq, nt_chunk)
+
+    np.putmask(weights, np.abs(sd-sd_mean) > (thr*sd_stdv), 0.)
+
 class std_dev_filter(rf_pipelines.py_wi_transform):
     """
-   FIXME: Masks weights array based on the weighted 
-   (intensity) std.dev deviating by some sigma.   
+   Masks weights array based on the weighted (intensity) 
+   standard deviation deviating by some sigma. 
    
     Constructor syntax:
 
-      FIXME: t = std_dev_filter(thr=3., axis=None, nt_chunk=1024)
+      t = std_dev_filter(thr=3., axis=None, nt_chunk=1024)
 
-      FIXME: 'thr=3.' is the sigma value to clip (computed wrt the array of all channel
-          standard deviations). Note: clipping based on absolute value of deviations
+      'thr=3.' is the sigma value to clip. 
 
       'axis=0' is the axis convention:
         None: planar; freq and time. 
@@ -41,20 +64,4 @@ class std_dev_filter(rf_pipelines.py_wi_transform):
         self.nfreq = stream.nfreq
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        
-        num = np.asarray(np.sum(weights*(intensity)**2, axis=self.axis))
-        den = np.asarray(np.sum(weights, axis=self.axis))
-
-        np.putmask(den, den==0., 1.0)     # replace 0.0 by 1.0 to avoid divide-by-zero
-        sd = np.sqrt(num/den)
-        sd = rf_pipelines.tile_arr(sd, self.axis, self.nfreq, self.nt_chunk)
-        
-        if self.axis == 0:
-            mask_axis = 1
-        if self.axis == 1:
-            mask_axis = 0
-        
-        sd_sd = rf_pipelines.tile_arr(sd.std(axis=mask_axis), mask_axis, self.nfreq, self.nt_chunk)
-        sd_mean = rf_pipelines.tile_arr(sd.mean(axis=mask_axis), mask_axis, self.nfreq, self.nt_chunk)
-        mask = np.abs(sd - sd_mean) > (self.thr * sd_sd)
-        np.putmask(weights, mask, 0.)
+        filter_stdv(intensity, weights, self.thr, self.axis)
