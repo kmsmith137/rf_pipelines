@@ -12,6 +12,7 @@ examples/example3_chime/raw*.png
 examples/example3_chime/triggers*.hdf5
 examples/example3_chime/trigraw*.hdf5
 examples/example3_chime/nohup.out
+examples/example3_chime/log
 examples/example3_chime/*.json
 examples/example3_chime/*dc_out*.png
 Makefile.local
