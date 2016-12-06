@@ -15,5 +15,6 @@ examples/example3_chime/nohup.out
 examples/example3_chime/log
 examples/example3_chime/*.json
 examples/example3_chime/*dc_out*.png
+examples/example3_chime/test/
 Makefile.local
 TODO
