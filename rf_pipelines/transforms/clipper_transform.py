@@ -1,37 +1,46 @@
 import numpy as np
 import rf_pipelines
 
-
 def clip_fx(intensity, weights, thr, axis, dsample_nfreq, dsample_nt, coarse_grained):
     """Helper function for clipper_transform. Modifies 'weights' array in place."""
- 
-        # Compute (sum_i W_i I_i^2) and (sum_i W_i)
-        num = np.asarray(np.sum(weights*(intensity)**2, axis=axis))
-        den = np.asarray(np.sum(weights, axis=axis))
+
+    (nfreq, nt_chunk) = intensity.shape
+    
+    # Let's make a ref to the original high-resolution weights.
+    weights_hres = weights
+    
+    if coarse_grained:
+        # Downsample the weights and intensity.
+        (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights,\
+                dsample_nfreq, dsample_nt)
+
+    # Compute (sum_i W_i I_i^2) and (sum_i W_i)
+    num = np.asarray(np.sum(weights*(intensity)**2, axis=axis))
+    den = np.asarray(np.sum(weights, axis=axis))
         
-        np.putmask(den, den==0., 1.0)     # replace 0.0 by 1.0 to avoid divide-by-zero
+    np.putmask(den, den==0., 1.0)     # replace 0.0 by 1.0 to avoid divide-by-zero
 
-        clip = np.sqrt(num/den)
-        clip = rf_pipelines.tile_arr(clip, axis, dsample_nfreq, dsample_nt)
+    clip = np.sqrt(num/den)
+    clip = rf_pipelines.tile_arr(clip, axis, dsample_nfreq, dsample_nt)
 
-        assert weights.shape == intensity.shape == clip.shape
+    assert weights.shape == intensity.shape == clip.shape
 
-        if axis == None:
-            (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, 6, 3)
-            clip[:] = rms
+    if axis == None:
+        (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, 6, 3)
+        clip[:] = rms
 
-            # Boolean array which is True for masked values
-            mask = np.abs(intensity-mean) > (thr * clip)
+        # Boolean array which is True for masked values
+        mask = np.abs(intensity-mean) > (thr * clip)
 
-        if axis != None:
-            mask = np.abs(intensity) > (thr * clip)
+    if axis != None:
+        mask = np.abs(intensity) > (thr * clip)
 
-        if coarse_grained:
-            mask = rf_pipelines.upsample(mask, nfreq, nt_chunk)
+    if coarse_grained:
+        mask = rf_pipelines.upsample(mask, nfreq, nt_chunk)
 
-        # Assign zero weights to those elements that have an
-        # intensity value beyond the threshold limit.
-        np.putmask(weights_hres, mask, 0.)
+    # Assign zero weights to those elements that have an
+    # intensity value beyond the threshold limit.
+    np.putmask(weights_hres, mask, 0.)
 
 class clipper_transform(rf_pipelines.py_wi_transform):
     """
@@ -118,17 +127,8 @@ class clipper_transform(rf_pipelines.py_wi_transform):
             intensity = np.random.normal(0, 1, size=intensity.shape)
             weights = np.ones(weights.shape)
 
-        # Let's make a ref to the original high-resolution weights.
-        weights_hres = weights
-        
-        if self.coarse_grained:
-            # Downsample the weights and intensity.
-            (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights,\
-                    self.dsample_nfreq, self.dsample_nt)
-
         # The purpose of this next block of code is to compute 'clip', a 2D array of
         # shape (dsample_nfreq, dsample_nt) which contains the estimated rms.
-        
         clip_fx(intensity, weights, self.thr, self.axis, self.dsample_nfreq, self.dsample_nt, self.coarse_grained)
 
         if self.test: 
