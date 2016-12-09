@@ -3,7 +3,7 @@ import rf_pipelines
 
 def filter_stdv(intensity, weights, thr, axis):
     """Helper function for std_dev_filter. Modifies 'weights' array in place."""
-
+    # TODO enable nt_dsample
     (nfreq, nt_chunk) = intensity.shape
     
     # Compute the weighted standard deviation of the intensity
