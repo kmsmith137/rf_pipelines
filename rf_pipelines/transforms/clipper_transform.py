@@ -24,9 +24,9 @@ def clip_fx(intensity, weights, thr, axis, dsample_nfreq, dsample_nt):
         dsample_nt = nt_chunk
 
     if nfreq % dsample_nfreq != 0:
-        raise RuntimeError("plotter_transform: current implementation requires 'dsample_nfreq' to be a divisor of stream nfreq.")
+        raise RuntimeError("clip_fx: current implementation requires 'dsample_nfreq' to be a divisor of stream nfreq.")
     if nt_chunk % dsample_nt != 0:
-        raise RuntimeError("clipper_transform: current implementation requires 'dsample_nt' to be a divisor of 'nt_chunk'.")
+        raise RuntimeError("clip_fx: current implementation requires 'dsample_nt' to be a divisor of 'nt_chunk'.")
 
     # Let's make a ref to the original high-resolution weights.
     weights_hres = weights
