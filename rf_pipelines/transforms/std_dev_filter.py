@@ -6,16 +6,14 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
     
     (nfreq, nt_chunk) = intensity.shape
     
-    # Helper assertion calls
+    # ------ Helper '__init__' calls ------
+    assert (axis == 0 or axis == 1), "axis must be 0 (along freq; constant time), or 1 (along time; constant freq)."
     assert thr >= 1., "threshold must be >= 1."
-    assert (axis == 0 or axis == 1),\
-        "axis must be 0 (along freq; constant time), or 1 (along time; constant freq)."
     assert nt_chunk > 0
-
     assert (dsample_nt is None or dsample_nt > 0), "Invalid downsampling number along the time axis!"
     assert (dsample_nfreq is None or dsample_nfreq > 0), "Invalid downsampling number along the freq axis!"
 
-    # Helper 'set_stream' calls
+    # ------ Helper 'set_stream' calls ------
     coarse_grained = (dsample_nfreq < nfreq) or (dsample_nt < nt_chunk)
 
     if dsample_nfreq is None:
@@ -27,7 +25,8 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
         raise RuntimeError("filter_stdv: current implementation requires 'dsample_nfreq' to be a divisor of stream nfreq.")
     if nt_chunk % dsample_nt != 0:
         raise RuntimeError("filter_stdv: current implementation requires 'dsample_nt' to be a divisor of 'nt_chunk'.")
-
+    
+    # ------ Helper 'process_chunk' calls ------
     # Let's make a ref to the original high-resolution weights.
     weights_hres = weights
 
@@ -44,11 +43,11 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
     np.putmask(den, den==0., 1.0)
     sd = np.sqrt(num/den)
 
-    # Tile 'sd' so that it matches with intensity.shape.
+    # Tile 'sd' so that it matches with the shape of intensity.
     sd = rf_pipelines.tile_arr(sd, axis, nfreq, nt_chunk)
 
     # This block of code creates a mask, and hence filters, 
-    # based on the mean and stdv of 'sd' along the other axis.
+    # based on the mean and stdv of 'sd' along THE OTHER axis.
     axis = np.abs(axis-1)
     sd_stdv = rf_pipelines.tile_arr(sd.std(axis=axis), axis, nfreq, nt_chunk)
     sd_mean = rf_pipelines.tile_arr(sd.mean(axis=axis), axis, nfreq, nt_chunk)
@@ -59,7 +58,7 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
     if coarse_grained:
         mask = rf_pipelines.upsample(mask, nfreq, nt_chunk)
 
-    np.putmask(weights, mask, 0.)
+    np.putmask(weights_hres, mask, 0.)
 
 class std_dev_filter(rf_pipelines.py_wi_transform):
     """
@@ -78,8 +77,8 @@ class std_dev_filter(rf_pipelines.py_wi_transform):
 
       'nt_chunk=1024' is the buffer size.
       
-      TODO comment on 'dsample_nfreq', 'dsample_nt'
-      TODO axis = None?
+      'dsample_nfreq' and 'dsample_nt' are the downsampled
+      number of pixles along the freq and time axes, respectively.
     """
 
     def __init__(self, thr=3., axis=None, nt_chunk=1024, dsample_nfre=None, dsample_nt=None):
