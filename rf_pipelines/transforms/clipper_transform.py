@@ -1,7 +1,7 @@
 import numpy as np
 import rf_pipelines
 
-def clip_fx(intensity, weights, thr, axis, dsample_nfreq, dsample_nt):
+def clip_fx(intensity, weights, thr=3, axis=None, dsample_nfreq=None, dsample_nt=None):
     """Helper function for clipper_transform. Modifies 'weights' array in place."""
     
     (nfreq, nt_chunk) = intensity.shape

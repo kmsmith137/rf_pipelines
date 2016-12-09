@@ -1,7 +1,7 @@
 import numpy as np
 import rf_pipelines
 
-def filter_stdv(intensity, weights, thr, axis, dsample_nfreq, dsample_nt):
+def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_nt=None):
     """Helper function for std_dev_filter. Modifies 'weights' array in place."""
     
     (nfreq, nt_chunk) = intensity.shape
@@ -12,7 +12,7 @@ def filter_stdv(intensity, weights, thr, axis, dsample_nfreq, dsample_nt):
         "axis must be 0 (along freq; constant time), or 1 (along time; constant freq)."
     assert nt_chunk > 0
 
-    assert assert (dsample_nt is None or dsample_nt > 0), "Invalid downsampling number along the time axis!"
+    assert (dsample_nt is None or dsample_nt > 0), "Invalid downsampling number along the time axis!"
     assert (dsample_nfreq is None or dsample_nfreq > 0), "Invalid downsampling number along the freq axis!"
 
     # Helper 'set_stream' calls
@@ -82,19 +82,26 @@ class std_dev_filter(rf_pipelines.py_wi_transform):
       TODO axis = None?
     """
 
-    def __init__(self, thr=3., axis=None, nt_chunk=1024):
+    def __init__(self, thr=3., axis=None, nt_chunk=1024, dsample_nfre=None, dsample_nt=None):
         
         self.thr = thr
         self.axis = axis
         self.nt_chunk  = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
+        self.dsample_nfreq = dsample_nfreq
+        self.dsample_nt = dsample_nt
 
         name = 'std_dev_filter(thr=%f, axis=%s, nt_chunk=%d' % (thr, axis, nt_chunk)
+        if dsample_nfreq is not None:
+            name += ', dsample_nfreq=%d' % dsample_nfreq
+        if dsample_nt is not None:
+            name += ', dsample_nt=%d' % dsample_nt
+        name += ')'
         self.name = name
 
     def set_stream(self,stream):
         self.nfreq = stream.nfreq
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        filter_stdv(intensity, weights, self.thr, self.axis, dsample_nfreq, dsample_nt)
+        filter_stdv(intensity, weights, self.thr, self.axis, self.dsample_nfreq, self.dsample_nt)
