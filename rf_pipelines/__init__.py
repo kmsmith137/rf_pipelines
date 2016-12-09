@@ -376,14 +376,14 @@ from .transforms.simple_detrender import simple_detrender
 from .transforms.bonsai_dedisperser import bonsai_dedisperser
 from .transforms.frb_injector_transform import frb_injector_transform
 from .transforms.badchannel_mask import badchannel_mask
-from .transforms.clipper_transform import clipper_transform
+from .transforms.clipper_transform import clipper_transform, clip_fx
 from .transforms.legendre_detrender import legendre_detrender
 from .transforms.mask_expander import mask_expander
 from .transforms.kurtosis_filter import kurtosis_filter
-from .transforms.std_dev_filter import std_dev_filter
+from .transforms.std_dev_filter import std_dev_filter, filter_stdv
 from .transforms.thermal_noise_weight import thermal_noise_weight
 from .transforms.RC_detrender import RC_detrender
-from .transforms.chain_iterator import chain_iterator
+from .transforms.master_clipper import master_clipper
 
 # Helper routines for implementing new transforms in python.
 
