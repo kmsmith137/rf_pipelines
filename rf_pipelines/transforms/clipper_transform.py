@@ -1,11 +1,33 @@
 import numpy as np
 import rf_pipelines
 
-def clip_fx(intensity, weights, thr, axis, dsample_nfreq, dsample_nt, coarse_grained):
+def clip_fx(intensity, weights, thr, axis, dsample_nfreq, dsample_nt):
     """Helper function for clipper_transform. Modifies 'weights' array in place."""
-
-    (nfreq, nt_chunk) = intensity.shape
     
+    (nfreq, nt_chunk) = intensity.shape
+
+    # Helper assertion calls
+    assert (axis == None or axis == 0 or axis == 1),\
+        "axis must be None (planar; freq and time), 0 (along freq; constant time), or 1 (along time; constant freq)."
+    assert thr >= 1., "threshold must be >= 1."
+    assert nt_chunk > 0
+
+    assert (dsample_nt is None or dsample_nt > 0), "Invalid downsampling number along the time axis!"
+    assert (dsample_nfreq is None or dsample_nfreq > 0), "Invalid downsampling number along the freq axis!"
+
+    # Helper 'set_stream' calls
+    coarse_grained = (dsample_nfreq < nfreq) or (dsample_nt < nt_chunk)
+
+    if dsample_nfreq is None:
+        dsample_nfreq = nfreq
+    if dsample_nt is None:
+        dsample_nt = nt_chunk
+
+    if nfreq % dsample_nfreq != 0:
+        raise RuntimeError("plotter_transform: current implementation requires 'dsample_nfreq' to be a divisor of stream nfreq.")
+    if nt_chunk % dsample_nt != 0:
+        raise RuntimeError("clipper_transform: current implementation requires 'dsample_nt' to be a divisor of 'nt_chunk'.")
+
     # Let's make a ref to the original high-resolution weights.
     weights_hres = weights
     
@@ -54,9 +76,10 @@ class clipper_transform(rf_pipelines.py_wi_transform):
    been detrended along the selected axis).
    + Currently based on the weighted standard deviation 
    as explained in "chime_zerodm_notes".
+   FIXME-------->>>>>
    + Available in a coarse-grained mode by using 
    'dsample_nfreq', and 'dsample_nt'.
-    
+   <<<<<-------------
     Constructor syntax:
 
       t = clipper_transform(thr=3, axis=None, nt_chunk=1024,\
@@ -81,14 +104,6 @@ class clipper_transform(rf_pipelines.py_wi_transform):
 
     def __init__(self, thr=3., axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False):
 
-        assert (axis == None or axis == 0 or axis == 1),\
-            "axis must be None (planar; freq and time), 0 (along freq; constant time), or 1 (along time; constant freq)."
-        assert thr >= 1., "threshold must be >= 1."
-        assert nt_chunk > 0
-
-        assert (dsample_nt is None or dsample_nt > 0), "Invalid downsampling number along the time axis!"
-        assert (dsample_nfreq is None or dsample_nfreq > 0), "Invalid downsampling number along the freq axis!"
-
         name = 'clipper_transform(thr=%f, axis=%s, nt_chunk=%d' % (thr, axis, nt_chunk)
         if dsample_nfreq is not None:
             name += ', dsample_nfreq=%d' % dsample_nfreq
@@ -107,17 +122,6 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         self.test = test
 
     def set_stream(self, stream):
-        if self.dsample_nfreq is None:
-            self.dsample_nfreq = stream.nfreq
-        if self.dsample_nt is None:
-            self.dsample_nt = self.nt_chunk
-
-        if stream.nfreq % self.dsample_nfreq != 0:
-            raise RuntimeError("plotter_transform: current implementation requires 'dsample_nfreq' to be a divisor of stream nfreq.")
-        if self.nt_chunk % self.dsample_nt != 0:
-            raise RuntimeError("clipper_transform: current implementation requires 'dsample_nt' to be a divisor of 'nt_chunk'.")
-
-        self.coarse_grained = (self.dsample_nfreq < stream.nfreq) or (self.dsample_nt < self.nt_chunk)
         self.nfreq = stream.nfreq
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
@@ -129,7 +133,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
 
         # The purpose of this next block of code is to compute 'clip', a 2D array of
         # shape (dsample_nfreq, dsample_nt) which contains the estimated rms.
-        clip_fx(intensity, weights, self.thr, self.axis, self.dsample_nfreq, self.dsample_nt, self.coarse_grained)
+        clip_fx(intensity, weights, self.thr, self.axis, self.dsample_nfreq, self.dsample_nt)
 
         if self.test: 
             unmasked_percentage = np.count_nonzero(weights_hres) / float(weights_hres.size) * 100.
