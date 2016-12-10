@@ -126,7 +126,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
             intensity = np.random.normal(0, 1, size=intensity.shape)
             weights = np.ones(weights.shape)
 
-        # Using clip_fx() mask the 'weights' in place.
+        # Using clip_fx() mask the 'weights' in place. Assume 'n_internal=6'.
         clip_fx(intensity, weights, self.thr, self.axis, self.dsample_nfreq, self.dsample_nt)
 
         if self.test: 

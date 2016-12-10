@@ -32,8 +32,7 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
 
     if coarse_grained:
         # Downsample the weights and intensity.
-        (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights,\
-                dsample_nfreq, dsample_nt)
+        (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights, dsample_nfreq, dsample_nt)
 
     # Compute the weighted standard deviation of the intensity
     # array along the selected axis.
