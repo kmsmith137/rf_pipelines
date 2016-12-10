@@ -3,6 +3,7 @@ import rf_pipelines
 
 class master_clipper(rf_pipelines.py_wi_transform):
     """
+    optimized clipping FIXME
     """
     def __init__(self, nt_chunk=1024, dsample_nt=None, rms_cut=0., max_niter=1):
         
@@ -30,12 +31,12 @@ class master_clipper(rf_pipelines.py_wi_transform):
         
         for ix in xrange(self.max_niter):
             (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, niter=6, sigma_clip=3)
-
             if rms > self.rms_cut:
                 weights[:] = 0.
-            
             else:
-                print "frac_unmasked=", np.mean(weights) # TODO
+                unmasked_percentage = np.count_nonzero(weights) / float(weights.size) * 100.
+                print unmasked_percentage, "% not masked." # TODO don't loop if this remains constant..
+                
                 rf_pipelines.clip_fx(intensity, weights, thr=3, dsample_nfreq=512, dsample_nt=self.dsample_nt/16)
                 rf_pipelines.clip_fx(intensity, weights, thr=3, axis=0, dsample_nt=self.dsample_nt)
                 rf_pipelines.clip_fx(intensity, weights, thr=3, axis=1, dsample_nt=self.dsample_nt)
