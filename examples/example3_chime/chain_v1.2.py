@@ -16,19 +16,22 @@ filename_list = [ os.path.join('/data/pathfinder/16-09-19-incoherent-without-noi
 dsample_nt = 1024 # standard downsampling nt for 'master_clipper'
 rms_cut = 0.002 # if the rms of intensity is above this threshold, then don't apply clippers AND set weights to 0  
 detrend_nt = 2048 # standard nt for 'legendre_detrender'
-niter = 2 # number of chain iterations (not counting internal iterations in 'master_clipper')
 
 s = rf_pipelines.chime_stream_from_filename_list(filename_list, nt_chunk=1024, noise_source_align=detrend_nt)
 
 transform_chain = [ rf_pipelines.plotter_transform('raw', img_nfreq=512, img_nt=1200, downsample_nt=16),
-                    rf_pipelines.badchannel_mask('/data/pathfinder/rfi_masks/rfi_20160705.dat', nt_chunk=dsample_nt) ] 
-
-for ix in xrange(niter):
-    transform_chain += [ rf_pipelines.master_clipper(nt_chunk=1024, dsample_nt=dsample_nt, rms_cut=rms_cut, max_niter=4),
-                         rf_pipelines.legendre_detrender(deg=4, axis=1, nt_chunk=detrend_nt), 
-                         rf_pipelines.legendre_detrender(deg=8, axis=0, nt_chunk=detrend_nt), 
-                         rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers%d.hdf5' % ix, nt_per_file=16*1200),
-                         rf_pipelines.plotter_transform('dc_out%d' % ix, img_nfreq=512, img_nt=1200, downsample_nt=16) ]
+                    rf_pipelines.badchannel_mask('/data/pathfinder/rfi_masks/rfi_20160705.dat', nt_chunk=dsample_nt),
+                    
+                    rf_pipelines.master_clipper(nt_chunk=1024, dsample_nt=dsample_nt, rms_cut=1e6, max_niter=1),
+                    rf_pipelines.legendre_detrender(deg=4, axis=1, nt_chunk=detrend_nt),
+                    rf_pipelines.legendre_detrender(deg=8, axis=0, nt_chunk=detrend_nt),
+                    rf_pipelines.plotter_transform('dc_out%d' % 1, img_nfreq=512, img_nt=1200, downsample_nt=16),
+                    
+                    rf_pipelines.master_clipper(nt_chunk=1024, dsample_nt=dsample_nt, rms_cut=rms_cut, max_niter=1), 
+                    rf_pipelines.legendre_detrender(deg=4, axis=1, nt_chunk=detrend_nt),
+                    rf_pipelines.legendre_detrender(deg=8, axis=0, nt_chunk=detrend_nt),
+                    rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5', nt_per_file=16*1200),
+                    rf_pipelines.plotter_transform('dc_out%d' % 2, img_nfreq=512, img_nt=1200, downsample_nt=16) ] 
 
 s.run(transform_chain)
 
