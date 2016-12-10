@@ -3,7 +3,7 @@ import rf_pipelines
 
 
 def expand_mask(weights, thr, axis):
-    """Helper function for mask_expander.  Modifies 'weights' array in place."""
+    """Helper function for mask_expander. Modifies 'weights' array in place."""
 
     (nfreq, nt_chunk) = weights.shape
 

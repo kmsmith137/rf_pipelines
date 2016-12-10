@@ -78,7 +78,7 @@ class std_dev_filter(rf_pipelines.py_wi_transform):
       'nt_chunk=1024' is the buffer size.
       
       'dsample_nfreq' and 'dsample_nt' are the downsampled
-      number of pixles along the freq and time axes, respectively.
+       number of pixles along the freq and time axes, respectively.
     """
 
     def __init__(self, thr=3., axis=None, nt_chunk=1024, dsample_nfre=None, dsample_nt=None):
