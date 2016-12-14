@@ -43,13 +43,15 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
     sd = np.sqrt(num/den)
 
     # Tile 'sd' so that it matches with the shape of intensity.
-    sd = rf_pipelines.tile_arr(sd, axis, nfreq, nt_chunk)
+    sd = rf_pipelines.tile_arr(sd, axis, dsample_nfreq, dsample_nt)
 
     # This block of code creates a mask, and hence filters, 
     # based on the mean and stdv of 'sd' along THE OTHER axis.
     axis = np.abs(axis-1)
-    sd_stdv = rf_pipelines.tile_arr(sd.std(axis=axis), axis, nfreq, nt_chunk)
-    sd_mean = rf_pipelines.tile_arr(sd.mean(axis=axis), axis, nfreq, nt_chunk)
+    sd_stdv = rf_pipelines.tile_arr(sd.std(axis=axis), axis, dsample_nfreq, dsample_nt)
+    sd_mean = rf_pipelines.tile_arr(sd.mean(axis=axis), axis, dsample_nfreq, dsample_nt)
+
+    assert sd.shape == sd_mean.shape == sd_stdv.shape
 
     # Boolean array which is True for masked values
     mask = np.abs(sd-sd_mean) > (thr*sd_stdv)
