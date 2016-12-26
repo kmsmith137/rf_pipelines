@@ -216,5 +216,6 @@ int main(int argc, char **argv)
 
     test_kernel_clip2d_wrms_all<float,8,32,32> (rng);
 
+    cout << "test-kernels: all tests passed\n";
     return 0;
 }

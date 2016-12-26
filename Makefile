@@ -120,7 +120,7 @@ uninstall:
 	rm -rf $(PYDIR)/rf_pipelines/
 
 clean:
-	rm -f run-unit-tests
+	rm -f run-unit-tests test-kernels
 	for d in $(CLEANDIRS); do rm -f $$d/*~ $$d/*.o $$d/*.so $$d/*.pyc; done
 
 %.o: %.cpp $(INCFILES) $(KERNEL_INCFILES)
