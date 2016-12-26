@@ -14,6 +14,10 @@ include Makefile.local
 
 INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp
 
+KERNEL_INCFILES=kernels/clip2d.hpp \
+	kernels/downsample.hpp \
+	kernels/mean_rms_accumulator.hpp
+
 # Source files for the core C++ library 'librf_pipelines.so'
 OFILES=bonsai_dedisperser.o \
 	chime_file_stream.o \
@@ -102,7 +106,7 @@ endif
 ####################################################################################################
 
 
-all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so run-unit-tests
+all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so run-unit-tests test-kernels
 
 install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
 	mkdir -p $(INCDIR)/ $(LIBDIR)/ $(PYDIR)/rf_pipelines/streams $(PYDIR)/rf_pipelines/transforms
@@ -119,7 +123,7 @@ clean:
 	rm -f run-unit-tests
 	for d in $(CLEANDIRS); do rm -f $$d/*~ $$d/*.o $$d/*.so $$d/*.pyc; done
 
-%.o: %.cpp $(INCFILES)
+%.o: %.cpp $(INCFILES) $(KERNEL_INCFILES)
 	$(CPP) -c -o $@ $<
 
 librf_pipelines.so: $(OFILES)
@@ -130,3 +134,7 @@ rf_pipelines/rf_pipelines_c.so: rf_pipelines/rf_pipelines_c.cpp $(INCFILES) rf_p
 
 run-unit-tests: run-unit-tests.o librf_pipelines.so
 	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines $(LIBS)
+
+# test-kernels does not depend on $(INCFILES)
+test-kernels: test-kernels.cpp $(KERNEL_INCFILES)
+	$(CPP) -o $@ $<
