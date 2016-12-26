@@ -13,7 +13,7 @@ namespace rf_pipelines {
 //
 // Each element of the simd_t<T,S> is processed independently.  If the desired behavior is to
 // sum them together instead, then call mean_rms_accumulator::horizontal_sum() before calling
-// mean_rms_accumulator::get_mean_rms() but after the calls to add().
+// mean_rms_accumulator::get_mean_rms() but after the calls to accumulate().
 //
 // An entry is invalid if the mean and rms cannot be computed, either because the
 // sum of the weights is <= 0, or if the variance is too small compared to the mean.
@@ -29,7 +29,7 @@ struct mean_rms_accumulator {
     simd_t<T,S> acc1 = simd_t<T,S>::zero();    // sum_i W_i I_i
     simd_t<T,S> acc2 = simd_t<T,S>::zero();    // sum_i W_i I_i^2
 
-    inline void add(simd_t<T,S> ival, simd_t<T,S> wval)
+    inline void accumulate(simd_t<T,S> ival, simd_t<T,S> wval)
     {
 	simd_t<T,S> wi = wval * ival;
 	acc0 += wval;
