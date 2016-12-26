@@ -154,8 +154,13 @@ static void test_kernel_clip2d_wrms(std::mt19937 &rng, int nfreq, int nt, int st
     vector<float> delta1 = vectorize(mean - simd_t<T,S> (ref_mean));
     vector<float> delta2 = vectorize(rms - simd_t<T,S> (ref_rms));    
 
-    assert(maxabs(delta1) < 1.0e-4 * Df*Dt);
-    assert(maxabs(delta2) < 1.0e-4 * sqrt(Df*Dt));
+    if ((maxabs(delta1) > 1.0e-3 * Df*Dt) || (maxabs(delta2) > 1.0e-3 * sqrt(Df*Dt))) {
+	cerr << "test_kernel_clip2d_wrms failed: S=" << S << ", Df=" << Df << ", Dt=" << Dt 
+	     << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n"
+	     << "  mean: " << ref_mean << ", " << mean << "\n"
+	     << "  rms: " << ref_rms << ", " << rms << "\n";
+	exit(1);
+    }
 }
 
 
