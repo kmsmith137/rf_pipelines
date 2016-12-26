@@ -40,8 +40,8 @@ void _kernel_clip2d_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity
 	const T *wrow = weights + Df*stride;
 
 	for (int it = 0; it < nt; it += Dt*S) {
-	    simd_t<T,S> ival = _kernel_downsample<T,S,Df,Dt> (irow + it);
-	    simd_t<T,S> wval = _kernel_downsample<T,S,Df,Dt> (wrow + it);
+	    simd_t<T,S> ival = _kernel_downsample<T,S,Df,Dt> (irow + it, stride);
+	    simd_t<T,S> wval = _kernel_downsample<T,S,Df,Dt> (wrow + it, stride);
 	    acc.accumulate(ival, wval);
 	}
     }
