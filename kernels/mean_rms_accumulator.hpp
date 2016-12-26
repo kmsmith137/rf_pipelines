@@ -1,0 +1,66 @@
+#ifndef _RF_PIPELINES_KERNELS_MEAN_RMS_ACCUMULATOR_HPP
+#define _RF_PIPELINES_KERNELS_MEAN_RMS_ACCUMULATOR_HPP
+
+#include <simd_helpers/simd_t.hpp>
+
+namespace rf_pipelines {
+#if 0
+}; // pacify emacs c-mode
+#endif
+
+
+// mean_rms_accumulator: helper class for computing weighted mean/rms (e.g. in clipper_transform)
+//
+// Each element of the simd_t<T,S> is processed independently.  
+//
+// An entry is invalid if the mean and rms cannot be computed, either because the
+// sum of the weights is <= 0, or if the variance is too small compared to the mean.
+// Invalid entries are indicated by rms=0 and arbitrary mean.
+//
+// FIXME I think we should compute the mean/rms in double precision even when T=float.
+// Suggested generalization: struct mean_rms_accumulator<float, 8, double>
+
+
+template<typename T, unsigned int S>
+struct mean_rms_accumulator {
+    simd_t<T,S> acc0 = simd_t<T,S>::zero();    // sum_i W_i
+    simd_t<T,S> acc1 = simd_t<T,S>::zero();    // sum_i W_i I_i
+    simd_t<T,S> acc2 = simd_t<T,S>::zero();    // sum_i W_i I_i^2
+
+    inline void add(simd_t<T,S> ival, simd_t<T,S> wval)
+    {
+	simd_t<T,S> wi = wval * ival;
+	acc0 += wval;
+	acc1 += wi;
+	acc2 += wi * ival;
+    }
+
+    inline void get_mean_rms(simd_t<T,S> &mean, simd_t<T,S> &rms) const
+    {
+	static constexpr T eps = 1.0e3 * machine_epsilon<T> ();
+
+	simd_t<int,S> valid = acc0.compare_gt(zero);
+
+	simd_t<T,S> t0 = blendv(valid, acc0, simd_t<T,S>(1.0));
+	mean = acc1 / t0;
+
+	simd_t<T,S> mean2 = mean * mean;
+	simd_t<T,S> var = acc2/t0 - mean2;
+
+	simd_t<T,S> thresh = simd_t<T,S>(eps) * mean2
+	valid = valid.bitwise_and(var.compare_gt(thresh));
+	var = var.bitwise_and(valid);
+	rms = var.sqrt();
+    }
+
+    inline void get_mean_rms(simd_t<T,S> &mean, simd_t<T,S> &rms, simd_t<T,S> sigma) const
+    {
+	get_mean_rms(mean, rms);
+	rms *= sigma;
+    }
+};
+
+
+}  // namespace rf_pipelines
+
+#endif
