@@ -15,12 +15,32 @@ template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
 
 // -------------------------------------------------------------------------------------------------
 //
-// The "bottom line" routine defined in this file is:
+// _kernel_clip2d_wrms<T,S,Df,Dt>(): computes the weighted mean and rms of a 2D strided array,
+// with downsampling factors (Df,Dt) in the (frequency,time) axes.
+//
+// The 'mean' and 'rms' outputs are simd vectors whose elements are all equal.
+// If the weighted mean and rms cannot be computed (e.g. because all weights are zero), then
+// rms=0 and mean is arbitrary.  (This behavior is inherited from 'struct ean_rms_accumulator'.)
+//
+// There are three variants of this routine, depending on whether the ds_intensity and ds_weights
+// outputs are written.  (These are downsampled copies of the intensity and weights arrays.)
 //
 //    void _kernel_clip2d_wrms<T,S,Df,Dt> (simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, 
 //                                         const T *weights, int nfreq, int nt, int stride);
 //
-// FIXME should add R argument
+//    void _kernel_clip2d_wrms<T,S,Df,Dt> (simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, 
+//                                         const T *weights, int nfreq, int nt, int stride,
+//                                         T *ds_intensity);
+//
+//    void _kernel_clip2d_wrms<T,S,Df,Dt> (simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, 
+//                                         const T *weights, int nfreq, int nt, int stride,
+//                                         T *ds_intensity, T *ds_weights);
+//
+// FIXME there is a lot of cut-and-pasted code between these three routines.  This could
+// probably be fixed with some C++ template-ology.
+//
+// FIXME a more general version of these kernels is possible, with a template parameter R
+// which controlls the number of rows read in each pass.
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
