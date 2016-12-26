@@ -11,6 +11,9 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
+template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
+template<typename T, unsigned int S, unsigned int D> using simd_ntuple = simd_helpers::simd_ntuple<T,S,D>;
+
 
 // -------------------------------------------------------------------------------------------------
 //
@@ -20,13 +23,13 @@ namespace rf_pipelines {
 // and middle index N, returning a simd_t<T,S>.
 
 
-template<typename T, unsigned int S, unsigned int R, unsigned int N, typename enable_if<(R==0 || N==0),int>::type = 0>
+template<typename T, unsigned int S, unsigned int R, unsigned int N, typename std::enable_if<(R==0 || N==0),int>::type = 0>
 inline simd_t<T,S> _kernel_downsample1(const T *p, int stride, simd_t<T,S> x)
 {
     return x;
 }
 
-template<typename T, unsigned int S, unsigned int R, unsigned int N, typename enable_if<(R > 0 && N > 0),int>::type = 0>
+template<typename T, unsigned int S, unsigned int R, unsigned int N, typename std::enable_if<(R > 0 && N > 0),int>::type = 0>
 inline simd_t<T,S> _kernel_downsample1(const T *p, int stride, simd_t<T,S> x)
 {
     x = _kernel_downsample1<T,S,R-1,1> (p+stride, stride, x + simd_t<T,S>::loadu(p));
@@ -52,14 +55,14 @@ inline simd_t<T,S> _kernel_downsample1(const T *p, int stride)
 // and middle index n, returning a simd_ntuple<T,S,D>.
 
 
-template<typename T, unsigned int S, unsigned int R, unsigned int D, unsigned int N, typename enable_if<(D==0),int>::type = 0>
+template<typename T, unsigned int S, unsigned int R, unsigned int D, unsigned int N, typename std::enable_if<(D==0),int>::type = 0>
 inline simd_ntuple<T,S,D> _kernel_downsample2(const T *p, int stride)
 {
     return simd_ntuple<T,S,0> ();
 }
 
 
-template<typename T, unsigned int S, unsigned int R, unsigned int D, unsigned int N, typename enable_if<(D>0),int>::type = 0>
+template<typename T, unsigned int S, unsigned int R, unsigned int D, unsigned int N, typename std::enable_if<(D>0),int>::type = 0>
 inline simd_ntuple<T,S,D> _kernel_downsample2(const T *p, int stride)
 {
     simd_ntuple<T,S,D> ret;
@@ -78,20 +81,20 @@ inline simd_ntuple<T,S,D> _kernel_downsample2(const T *p, int stride)
 // returning a simd_t<T,S,D>.
 
 
-template<typename T, unsigned int S, unsigned int R, unsigned int D, typename enable_if<(D==1),int>::type = 0>
+template<typename T, unsigned int S, unsigned int R, unsigned int D, typename std::enable_if<(D==1),int>::type = 0>
 inline simd_t<T,S> _kernel_downsample(const T *p, int stride)
 {
     return _kernel_downsample1<T,S,R,1> (p, stride);
 }
 
-template<typename T, unsigned int S, unsigned int R, unsigned int D, typename enable_if<(D>1 && D<=S),int>::type = 0>
+template<typename T, unsigned int S, unsigned int R, unsigned int D, typename std::enable_if<(D>1 && D<=S),int>::type = 0>
 inline simd_t<T,S> _kernel_downsample(const T *p, int stride)
 {
     simd_ntuple<T,S,D> t = _kernel_downsample2<T,S,R,D,1> (p, stride);
     return downsample(t);  // defined in simd_helpers.hpp
 }
 
-template<typename T, unsigned int S, unsigned int R, unsigned int D, typename enable_if<(D>S,int>::type = 0>
+template<typename T, unsigned int S, unsigned int R, unsigned int D, typename std::enable_if<(D>S),int>::type = 0>
 inline simd_t<T,S> _kernel_downsample(const T *p, int stride)
 {
     simd_ntuple<T,S,S> t = _kernel_downsample2<T,S,R,S,D/S> (p, stride);

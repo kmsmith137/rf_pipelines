@@ -9,6 +9,9 @@ namespace rf_pipelines {
 #endif
 
 
+template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
+
+
 // mean_rms_accumulator: helper class for computing weighted mean/rms (e.g. in clipper_transform)
 //
 // Each element of the simd_t<T,S> is processed independently.  If the desired behavior is to
@@ -46,9 +49,9 @@ struct mean_rms_accumulator {
 
     inline void get_mean_rms(simd_t<T,S> &mean, simd_t<T,S> &rms) const
     {
-	static constexpr T eps = 1.0e3 * machine_epsilon<T> ();
+	static constexpr T eps = 1.0e3 * simd_helpers::machine_epsilon<T> ();
 
-	simd_t<int,S> valid = acc0.compare_gt(zero);
+	simd_t<int,S> valid = acc0.compare_gt(simd_t<T,S>::zero());
 
 	simd_t<T,S> t0 = blendv(valid, acc0, simd_t<T,S>(1.0));
 	mean = acc1 / t0;
@@ -56,7 +59,7 @@ struct mean_rms_accumulator {
 	simd_t<T,S> mean2 = mean * mean;
 	simd_t<T,S> var = acc2/t0 - mean2;
 
-	simd_t<T,S> thresh = simd_t<T,S>(eps) * mean2
+	simd_t<T,S> thresh = simd_t<T,S>(eps) * mean2;
 	valid = valid.bitwise_and(var.compare_gt(thresh));
 	var = var.bitwise_and(valid);
 	rms = var.sqrt();
