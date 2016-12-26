@@ -1,0 +1,90 @@
+#ifndef _RF_PIPELINES_KERNELS_DOWNSAMPLE_HPP
+#define _RF_PIPELINES_KERNELS_DOWNSAMPLE_HPP
+
+#include <simd_helpers/simd_t.hpp>
+#include <simd_helpers/simd_ntuple.hpp>
+#include <simd_helpers/udsample.hpp>
+
+
+namespace rf_pipelines {
+#if 0
+}; // pacify emacs c-mode
+#endif
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// simd_t<T,S> _kernel_downsample1<T,S,R> (const T *p, int stride)
+//
+// Reads a strided array of shape (R,S), and sums the result over outer index r, returning a simd_t<T,S>.
+
+
+template<typename T, unsigned int S, unsigned int R, typename enable_if<(R==0),int>::type = 0>
+inline simd_t<T,S> _kernel_downsample1(const T *p, int stride, simd_t<T,S> x)
+{
+    return x;
+}
+
+template<typename T, unsigned int S, unsigned int R, typename enable_if<(R>0),int>::type = 0>
+inline simd_t<T,S> _kernel_downsample1(const T *p, int stride, simd_t<T,S> x)
+{
+    return _kernel_downsample1<T,S,R-1> (p+stride, stride, x + simd_t<T,S>::loadu(p));
+}
+
+template<typename T, unsigned int S, unsigned int R>
+inline simd_t<T,S> _kernel_downsample1(const T *p, int stride)
+{
+    return _kernel_downsample1<T,S,R-1> (p+stride, stride, simd_t<T,S>::loadu(p));
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// simd_ntuple<T,S> _kernel_downsample2<T,S,R,D> (const T *p, int stride)
+//
+// Reads a strided array of shape (R,D*S), and sums the result over outer index r, returning a simd_ntuple<T,S,D>.
+
+
+template<typename T, unsigned int S, unsigned int R, unsigned int D, typename enable_if<(D==0),int>::type = 0>
+inline simd_ntuple<T,S,D> _kernel_downsample2(const T *p, int stride)
+{
+    return simd_ntuple<T,S,0> ();
+}
+
+
+template<typename T, unsigned int S, unsigned int R, unsigned int D, typename enable_if<(D>0),int>::type = 0>
+inline simd_ntuple<T,S,D> _kernel_downsample2(const T *p, int stride)
+{
+    simd_ntuple<T,S,D> ret;
+    ret.v = _kernel_downsample2<T,S,R,D-1> (p, stride);
+    ret.x = _kernel_downsample1<T,S,R> (p+(D-1)*S, stride);
+    return ret;
+}
+
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// simd_t<T,S> _kernel_downsample<T,S,R,D> (const T *p, int stride)
+//
+// Reads a strided array of shape (R,D*S), and sums the result over outer index r and inner index d, 
+// returning a simd_t<T,S,D>.
+
+
+template<typename T, unsigned int S, unsigned int R, unsigned int D, typename enable_if<(D==1),int>::type = 0>
+inline simd_t<T,S> _kernel_downsample(const T *p, int stride)
+{
+    return _kernel_downsample1<T,S,R> (p, stride);
+}
+
+template<typename T, unsigned int S, unsigned int R, unsigned int D, typename enable_if<(D>1),int>::type = 0>
+inline simd_t<T,S> _kernel_downsample(const T *p, int stride)
+{
+    simd_ntuple<T,S,D> t = _kernel_downsample2<T,S,R,D> (p, stride);
+    return downsample(t);  // defined in simd_helpers.hpp
+}
+
+
+}  // namespace rf_pipelines
+
+#endif
