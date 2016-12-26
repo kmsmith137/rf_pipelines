@@ -103,8 +103,8 @@ inline void _kernel_downsample(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T *i
     simd_ntuple<T,S,D> dsn_wi, dsn_w;
     _kernel_downsample2<T,S,R,D,1> (dsn_wi, dsn_w, intensity, weights, stride);
 
-    ds_wi = downsample(dsn_wi);   // defined in simd_helpers/udsample.hpp
-    ds_w = downsample(dsn_w);
+    ds_wi = simd_helpers::downsample(dsn_wi);   // defined in simd_helpers/udsample.hpp
+    ds_w = simd_helpers::downsample(dsn_w);
 }
 
 
@@ -114,8 +114,8 @@ inline void _kernel_downsample(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T *i
     simd_ntuple<T,S,S> dsn_wi, dsn_w;
     _kernel_downsample2<T,S,R,S,D/S> (dsn_wi, dsn_w, intensity, weights, stride);
 
-    ds_wi = downsample(dsn_wi);
-    ds_w = downsample(dsn_w);
+    ds_wi = simd_helpers::downsample(dsn_wi);
+    ds_w = simd_helpers::downsample(dsn_w);
 }
 
 
