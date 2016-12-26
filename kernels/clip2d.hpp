@@ -4,6 +4,7 @@
 #include <cassert>  // XXX remove
 #include "mean_rms_accumulator.hpp"
 #include "downsample.hpp"
+#include "mask.hpp"
 
 namespace rf_pipelines {
 #if 0
@@ -44,7 +45,7 @@ template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
-void _kernel_clip2d_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride)
+inline void _kernel_clip2d_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride)
 {
     // XXX assert -> throw
     assert(nfreq > 0);
@@ -76,7 +77,7 @@ void _kernel_clip2d_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
-void _kernel_clip2d_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity)
+inline void _kernel_clip2d_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity)
 {
     // XXX assert -> throw
     assert(nfreq > 0);
@@ -110,7 +111,7 @@ void _kernel_clip2d_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity
 }
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
-void _kernel_clip2d_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
+inline void _kernel_clip2d_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
 {
     // XXX assert -> throw
     assert(nfreq > 0);
@@ -144,6 +145,40 @@ void _kernel_clip2d_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity
 
     acc.horizontal_sum();
     acc.get_mean_rms(mean, rms);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
+inline void _kernel_clip2d_mask(T *weights, const T *ds_intensity, simd_t<T,S> mean, simd_t<T,S> thresh, int nfreq, int nt, int stride, int ds_stride)
+{
+    const T *ds_irow = ds_intensity;
+
+    // XXX assert -> throw
+    assert(nfreq > 0);
+    assert(nt > 0);
+    assert(nfreq % Df == 0);
+    assert(nt % (Dt*S) == 0);
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
+	const T *ds_itmp = ds_irow;
+	T *wrow = weights + ifreq * stride;
+
+	for (int it = 0; it < nt; it += Dt*S) {
+	    simd_t<T,S> ival = simd_t<T,S>::loadu(ds_itmp);
+	    ds_itmp += S;
+
+	    ival -= mean;
+	    ival = ival.abs();
+
+	    simd_t<int,S> valid = ival.compare_lt(thresh);
+	    _kernel_mask<T,S,Df,Dt> (wrow + it, valid, stride);
+	}
+
+	ds_irow += ds_stride;
+    }
 }
 
 
