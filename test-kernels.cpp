@@ -45,6 +45,19 @@ inline double maxabs(const std::vector<T> &v)
 }
 
 
+template<typename T> 
+inline double maxdiff(int n, const T *v1, const T *v2)
+{
+    assert(n > 0);
+
+    double ret = fabs(v1[0]-v2[0]);
+    for (int i = 1; i < n; i++)
+	ret = max(ret, fabs(double(v1[i]-v2[i])));
+
+    return ret;
+}
+
+
 // -------------------------------------------------------------------------------------------------
 
 
@@ -102,7 +115,7 @@ random_chunk::~random_chunk()
 
 
 template<typename T>
-static void reference_clip2d_wrms(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, int nds_f, int nds_t)
+static void reference_clip2d_wrms(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, int nds_f, int nds_t, T *ds_int, T *ds_wt)
 {
     assert(nfreq % nds_f == 0);
     assert(nt % nds_t == 0);
@@ -128,12 +141,47 @@ static void reference_clip2d_wrms(T &mean, T &rms, const T *intensity, const T *
 	    acc0 += double(wval);
 	    acc1 += double(wival);
 	    acc2 += double(wival) * double(wival) / double(wval);
+
+	    *(ds_int++) = wival / wval;
+	    *(ds_wt++) = wval;
 	}
     }
 
     // FIXME case of invalid entries not tested
     mean = acc1/acc0;
     rms = sqrt(acc2/acc0 - mean*mean);
+}
+
+
+template<typename T, unsigned int S>
+static void test_kernel_clip2d_wrms_postmortem(int Df, int Dt, int nfreq, int nt, int stride, T ref_mean, 
+					       T ref_rms, const T *ref_ds_int, const T *ref_ds_wt, simd_t<T,S> mean, 
+					       simd_t<T,S> rms, const T *ds_int = nullptr, const T *ds_wt = nullptr)
+{
+    stringstream ss;
+    ss << "test_kernel_clip2d_wrms failed: S=" << S << ", Df=" << Df << ", Dt=" << Dt 
+       << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride;
+
+    vector<float> delta1 = vectorize(mean - simd_t<T,S> (ref_mean));
+    vector<float> delta2 = vectorize(rms - simd_t<T,S> (ref_rms));    
+    int n = (nfreq * nt) / (Df * Dt);
+
+    if ((maxabs(delta1) > 1.0e-3 * Df*Dt) || (maxabs(delta2) > 1.0e-3 * sqrt(Df*Dt))) {
+	cerr << ss.str() << "\n"
+	     << "  mean: " << ref_mean << ", " << mean << "\n"
+	     << "  rms: " << ref_rms << ", " << rms << "\n";
+	exit(1);
+    }
+
+    if (ds_int && (maxdiff(n,ref_ds_int,ds_int) > 1.0e-3 * Df*Dt)) {
+	cerr << ss.str() << ": ds_int arrays differ\n";
+	exit(1);
+    }
+
+    if (ds_wt && (maxdiff(n,ref_ds_wt,ds_wt) > 1.0e-3 * Df*Dt)) {
+	cerr << ss.str() << ": ds_wt arrays differ\n";
+	exit(1);
+    }
 }
 
 
@@ -145,23 +193,27 @@ static void test_kernel_clip2d_wrms(std::mt19937 &rng, int nfreq, int nt, int st
     assert(stride >= nt);
 
     random_chunk rc(rng, nfreq, nt, stride);
-    
-    simd_t<T,S> mean, rms;
-    _kernel_clip2d_wrms<T,S,Df,Dt> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride);
 
     float ref_mean, ref_rms;
-    reference_clip2d_wrms(ref_mean, ref_rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, Df, Dt);
+    vector<T> ref_ds_int((nfreq/Df) * (nt/Dt), -1.0);
+    vector<T> ref_ds_wt((nfreq/Df) * (nt/Dt), -1.0);
 
-    vector<float> delta1 = vectorize(mean - simd_t<T,S> (ref_mean));
-    vector<float> delta2 = vectorize(rms - simd_t<T,S> (ref_rms));    
+    reference_clip2d_wrms(ref_mean, ref_rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, Df, Dt, &ref_ds_int[0], &ref_ds_wt[0]);
+    
+    simd_t<T,S> mean, rms;
+    vector<T> ds_int((nfreq/Df) * (nt/Dt), -1.0);
+    vector<T> ds_wt((nfreq/Df) * (nt/Dt), -1.0);
+    
+    // Test all three versions of _kernel_clip2d_wrms()
+    
+    _kernel_clip2d_wrms<T,S,Df,Dt> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride);
+    test_kernel_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms);
 
-    if ((maxabs(delta1) > 1.0e-3 * Df*Dt) || (maxabs(delta2) > 1.0e-3 * sqrt(Df*Dt))) {
-	cerr << "test_kernel_clip2d_wrms failed: S=" << S << ", Df=" << Df << ", Dt=" << Dt 
-	     << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n"
-	     << "  mean: " << ref_mean << ", " << mean << "\n"
-	     << "  rms: " << ref_rms << ", " << rms << "\n";
-	exit(1);
-    }
+    _kernel_clip2d_wrms<T,S,Df,Dt> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, &ds_int[0]);
+    test_kernel_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms, &ds_int[0]);
+
+    _kernel_clip2d_wrms<T,S,Df,Dt> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, &ds_int[0], &ds_wt[0]);
+    test_kernel_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms, &ds_int[0], &ds_wt[0]);
 }
 
 
