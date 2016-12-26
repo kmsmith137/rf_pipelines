@@ -58,6 +58,19 @@ inline double maxdiff(int n, const T *v1, const T *v2)
 }
 
 
+// Generates a random number in the range [-2,2], but not too close to (+/- 1).
+// This is useful when 
+inline double clip_rand(std::mt19937 &rng)
+{
+    for (;;) {
+	double t = std::uniform_real_distribution<>(-2.,2.)(rng);
+	double u = fabs(fabs(t)-1.0);
+	if (u > 1.0e-3)
+	    return t;
+    }
+}
+
+
 // -------------------------------------------------------------------------------------------------
 
 
@@ -154,12 +167,14 @@ static void reference_clip2d_wrms(T &mean, T &rms, const T *intensity, const T *
 
 
 template<typename T, unsigned int S>
-static void test_kernel_clip2d_wrms_postmortem(int Df, int Dt, int nfreq, int nt, int stride, T ref_mean, 
-					       T ref_rms, const T *ref_ds_int, const T *ref_ds_wt, simd_t<T,S> mean, 
-					       simd_t<T,S> rms, const T *ds_int = nullptr, const T *ds_wt = nullptr)
+static void test_clip2d_wrms_postmortem(int Df, int Dt, int nfreq, int nt, int stride, T ref_mean, 
+					T ref_rms, const T *ref_ds_int, const T *ref_ds_wt, simd_t<T,S> mean, 
+					simd_t<T,S> rms, const T *ds_int = nullptr, const T *ds_wt = nullptr)
 {
     stringstream ss;
-    ss << "test_kernel_clip2d_wrms failed: S=" << S << ", Df=" << Df << ", Dt=" << Dt 
+    ss << "test_clip2d_wrms failed:"
+       << " T=" << simd_helpers::type_name<T>()
+       << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt 
        << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride;
 
     vector<float> delta1 = vectorize(mean - simd_t<T,S> (ref_mean));
@@ -186,7 +201,7 @@ static void test_kernel_clip2d_wrms_postmortem(int Df, int Dt, int nfreq, int nt
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
-static void test_kernel_clip2d_wrms(std::mt19937 &rng, int nfreq, int nt, int stride)
+static void test_clip2d_wrms(std::mt19937 &rng, int nfreq, int nt, int stride)
 {
     assert(nfreq % Df == 0);
     assert(nt % (Dt*S) == 0);
@@ -207,56 +222,175 @@ static void test_kernel_clip2d_wrms(std::mt19937 &rng, int nfreq, int nt, int st
     // Test all three versions of _kernel_clip2d_wrms()
     
     _kernel_clip2d_wrms<T,S,Df,Dt> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride);
-    test_kernel_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms);
+    test_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms);
 
     _kernel_clip2d_wrms<T,S,Df,Dt> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, &ds_int[0]);
-    test_kernel_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms, &ds_int[0]);
+    test_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms, &ds_int[0]);
 
     _kernel_clip2d_wrms<T,S,Df,Dt> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, &ds_int[0], &ds_wt[0]);
-    test_kernel_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms, &ds_int[0], &ds_wt[0]);
+    test_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms, &ds_int[0], &ds_wt[0]);
 }
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
-static void test_kernel_clip2d_wrms(std::mt19937 &rng)
+static void test_clip2d_wrms(std::mt19937 &rng)
 {
     int nfreq = Df * std::uniform_int_distribution<>(10,20)(rng);
     int nt = Dt * S * std::uniform_int_distribution<>(10,20)(rng);
     int stride = nt + std::uniform_int_distribution<>(0,4)(rng);
 
-    test_kernel_clip2d_wrms<T,S,Df,Dt> (rng, nfreq, nt, stride);
+    test_clip2d_wrms<T,S,Df,Dt> (rng, nfreq, nt, stride);
 }
 
 
 // Fixed Df, many Dt
 template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt==1),int>::type = 0>
-static void test_kernel_clip2d_wrms_varying_dt(std::mt19937 &rng)
+static void test_clip2d_wrms_varying_dt(std::mt19937 &rng)
 {
-    test_kernel_clip2d_wrms<T,S,Df,1> (rng);
+    test_clip2d_wrms<T,S,Df,1> (rng);
 }
 
 // Fixed Df, many Dt
 template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt>1),int>::type = 0>
-static void test_kernel_clip2d_wrms_varying_dt(std::mt19937 &rng)
+static void test_clip2d_wrms_varying_dt(std::mt19937 &rng)
 {
-    test_kernel_clip2d_wrms_varying_dt<T,S,Df,MaxDt/2> (rng);
-    test_kernel_clip2d_wrms<T,S,Df,MaxDt> (rng);
+    test_clip2d_wrms_varying_dt<T,S,Df,MaxDt/2> (rng);
+    test_clip2d_wrms<T,S,Df,MaxDt> (rng);
 }
 
 // Many Df, many Dt
 template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf==1),int>::type = 0>
-static void test_kernel_clip2d_wrms_all(std::mt19937 &rng)
+static void test_clip2d_wrms_all(std::mt19937 &rng)
 {
-    test_kernel_clip2d_wrms_varying_dt<T,S,1,MaxDt> (rng);
+    test_clip2d_wrms_varying_dt<T,S,1,MaxDt> (rng);
 }
 
 // Many Df, many Dt
 template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf>1),int>::type = 0>
-static void test_kernel_clip2d_wrms_all(std::mt19937 &rng)
+static void test_clip2d_wrms_all(std::mt19937 &rng)
 {
-    test_kernel_clip2d_wrms_all<T,S,MaxDf/2,MaxDt> (rng);
-    test_kernel_clip2d_wrms_varying_dt<T,S,MaxDf,MaxDt> (rng);
+    test_clip2d_wrms_all<T,S,MaxDf/2,MaxDt> (rng);
+    test_clip2d_wrms_varying_dt<T,S,MaxDf,MaxDt> (rng);
 }
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+template<typename T>
+static void reference_clip2d_mask(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int nt, int stride, int Df, int Dt, int ds_stride)
+{
+    assert(nfreq % Df == 0);
+    assert(nt % Dt == 0);
+
+    int nfreq_ds = nfreq / Df;
+    int nt_ds = nt / Dt;
+
+    for (int ifreq_ds = 0; ifreq_ds < nfreq_ds; ifreq_ds++) {
+	for (int it_ds = 0; it_ds < nt_ds; it_ds++) {
+	    T ival = ds_intensity[ifreq_ds*ds_stride + it_ds];
+
+	    if (fabs(ival-mean) < thresh)
+		continue;
+
+	    for (int ifreq = ifreq_ds*Df; ifreq < (ifreq_ds+1)*Df; ifreq++)
+		for (int it = it_ds*Dt; it < (it_ds+1)*Dt; it++)
+		    weights[ifreq*stride+it] = 0.0;
+	}
+    }
+}
+
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
+static void test_clip2d_mask(std::mt19937 &rng, int nfreq, int nt, int stride, int ds_stride)
+{
+    assert(nfreq % Df == 0);
+    assert(nt % Dt == 0);
+    assert(stride >= nt);
+    assert(ds_stride >= (nt/Dt));
+
+    int nfreq_ds = nfreq / Df;
+    int nt_ds = nt / Dt;
+
+    T mean = std::uniform_real_distribution<>()(rng);
+    T thresh = std::uniform_real_distribution<>()(rng);
+
+    vector<T> ds_intensity(nfreq_ds * ds_stride, 0.0);
+    vector<T> weights = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
+    vector<T> weights2 = weights;
+
+    for (int ifreq_ds = 0; ifreq_ds < nfreq_ds; ifreq_ds++)
+	for (int it_ds = 0; it_ds < nt_ds; it_ds++)
+	    ds_intensity[ifreq_ds*ds_stride + it_ds] = mean + thresh * clip_rand(rng);
+
+    reference_clip2d_mask(&weights[0], &ds_intensity[0], mean, thresh, nfreq, nt, stride, Df, Dt, ds_stride);
+    _kernel_clip2d_mask<T,S,Df,Dt> (&weights2[0], &ds_intensity[0], simd_t<T,S>(mean), simd_t<T,S>(thresh), nfreq, nt, stride, ds_stride);
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	for (int it = 0; it < nt; it++) {
+	    if (weights[ifreq*stride+it] == weights2[ifreq*stride+it])
+		continue;
+
+	    int ifreq_ds = ifreq / Df;
+	    int it_ds = it / Dt;
+
+	    cerr << "test_clip2d_mask failed:"
+		 << " T=" << simd_helpers::type_name<T>() << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt 
+		 << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << ", ds_stride=" << ds_stride << "\n"
+		 << "   at (ifreq,it)=(" << ifreq << "," << it << "): "
+		 << " wt_ref=" << weights[ifreq*stride+it] 
+		 << ", wt_fast=" << weights2[ifreq*stride+it] << "\n"
+		 << "   mean=" << mean << ", thresh=" << thresh 
+		 << ", ds_int=" << ds_intensity[ifreq_ds*ds_stride + it_ds] << "\n";
+
+	    exit(1);
+	}
+    }
+}
+
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
+static void test_clip2d_mask(std::mt19937 &rng)
+{
+    int nfreq = Df * std::uniform_int_distribution<>(10,20)(rng);
+    int nt = Dt * S * std::uniform_int_distribution<>(10,20)(rng);
+    int stride = nt + std::uniform_int_distribution<>(0,4)(rng);
+    int ds_stride = (nt/Dt) + std::uniform_int_distribution<>(0,4)(rng);
+
+    test_clip2d_mask<T,S,Df,Dt> (rng, nfreq, nt, stride, ds_stride);
+}
+
+
+// Fixed Df, many Dt
+template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt==1),int>::type = 0>
+static void test_clip2d_mask_varying_dt(std::mt19937 &rng)
+{
+    test_clip2d_mask<T,S,Df,1> (rng);
+}
+
+// Fixed Df, many Dt
+template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt>1),int>::type = 0>
+static void test_clip2d_mask_varying_dt(std::mt19937 &rng)
+{
+    test_clip2d_mask_varying_dt<T,S,Df,MaxDt/2> (rng);
+    test_clip2d_mask<T,S,Df,MaxDt> (rng);
+}
+
+// Many Df, many Dt
+template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf==1),int>::type = 0>
+static void test_clip2d_mask_all(std::mt19937 &rng)
+{
+    test_clip2d_mask_varying_dt<T,S,1,MaxDt> (rng);
+}
+
+// Many Df, many Dt
+template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf>1),int>::type = 0>
+static void test_clip2d_mask_all(std::mt19937 &rng)
+{
+    test_clip2d_mask_all<T,S,MaxDf/2,MaxDt> (rng);
+    test_clip2d_mask_varying_dt<T,S,MaxDf,MaxDt> (rng);
+}
+
 
 
 // -------------------------------------------------------------------------------------------------
@@ -267,7 +401,8 @@ int main(int argc, char **argv)
     std::random_device rd;
     std::mt19937 rng(rd());
 
-    test_kernel_clip2d_wrms_all<float,8,32,32> (rng);
+    test_clip2d_wrms_all<float,8,32,32> (rng);
+    test_clip2d_mask_all<float,8,32,32> (rng);
 
     cout << "test-kernels: all tests passed\n";
     return 0;
