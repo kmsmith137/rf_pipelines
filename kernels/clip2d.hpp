@@ -54,13 +54,18 @@ void _kernel_clip2d_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity
 
     mean_rms_accumulator<T,S> acc;
 
+    const simd_t<T,S> zero = simd_t<T,S>::zero();
+    const simd_t<T,S> one = simd_t<T,S> (1.0);
+
     for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
 	const T *irow = intensity + ifreq*stride;
 	const T *wrow = weights + ifreq*stride;
 
 	for (int it = 0; it < nt; it += Dt*S) {
-	    simd_t<T,S> ival = _kernel_downsample<T,S,Df,Dt> (irow + it, stride);
-	    simd_t<T,S> wval = _kernel_downsample<T,S,Df,Dt> (wrow + it, stride);
+	    simd_t<T,S> wival, wval;
+	    _kernel_downsample<T,S,Df,Dt> (wival, wval, irow + it, wrow + it, stride);
+
+	    simd_t<T,S> ival = wival / blendv(wval.compare_gt(zero), wval, one);
 	    acc.accumulate(ival, wval);
 	}
     }

@@ -114,19 +114,20 @@ static void reference_clip2d_wrms(T &mean, T &rms, const T *intensity, const T *
     
     for (int ifreq = 0; ifreq < nfreq; ifreq += nds_f) {
 	for (int it = 0; it < nt; it += nds_t) {
-	    T ival = 0.0;
+	    T wival = 0.0;
 	    T wval = 0.0;
 
 	    for (int jfreq = ifreq; jfreq < ifreq + nds_f; jfreq++) {
 		for (int jt = it; jt < it + nds_t; jt++) {
-		    ival += intensity[jfreq*stride + jt];
-		    wval += weights[jfreq*stride + jt];
+		    int s = jfreq*stride + jt;
+		    wival += weights[s] * intensity[s];
+		    wval += weights[s];
 		}
 	    }
 
 	    acc0 += double(wval);
-	    acc1 += double(wval) * double(ival);
-	    acc2 += double(wval) * double(ival) * double(ival);
+	    acc1 += double(wival);
+	    acc2 += double(wival) * double(wival) / double(wval);
 	}
     }
 
