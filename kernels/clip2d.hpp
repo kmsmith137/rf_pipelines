@@ -122,6 +122,38 @@ inline void _kernel_clip2d_mask(T *weights, const T *ds_intensity, simd_t<T,S> m
 }
 
 
+// -------------------------------------------------------------------------------------------------
+
+
+template<typename T, unsigned int S>
+inline void _kernel_clip2d_iterate(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms, const T *intensity, const T *weights,
+				   simd_t<T,S> in_mean, simd_t<T,S> in_thresh, int nfreq, int nt, int stride)
+{
+    mean_rms_accumulator<T,S> acc;
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	const T *irow = intensity + ifreq*stride;
+	const T *wrow = weights + ifreq*stride;
+
+	for (int it = 0; it < nt; it += S) {
+	    simd_t<T,S> ival = simd_t<T,S>::loadu(irow + it);
+	    simd_t<T,S> wval = simd_t<T,S>::loadu(wrow + it);
+
+	    ival -= in_mean;
+	    ival = ival.abs();
+
+	    simd_t<int,S> valid = ival.compare_lt(in_thresh);
+	    wval = wval.bitwise_and(valid);
+
+	    acc.accumulate(ival, wval);
+	}
+    }
+
+    acc.horizontal_sum();
+    acc.get_mean_rms(out_mean, out_rms);
+}
+
+
 }  // namespace rf_pipelines
 
 #endif
