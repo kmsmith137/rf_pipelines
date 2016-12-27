@@ -24,6 +24,7 @@ OFILES=bonsai_dedisperser.o \
 	chime_file_writer.o \
 	chime_network_stream.o \
 	chime_packetizer.o \
+	clipper_transforms.o \
 	gaussian_noise_stream.o \
 	misc.o \
 	outdir_manager.o \
