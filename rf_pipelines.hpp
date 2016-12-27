@@ -158,6 +158,22 @@ extern std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend);
 
 
 //
+// clipper2d: this "clips" an array by masking outlier intensities.
+// The masking is performed by setting elements of the weights array to zero.
+//
+// The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.  Note
+// that the weights are used when calculating both the mean and rms intensity.
+//
+// The (Df,Dt) args are downsampling factors on the frequency/time axes.
+// If no downsampling is desired, set Df=Dt=1.
+//
+// If niter > 1, then the mean/rms intensity will be computed using iterated clipping,
+// with threshold 'iter_sigma' (which need not be the same as 'sigma').
+//
+extern std::shared_ptr<wi_transform> make_clipper2d(int Df, int Dt, int nt_chunk, double sigma, int niter, double iter_sigma);
+
+
+//
 // This is a pseudo-transform which doesn't actually modify the data, it just writes it to a file in
 // CHIME hdf5 format.  (For now, the entire stream is written to a single file, I'll generalize later
 // to break the stream into multiple files.)

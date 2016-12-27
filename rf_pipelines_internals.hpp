@@ -93,6 +93,12 @@ extern std::vector<std::string> listdir(const std::string &dirname);
 
 // Inlines follow...
 
+inline bool is_power_of_two(int n)
+{
+    rf_assert(n >= 1);
+    return (n & (n-1)) == 0;
+}
+
 inline double uniform_rand()
 {
     return (rand() + 0.5) / (RAND_MAX + 1.0);

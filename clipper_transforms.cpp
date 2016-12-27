@@ -9,10 +9,22 @@ namespace rf_pipelines {
 #endif
 
 
+// -------------------------------------------------------------------------------------------------
+//
+// clipper2d_transform
+//
+// The compile-time arguments Df,Dt are the frequency/time downsampling factors, and the
+// compile-time boolean argument IterFlag should be set to 'true' if and only if niter > 1.
+//
+// FIXME: currently we need to compile a new kernel for every (Df,Dt) pair.  Eventually I'd
+// like to improve this by having special kernels to handle the large-Df and large-Dt cases.
+
+
 template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
 struct clipper2d_transform : public wi_transform 
 {
-    // XXX explain logic here
+    // These compile-time flags determine whether downsampled intensity/weights
+    // arrays are written in _kernel_clip2d_wrms().
     static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
     static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
 
@@ -134,11 +146,47 @@ static inline shared_ptr<wi_transform> _make_clipper2d(int Df, int Dt, int nt_ch
 
 shared_ptr<wi_transform> make_clipper2d(int Df, int Dt, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
+    // SIMD length on this machine
+    // FIXME: support non-AVX2 machines
+    static constexpr int S = 8;
+
+    // MaxDf, MaxDt are the max downsampling factors allowed in the frequency and time directions.
+    // If you get the error message "no precompiled kernel available..." then you'll need to change these (see below).
+    // Increasing Df,Dt will increase compile time and object file size, but this shouldn't be a big deal.
+    // IMPORTANT: Df,Dt should be powers of two, or unpredictable problems will result!
     static constexpr int MaxDf = 32;
     static constexpr int MaxDt = 32;
-    static constexpr int S = 8;
+
+    if ((Df <= 0) || !is_power_of_two(Df))
+	throw runtime_error("rf_pipelines::make_clipper2d(): Df must be a power of two (value received = " + to_string(Df) + ")");
+    if ((Dt <= 0) || !is_power_of_two(Dt))
+	throw runtime_error("rf_pipelines::make_clipper2d(): Dt must be a power of two (value received = " + to_string(Dt) + ")");
+    if (nt_chunk <= 0)
+	throw runtime_error("rf_pipelines::make_clipper2d(): nt_chunk must be > 0 (value received = " + to_string(nt_chunk) + ")");
+    if (sigma < 2.0)
+	throw runtime_error("rf_pipelines::make_clipper2d(): sigma must be >= 2.0 (value received = " + to_string(sigma) + ")");
+    if (niter < 1)
+	throw runtime_error("rf_pipelines::make_clipper2d(): niter must be >= 1 (value received = " + to_string(niter) + ")");
+    if (iter_sigma < 2.0)
+	throw runtime_error("rf_pipelines::make_clipper2d(): iter_sigma must be >= 2.0 (value received = " + to_string(iter_sigma) + ")");
     
-    // XXX need many asserts here
+    if (nt_chunk % (Dt*S)) {
+	stringstream ss;
+	ss << "rf_pipelines::make_clipper2d(): nt_chunk=" << nt_chunk << " is not a multiple of S*Dt\n"
+	   << "Here, S=" << S << " is the simd length on this machine, and Dt=" << Dt << " is the requested time downsampling factor.\n"
+	   << "Note that the value of S may be machine-dependent!\n";
+
+	throw runtime_error(ss.str());
+    }
+
+    if ((Df > MaxDf) || (Dt > MaxDt)) {
+	stringstream ss;
+	ss << "rf_pipelines::make_clipper2d(): no precompiled kernel is available for (Df,Dt)=(" << Df << "," << Dt << ")\n"
+	   << "Eventually, this will be fixed in a systematic way.  As a temporary workaround, you can change the values of\n"
+	   << "MaxDf and MaxDt in rf_pipelines/clipper_transforms.cpp::make_clipper2d() and recompile.\n";
+	
+	throw runtime_error(ss.str());
+    }
 
     return _make_clipper2d<S,MaxDf,MaxDt> (Df, Dt, nt_chunk, sigma, niter, iter_sigma);
 }
