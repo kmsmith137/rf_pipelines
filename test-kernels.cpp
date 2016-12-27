@@ -167,9 +167,9 @@ static void reference_clip2d_wrms(T &mean, T &rms, const T *intensity, const T *
 
 
 template<typename T, unsigned int S>
-static void test_clip2d_wrms_postmortem(int Df, int Dt, int nfreq, int nt, int stride, T ref_mean, 
-					T ref_rms, const T *ref_ds_int, const T *ref_ds_wt, simd_t<T,S> mean, 
-					simd_t<T,S> rms, const T *ds_int = nullptr, const T *ds_wt = nullptr)
+void test_clip2d_wrms_postmortem(int Df, int Dt, int nfreq, int nt, int stride, T ref_mean, 
+				 T ref_rms, T *ref_ds_int, T *ref_ds_wt, simd_t<T,S> mean, 
+				 simd_t<T,S> rms, T *ds_int, T *ds_wt)
 {
     stringstream ss;
     ss << "test_clip2d_wrms failed:"
@@ -219,15 +219,16 @@ static void test_clip2d_wrms(std::mt19937 &rng, int nfreq, int nt, int stride)
     vector<T> ds_int((nfreq/Df) * (nt/Dt), -1.0);
     vector<T> ds_wt((nfreq/Df) * (nt/Dt), -1.0);
     
-    // Test all three versions of _kernel_clip2d_wrms()
-    
-    _kernel_clip2d_wrms<T,S,Df,Dt> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride);
-    test_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms);
+    _kernel_clip2d_wrms<T,S,Df,Dt,false,false> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, nullptr, nullptr);
+    test_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms, (T *)nullptr, (T *)nullptr);
 
-    _kernel_clip2d_wrms<T,S,Df,Dt> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, &ds_int[0]);
-    test_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms, &ds_int[0]);
+    _kernel_clip2d_wrms<T,S,Df,Dt,false,true> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, nullptr, &ds_wt[0]);
+    test_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms, (T *)nullptr, &ds_wt[0]);
 
-    _kernel_clip2d_wrms<T,S,Df,Dt> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, &ds_int[0], &ds_wt[0]);
+    _kernel_clip2d_wrms<T,S,Df,Dt,true,false> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, &ds_int[0], nullptr);
+    test_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms, &ds_int[0], (T *)nullptr);
+
+    _kernel_clip2d_wrms<T,S,Df,Dt,true,true> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, &ds_int[0], &ds_wt[0]);
     test_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms, &ds_int[0], &ds_wt[0]);
 }
 
