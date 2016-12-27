@@ -1160,6 +1160,23 @@ static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
 }
 
 
+static PyObject *make_clipper2d(PyObject *self, PyObject *args)
+{
+    int Df = 0;
+    int Dt = 0;
+    int nt_chunk = 0;
+    double sigma = 0.0;
+    int niter = 0;
+    double iter_sigma = 0.0;
+
+    if (!PyArg_ParseTuple(args, "iiidid", &Df, &Dt, &nt_chunk, &sigma, &niter, &iter_sigma))
+	return NULL;
+
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_clipper2d(Df, Dt, nt_chunk, sigma, niter, iter_sigma);
+    return wi_transform_object::make(ret);
+}
+
+
 static PyObject *make_chime_file_writer(PyObject *self, PyObject *args)
 {
     char *filename = nullptr;
@@ -1191,9 +1208,26 @@ static PyObject *make_bonsai_dedisperser(PyObject *self, PyObject *args)
 }
 
 
+// FIXME improve?
 static constexpr const char *dummy_module_method_docstring = 
     "This is a C++ function in the rf_pipelines_c module.\n"
     "For documentation, see the docstring of the similarly-named python function in the rf_pipelines module.\n";
+
+
+static constexpr const char *make_clipper2d_docstring =
+    "make_clipper2d(Df, Dt, nt_chunk, sigma, niter, iter_sigma)\n"
+    "\n"
+    "'Clips' an array by masking outlier intensities.\n"
+    "The masking is performed by setting elements of the weights array to zero.\n"
+    "\n"
+    "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.  Note\n"
+    "that the weights are used when calculating both the mean and rms intensity.\n"
+    "\n"
+    "The (Df,Dt) args are downsampling factors on the frequency/time axes.\n"
+    "If no downsampling is desired, set Df=Dt=1.\n"
+    "\n"
+    "If niter > 1, then the mean/rms intensity will be computed using iterated clipping,\n"
+    "with threshold 'iter_sigma' (which need not be the same as 'sigma').\n";
 
 
 // -------------------------------------------------------------------------------------------------
@@ -1208,6 +1242,7 @@ static PyMethodDef module_methods[] = {
     { "make_gaussian_noise_stream", tc_wrap2<make_gaussian_noise_stream>, METH_VARARGS, dummy_module_method_docstring },
     { "make_chime_packetizer", tc_wrap2<make_chime_packetizer>, METH_VARARGS, dummy_module_method_docstring },
     { "make_simple_detrender", tc_wrap2<make_simple_detrender>, METH_VARARGS, dummy_module_method_docstring },
+    { "make_clipper2d", tc_wrap2<make_clipper2d>, METH_VARARGS, make_clipper2d_docstring },
     { "make_chime_file_writer", tc_wrap2<make_chime_file_writer>, METH_VARARGS, dummy_module_method_docstring },
     { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, dummy_module_method_docstring },
     { NULL, NULL, 0, NULL }
