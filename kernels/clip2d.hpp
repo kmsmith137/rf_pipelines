@@ -139,12 +139,10 @@ inline void _kernel_clip2d_iterate(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms, 
 	    simd_t<T,S> ival = simd_t<T,S>::loadu(irow + it);
 	    simd_t<T,S> wval = simd_t<T,S>::loadu(wrow + it);
 
-	    ival -= in_mean;
-	    ival = ival.abs();
+	    simd_t<T,S> ival_c = (ival - in_mean).abs();
+	    simd_t<int,S> valid = ival_c.compare_lt(in_thresh);
 
-	    simd_t<int,S> valid = ival.compare_lt(in_thresh);
 	    wval = wval.bitwise_and(valid);
-
 	    acc.accumulate(ival, wval);
 	}
     }
