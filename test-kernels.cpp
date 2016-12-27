@@ -393,6 +393,82 @@ static void test_clip2d_mask_all(std::mt19937 &rng)
 }
 
 
+// -------------------------------------------------------------------------------------------------
+
+
+template<typename T>
+void reference_clip2d_iterate(T &out_mean, T &out_rms, const T *intensity, const T *weights, T in_mean, T in_thresh, int nfreq, int nt, int stride)
+{
+    // double-precision here
+    double acc0 = 0.0;
+    double acc1 = 0.0;
+    double acc2 = 0.0;
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	for (int it = 0; it < nt; it++) {
+	    T ival = intensity[ifreq*stride + it];
+	    T wval = weights[ifreq*stride + it];
+	    
+	    if (fabs(ival - in_mean) >= in_thresh)
+		continue;
+
+	    acc0 += double(wval);
+	    acc1 += double(wval) * double(ival);
+	    acc2 += double(wval) * double(ival) * double(ival);
+	}
+    }
+
+    // FIXME case of invalid entries not tested
+    out_mean = acc1/acc0;
+    out_rms = sqrt(acc2/acc0 - out_mean*out_mean);
+}
+
+
+template<typename T, unsigned int S>
+static void test_clip2d_iterate(std::mt19937 &rng, int nfreq, int nt, int stride)
+{
+    random_chunk rc(rng, nfreq, nt, stride);
+
+    T in_mean = std::uniform_real_distribution<>()(rng);
+    T in_thresh = std::uniform_real_distribution<>(1.0, 2.0)(rng);
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq++)
+	for (int it = 0; it < nt; it++)
+	    rc.intensity[ifreq*stride + it] = in_mean + in_thresh * clip_rand(rng);
+    
+    T ref_mean, ref_rms;
+    reference_clip2d_iterate(ref_mean, ref_rms, rc.intensity, rc.weights, in_mean, in_thresh, nfreq, nt, stride);
+
+    simd_t<T,S> fast_mean, fast_rms;
+    _kernel_clip2d_iterate(fast_mean, fast_rms, rc.intensity, rc.weights, simd_t<T,S> (in_mean), simd_t<T,S> (in_thresh), nfreq, nt, stride);
+
+    vector<float> delta1 = vectorize(fast_mean - simd_t<T,S> (ref_mean));
+    vector<float> delta2 = vectorize(fast_rms - simd_t<T,S> (ref_rms));    
+
+    if ((maxabs(delta1) > 1.0e-3) || (maxabs(delta2) > 1.0e-3)) {
+	cerr << "test_clip2d_iterate failed:"
+	     << " T=" << simd_helpers::type_name<T>() << ", S=" << S
+	     << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n"
+	     << "  mean: " << ref_mean << ", " << fast_mean << "\n"
+	     << "  rms: " << ref_rms << ", " << fast_rms << "\n";
+
+	exit(1);
+    }
+}
+
+
+template<typename T, unsigned int S>
+static void test_clip2d_iterate_all(std::mt19937 &rng)
+{
+    for (int iter = 0; iter < 100; iter++) {
+	int nfreq = std::uniform_int_distribution<>(10,20)(rng);
+	int nt = S * std::uniform_int_distribution<>(10,20)(rng);
+	int stride = nt + std::uniform_int_distribution<>(0,4)(rng);
+
+	test_clip2d_iterate<T,S> (rng, nfreq, nt, stride);
+    }
+}
+
 
 // -------------------------------------------------------------------------------------------------
 
@@ -404,6 +480,7 @@ int main(int argc, char **argv)
 
     test_clip2d_wrms_all<float,8,32,32> (rng);
     test_clip2d_mask_all<float,8,32,32> (rng);
+    test_clip2d_iterate_all<float,8> (rng);
 
     cout << "test-kernels: all tests passed\n";
     return 0;
