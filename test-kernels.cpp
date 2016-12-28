@@ -148,6 +148,8 @@ random_chunk::~random_chunk()
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// Test _kernel_legpoly_eval().
 
 
 template<typename T>
@@ -204,18 +206,83 @@ static void test_legpoly_eval(std::mt19937 &rng)
 }
 
 
-template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<(Nmax==0),int>::type = 0>
-static void test_legpoly_eval_all(std::mt19937 &rng)
+
+// -------------------------------------------------------------------------------------------------
+//
+// Test _kernel_detrend_t_pass1()
+
+
+template<typename T>
+static void reference_detrend_t_pass1(T *outm, T *outv, int npl, int nt, const T *ivec, const T *wvec)
 {
-    return;
+    vector<T> tmp_z(nt);
+    for (int it = 0; it < nt; it++)
+	tmp_z[it] = 2 * (it+0.5) / T(nt) - 1;
+
+    vector<T> tmp_pl = reference_legpoly_eval(npl, tmp_z);
+
+    vector<T> tmp_wp(npl * nt);
+    for (int l = 0; l < npl; l++)
+	for (int it = 0; it < nt; it++)
+	    tmp_wp[l*nt+it] = wvec[it] * tmp_pl[l*nt+it];
+
+    for (int l = 0; l < npl; l++) {
+	for (int l2 = 0; l2 <= l; l2++) {
+	    T t = 0.0;
+	    for (int it = 0; it < nt; it++)
+		t += tmp_wp[l*nt+it] * tmp_pl[l2*nt+it];
+
+	    outm[(l*(l+1))/2 + l2] = t;
+	}
+
+	T t = 0.0;
+	for (int it = 0; it < nt; it++)
+	    t += tmp_wp[l*nt+it] * ivec[it];
+
+	outv[l] = t;
+    }
 }
 
 
-template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<(Nmax>0),int>::type = 0>
-static void test_legpoly_eval_all(std::mt19937 &rng)
+template<typename T, unsigned int S, unsigned int N>
+void test_detrend_t_pass1(std::mt19937 &rng, int nt)
 {
-    test_legpoly_eval_all<T,S,(Nmax-1)> (rng);
-    test_legpoly_eval<T,S,Nmax> (rng);
+    constexpr int NN = (N*(N+1))/2;
+
+    vector<T> ivec = simd_helpers::uniform_randvec<T> (rng, nt, 0.0, 1.0);
+    vector<T> wvec = simd_helpers::uniform_randvec<T> (rng, nt, 0.0, 1.0);
+
+    simd_trimatrix<T,S,N> outm;
+    simd_ntuple<T,S,N> outv;
+
+    _kernel_detrend_t_pass1(outm, outv, nt, &ivec[0], &wvec[0]);
+
+    vector<T> outm0(NN);
+    vector<T> outv0(N);
+
+    reference_detrend_t_pass1(&outm0[0], &outv0[0], N, nt, &ivec[0], &wvec[0]);
+
+    simd_trimatrix<T,S,N> outm1;
+    simd_ntuple<T,S,N> outv1;
+
+    outm1.set1_slow(&outm0[0]);
+    outv1.set1_slow(&outv0[0]);
+
+    T epsilon_m = simd_helpers::compare(vectorize(outm), vectorize(outm1));
+    T epsilon_v = simd_helpers::compare(vectorize(outv), vectorize(outv1));
+    
+    assert(epsilon_m < 1.0e-6);    
+    assert(epsilon_v < 1.0e-6);    
+}
+
+
+template<typename T, unsigned int S, unsigned int N>
+void test_detrend_t_pass1(std::mt19937 &rng)
+{
+    for (int iter = 0; iter < 10; iter++) {
+	int nt = S * std::uniform_int_distribution<>(10,100)(rng);
+	test_detrend_t_pass1<T,S,N> (rng, nt);
+    }
 }
 
 
@@ -568,12 +635,28 @@ static void test_clip2d_iterate_all(std::mt19937 &rng)
 // -------------------------------------------------------------------------------------------------
 
 
+template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<(Nmax==0),int>::type = 0>
+static void test_polynomial_detrenders(std::mt19937 &rng)
+{
+    return;
+}
+
+
+template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<(Nmax>0),int>::type = 0>
+static void test_polynomial_detrenders(std::mt19937 &rng)
+{
+    test_polynomial_detrenders<T,S,(Nmax-1)> (rng);
+    test_legpoly_eval<T,S,Nmax> (rng);
+    test_detrend_t_pass1<T,S,Nmax> (rng);
+}
+
+
 int main(int argc, char **argv)
 {
     std::random_device rd;
     std::mt19937 rng(rd());
 
-    test_legpoly_eval_all<float,8,16> (rng);
+    test_polynomial_detrenders<float,8,16> (rng);
     test_clip2d_wrms_all<float,8,32,32> (rng);
     test_clip2d_mask_all<float,8,32,32> (rng);
     test_clip2d_iterate_all<float,8> (rng);
