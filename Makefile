@@ -16,6 +16,7 @@ INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp
 
 KERNEL_INCFILES=kernels/clip2d.hpp \
 	kernels/downsample.hpp \
+	kernels/mask.hpp \
 	kernels/mean_rms_accumulator.hpp \
 	kernels/polyfit.hpp
 
