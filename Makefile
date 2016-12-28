@@ -30,6 +30,7 @@ OFILES=bonsai_dedisperser.o \
 	gaussian_noise_stream.o \
 	misc.o \
 	outdir_manager.o \
+	polynomial_detrenders.o \
 	psrfits_stream.o \
 	simple_detrender.o \
 	wi_run_state.o \

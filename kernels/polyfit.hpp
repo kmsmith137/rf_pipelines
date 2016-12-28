@@ -70,6 +70,7 @@ inline void _kernel_detrend_accum_mv(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,
 // _kernel_detrend_t<T,S,N> (nfreq, nt, intensity, weights, stride, epsilon)
 //
 // Detrend along time (=fastest varying) axis of 2D strided array.
+// Note: the degree of the polynomial fit is (N-1), not N!
 
 
 template<typename T, unsigned int S, unsigned int N>
@@ -158,6 +159,7 @@ inline void _kernel_detrend_t(int nfreq, int nt, T *intensity, T *weights, int s
 // _kernel_detrend_f<T,S,N> (nfreq, nt, intensity, weights, stride, epsilon)
 //
 // Detrend along frequency (=slowest varying) axis of 2D strided array.
+// Note: the degree of the polynomial fit is (N-1), not N!
 
 
 template<typename T, unsigned int S, unsigned int N>

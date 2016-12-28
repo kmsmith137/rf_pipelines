@@ -158,6 +158,21 @@ extern std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend);
 
 
 //
+// polynomial_detrender: detrends in either the time or frequency direction,
+// by subtracting a best-fit polynomial.  The detrending is independent in
+// every "row" (where "row" means "frequency channel" in the case of time-axis
+// detrending, or "time sample" in the case of frequency-axis detrending).
+//
+// If the fit is poorly conditioned then the entire row will be masked (by
+// setting its weights to zero).  The threshold is controlled by the parameter
+// 'epsilon'.  I think that 1.0e-2 is a reasonable default here, but haven't
+// experimented systematically.
+//
+extern std::shared_ptr<wi_transform> make_polynomial_detrender_time_axis(int nt_chunk, int polydeg, double epsilon=1.0e-2);
+extern std::shared_ptr<wi_transform> make_polynomial_detrender_freq_axis(int nt_chunk, int polydeg, double epsilon=1.0e-2);
+
+
+//
 // clipper2d: this "clips" an array by masking outlier intensities.
 // The masking is performed by setting elements of the weights array to zero.
 //
