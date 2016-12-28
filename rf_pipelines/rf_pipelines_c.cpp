@@ -1160,6 +1160,34 @@ static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
 }
 
 
+static PyObject *make_polynomial_detrender_time_axis(PyObject *self, PyObject *args)
+{
+    int nt_chunk = 0;
+    int polydeg = 0;
+    double epsilon = 0.0;
+
+    if (!PyArg_ParseTuple(args, "iid", &nt_chunk, &polydeg, &epsilon))
+	return NULL;
+
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_polynomial_detrender_time_axis(nt_chunk, polydeg, epsilon);
+    return wi_transform_object::make(ret);
+}
+
+
+static PyObject *make_polynomial_detrender_freq_axis(PyObject *self, PyObject *args)
+{
+    int nt_chunk = 0;
+    int polydeg = 0;
+    double epsilon = 0.0;
+
+    if (!PyArg_ParseTuple(args, "iid", &nt_chunk, &polydeg, &epsilon))
+	return NULL;
+
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_polynomial_detrender_freq_axis(nt_chunk, polydeg, epsilon);
+    return wi_transform_object::make(ret);
+}
+
+
 static PyObject *make_clipper2d(PyObject *self, PyObject *args)
 {
     int Df = 0;
@@ -1214,6 +1242,30 @@ static constexpr const char *dummy_module_method_docstring =
     "For documentation, see the docstring of the similarly-named python function in the rf_pipelines module.\n";
 
 
+static constexpr const char *make_polynomial_detrender_time_axis_docstring =
+    "make_polynomial_detrender_time_axis(nt_chunk, polydeg, epsilon)\n"
+    "\n"
+    "Detrends along the time axis by subtracting a best-fit polynomial.\n"
+    "The detrending is independent for every frequency channel.\n"
+    "\n"
+    "If the fit is poorly conditioned then the entire frequency channel will be masked\n"
+    "(by setting its weights to zero).  The threshold is controlled by the parameter\n"
+    "'epsilon'.  I think that 1.0e-2 is a reasonable default here, but haven't\n"
+    "experimented systematically.\n";
+
+
+static constexpr const char *make_polynomial_detrender_freq_axis_docstring =
+    "make_polynomial_detrender_freq_axis(nt_chunk, polydeg, epsilon)\n"
+    "\n"
+    "Detrends along the frequency axis by subtracting a best-fit polynomial.\n"
+    "The detrending is independent for every time sample.\n"
+    "\n"
+    "If the fit is poorly conditioned then the entire time sample will be masked\n"
+    "(by setting its weights to zero).  The threshold is controlled by the parameter\n"
+    "'epsilon'.  I think that 1.0e-2 is a reasonable default here, but haven't\n"
+    "experimented systematically.\n";
+
+
 static constexpr const char *make_clipper2d_docstring =
     "make_clipper2d(Df, Dt, nt_chunk, sigma, niter, iter_sigma)\n"
     "\n"
@@ -1242,6 +1294,8 @@ static PyMethodDef module_methods[] = {
     { "make_gaussian_noise_stream", tc_wrap2<make_gaussian_noise_stream>, METH_VARARGS, dummy_module_method_docstring },
     { "make_chime_packetizer", tc_wrap2<make_chime_packetizer>, METH_VARARGS, dummy_module_method_docstring },
     { "make_simple_detrender", tc_wrap2<make_simple_detrender>, METH_VARARGS, dummy_module_method_docstring },
+    { "make_polynomial_detrender_time_axis", tc_wrap2<make_polynomial_detrender_time_axis>, METH_VARARGS, make_polynomial_detrender_time_axis_docstring },
+    { "make_polynomial_detrender_freq_axis", tc_wrap2<make_polynomial_detrender_freq_axis>, METH_VARARGS, make_polynomial_detrender_freq_axis_docstring },
     { "make_clipper2d", tc_wrap2<make_clipper2d>, METH_VARARGS, make_clipper2d_docstring },
     { "make_chime_file_writer", tc_wrap2<make_chime_file_writer>, METH_VARARGS, dummy_module_method_docstring },
     { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, dummy_module_method_docstring },

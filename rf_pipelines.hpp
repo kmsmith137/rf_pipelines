@@ -158,7 +158,7 @@ extern std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend);
 
 
 //
-// polynomial_detrender: detrends in either the time or frequency direction,
+// polynomial_detrender: detrends along either the time or frequency axis,
 // by subtracting a best-fit polynomial.  The detrending is independent in
 // every "row" (where "row" means "frequency channel" in the case of time-axis
 // detrending, or "time sample" in the case of frequency-axis detrending).
