@@ -19,42 +19,44 @@ template<typename T, unsigned int S, unsigned int N> using simd_trimatrix = simd
 
 
 template<typename T, unsigned int S>
-inline void _kernel_legpoly(simd_ntuple<T,S,1> &pl, simd_t<T,S> z)
+inline void _kernel_legpoly_eval(simd_ntuple<T,S,1> &pl, simd_t<T,S> z)
 {
     pl.x = 1.0;
 }
 
 template<typename T, unsigned int S>
-inline void _kernel_legpoly(simd_ntuple<T,S,2> &pl, simd_t<T,S> z)
+inline void _kernel_legpoly_eval(simd_ntuple<T,S,2> &pl, simd_t<T,S> z)
 {
     pl.v.x = 1.0;
     pl.x = z;
 }
 
 template<typename T, unsigned int S, unsigned int N, typename std::enable_if<(N > 2),int>::type = 0>
-inline void _kernel_legpoly(simd_ntuple<T,S,N> &pl, simd_t<T,S> z)
+inline void _kernel_legpoly_eval(simd_ntuple<T,S,N> &pl, simd_t<T,S> z)
 {
      // P_N(z) = a z P_{N-1}(z) + b P_{N-2}(z)
     constexpr T a = double(2*N-3) / double(N-1);
     constexpr T b = -double(N-2) / double(N-1);
 
-    _kernel_legpoly(pl.v, z);
+    _kernel_legpoly_eval(pl.v, z);
     pl.x = a * z * pl.v.x + b * pl.v.v.x;
 }
 
 
 // -------------------------------------------------------------------------------------------------
 //
-// First detrending pass
+// _kernel_detrend_accum_mv(outm, outv, pvec, ival, wval)
+//
+// Accumulates contribution to (M,v) in first pass of detrender.
 
 
 template<typename T, unsigned int S>
-inline void _kernel_detrend1a(simd_trimatrix<T,S,0> &outm, simd_ntuple<T,S,0> &outv, const simd_ntuple<T,S,0> &pvec, simd_t<T,S> ival, simd_t<T,S> wval) { }
+inline void _kernel_detrend_accum_mv(simd_trimatrix<T,S,0> &outm, simd_ntuple<T,S,0> &outv, const simd_ntuple<T,S,0> &pl, simd_t<T,S> ival, simd_t<T,S> wval) { }
 
 template<typename T, unsigned int S, unsigned int N, typename std::enable_if<(N>0),int>::type = 0>
-inline void _kernel_detrend1a(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S,N> &outv, const simd_ntuple<T,S,N> &pvec, simd_t<T,S> ival, simd_t<T,S> wval)
+inline void _kernel_detrend_accum_mv(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S,N> &outv, const simd_ntuple<T,S,N> &pvec, simd_t<T,S> ival, simd_t<T,S> wval)
 {
-    _kernel_detrend1a(outm.m, outv.v, pvec.v, ival, wval);
+    _kernel_detrend_accum_mv(outm.m, outv.v, pvec.v, ival, wval);
 
     simd_t<T,S> wp = wval * pvec.x;
 
@@ -63,8 +65,15 @@ inline void _kernel_detrend1a(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S,N> &o
 }
 
 
+// -------------------------------------------------------------------------------------------------
+//
+// _kernel_detrend_t<T,S,N> (nfreq, nt, intensity, weights, stride, epsilon)
+//
+// Detrend along time (=fastest varying) axis of 2D strided array.
+
+
 template<typename T, unsigned int S, unsigned int N>
-inline void _kernel_detrend1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S,N> &outv, int nt, const T *ivec, const T *wvec)
+inline void _kernel_detrend_t_pass1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S,N> &outv, int nt, const T *ivec, const T *wvec)
 {
     outm.setzero();
     outv.setzero();
@@ -82,9 +91,9 @@ inline void _kernel_detrend1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S,N> &ou
 	simd_t<T,S> wval = simd_t<T,S>::loadu(wvec+i);
 
 	simd_ntuple<T,S,N> pvec;
-	_kernel_legpoly(pvec, z);
+	_kernel_legpoly_eval(pvec, z);
 
-	_kernel_detrend1a(outm, outv, pvec, ival, wval);
+	_kernel_detrend_accum_mv(outm, outv, pvec, ival, wval);
     }
 
     outm.horizontal_sum_in_place();
@@ -92,13 +101,8 @@ inline void _kernel_detrend1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S,N> &ou
 }
 
 
-// -------------------------------------------------------------------------------------------------
-//
-// Second detrending pass
-
-
 template<typename T, unsigned int S, unsigned int N>
-inline void _kernel_detrend2(float *ivec, int nt, const simd_ntuple<T,S,N> &coeffs)
+inline void _kernel_detrend_t_pass2(float *ivec, int nt, const simd_ntuple<T,S,N> &coeffs)
 {
     simd_t<T,S> z0 = simd_t<T,S>::range();
     z0 -= simd_t<T,S>(0.5 * (nt-1));
@@ -110,7 +114,7 @@ inline void _kernel_detrend2(float *ivec, int nt, const simd_ntuple<T,S,N> &coef
 	simd_t<T,S> z = z0 + dz * simd_t<T,S>(i);
 
 	simd_ntuple<T,S,N> pvec;
-	_kernel_legpoly(pvec, z);
+	_kernel_legpoly_eval(pvec, z);
 
 	simd_t<T,S> ival = simd_t<T,S>::loadu(ivec + i);
 
@@ -120,13 +124,8 @@ inline void _kernel_detrend2(float *ivec, int nt, const simd_ntuple<T,S,N> &coef
 }
 
 
-// -------------------------------------------------------------------------------------------------
-//
-// Two-pass detrender
-
-
 template<typename T, unsigned int S, unsigned int N>
-inline void _kernel_detrend(int nfreq, int nt, T *intensity, T *weights, int stride, double epsilon=1.0e-2)
+inline void _kernel_detrend_t(int nfreq, int nt, T *intensity, T *weights, int stride, double epsilon=1.0e-2)
 {    
     for (int ifreq = 0; ifreq < nfreq; ifreq++) {
 	T *ivec = intensity + ifreq * stride;
@@ -135,7 +134,7 @@ inline void _kernel_detrend(int nfreq, int nt, T *intensity, T *weights, int str
 	simd_trimatrix<T,S,N> xmat;
 	simd_ntuple<T,S,N> xvec;
 
-	_kernel_detrend1(xmat, xvec, nt, ivec, wvec);
+	_kernel_detrend_t_pass1(xmat, xvec, nt, ivec, wvec);
 
 	simd_t<int,S> flags = xmat.cholesky_in_place_checked(epsilon);
 
@@ -149,16 +148,20 @@ inline void _kernel_detrend(int nfreq, int nt, T *intensity, T *weights, int str
 	xmat.solve_lower_in_place(xvec);
 	xmat.solve_upper_in_place(xvec);
 
-	_kernel_detrend2(ivec, nt, xvec);
+	_kernel_detrend_t_pass2(ivec, nt, xvec);
     }
 }
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// _kernel_detrend_f<T,S,N> (nfreq, nt, intensity, weights, stride, epsilon)
+//
+// Detrend along frequency (=slowest varying) axis of 2D strided array.
 
 
 template<typename T, unsigned int S, unsigned int N>
-inline void _kernel_zfilter1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S,N> &outv, int nfreq, const T *ivec, const T *wvec, int stride)
+inline void _kernel_detrend_f_pass1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S,N> &outv, int nfreq, const T *ivec, const T *wvec, int stride)
 {
     outm.setzero();
     outv.setzero();
@@ -173,13 +176,13 @@ inline void _kernel_zfilter1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S,N> &ou
 	simd_t<T,S> wval = simd_t<T,S>::loadu(wvec + i*stride);
 
 	simd_ntuple<T,S,N> pvec;
-	_kernel_legpoly(pvec, simd_t<T,S>(z));
-	_kernel_detrend1a(outm, outv, pvec, ival, wval);
+	_kernel_legpoly_eval(pvec, simd_t<T,S>(z));
+	_kernel_detrend_accum_mv(outm, outv, pvec, ival, wval);
     }
 }
 
 template<typename T, unsigned int S, unsigned int N>
-inline void _kernel_zfilter2(float *ivec, int nfreq, const simd_ntuple<T,S,N> &coeffs, int stride)
+inline void _kernel_detrend_f_pass2(float *ivec, int nfreq, const simd_ntuple<T,S,N> &coeffs, int stride)
 {
     T z0 = -(nfreq-1) / T(nfreq);
     T dz = 2.0 / T(nfreq);
@@ -188,7 +191,7 @@ inline void _kernel_zfilter2(float *ivec, int nfreq, const simd_ntuple<T,S,N> &c
 	T z = z0 + i*dz;
     
 	simd_ntuple<T,S,N> pvec;
-	_kernel_legpoly(pvec, simd_t<T,S>(z));
+	_kernel_legpoly_eval(pvec, simd_t<T,S>(z));
 
 	simd_t<T,S> ival = simd_t<T,S>::loadu(ivec + i*stride);
 
@@ -200,7 +203,7 @@ inline void _kernel_zfilter2(float *ivec, int nfreq, const simd_ntuple<T,S,N> &c
 
 // Zeros a complete block of S columns in the 'weights' array.
 template<typename T, unsigned int S>
-inline void _kernel_zmask(float *weights, int nfreq, int stride)
+inline void _kernel_colzero_full(float *weights, int nfreq, int stride)
 {
     simd_t<T,S> z = simd_t<T,S>::zero();
 
@@ -212,7 +215,7 @@ inline void _kernel_zmask(float *weights, int nfreq, int stride)
 // Zeros a partial block of S columns in the 'weights' array.
 // Each word in the 'mask' array should be either 0 or -1=0xff..
 template<typename T, unsigned int S>
-inline void _kernel_zmask(float *weights, int nfreq, int stride, simd_t<int,S> mask)
+inline void _kernel_colzero_partial(float *weights, int nfreq, int stride, simd_t<int,S> mask)
 {
     for (int i = 0; i < nfreq; i++) {
 	simd_t<T,S> w = simd_t<T,S>::loadu(weights + i*stride);
@@ -223,7 +226,7 @@ inline void _kernel_zmask(float *weights, int nfreq, int stride, simd_t<int,S> m
 
 
 template<typename T, unsigned int S, unsigned int N>
-inline void _kernel_zfilter(int nfreq, int nt, T *intensity, T *weights, int stride, double epsilon=1.0e-2)
+inline void _kernel_detrend_f(int nfreq, int nt, T *intensity, T *weights, int stride, double epsilon=1.0e-2)
 {
     for (int it = 0; it < nt; it += S) {
 	T *ivec = intensity + it;
@@ -232,27 +235,27 @@ inline void _kernel_zfilter(int nfreq, int nt, T *intensity, T *weights, int str
 	simd_trimatrix<T,S,N> xmat;
 	simd_ntuple<T,S,N> xvec;
 
-	_kernel_zfilter1(xmat, xvec, nfreq, ivec, wvec, stride);
+	_kernel_detrend_f_pass1(xmat, xvec, nfreq, ivec, wvec, stride);
 
 	simd_t<int,S> flags = xmat.cholesky_in_place_checked(epsilon);
 
 	if (flags.test_all_zeros()) {
 	    // If we get here, then all columns of the weights array should be zeroed,
 	    // but the intensity array can be left unmodified.
-	    _kernel_zmask<T,S> (wvec, nfreq, stride);
+	    _kernel_colzero_full<T,S> (wvec, nfreq, stride);
 	    continue;
 	}
 
 	xmat.solve_lower_in_place(xvec);
 	xmat.solve_upper_in_place(xvec);
 	
-	_kernel_zfilter2(ivec, nfreq, xvec, stride);
+	_kernel_detrend_f_pass2(ivec, nfreq, xvec, stride);
 
 	if (flags.test_all_ones())
 	    continue;
 
 	// If we get here, then partial zeroing of the weights array is needed.
-	_kernel_zmask<T,S> (wvec, nfreq, stride, flags);
+	_kernel_colzero_partial<T,S> (wvec, nfreq, stride, flags);
     }
 }
 

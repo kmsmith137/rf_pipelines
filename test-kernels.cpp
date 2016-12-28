@@ -151,7 +151,7 @@ random_chunk::~random_chunk()
 
 
 template<typename T>
-static vector<T> reference_legpoly_kernel(int npl, const vector<T> &zvec)
+static vector<T> reference_legpoly_eval(int npl, const vector<T> &zvec)
 {
     assert(npl > 0);
     assert(zvec.size() > 0);
@@ -181,14 +181,14 @@ static vector<T> reference_legpoly_kernel(int npl, const vector<T> &zvec)
 
 
 template<typename T, unsigned int S, unsigned int N>
-static void test_legpoly_kernel(std::mt19937 &rng)
+static void test_legpoly_eval(std::mt19937 &rng)
 {
     simd_t<T,S> z = simd_helpers::uniform_random_simd_t<T,S> (rng, -1.0, 1.0);
 
     simd_ntuple<T,S,N> pl;
-    _kernel_legpoly(pl, z);
+    _kernel_legpoly_eval(pl, z);
 
-    vector<T> pl0 = reference_legpoly_kernel(N, vectorize(z));
+    vector<T> pl0 = reference_legpoly_eval(N, vectorize(z));
 
 #if 0
     for (int iz = 0; iz < S; iz++) {
@@ -205,17 +205,17 @@ static void test_legpoly_kernel(std::mt19937 &rng)
 
 
 template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<(Nmax==0),int>::type = 0>
-static void test_legpoly_kernel_all(std::mt19937 &rng)
+static void test_legpoly_eval_all(std::mt19937 &rng)
 {
     return;
 }
 
 
 template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<(Nmax>0),int>::type = 0>
-static void test_legpoly_kernel_all(std::mt19937 &rng)
+static void test_legpoly_eval_all(std::mt19937 &rng)
 {
-    test_legpoly_kernel_all<T,S,(Nmax-1)> (rng);
-    test_legpoly_kernel<T,S,Nmax> (rng);
+    test_legpoly_eval_all<T,S,(Nmax-1)> (rng);
+    test_legpoly_eval<T,S,Nmax> (rng);
 }
 
 
@@ -573,7 +573,7 @@ int main(int argc, char **argv)
     std::random_device rd;
     std::mt19937 rng(rd());
 
-    test_legpoly_kernel_all<float,8,16> (rng);
+    test_legpoly_eval_all<float,8,16> (rng);
     test_clip2d_wrms_all<float,8,32,32> (rng);
     test_clip2d_mask_all<float,8,32,32> (rng);
     test_clip2d_iterate_all<float,8> (rng);
