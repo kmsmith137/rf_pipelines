@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include "simd_helpers/simd_debug.hpp"
+#include "kernels/polyfit.hpp"
 #include "kernels/clip2d.hpp"
 
 using namespace std;
@@ -59,7 +60,8 @@ inline double maxdiff(int n, const T *v1, const T *v2)
 
 
 // Generates a random number in the range [-2,2], but not too close to (+/- 1).
-// This is useful when 
+// This is useful when testing clippers, to avoid spurious roundoff-indiced 
+// differences between reference code and fast code.
 inline double clip_rand(std::mt19937 &rng)
 {
     for (;;) {
@@ -67,6 +69,27 @@ inline double clip_rand(std::mt19937 &rng)
 	double u = fabs(fabs(t)-1.0);
 	if (u > 1.0e-3)
 	    return t;
+    }
+}
+
+
+// Fills length-n 1D strided array with values of a randomly generated polynomial.
+template<typename T>
+inline void randpoly(T *dst, std::mt19937 &rng, int deg, int n, int stride)
+{
+    vector<T> coeffs = simd_helpers::gaussian_randvec<T> (rng, deg+1);
+
+    for (int i = 0; i < n; i++) {
+	T t = T(i) / T(n);
+	T tp = 1.0;
+	T y = 0.0;
+
+	for (int p = 0; p <= deg; p++) {
+	    y += coeffs[p] * tp;
+	    tp *= t;
+	}
+
+	dst[i*stride] = y;
     }
 }
 
@@ -121,6 +144,78 @@ random_chunk::~random_chunk()
     free(intensity);
     free(weights);
     intensity = weights = nullptr;
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+template<typename T>
+static vector<T> reference_legpoly_kernel(int npl, const vector<T> &zvec)
+{
+    assert(npl > 0);
+    assert(zvec.size() > 0);
+
+    int nz = zvec.size();
+    vector<T> out_pl(npl * nz);
+
+    for (int iz = 0; iz < nz; iz++)
+	out_pl[iz] = 1.0;
+
+    if (npl <= 1)
+	return out_pl;
+
+    for (int iz = 0; iz < nz; iz++)
+	out_pl[nz+iz] = zvec[iz];
+
+    for (int l = 2; l < npl; l++) {
+	T a = (2*l-1) / T(l);
+	T b = -(l-1) / T(l);
+	
+	for (int iz = 0; iz < nz; iz++)
+	    out_pl[l*nz + iz] = a * zvec[iz] * out_pl[(l-1)*nz + iz] + b * out_pl[(l-2)*nz + iz];
+    }
+
+    return out_pl;
+}
+
+
+template<typename T, unsigned int S, unsigned int N>
+static void test_legpoly_kernel(std::mt19937 &rng)
+{
+    simd_t<T,S> z = simd_helpers::uniform_random_simd_t<T,S> (rng, -1.0, 1.0);
+
+    simd_ntuple<T,S,N> pl;
+    _kernel_legpoly(pl, z);
+
+    vector<T> pl0 = reference_legpoly_kernel(N, vectorize(z));
+
+#if 0
+    for (int iz = 0; iz < S; iz++) {
+	cout << z0[iz] << ": ";
+	for (int l = 0; l < N; l++)
+	    cout << " " << pl0[l*S+iz];
+	cout << "\n";
+    }
+#endif
+
+    T epsilon = simd_helpers::compare(vectorize(pl), pl0);
+    assert(epsilon < 1.0e-6);
+}
+
+
+template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<(Nmax==0),int>::type = 0>
+static void test_legpoly_kernel_all(std::mt19937 &rng)
+{
+    return;
+}
+
+
+template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<(Nmax>0),int>::type = 0>
+static void test_legpoly_kernel_all(std::mt19937 &rng)
+{
+    test_legpoly_kernel_all<T,S,(Nmax-1)> (rng);
+    test_legpoly_kernel<T,S,Nmax> (rng);
 }
 
 
@@ -478,6 +573,7 @@ int main(int argc, char **argv)
     std::random_device rd;
     std::mt19937 rng(rd());
 
+    test_legpoly_kernel_all<float,8,16> (rng);
     test_clip2d_wrms_all<float,8,32,32> (rng);
     test_clip2d_mask_all<float,8,32,32> (rng);
     test_clip2d_iterate_all<float,8> (rng);
