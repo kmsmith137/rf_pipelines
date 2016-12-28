@@ -16,7 +16,8 @@ INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp
 
 KERNEL_INCFILES=kernels/clip2d.hpp \
 	kernels/downsample.hpp \
-	kernels/mean_rms_accumulator.hpp
+	kernels/mean_rms_accumulator.hpp \
+	kernels/polyfit.hpp
 
 # Source files for the core C++ library 'librf_pipelines.so'
 OFILES=bonsai_dedisperser.o \
