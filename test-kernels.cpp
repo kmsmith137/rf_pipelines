@@ -342,7 +342,7 @@ void test_detrend_f_nulling(std::mt19937 &rng, int nfreq, int nt, int stride)
     _kernel_detrend_f<T,S,N> (nfreq, nt, &intensity[0], &weights[0], stride);
 
     double epsilon = simd_helpers::maxabs(intensity);
-    assert(epsilon < 1.0e-3);
+    assert(epsilon < 1.0e-4);
 }
 
 
@@ -357,9 +357,8 @@ void test_detrend_f_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride
     _kernel_detrend_f<T,S,N> (nfreq, nt, &intensity2[0], &weights[0], stride);
     
     double epsilon = simd_helpers::maxdiff(intensity, intensity2);
-    assert(epsilon < 1.0e-3);
+    assert(epsilon < 1.0e-4);
 }
-
 
 
 // -------------------------------------------------------------------------------------------------
@@ -724,8 +723,8 @@ static void test_polynomial_detrenders(std::mt19937 &rng)
     test_polynomial_detrenders<T,S,(Nmax-1)> (rng);
 
     for (int iter = 0; iter < 10; iter++) {
-	int nfreq = std::uniform_int_distribution<>(30,100)(rng);
-	int nt = S * std::uniform_int_distribution<>(10,100)(rng);
+	int nfreq = std::uniform_int_distribution<>(10*Nmax,20*Nmax)(rng);
+	int nt = S * std::uniform_int_distribution<>((10*Nmax)/S,(20*Nmax)/S)(rng);
 	int stride = nt + S * std::uniform_int_distribution<>(0,4)(rng);
 
 	test_legpoly_eval<T,S,Nmax> (rng);
