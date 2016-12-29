@@ -306,7 +306,7 @@ void test_detrend_t_nulling(std::mt19937 &rng, int nfreq, int nt, int stride)
     _kernel_detrend_t<T,S,N> (nfreq, nt, &intensity[0], &weights[0], stride);
 
     double epsilon = simd_helpers::maxabs(intensity);
-    assert(epsilon < 1.0e-5);
+    assert(epsilon < 1.0e-4);
 }
 
 
@@ -321,8 +321,45 @@ void test_detrend_t_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride
     _kernel_detrend_t<T,S,N> (nfreq, nt, &intensity2[0], &weights[0], stride);
     
     double epsilon = simd_helpers::maxdiff(intensity, intensity2);
-    assert(epsilon < 1.0e-5);
+    assert(epsilon < 1.0e-4);
 }
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// "Nulling" and "idempotency" tests for kernel_detrend_f (analogous to tests for kernel_detrend_t above)
+
+
+template<typename T, unsigned int S, unsigned int N>
+void test_detrend_f_nulling(std::mt19937 &rng, int nfreq, int nt, int stride)
+{
+    vector<T> intensity(nfreq * stride, 0.0);
+    vector<T> weights = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
+
+    for (int it = 0; it < nt; it++)
+	randpoly(&intensity[it], rng, N-1, nfreq, stride);
+
+    _kernel_detrend_f<T,S,N> (nfreq, nt, &intensity[0], &weights[0], stride);
+
+    double epsilon = simd_helpers::maxabs(intensity);
+    assert(epsilon < 1.0e-3);
+}
+
+
+template<typename T, unsigned int S, unsigned int N>
+void test_detrend_f_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride)
+{
+    vector<T> intensity = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
+    vector<T> weights = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
+
+    _kernel_detrend_f<T,S,N> (nfreq, nt, &intensity[0], &weights[0], stride);
+    vector<T> intensity2 = intensity;
+    _kernel_detrend_f<T,S,N> (nfreq, nt, &intensity2[0], &weights[0], stride);
+    
+    double epsilon = simd_helpers::maxdiff(intensity, intensity2);
+    assert(epsilon < 1.0e-3);
+}
+
 
 
 // -------------------------------------------------------------------------------------------------
@@ -697,6 +734,9 @@ static void test_polynomial_detrenders(std::mt19937 &rng)
 	test_detrend_t_pass2<T,S,Nmax> (rng, nt);
 	test_detrend_t_nulling<T,S,Nmax> (rng, nfreq, nt, stride);
 	test_detrend_t_idempotency<T,S,Nmax> (rng, nfreq, nt, stride);
+
+	test_detrend_f_nulling<T,S,Nmax> (rng, nfreq, nt, stride);
+	test_detrend_f_idempotency<T,S,Nmax> (rng, nfreq, nt, stride);
     }
 }
 
