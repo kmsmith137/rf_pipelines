@@ -364,6 +364,49 @@ void test_detrend_f_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride
 // -------------------------------------------------------------------------------------------------
 
 
+template<typename T, unsigned int S, unsigned int N>
+void test_detrend_transpose(std::mt19937 &rng, int n1, int n2, int stride1, int stride2)
+{
+    vector<T> intensity12(n1 * stride2, 0.0);
+    vector<T> intensity21(n2 * stride1, 0.0);
+
+    vector<T> weights12(n1 * stride2, 0.0);
+    vector<T> weights21(n2 * stride1, 0.0);
+
+    std::normal_distribution<> dist;
+
+    for (int i = 0; i < n1; i++) {
+	for (int j = 0; j < n2; j++) {
+	    intensity12[i*stride2+j] = intensity21[j*stride1+i] = dist(rng);
+	    weights12[i*stride2+j] = weights21[j*stride1+i] = std::uniform_real_distribution<>()(rng);
+	}
+    }
+
+    _kernel_detrend_t<T,S,N> (n1, n2, &intensity12[0], &weights12[0], stride2);
+    _kernel_detrend_f<T,S,N> (n2, n1, &intensity21[0], &weights21[0], stride1);
+
+    T epsilon = 0;
+
+    for (int i = 0; i < n1; i++) {
+	for (int j = 0; j < n2; j++) {
+	    T x = intensity12[i*stride2+j];
+	    T y = intensity21[j*stride1+i];
+	    epsilon = std::max(epsilon, std::fabs(x-y));
+	}
+    }
+
+    if (epsilon > 1.0e-4) {
+	cerr << "test_detrend_transpose failed: T=" << simd_helpers::type_name<T>() << ", S=" << S
+	     << ", N=" << N << ", n1=" << n1 << ", n2=" << n2 << ", stride1=" << stride1
+	     << ", stride2=" << stride2 << ": epsilon=" << epsilon << endl;
+	exit(1);
+    }
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+
 template<typename T>
 static void reference_clip2d_wrms(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, int nds_f, int nds_t, T *ds_int, T *ds_wt)
 {
@@ -736,6 +779,9 @@ static void test_polynomial_detrenders(std::mt19937 &rng)
 
 	test_detrend_f_nulling<T,S,Nmax> (rng, nfreq, nt, stride);
 	test_detrend_f_idempotency<T,S,Nmax> (rng, nfreq, nt, stride);
+
+	int stride_f = nfreq + S * std::uniform_int_distribution<>(0,4)(rng);  // only used in test_detrend_transpose()
+	test_detrend_transpose<T,S,Nmax> (rng, nfreq, nt, stride_f, stride);
     }
 }
 
