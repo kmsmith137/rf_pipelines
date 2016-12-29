@@ -32,33 +32,6 @@ inline T *aligned_alloc(size_t nelts)
 }
 
 
-// Frequently used in conjunction with simd_helpers::vectorize()
-template<typename T> 
-inline double maxabs(const std::vector<T> &v)
-{
-    assert(v.size() > 0);
-
-    double ret = fabs(v[0]);
-    for (unsigned int i = 1; i < v.size(); i++)
-	ret = max(ret, fabs(double(v[i])));
-
-    return ret;
-}
-
-
-template<typename T> 
-inline double maxdiff(int n, const T *v1, const T *v2)
-{
-    assert(n > 0);
-
-    double ret = fabs(v1[0]-v2[0]);
-    for (int i = 1; i < n; i++)
-	ret = max(ret, fabs(double(v1[i]-v2[i])));
-
-    return ret;
-}
-
-
 // Generates a random number in the range [-2,2], but not too close to (+/- 1).
 // This is useful when testing clippers, to avoid spurious roundoff-indiced 
 // differences between reference code and fast code.
@@ -332,7 +305,7 @@ void test_detrend_t_nulling(std::mt19937 &rng, int nfreq, int nt, int stride)
 
     _kernel_detrend_t<T,S,N> (nfreq, nt, &intensity[0], &weights[0], stride);
 
-    double epsilon = maxabs(intensity);
+    double epsilon = simd_helpers::maxabs(intensity);
     assert(epsilon < 1.0e-5);
 }
 
@@ -347,7 +320,7 @@ void test_detrend_t_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride
     vector<T> intensity2 = intensity;
     _kernel_detrend_t<T,S,N> (nfreq, nt, &intensity2[0], &weights[0], stride);
     
-    double epsilon = maxdiff(nfreq * stride, &intensity[0], &intensity2[0]);
+    double epsilon = simd_helpers::maxdiff(intensity, intensity2);
     assert(epsilon < 1.0e-5);
 }
 
@@ -409,19 +382,19 @@ void test_clip2d_wrms_postmortem(int Df, int Dt, int nfreq, int nt, int stride, 
     vector<float> delta2 = vectorize(rms - simd_t<T,S> (ref_rms));    
     int n = (nfreq * nt) / (Df * Dt);
 
-    if ((maxabs(delta1) > 1.0e-3 * Df*Dt) || (maxabs(delta2) > 1.0e-3 * sqrt(Df*Dt))) {
+    if ((simd_helpers::maxabs(delta1) > 1.0e-3 * Df*Dt) || (simd_helpers::maxabs(delta2) > 1.0e-3 * sqrt(Df*Dt))) {
 	cerr << ss.str() << "\n"
 	     << "  mean: " << ref_mean << ", " << mean << "\n"
 	     << "  rms: " << ref_rms << ", " << rms << "\n";
 	exit(1);
     }
 
-    if (ds_int && (maxdiff(n,ref_ds_int,ds_int) > 1.0e-3 * Df*Dt)) {
+    if (ds_int && (simd_helpers::maxdiff(n,ref_ds_int,ds_int) > 1.0e-3 * Df*Dt)) {
 	cerr << ss.str() << ": ds_int arrays differ\n";
 	exit(1);
     }
 
-    if (ds_wt && (maxdiff(n,ref_ds_wt,ds_wt) > 1.0e-3 * Df*Dt)) {
+    if (ds_wt && (simd_helpers::maxdiff(n,ref_ds_wt,ds_wt) > 1.0e-3 * Df*Dt)) {
 	cerr << ss.str() << ": ds_wt arrays differ\n";
 	exit(1);
     }
@@ -673,7 +646,7 @@ static void test_clip2d_iterate(std::mt19937 &rng, int nfreq, int nt, int stride
     vector<float> delta1 = vectorize(fast_mean - simd_t<T,S> (ref_mean));
     vector<float> delta2 = vectorize(fast_rms - simd_t<T,S> (ref_rms));    
 
-    if ((maxabs(delta1) > 1.0e-3) || (maxabs(delta2) > 1.0e-3)) {
+    if ((simd_helpers::maxabs(delta1) > 1.0e-3) || (simd_helpers::maxabs(delta2) > 1.0e-3)) {
 	cerr << "test_clip2d_iterate failed:"
 	     << " T=" << simd_helpers::type_name<T>() << ", S=" << S
 	     << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n"
