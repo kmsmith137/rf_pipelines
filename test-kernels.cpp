@@ -206,7 +206,6 @@ static void test_legpoly_eval(std::mt19937 &rng)
 }
 
 
-
 // -------------------------------------------------------------------------------------------------
 //
 // Test _kernel_detrend_t_pass1()
@@ -276,13 +275,42 @@ void test_detrend_t_pass1(std::mt19937 &rng, int nt)
 }
 
 
-template<typename T, unsigned int S, unsigned int N>
-void test_detrend_t_pass1(std::mt19937 &rng)
+
+// -------------------------------------------------------------------------------------------------
+//
+// Test _kernel_detrend_t_pass2()
+
+
+template<typename T>
+static void reference_detrend_t_pass2(T *ivec, int npl, int nt, const T *coeffs)
 {
-    for (int iter = 0; iter < 10; iter++) {
-	int nt = S * std::uniform_int_distribution<>(10,100)(rng);
-	test_detrend_t_pass1<T,S,N> (rng, nt);
-    }
+    vector<T> tmp_z(nt);
+    for (int it = 0; it < nt; it++)
+	tmp_z[it] = 2 * (it+0.5) / T(nt) - 1;
+
+    vector<T> tmp_pl = reference_legpoly_eval(npl, tmp_z);
+
+    for (int l = 0; l < npl; l++)
+	for (int it = 0; it < nt; it++)
+	    ivec[it] -= coeffs[l] * tmp_pl[l*nt + it];
+}
+
+
+template<typename T, unsigned int S, unsigned int N>
+static void test_detrend_t_pass2(std::mt19937 &rng, int nt)
+{
+    vector<T> coeffs0 = simd_helpers::gaussian_randvec<T> (rng, N);
+    vector<T> ivec = simd_helpers::gaussian_randvec<T> (rng, nt);
+    vector<T> ivec2 = ivec;
+
+    simd_ntuple<T,S,N> coeffs;
+    coeffs.set1_slow(&coeffs0[0]);
+    
+    _kernel_detrend_t_pass2<T,S,N> (&ivec[0], nt, coeffs);
+    reference_detrend_t_pass2(&ivec2[0], N, nt, &coeffs0[0]);
+
+    T epsilon = simd_helpers::compare(ivec, ivec2);
+    assert(epsilon < 1.0e-6);
 }
 
 
@@ -646,8 +674,14 @@ template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<
 static void test_polynomial_detrenders(std::mt19937 &rng)
 {
     test_polynomial_detrenders<T,S,(Nmax-1)> (rng);
-    test_legpoly_eval<T,S,Nmax> (rng);
-    test_detrend_t_pass1<T,S,Nmax> (rng);
+
+    for (int iter = 0; iter < 10; iter++) {
+	int nt = S * std::uniform_int_distribution<>(10,100)(rng);
+
+	test_legpoly_eval<T,S,Nmax> (rng);
+	test_detrend_t_pass1<T,S,Nmax> (rng, nt);
+	test_detrend_t_pass2<T,S,Nmax> (rng, nt);
+    }
 }
 
 
