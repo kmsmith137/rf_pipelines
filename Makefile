@@ -142,3 +142,6 @@ run-unit-tests: run-unit-tests.o librf_pipelines.so
 # test-kernels does not depend on $(INCFILES)
 test-kernels: test-kernels.cpp $(KERNEL_INCFILES)
 	$(CPP) -o $@ $<
+
+time-kernels: time-kernels.cpp $(INCFILES) $(KERNEL_INCFILES)
+	$(CPP) -o $@ $<
