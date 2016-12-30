@@ -110,7 +110,7 @@ endif
 ####################################################################################################
 
 
-all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so run-unit-tests test-kernels
+all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so run-unit-tests test-kernels time-kernels
 
 install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
 	mkdir -p $(INCDIR)/ $(LIBDIR)/ $(PYDIR)/rf_pipelines/streams $(PYDIR)/rf_pipelines/transforms
