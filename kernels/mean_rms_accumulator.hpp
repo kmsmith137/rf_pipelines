@@ -28,9 +28,16 @@ template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
 
 template<typename T, unsigned int S>
 struct mean_rms_accumulator {
-    simd_t<T,S> acc0 = simd_t<T,S>::zero();    // sum_i W_i
-    simd_t<T,S> acc1 = simd_t<T,S>::zero();    // sum_i W_i I_i
-    simd_t<T,S> acc2 = simd_t<T,S>::zero();    // sum_i W_i I_i^2
+    simd_t<T,S> acc0;    // sum_i W_i
+    simd_t<T,S> acc1;    // sum_i W_i I_i
+    simd_t<T,S> acc2;    // sum_i W_i I_i^2
+
+    mean_rms_accumulator()
+    {
+	acc0 = simd_t<T,S>::zero();
+	acc1 = simd_t<T,S>::zero();
+	acc2 = simd_t<T,S>::zero();
+    }
 
     inline void accumulate(simd_t<T,S> ival, simd_t<T,S> wval)
     {

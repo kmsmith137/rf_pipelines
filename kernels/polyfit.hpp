@@ -1,6 +1,7 @@
 #ifndef _RF_PIPELINES_KERNELS_POLYFIT_HPP
 #define _RF_PIPELINES_KERNELS_POLYFIT_HPP
 
+#include <cstring>
 #include <simd_helpers/simd_t.hpp>
 #include <simd_helpers/simd_ntuple.hpp>
 #include <simd_helpers/simd_trimatrix.hpp>

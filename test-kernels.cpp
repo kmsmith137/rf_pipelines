@@ -2,6 +2,8 @@
 // (This is because it has a Makefile dependency on the former but not the latter.)
 
 #include <cassert>
+#include <stdexcept>
+
 #include "simd_helpers/simd_debug.hpp"
 #include "kernels/polyfit.hpp"
 #include "kernels/clip2d.hpp"
