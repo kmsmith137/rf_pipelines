@@ -780,8 +780,10 @@ static void test_polynomial_detrenders(std::mt19937 &rng)
 	test_detrend_f_nulling<T,S,Nmax> (rng, nfreq, nt, stride);
 	test_detrend_f_idempotency<T,S,Nmax> (rng, nfreq, nt, stride);
 
-	int stride_f = nfreq + S * std::uniform_int_distribution<>(0,4)(rng);  // only used in test_detrend_transpose()
-	test_detrend_transpose<T,S,Nmax> (rng, nfreq, nt, stride_f, stride);
+	// n2, stride2 only used in test_detrend_transpose()
+	int n2 = S * std::uniform_int_distribution<>((10*Nmax)/S,(20*Nmax)/S)(rng);
+	int stride2 = n2 + S * std::uniform_int_distribution<>(0,4)(rng);
+	test_detrend_transpose<T,S,Nmax> (rng, nt, n2, stride, stride2);
     }
 }
 
