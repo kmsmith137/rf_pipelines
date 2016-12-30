@@ -241,6 +241,9 @@ struct kernel_timing_thread : public timing_thread
     float *intensity = nullptr;
     float *weights = nullptr;
 
+    // A place to write dummy results, to keep the compiler from optimizing things out
+    float *dummyp = nullptr;
+
     kernel_timing_thread(const shared_ptr<timing_thread_pool> &pool_, int nfreq_, int nt_chunk_, int stride_) :
 	timing_thread(pool_, true),    // pin_to_core=true
 	nfreq(nfreq_), nt_chunk(nt_chunk_), stride(stride_)
@@ -251,6 +254,7 @@ struct kernel_timing_thread : public timing_thread
 
 	intensity = aligned_alloc<float> (nfreq * stride);
 	weights = aligned_alloc<float> (nfreq * stride);
+	dummyp = aligned_alloc<float> (16);
 
 	for (int i = 0; i < nfreq*stride; i++)
 	    weights[i] = 1.0;
@@ -258,21 +262,52 @@ struct kernel_timing_thread : public timing_thread
 
     virtual void thread_body() override
     {
+	simd_trimatrix<T,S,N> smat;
+	simd_ntuple<T,S,N> svec;
+	simd_t<T,S> dummy(0.0);
+
 	if (thread_id == 0) {
             cout << "nfreq=" << nfreq << ", nt_chunk=" << nt_chunk 
 		 << ", stride=" << stride  << ", polydeg=" << (N-1)
 		 << ", niter=" << niter << endl;
 	}
 
+
 	this->start_timer();
-        for (int i = 0; i < niter; i++)
+        for (int iter = 0; iter < niter; iter++)
 	    _kernel_detrend_t<T,S,N> (nfreq, nt_chunk, intensity, weights, stride);
         this->stop_timer("kernel_detrend_t");
 
+
 	this->start_timer();
-        for (int i = 0; i < niter; i++)
+        for (int iter = 0; iter < niter; iter++) {
+	    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+		_kernel_detrend_t_pass1<T,S,N> (smat, svec, nt_chunk, intensity + ifreq*stride, weights + ifreq*stride);
+		dummy += smat.vertical_sum();
+		dummy += svec.vertical_sum();
+	    }
+	}
+        this->stop_timer("kernel_detrend_t_pass1");
+
+
+	this->start_timer();
+        for (int iter = 0; iter < niter; iter++)
 	    _kernel_detrend_f<T,S,N> (nfreq, nt_chunk, intensity, weights, stride);
         this->stop_timer("kernel_detrend_f");
+
+
+	this->start_timer();
+        for (int iter = 0; iter < niter; iter++) {
+	    for (int it = 0; it < nt_chunk; it += S) {
+		_kernel_detrend_f_pass1<T,S,N> (smat, svec, nfreq, intensity + it, weights + it, stride);
+		dummy += smat.vertical_sum();
+		dummy += svec.vertical_sum();
+	    }
+	}
+        this->stop_timer("kernel_detrend_f_pass1");
+
+
+	dummy.store(dummyp);
     }
 };
 
