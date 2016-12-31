@@ -19,6 +19,7 @@ class gaussian_noise_stream : public wi_stream
 protected:
     ssize_t nt_tot;
     double sample_rms;
+    bool randomize_weights;
 
 public:
     //
@@ -40,7 +41,7 @@ public:
     // to start_stream(), the constructor can return immediately (start_stream() would need to block until
     // the first packet is received but that's OK).
     //
-    gaussian_noise_stream(ssize_t nfreq_, ssize_t nt_tot_, double freq_lo_MHz_, double freq_hi_MHz_, double dt_sample_, double sample_rms_, ssize_t nt_chunk)
+    gaussian_noise_stream(ssize_t nfreq_, ssize_t nt_tot_, double freq_lo_MHz_, double freq_hi_MHz_, double dt_sample_, double sample_rms_, ssize_t nt_chunk, bool randomize_weights_)
     {
 	if (nt_chunk == 0)
 	    nt_chunk = 1024;   // default
@@ -50,8 +51,8 @@ public:
 	this->freq_hi_MHz = freq_hi_MHz_;
 	this->dt_sample = dt_sample_;
 	this->nt_maxwrite = nt_chunk;
-
 	this->sample_rms = sample_rms_;
+	this->randomize_weights = randomize_weights_;
 	this->nt_tot = nt_tot_;
 
 	// Some sanity checking of arguments.
@@ -105,7 +106,7 @@ public:
 	    for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++) {
 		for (ssize_t it = 0; it < nt; it++) {
 		    intensity[ifreq*stride + it] = dist(rng);
-		    weights[ifreq*stride + it] = 1.0;
+		    weights[ifreq*stride + it] = randomize_weights ? std::uniform_real_distribution<>()(rng) : 1.0;
 		}
 	    }
 
@@ -127,9 +128,9 @@ public:
 // source file to avoid overpopulating rf_pipelines.hpp with definitions of many classes, but
 // this is just a preference!)
 //
-shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssize_t nt_tot, double freq_lo_MHz, double freq_hi_MHz, double dt_sample, double sample_rms, ssize_t nt_chunk)
+shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssize_t nt_tot, double freq_lo_MHz, double freq_hi_MHz, double dt_sample, double sample_rms, ssize_t nt_chunk, bool randomize_weights)
 {
-    return make_shared<gaussian_noise_stream> (nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms, nt_chunk);
+    return make_shared<gaussian_noise_stream> (nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms, nt_chunk, randomize_weights);
 }
 
 

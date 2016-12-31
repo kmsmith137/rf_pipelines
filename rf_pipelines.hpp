@@ -132,14 +132,17 @@ extern std::shared_ptr<wi_stream> make_chime_network_stream(int udp_port=0, int 
 
 // Simple stream which simulates Gaussian random noise
 //
-//   nfreq            Number of frequency channels
-//   nt_tot           Total number of time samples written before stream ends.
-//   freq_lo_MHz      Lowest frequency in band (e.g. 400 for CHIME)
-//   freq_hi_MHz      Highest frequency in band (e.g. 800 for CHIME)
-//   dt_sample        Length of a time sample in seconds
-//   nt_chunk         Stream block size (if zero, will default to a reasonable value)
+//   nfreq               Number of frequency channels
+//   nt_tot              Total number of time samples written before stream ends.
+//   freq_lo_MHz         Lowest frequency in band (e.g. 400 for CHIME)
+//   freq_hi_MHz         Highest frequency in band (e.g. 800 for CHIME)
+//   dt_sample           Length of a time sample in seconds
+//   sample_rms          RMS of intensity samples (Gaussian distributed)
+//   nt_chunk            Stream block size (if zero, will default to a reasonable value)
+//   randomize_weights   If true, weights will be uniform random numbers (if false, all weights will be 1.0)
 //
-extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssize_t nt_tot, double freq_lo_MHz, double freq_hi_MHz, double dt_sample, double sample_rms=1.0, ssize_t nt_chunk=0);
+extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssize_t nt_tot, double freq_lo_MHz, double freq_hi_MHz, 
+							     double dt_sample, double sample_rms=1.0, ssize_t nt_chunk=0, bool randomize_weights=false);
 
 
 // -------------------------------------------------------------------------------------------------

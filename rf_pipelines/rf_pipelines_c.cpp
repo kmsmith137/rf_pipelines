@@ -1123,11 +1123,12 @@ static PyObject *make_gaussian_noise_stream(PyObject *self, PyObject *args)
 {
     ssize_t nfreq, nt_chunk, nt_tot;
     double freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms;
+    int randomize_weights;  // will be converted to boolean
 
-    if (!PyArg_ParseTuple(args, "nnddddn", &nfreq, &nt_tot, &freq_lo_MHz, &freq_hi_MHz, &dt_sample, &sample_rms, &nt_chunk))
+    if (!PyArg_ParseTuple(args, "nnddddni", &nfreq, &nt_tot, &freq_lo_MHz, &freq_hi_MHz, &dt_sample, &sample_rms, &nt_chunk, &randomize_weights))
 	return NULL;
 
-    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_gaussian_noise_stream(nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms, nt_chunk);
+    shared_ptr<rf_pipelines::wi_stream> ret = rf_pipelines::make_gaussian_noise_stream(nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms, nt_chunk, (randomize_weights != 0));
     return wi_stream_object::make(ret);
 }
 
@@ -1242,6 +1243,18 @@ static constexpr const char *dummy_module_method_docstring =
     "For documentation, see the docstring of the similarly-named python function in the rf_pipelines module.\n";
 
 
+static constexpr const char *make_gaussian_noise_stream_docstring =
+    "make_gaussian_noise_stream(nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms, nt_chunk, randomize_weights)\n"
+    "\n"
+    "nfreq               Number of frequency channels\n"
+    "nt_tot              Total number of time samples written before stream ends.\n"
+    "freq_lo_MHz         Lowest frequency in band (e.g. 400 for CHIME)\n"
+    "freq_hi_MHz         Highest frequency in band (e.g. 800 for CHIME)\n"
+    "dt_sample           Length of a time sample in seconds\n"
+    "nt_chunk            Stream block size (if zero, will default to a reasonable value)\n"
+    "randomize_weights   If true, weights will be uniform random numbers (if false, all weights will be 1.0)\n";
+
+
 static constexpr const char *make_polynomial_detrender_time_axis_docstring =
     "make_polynomial_detrender_time_axis(nt_chunk, polydeg, epsilon)\n"
     "\n"
@@ -1291,7 +1304,7 @@ static PyMethodDef module_methods[] = {
     { "make_chime_stream_from_filename", tc_wrap2<make_chime_stream_from_filename>, METH_VARARGS, dummy_module_method_docstring },
     { "make_chime_stream_from_filename_list", tc_wrap2<make_chime_stream_from_filename_list>, METH_VARARGS, dummy_module_method_docstring },
     { "make_chime_network_stream", tc_wrap2<make_chime_network_stream>, METH_VARARGS, dummy_module_method_docstring },
-    { "make_gaussian_noise_stream", tc_wrap2<make_gaussian_noise_stream>, METH_VARARGS, dummy_module_method_docstring },
+    { "make_gaussian_noise_stream", tc_wrap2<make_gaussian_noise_stream>, METH_VARARGS, make_gaussian_noise_stream_docstring },
     { "make_chime_packetizer", tc_wrap2<make_chime_packetizer>, METH_VARARGS, dummy_module_method_docstring },
     { "make_simple_detrender", tc_wrap2<make_simple_detrender>, METH_VARARGS, dummy_module_method_docstring },
     { "make_polynomial_detrender_time_axis", tc_wrap2<make_polynomial_detrender_time_axis>, METH_VARARGS, make_polynomial_detrender_time_axis_docstring },
