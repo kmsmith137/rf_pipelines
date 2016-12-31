@@ -287,6 +287,7 @@ void wi_run_state::output_substream_json()
 	
     Json::Value json_substream;
     json_substream["nsamples"] = Json::Value::Int64(stream_ipos);
+    json_substream["ringbuf_stride"] = Json::Value::Int64(main_buffer.nt_tot);
     // more things will go here!
 
     for (const shared_ptr<wi_transform> &t: transforms) {
