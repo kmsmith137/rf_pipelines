@@ -80,7 +80,9 @@ void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const s
 	if (!transform)
 	    throw runtime_error("rf_pipelines: empty transform pointer passed to wi_stream::run()");
 	if (transform->name.size() == 0)
-	    throw runtime_error("rf_pipelines: a C++ transform failed to initialize its 'name' field");
+	    throw runtime_error("rf_pipelines: a transform failed to initialize its 'name' field.\n"
+				"  [Reminder: C++ transforms should set this->name in their constructors.\n"
+				"   Python transforms should call rf_pipelines.py_wi_transform.__init__().]");
 
 	janitor.set_outdir_manager(transform);
 	transform->json_per_stream.clear();
