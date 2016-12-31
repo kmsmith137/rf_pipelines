@@ -272,13 +272,12 @@ struct kernel_timing_thread : public timing_thread
 		 << ", niter=" << niter << endl;
 	}
 
-
 	this->start_timer();
         for (int iter = 0; iter < niter; iter++)
 	    _kernel_detrend_t<T,S,N> (nfreq, nt_chunk, intensity, weights, stride);
         this->stop_timer("kernel_detrend_t");
 
-
+#if 0
 	this->start_timer();
         for (int iter = 0; iter < niter; iter++) {
 	    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
@@ -288,14 +287,14 @@ struct kernel_timing_thread : public timing_thread
 	    }
 	}
         this->stop_timer("kernel_detrend_t_pass1");
-
+#endif
 
 	this->start_timer();
         for (int iter = 0; iter < niter; iter++)
 	    _kernel_detrend_f<T,S,N> (nfreq, nt_chunk, intensity, weights, stride);
         this->stop_timer("kernel_detrend_f");
 
-
+#if 0
 	this->start_timer();
         for (int iter = 0; iter < niter; iter++) {
 	    for (int it = 0; it < nt_chunk; it += S) {
@@ -305,7 +304,7 @@ struct kernel_timing_thread : public timing_thread
 	    }
 	}
         this->stop_timer("kernel_detrend_f_pass1");
-
+#endif
 
 	dummy.store(dummyp);
     }
