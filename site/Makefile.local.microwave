@@ -17,10 +17,8 @@ PYDIR=$(HOME)/lib/python2.7/site-packages
 PYTHON_INCDIR=/usr/include/python2.7
 
 # C++ command line
-# Must support c++11
-# Don't forget -fPIC
-# Don't forget -march=native
-CPP=g++ -std=c++11 -Wall -fPIC -O3 -march=native -ffast-math -funroll-loops -I. -I$(INCDIR) -I$(PYTHON_INCDIR)
+# Don't forget: -pthread -march=native -std=c++11 -fPIC
+CPP=g++ -pthread -std=c++11 -Wall -fPIC -O3 -march=native -ffast-math -funroll-loops -I. -I$(INCDIR) -I$(PYTHON_INCDIR)
 
 # Extra linker flags when creating a shared library or exectutable from .o files
 # Don't forget to add . and $(LIBDIR) in your LD_LIBRARY_PATH environment variable (in this order)
