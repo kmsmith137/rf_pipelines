@@ -142,7 +142,7 @@ inline void _kernel_detrend_t(int nfreq, int nt, T *intensity, T *weights, int s
 
 	if (flags.test_all_zeros()) {
 	    // Case 1: Cholesky factorization was badly conditioned
-	    memset(weights, 0, nt * sizeof(T));
+	    memset(weights + ifreq*stride, 0, nt * sizeof(T));
 	    continue;
 	}
 
