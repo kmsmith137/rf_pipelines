@@ -249,6 +249,9 @@ inline void _kernel_detrend_f(int nfreq, int nt, T *intensity, T *weights, int s
 	    continue;
 	}
 
+	// In columns where the fit is poorly conditioned, we leave the intensity array unmodified.
+	xvec = xvec.bitwise_and(flags);
+
 	xmat.solve_lower_in_place(xvec);
 	xmat.solve_upper_in_place(xvec);
 	
