@@ -16,6 +16,9 @@ For a high-level overview, here are some slides from CHIME telecons:
   - A gcc which is recent enough that C++11 is supported.  
     I know that gcc 4.8.1 works, and that 4.4.7 is too old.
 
+  - The simd_helpers library (https://github.com/kmsmith137/simd_helpers)
+    This is new and experimental, so let me know if you have any trouble compiling it!
+
   - libhdf5 (https://www.hdfgroup.org/HDF5/release/obtain5.html)
     Note that this is a link to HDF5 v1.8.  I imagine v1.10 also works but haven't tested it yet.
 
@@ -69,6 +72,11 @@ For a high-level overview, here are some slides from CHIME telecons:
     The format is defined in Makefile, but it will probably be easiest to copy one of
     the examples in site/ and customize.  For each of the optional dependencies above,
     there is a y/n flag in Makefile.local to indicate whether you have it.
+
+    Note that your C++ compiler flags should probably include at minimum
+       -std=c++11 -O3 -march=native -fPIC -I. -I$(INCDIR) -L. -L$(LIBDIR)
+    and additionally -pthread if using g++.  If -march=native is omitted, you'll
+    get a lot of compiler errors!
 
   - make all install
 
