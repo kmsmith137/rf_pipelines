@@ -378,6 +378,9 @@ void test_detrend_t_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride
 // -------------------------------------------------------------------------------------------------
 //
 // "Nulling" and "idempotency" tests for kernel_detrend_f (analogous to tests for kernel_detrend_t above)
+//
+// Reminder: the idempotency test also tests masking, by randomly choosing some
+// rows to make badly conditioned.
 
 
 template<typename T, unsigned int S, unsigned int N>
@@ -403,11 +406,34 @@ void test_detrend_f_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride
     vector<T> weights = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
 
     _kernel_detrend_f<T,S,N> (nfreq, nt, &intensity[0], &weights[0], stride);
+
+    vector<bool> well_conditioned(nt, true);
+
+    // Assign badly conditioned columns, by looping over S-column blocks
+    for (int it = 0; it < nt; it += S) {
+	// No badly conditioned columns in this block
+	if (std::uniform_real_distribution<>()(rng) < 0.33)
+	    continue;
+
+	// If this flag is set, the block will be all badly conditioned
+	bool all_badly_conditioned = (std::uniform_real_distribution<>()(rng) < 0.5);
+
+	for (int jt = it; jt < it+S; jt++) {
+	    if (all_badly_conditioned || (std::uniform_real_distribution<>()(rng) < 0.5)) {
+		well_conditioned[jt] = false;
+		make_weights_badly_conditioned(&weights[jt], rng, N-1, nfreq, stride);
+	    }
+	}
+    }
+
     vector<T> intensity2 = intensity;
     _kernel_detrend_f<T,S,N> (nfreq, nt, &intensity2[0], &weights[0], stride);
     
     double epsilon = simd_helpers::maxdiff(intensity, intensity2);
     assert(epsilon < 1.0e-4);
+
+    for (int it = 0; it < nt; it++)
+	assert(check_masking(&weights[it], nfreq, stride, well_conditioned[it]));
 }
 
 
