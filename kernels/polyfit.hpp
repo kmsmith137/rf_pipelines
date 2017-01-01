@@ -6,6 +6,12 @@
 #include <simd_helpers/simd_ntuple.hpp>
 #include <simd_helpers/simd_trimatrix.hpp>
 
+// Branch predictor hint
+#ifndef _unlikely
+#define _unlikely(cond)  (__builtin_expect(cond,0))
+#endif
+
+
 namespace rf_pipelines {
 #if 0
 }; // pacify emacs c-mode
@@ -128,7 +134,11 @@ inline void _kernel_detrend_t_pass2(float *ivec, int nt, const simd_ntuple<T,S,N
 
 template<typename T, unsigned int S, unsigned int N>
 inline void _kernel_detrend_t(int nfreq, int nt, T *intensity, T *weights, int stride, double epsilon=1.0e-2)
-{    
+{
+    // Caller should have asserted this already, but rechecking here should have negligible overhead
+    if (_unlikely((nt % S) != 0))
+	throw std::runtime_error("rf_pipelines internal error: nt is not divisible by S in _kernel_detrend_t()");
+
     for (int ifreq = 0; ifreq < nfreq; ifreq++) {
 	T *ivec = intensity + ifreq * stride;
 	T *wvec = weights + ifreq * stride;
@@ -231,6 +241,10 @@ inline void _kernel_colzero_partial(float *weights, int nfreq, int stride, simd_
 template<typename T, unsigned int S, unsigned int N>
 inline void _kernel_detrend_f(int nfreq, int nt, T *intensity, T *weights, int stride, double epsilon=1.0e-2)
 {
+    // Caller should have asserted this already, but rechecking here should have negligible overhead
+    if (_unlikely((nt % S) != 0))
+	throw std::runtime_error("rf_pipelines internal error: nt is not divisible by S in _kernel_detrend_f()");
+
     for (int it = 0; it < nt; it += S) {
 	T *ivec = intensity + it;
 	T *wvec = weights + it;
