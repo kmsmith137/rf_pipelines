@@ -69,6 +69,20 @@ inline void randpoly(T *dst, std::mt19937 &rng, int deg, int n, int stride)
 }
 
 
+// Makes length-n strided weights array badly conditioned, assuming a polynomial fit of degree 'deg'.
+template<typename T>
+inline void make_weights_badly_conditioned(T *dst, std::mt19937 &rng, int deg, int n, int stride)
+{
+    for (int i = 0; i < n; i++)
+	dst[i*stride] = 0;
+
+    for (int i = 0; i < deg; i++) {
+	int j = std::uniform_int_distribution<>(0,n-1)(rng);
+	dst[j*stride] = 1.0;
+    }
+}
+
+
 // -------------------------------------------------------------------------------------------------
 
 
@@ -294,6 +308,9 @@ static void test_detrend_t_pass2(std::mt19937 &rng, int nt)
 // Some general tests on kernel_detrend_t: 
 //   "nulling": detrending a polynmomial should give zero,
 //   "idempotency": detrending twice should be the same as detrending once
+//
+// Note: the idempotency test also tests masking, by randomly choosing some
+// rows to make badly conditioned.
 
 
 template<typename T, unsigned int S, unsigned int N>
@@ -317,13 +334,30 @@ void test_detrend_t_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride
 {
     vector<T> intensity = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
     vector<T> weights = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
-    
+
     _kernel_detrend_t<T,S,N> (nfreq, nt, &intensity[0], &weights[0], stride);
+
+    // Give each row a 50% chance of being well-conditioned.
+    vector<bool> well_conditioned(nfreq, true);
+    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	if (std::uniform_real_distribution<>()(rng) > 0.5) {
+	    well_conditioned[ifreq] = false;
+	    make_weights_badly_conditioned(&weights[ifreq*stride], rng, N-1, nt, 1);
+	}
+    }
+
     vector<T> intensity2 = intensity;
     _kernel_detrend_t<T,S,N> (nfreq, nt, &intensity2[0], &weights[0], stride);
     
     double epsilon = simd_helpers::maxdiff(intensity, intensity2);
     assert(epsilon < 1.0e-4);
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	if (well_conditioned[ifreq])
+	    continue;
+	for (int it = 0; it < nt; it++)
+	    assert(weights[ifreq*stride+it] == 0.0);
+    }
 }
 
 
