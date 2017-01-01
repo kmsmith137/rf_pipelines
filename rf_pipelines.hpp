@@ -49,12 +49,13 @@
 //
 // Factory functions which return transforms (std::shared_ptr<wi_transform>):
 //
-//   make_bonsai_dedisperser()     runs data through bonsai dedisperser
-//   make_chime_file_writer()      write stream to a single file in CHIME hdf5 format
-//   make_simple_detreneder()      really boneheaded detrending algorithm (better detrending is available in python, but it's slow!)
+//   make_bonsai_dedisperser()               Runs data through bonsai dedisperser
+//   make_chime_file_writer()                Writes stream to a single file in CHIME hdf5 format
+//   make_polynomial_detrender_time_axis()   Detrends along time axis, by subtracting a best-fit polynomial
+//   make_polynomial_detrender_freq_axis()   Detrends along frequency axis, by subtracting a best-fit polynomial
 //
 // See below for more info on all these functions!
-//
+
 
 #ifndef _RF_PIPELINES_HPP
 #define _RF_PIPELINES_HPP
@@ -151,16 +152,6 @@ extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssiz
 
 
 //
-// simple_detrender: this the simplest possible detrending algorithm.  We really
-// need something better here!  It just divides the data into chunk, and subtracts
-// the time-average of the data for every (chunk, frequency_channel) pair.
-//
-// The 'nt_detrend' constructor argument is the detrending chunk size (in number of samples).
-//
-extern std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend);
-
-
-//
 // polynomial_detrender: detrends along either the time or frequency axis,
 // by subtracting a best-fit polynomial.  The detrending is independent in
 // every "row" (where "row" means "frequency channel" in the case of time-axis
@@ -173,6 +164,15 @@ extern std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend);
 //
 extern std::shared_ptr<wi_transform> make_polynomial_detrender_time_axis(int nt_chunk, int polydeg, double epsilon=1.0e-2);
 extern std::shared_ptr<wi_transform> make_polynomial_detrender_freq_axis(int nt_chunk, int polydeg, double epsilon=1.0e-2);
+
+
+// A "simple detrender" is a time-axis polynomial fitter with degree zero.
+// This will be removed soon, in favor of calling make_polynomial_detrender_time_axis() directly.
+inline std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend)
+{
+    std::cerr << "make_simple_detrender(): this function is now deprecated in favor of make_polynomial_detrender_time_axis(polydeg=0)\n";
+    return make_polynomial_detrender_time_axis(nt_detrend, 0);
+}
 
 
 //
@@ -364,10 +364,6 @@ struct wi_stream {
 };
 
 
-//
-// Note: for a reference example showing how to implement a wi_transform, check out simple_detrender.cpp.
-// (This may be too simple to be an ideal example, I might suggest something different later!)
-//
 struct wi_transform {
     // Subclass should initialize the transform name in its constructor.
     // The transform name will appear in the json output, and in python __str__().

@@ -1150,17 +1150,6 @@ static PyObject *make_chime_packetizer(PyObject *self, PyObject *args)
 }
 
 
-static PyObject *make_simple_detrender(PyObject *self, PyObject *args)
-{
-    ssize_t nt_detrend = 0;
-    if (!PyArg_ParseTuple(args, "n", &nt_detrend))
-	return NULL;
-    
-    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_simple_detrender(nt_detrend);
-    return wi_transform_object::make(ret);
-}
-
-
 static PyObject *make_polynomial_detrender_time_axis(PyObject *self, PyObject *args)
 {
     int nt_chunk = 0;
@@ -1306,7 +1295,6 @@ static PyMethodDef module_methods[] = {
     { "make_chime_network_stream", tc_wrap2<make_chime_network_stream>, METH_VARARGS, dummy_module_method_docstring },
     { "make_gaussian_noise_stream", tc_wrap2<make_gaussian_noise_stream>, METH_VARARGS, make_gaussian_noise_stream_docstring },
     { "make_chime_packetizer", tc_wrap2<make_chime_packetizer>, METH_VARARGS, dummy_module_method_docstring },
-    { "make_simple_detrender", tc_wrap2<make_simple_detrender>, METH_VARARGS, dummy_module_method_docstring },
     { "make_polynomial_detrender_time_axis", tc_wrap2<make_polynomial_detrender_time_axis>, METH_VARARGS, make_polynomial_detrender_time_axis_docstring },
     { "make_polynomial_detrender_freq_axis", tc_wrap2<make_polynomial_detrender_freq_axis>, METH_VARARGS, make_polynomial_detrender_freq_axis_docstring },
     { "make_clipper2d", tc_wrap2<make_clipper2d>, METH_VARARGS, make_clipper2d_docstring },

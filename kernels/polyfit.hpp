@@ -150,7 +150,7 @@ inline void _kernel_detrend_t(int nfreq, int nt, T *intensity, T *weights, int s
 
 	simd_t<int,S> flags = xmat.cholesky_in_place_checked(epsilon);
 
-	if (flags.test_all_zeros()) {
+	if (flags.is_all_zeros()) {
 	    // Case 1: Cholesky factorization was badly conditioned
 	    memset(weights + ifreq*stride, 0, nt * sizeof(T));
 	    continue;
@@ -256,7 +256,7 @@ inline void _kernel_detrend_f(int nfreq, int nt, T *intensity, T *weights, int s
 
 	simd_t<int,S> flags = xmat.cholesky_in_place_checked(epsilon);
 
-	if (flags.test_all_zeros()) {
+	if (flags.is_all_zeros()) {
 	    // If we get here, then all columns of the weights array should be zeroed,
 	    // but the intensity array can be left unmodified.
 	    _kernel_colzero_full<T,S> (wvec, nfreq, stride);
@@ -271,7 +271,7 @@ inline void _kernel_detrend_f(int nfreq, int nt, T *intensity, T *weights, int s
 	
 	_kernel_detrend_f_pass2(ivec, nfreq, xvec, stride);
 
-	if (flags.test_all_ones())
+	if (flags.is_all_ones())
 	    continue;
 
 	// If we get here, then partial zeroing of the weights array is needed.

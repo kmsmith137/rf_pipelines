@@ -1,6 +1,6 @@
 """
 Bonsai dedisperser.  This is a thin wrapper around a C++ implementation.
-See simple_detrender.cpp, and python linkage in rf_pipelines_c.cpp.
+See bonsai_dedisperser.cpp, and python linkage in rf_pipelines_c.cpp.
 """
 
 from rf_pipelines import rf_pipelines_c

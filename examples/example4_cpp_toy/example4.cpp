@@ -23,8 +23,9 @@ int main(int argc, char **argv)
     // Next let's make some transforms.  See rf_pipelines.hpp for a complete list.
     vector< shared_ptr<wi_transform> > transform_list;
     
-    // First, a simple detrending transform which is probably too simple for the real world!
-    transform_list.push_back(make_simple_detrender(1024));
+    // First, a simple detrending transform: subtract and fit a degree-2 polynomial in each chunk
+    shared_ptr<wi_transform> detrender = make_polynomial_detrender_time_axis(1024, 2);   // (nt_chunk, polydeg)
+    transform_list.push_back(detrender);
     
     // In a real pipeline, we'd put some RFI-removing transforms next, but these aren't implemented in C++ yet
     // (coming soon, let me know if you'd like to help) so this comment is a placeholder.

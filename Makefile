@@ -32,7 +32,6 @@ OFILES=bonsai_dedisperser.o \
 	outdir_manager.o \
 	polynomial_detrenders.o \
 	psrfits_stream.o \
-	simple_detrender.o \
 	wi_run_state.o \
 	wi_stream.o \
 	wi_transform.o \
