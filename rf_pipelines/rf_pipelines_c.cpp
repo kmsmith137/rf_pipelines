@@ -1178,7 +1178,7 @@ static PyObject *make_polynomial_detrender_freq_axis(PyObject *self, PyObject *a
 }
 
 
-static PyObject *make_clipper2d(PyObject *self, PyObject *args)
+static PyObject *make_intensity_clipper2d(PyObject *self, PyObject *args)
 {
     int Df = 0;
     int Dt = 0;
@@ -1190,7 +1190,7 @@ static PyObject *make_clipper2d(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "iiidid", &Df, &Dt, &nt_chunk, &sigma, &niter, &iter_sigma))
 	return NULL;
 
-    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_clipper2d(Df, Dt, nt_chunk, sigma, niter, iter_sigma);
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_intensity_clipper2d(Df, Dt, nt_chunk, sigma, niter, iter_sigma);
     return wi_transform_object::make(ret);
 }
 
@@ -1268,8 +1268,8 @@ static constexpr const char *make_polynomial_detrender_freq_axis_docstring =
     "experimented systematically.\n";
 
 
-static constexpr const char *make_clipper2d_docstring =
-    "make_clipper2d(Df, Dt, nt_chunk, sigma, niter, iter_sigma)\n"
+static constexpr const char *make_intensity_clipper2d_docstring =
+    "make_intensity_clipper2d(Df, Dt, nt_chunk, sigma, niter, iter_sigma)\n"
     "\n"
     "'Clips' an array by masking outlier intensities.\n"
     "The masking is performed by setting elements of the weights array to zero.\n"
@@ -1297,7 +1297,7 @@ static PyMethodDef module_methods[] = {
     { "make_chime_packetizer", tc_wrap2<make_chime_packetizer>, METH_VARARGS, dummy_module_method_docstring },
     { "make_polynomial_detrender_time_axis", tc_wrap2<make_polynomial_detrender_time_axis>, METH_VARARGS, make_polynomial_detrender_time_axis_docstring },
     { "make_polynomial_detrender_freq_axis", tc_wrap2<make_polynomial_detrender_freq_axis>, METH_VARARGS, make_polynomial_detrender_freq_axis_docstring },
-    { "make_clipper2d", tc_wrap2<make_clipper2d>, METH_VARARGS, make_clipper2d_docstring },
+    { "make_intensity_clipper2d", tc_wrap2<make_intensity_clipper2d>, METH_VARARGS, make_intensity_clipper2d_docstring },
     { "make_chime_file_writer", tc_wrap2<make_chime_file_writer>, METH_VARARGS, dummy_module_method_docstring },
     { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, dummy_module_method_docstring },
     { NULL, NULL, 0, NULL }

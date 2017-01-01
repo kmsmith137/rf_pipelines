@@ -44,7 +44,7 @@ struct clipper2d_transform : public wi_transform
 	: niter(niter_), sigma(sigma_), iter_sigma(iter_sigma_ ? iter_sigma_ : sigma_)
     {
 	stringstream ss;
-	ss << "clipper2d_transform(Df=" << Df << ",Dt=" << Dt << ",nt_chunk=" << nt_chunk_
+	ss << "intensity_clipper2d_transform(Df=" << Df << ",Dt=" << Dt << ",nt_chunk=" << nt_chunk_
 	   << ",sigma=" << sigma << ",niter=" << niter << ",iter_sigma=" << iter_sigma << ")";
 
 	this->name = ss.str();
@@ -144,10 +144,10 @@ static inline shared_ptr<wi_transform> _make_clipper2d(int Df, int Dt, int nt_ch
 };
 
 
-shared_ptr<wi_transform> make_clipper2d(int Df, int Dt, int nt_chunk, double sigma, int niter, double iter_sigma)
+shared_ptr<wi_transform> make_intensity_clipper2d(int Df, int Dt, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
     // SIMD length on this machine
-    // FIXME: support non-AVX2 machines
+    // FIXME: support non-AVX machines
     static constexpr int S = 8;
 
     // MaxDf, MaxDt are the max downsampling factors allowed in the frequency and time directions.
@@ -158,21 +158,21 @@ shared_ptr<wi_transform> make_clipper2d(int Df, int Dt, int nt_chunk, double sig
     static constexpr int MaxDt = 32;
 
     if ((Df <= 0) || !is_power_of_two(Df))
-	throw runtime_error("rf_pipelines::make_clipper2d(): Df must be a power of two (value received = " + to_string(Df) + ")");
+	throw runtime_error("rf_pipelines::make_intensity_clipper2d(): Df must be a power of two (value received = " + to_string(Df) + ")");
     if ((Dt <= 0) || !is_power_of_two(Dt))
-	throw runtime_error("rf_pipelines::make_clipper2d(): Dt must be a power of two (value received = " + to_string(Dt) + ")");
+	throw runtime_error("rf_pipelines::make_intensity_clipper2d(): Dt must be a power of two (value received = " + to_string(Dt) + ")");
     if (nt_chunk <= 0)
-	throw runtime_error("rf_pipelines::make_clipper2d(): nt_chunk must be > 0 (value received = " + to_string(nt_chunk) + ")");
+	throw runtime_error("rf_pipelines::make_intensity_clipper2d(): nt_chunk must be > 0 (value received = " + to_string(nt_chunk) + ")");
     if (sigma < 2.0)
-	throw runtime_error("rf_pipelines::make_clipper2d(): sigma must be >= 2.0 (value received = " + to_string(sigma) + ")");
+	throw runtime_error("rf_pipelines::make_intensity_clipper2d(): sigma must be >= 2.0 (value received = " + to_string(sigma) + ")");
     if (niter < 1)
-	throw runtime_error("rf_pipelines::make_clipper2d(): niter must be >= 1 (value received = " + to_string(niter) + ")");
+	throw runtime_error("rf_pipelines::make_intensity_clipper2d(): niter must be >= 1 (value received = " + to_string(niter) + ")");
     if (iter_sigma < 2.0)
-	throw runtime_error("rf_pipelines::make_clipper2d(): iter_sigma must be >= 2.0 (value received = " + to_string(iter_sigma) + ")");
+	throw runtime_error("rf_pipelines::make_intensity_clipper2d(): iter_sigma must be >= 2.0 (value received = " + to_string(iter_sigma) + ")");
     
     if (nt_chunk % (Dt*S)) {
 	stringstream ss;
-	ss << "rf_pipelines::make_clipper2d(): nt_chunk=" << nt_chunk << " is not a multiple of S*Dt\n"
+	ss << "rf_pipelines::make_intensity_clipper2d(): nt_chunk=" << nt_chunk << " is not a multiple of S*Dt\n"
 	   << "Here, S=" << S << " is the simd length on this machine, and Dt=" << Dt << " is the requested time downsampling factor.\n"
 	   << "Note that the value of S may be machine-dependent!\n";
 
@@ -181,9 +181,9 @@ shared_ptr<wi_transform> make_clipper2d(int Df, int Dt, int nt_chunk, double sig
 
     if ((Df > MaxDf) || (Dt > MaxDt)) {
 	stringstream ss;
-	ss << "rf_pipelines::make_clipper2d(): no precompiled kernel is available for (Df,Dt)=(" << Df << "," << Dt << ")\n"
+	ss << "rf_pipelines::make_intensity_clipper2d(): no precompiled kernel is available for (Df,Dt)=(" << Df << "," << Dt << ")\n"
 	   << "Eventually, this will be fixed in a systematic way.  As a temporary workaround, you can change the values of\n"
-	   << "MaxDf and MaxDt in rf_pipelines/clipper_transforms.cpp::make_clipper2d() and recompile.\n";
+	   << "MaxDf and MaxDt in rf_pipelines/clipper_transforms.cpp::make_intensity_clipper2d() and recompile.\n";
 	
 	throw runtime_error(ss.str());
     }

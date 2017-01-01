@@ -176,7 +176,7 @@ inline std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend)
 
 
 //
-// clipper2d: this "clips" an array by masking outlier intensities.
+// intensity_clipper2d: this "clips" an array by masking outlier intensities.
 // The masking is performed by setting elements of the weights array to zero.
 //
 // The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.  Note
@@ -188,7 +188,7 @@ inline std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend)
 // If niter > 1, then the mean/rms intensity will be computed using iterated clipping,
 // with threshold 'iter_sigma' (which need not be the same as 'sigma').
 //
-extern std::shared_ptr<wi_transform> make_clipper2d(int Df, int Dt, int nt_chunk, double sigma, int niter, double iter_sigma);
+extern std::shared_ptr<wi_transform> make_intensity_clipper2d(int Df, int Dt, int nt_chunk, double sigma, int niter, double iter_sigma);
 
 
 //
