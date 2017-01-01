@@ -23,6 +23,10 @@ template<typename T, unsigned int S, unsigned int N> using simd_trimatrix = simd
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// _kernel_legpoly_eval<T,S,N> (simd_ntuple<T,S,N> &pl, simd_t<T,S> z)
+//
+// Evaluates Legendre polynomials P_0(z) ... P_{N-1}(z).
 
 
 template<typename T, unsigned int S>
@@ -54,7 +58,8 @@ inline void _kernel_legpoly_eval(simd_ntuple<T,S,N> &pl, simd_t<T,S> z)
 //
 // _kernel_detrend_accum_mv(outm, outv, pvec, ival, wval)
 //
-// Accumulates contribution to (M,v) in first pass of detrender.
+// In first pass of detrender, given an (intensity, weights) sample,
+// accumulate contribution to matrix 'outm' and vector 'outv'.
 
 
 template<typename T, unsigned int S>
