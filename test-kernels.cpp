@@ -83,6 +83,24 @@ inline void make_weights_badly_conditioned(T *dst, std::mt19937 &rng, int deg, i
 }
 
 
+template<typename T>
+inline bool check_masking(const T *weights, int n, int stride, bool well_conditioned)
+{
+    if (well_conditioned) {
+	for (int i = 0; i < n; i++)
+	    if (weights[i*stride] <= 0.0)
+		return false;
+    }
+    else {
+	for (int i = 0; i < n; i++)
+	    if (weights[i*stride] != 0.0)
+		return false;
+    }
+
+    return true;
+}
+
+
 // -------------------------------------------------------------------------------------------------
 
 
@@ -352,12 +370,8 @@ void test_detrend_t_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride
     double epsilon = simd_helpers::maxdiff(intensity, intensity2);
     assert(epsilon < 1.0e-4);
 
-    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	if (well_conditioned[ifreq])
-	    continue;
-	for (int it = 0; it < nt; it++)
-	    assert(weights[ifreq*stride+it] == 0.0);
-    }
+    for (int ifreq = 0; ifreq < nfreq; ifreq++)
+	assert(check_masking(&weights[ifreq*stride], nt, 1, well_conditioned[ifreq]));
 }
 
 
