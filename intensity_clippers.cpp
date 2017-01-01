@@ -1,5 +1,5 @@
 #include "rf_pipelines_internals.hpp"
-#include "kernels/clip2d.hpp"
+#include "kernels/intensity_clippers.hpp"
 
 using namespace std;
 

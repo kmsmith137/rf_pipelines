@@ -6,7 +6,7 @@
 
 #include "simd_helpers/simd_debug.hpp"
 #include "kernels/polyfit.hpp"
-#include "kernels/clip2d.hpp"
+#include "kernels/intensity_clippers.hpp"
 
 using namespace std;
 using namespace rf_pipelines;
