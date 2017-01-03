@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <sstream>
 #include <stdexcept>
 #include <sys/time.h>
 
