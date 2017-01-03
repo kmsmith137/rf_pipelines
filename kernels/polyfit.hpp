@@ -2,7 +2,7 @@
 #define _RF_PIPELINES_KERNELS_POLYFIT_HPP
 
 #include <cstring>
-#include <simd_helpers/simd_t.hpp>
+#include <simd_helpers/simd_float32.hpp>
 #include <simd_helpers/simd_ntuple.hpp>
 #include <simd_helpers/simd_trimatrix.hpp>
 
@@ -237,7 +237,7 @@ inline void _kernel_colzero_partial(float *weights, int nfreq, int stride, simd_
 {
     for (int i = 0; i < nfreq; i++) {
 	simd_t<T,S> w = simd_t<T,S>::loadu(weights + i*stride);
-	w = w.bitwise_and(mask);
+	w = w.apply_mask(mask);
 	w.storeu(weights + i*stride);
     }
 }
@@ -269,7 +269,7 @@ inline void _kernel_detrend_f(int nfreq, int nt, T *intensity, T *weights, int s
 	}
 
 	// In columns where the fit is poorly conditioned, we leave the intensity array unmodified.
-	xvec = xvec.bitwise_and(flags);
+	xvec = xvec.apply_mask(flags);
 
 	xmat.solve_lower_in_place(xvec);
 	xmat.solve_upper_in_place(xvec);

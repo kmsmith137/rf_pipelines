@@ -113,7 +113,7 @@ inline void _kernel_clip2d_mask(T *weights, const T *ds_intensity, simd_t<T,S> m
 	    ival -= mean;
 	    ival = ival.abs();
 
-	    simd_t<int,S> valid = ival.compare_lt(thresh);
+	    smask_t<T,S> valid = ival.compare_lt(thresh);
 	    _kernel_mask<T,S,Df,Dt> (wrow + it, valid, stride);
 	}
 
@@ -140,9 +140,9 @@ inline void _kernel_clip2d_iterate(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms, 
 	    simd_t<T,S> wval = simd_t<T,S>::loadu(wrow + it);
 
 	    simd_t<T,S> ival_c = (ival - in_mean).abs();
-	    simd_t<int,S> valid = ival_c.compare_lt(in_thresh);
+	    smask_t<T,S> valid = ival_c.compare_lt(in_thresh);
 
-	    wval = wval.bitwise_and(valid);
+	    wval = wval.apply_mask(valid);
 	    acc.accumulate(ival, wval);
 	}
     }

@@ -1,7 +1,7 @@
 #ifndef _RF_PIPELINES_KERNELS_DOWNSAMPLE_HPP
 #define _RF_PIPELINES_KERNELS_DOWNSAMPLE_HPP
 
-#include <simd_helpers/simd_t.hpp>
+#include <simd_helpers/simd_float32.hpp>
 #include <simd_helpers/simd_ntuple.hpp>
 #include <simd_helpers/udsample.hpp>
 

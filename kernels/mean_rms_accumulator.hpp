@@ -1,7 +1,7 @@
 #ifndef _RF_PIPELINES_KERNELS_MEAN_RMS_ACCUMULATOR_HPP
 #define _RF_PIPELINES_KERNELS_MEAN_RMS_ACCUMULATOR_HPP
 
-#include <simd_helpers/simd_t.hpp>
+#include <simd_helpers/simd_float32.hpp>
 
 namespace rf_pipelines {
 #if 0
@@ -10,6 +10,7 @@ namespace rf_pipelines {
 
 
 template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
+template<typename T, unsigned int S> using smask_t = simd_helpers::smask_t<T,S>;
 
 
 // mean_rms_accumulator: helper class for computing weighted mean/rms (e.g. in clipper_transform)
@@ -58,7 +59,7 @@ struct mean_rms_accumulator {
     {
 	static constexpr T eps = 1.0e3 * simd_helpers::machine_epsilon<T> ();
 
-	simd_t<int,S> valid = acc0.compare_gt(simd_t<T,S>::zero());
+	smask_t<T,S> valid = acc0.compare_gt(simd_t<T,S>::zero());
 
 	simd_t<T,S> t0 = blendv(valid, acc0, simd_t<T,S>(1.0));
 	mean = acc1 / t0;
@@ -68,7 +69,7 @@ struct mean_rms_accumulator {
 
 	simd_t<T,S> thresh = simd_t<T,S>(eps) * mean2;
 	valid = valid.bitwise_and(var.compare_gt(thresh));
-	var = var.bitwise_and(valid);
+	var = var.apply_mask(valid);
 	rms = var.sqrt();
     }
 
