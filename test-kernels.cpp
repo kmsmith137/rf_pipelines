@@ -101,6 +101,31 @@ inline bool check_masking(const T *weights, int n, int stride, bool well_conditi
 }
 
 
+// hconst_simd_ntuple<T,S,N> (const T *p):    constructs "horizontally constant" N-tuple from a length N array
+// hconst_simd_trimatrix<T,S,N> (const T *p): constructs "horizontally constant" N-tuple from a length N(N+1)/2 array
+//
+// "Horizontally constant" means "constant within each simd_t".
+
+
+template<typename T, unsigned int S, unsigned int N, typename std::enable_if<(N==0),int>::type = 0>
+inline simd_ntuple<T,S,N> hconst_simd_ntuple(const T *p) { return simd_ntuple<T,S,0> (); }
+
+template<typename T, unsigned int S, unsigned int N, typename std::enable_if<(N==0),int>::type = 0>
+inline simd_trimatrix<T,S,N> hconst_simd_trimatrix(const T *p) { return simd_trimatrix<T,S,0> (); }
+
+template<typename T, unsigned int S, unsigned int N, typename std::enable_if<(N>0),int>::type = 0>
+inline simd_ntuple<T,S,N> hconst_simd_ntuple(const T *p)
+{ 
+    return simd_ntuple<T,S,N> (hconst_simd_ntuple<T,S,N-1>(p), simd_t<T,S>(p[N-1]));
+}
+
+template<typename T, unsigned int S, unsigned int N, typename std::enable_if<(N>0),int>::type = 0>
+inline simd_trimatrix<T,S,N> hconst_simd_trimatrix(const T *p) 
+{
+    return simd_trimatrix<T,S,N> (hconst_simd_trimatrix<T,S,N-1>(p), hconst_simd_ntuple<T,S,N>(p + (N*(N-1))/2));
+}
+
+
 // -------------------------------------------------------------------------------------------------
 
 
@@ -268,11 +293,8 @@ void test_detrend_t_pass1(std::mt19937 &rng, int nt)
 
     reference_detrend_t_pass1(&outm0[0], &outv0[0], N, nt, &ivec[0], &wvec[0]);
 
-    simd_trimatrix<T,S,N> outm1;
-    simd_ntuple<T,S,N> outv1;
-
-    outm1.set1_slow(&outm0[0]);
-    outv1.set1_slow(&outv0[0]);
+    simd_trimatrix<T,S,N> outm1 = hconst_simd_trimatrix<T,S,N> (&outm0[0]);
+    simd_ntuple<T,S,N> outv1 = hconst_simd_ntuple<T,S,N> (&outv0[0]);
 
     T epsilon_m = simd_helpers::compare(vectorize(outm), vectorize(outm1));
     T epsilon_v = simd_helpers::compare(vectorize(outv), vectorize(outv1));
@@ -306,15 +328,12 @@ static void reference_detrend_t_pass2(T *ivec, int npl, int nt, const T *coeffs)
 template<typename T, unsigned int S, unsigned int N>
 static void test_detrend_t_pass2(std::mt19937 &rng, int nt)
 {
-    vector<T> coeffs0 = simd_helpers::gaussian_randvec<T> (rng, N);
+    vector<T> coeffs = simd_helpers::gaussian_randvec<T> (rng, N);
     vector<T> ivec = simd_helpers::gaussian_randvec<T> (rng, nt);
     vector<T> ivec2 = ivec;
-
-    simd_ntuple<T,S,N> coeffs;
-    coeffs.set1_slow(&coeffs0[0]);
     
-    _kernel_detrend_t_pass2<T,S,N> (&ivec[0], nt, coeffs);
-    reference_detrend_t_pass2(&ivec2[0], N, nt, &coeffs0[0]);
+    _kernel_detrend_t_pass2<T,S,N> (&ivec[0], nt, hconst_simd_ntuple<T,S,N> (&coeffs[0]));
+    reference_detrend_t_pass2(&ivec2[0], N, nt, &coeffs[0]);
 
     T epsilon = simd_helpers::compare(ivec, ivec2);
     assert(epsilon < 1.0e-5);
