@@ -50,7 +50,7 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/__init__.py \
 	rf_pipelines/transforms/chime_packetizer.py \
 	rf_pipelines/transforms/chime_transforms.py \
-	rf_pipelines/transforms/simple_detrender.py \
+	rf_pipelines/transforms/poly_detrender.py \
 	rf_pipelines/transforms/bonsai_dedisperser.py \
 	rf_pipelines/transforms/frb_injector_transform.py \
 	rf_pipelines/transforms/plotter_transform.py \

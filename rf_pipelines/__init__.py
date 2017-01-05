@@ -65,7 +65,7 @@ Transforms:
    mask_expander()            expands mask based on weights
    plotter_transform()        makes waterfall plots at a specified place in the pipeline, very useful for debugging
    RC_detrender()             exponential detrender, with bidirectional feature intended to remove "step-like" features
-   simple_detreneder()        really boneheaded detrending algorithm (better detrending is available in python, but it's slow!)
+   poly_detreneder()          fast detrending algorithm in C++
    std_dev_filter()           masks data based on variance
    thermal_noise_weight()     applies optimal weighting assuming flat gains and variance proportional to intensity
 """
@@ -372,7 +372,7 @@ from .streams.gaussian_noise_stream import gaussian_noise_stream
 from .transforms.chime_packetizer import chime_packetizer
 from .transforms.chime_transforms import chime_file_writer
 from .transforms.plotter_transform import plotter_transform
-from .transforms.simple_detrender import simple_detrender
+from .transforms.poly_detrender import poly_detrender
 from .transforms.bonsai_dedisperser import bonsai_dedisperser
 from .transforms.frb_injector_transform import frb_injector_transform
 from .transforms.badchannel_mask import badchannel_mask
