@@ -11,7 +11,7 @@ namespace rf_pipelines {
 //
 // Right now, it just contains some general boilerplate needed to make a C++ badchannel_mask
 // class available throughout the pipeline.  In particular, the C++ badchannel_mask can be
-// obtained from python as 'rf_pipelines_c.badchannel_mask'.
+// obtained from python as 'rf_pipelines.rf_pipelines_c.make_badchannel_mask()'.
 //
 // The actual implementation of the badchannel_mask class is still missing -- right now,
 // all member functions throw exceptions.
