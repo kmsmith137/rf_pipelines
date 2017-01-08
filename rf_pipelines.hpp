@@ -269,6 +269,12 @@ extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &
 							     const std::string &trigger_plot_stem, int nt_per_file=0, int ibeam=0);
 
 
+// Some day, this factory function will return a C++ implementation of the 'badchannel_mask' class.
+// Right now, it is a placeholder which throws an exception if called.
+
+extern std::shared_ptr<wi_transform> make_badchannel_mask(const std::string &maskpath, int nt_chunk=1024);
+
+
 // -------------------------------------------------------------------------------------------------
 //
 // The 'wi_stream' and 'wi_transform' virtual base classes.
