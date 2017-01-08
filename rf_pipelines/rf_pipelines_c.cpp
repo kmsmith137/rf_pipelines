@@ -1226,6 +1226,20 @@ static PyObject *make_bonsai_dedisperser(PyObject *self, PyObject *args)
 }
 
 
+// extern std::shared_ptr<wi_transform> make_badchannel_mask(const std::string &maskpath, int nt_chunk=1024);
+static PyObject *make_badchannel_mask(PyObject *self, PyObject *args)
+{
+    const char *maskpath = nullptr;
+    int nt_chunk = 0;
+    
+    if (!PyArg_ParseTuple(args, "si", &maskpath, &nt_chunk))
+	return NULL;
+
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_badchannel_mask(maskpath, nt_chunk);
+    return wi_transform_object::make(ret);
+}
+
+
 // FIXME improve?
 static constexpr const char *dummy_module_method_docstring = 
     "This is a C++ function in the rf_pipelines_c module.\n"
@@ -1284,6 +1298,14 @@ static constexpr const char *make_intensity_clipper2d_docstring =
     "with threshold 'iter_sigma' (which need not be the same as 'sigma').\n";
 
 
+static constexpr const char *make_badchannel_mask_docstring = 
+    "make_badchannel_mask(maskpath, nt_chunk)\n"
+    "\n"
+    "Some day, this factory function will return a C++ implementation of the 'badchannel_mask' class.\n"
+    "Right now, it is a placeholder which throws an exception if called.\n";
+
+
+
 // -------------------------------------------------------------------------------------------------
 
 
@@ -1300,6 +1322,7 @@ static PyMethodDef module_methods[] = {
     { "make_intensity_clipper2d", tc_wrap2<make_intensity_clipper2d>, METH_VARARGS, make_intensity_clipper2d_docstring },
     { "make_chime_file_writer", tc_wrap2<make_chime_file_writer>, METH_VARARGS, dummy_module_method_docstring },
     { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, dummy_module_method_docstring },
+    { "make_badchannel_mask", tc_wrap2<make_badchannel_mask>, METH_VARARGS, make_badchannel_mask_docstring },
     { NULL, NULL, 0, NULL }
 };
 
