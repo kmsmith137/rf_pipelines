@@ -16,7 +16,7 @@ def poly_detrender(nt_detrend, axis=1, deg=0, epsilon=1.0e-2):
       
       'nt_detrend=1024' is the chunk size (in number of samples).
 
-      'axis=0' is the axis convention:
+      'axis=1' is the axis convention:
         0: along freq; constant time.
         1: along time; constant freq.
 
