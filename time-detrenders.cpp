@@ -11,7 +11,7 @@ using namespace rf_pipelines;
 
 // The template parameter N is (polydeg + 1)
 template<typename T, unsigned int S, unsigned int N>
-struct kernel_timing_thread : public timing_thread
+struct detrender_timing_thread : public timing_thread
 {
     const int nfreq;
     const int nt_chunk;
@@ -24,7 +24,7 @@ struct kernel_timing_thread : public timing_thread
     // A place to write dummy results, to keep the compiler from optimizing things out
     float *dummyp = nullptr;
 
-    kernel_timing_thread(const shared_ptr<timing_thread_pool> &pool_, int nfreq_, int nt_chunk_, int stride_) :
+    detrender_timing_thread(const shared_ptr<timing_thread_pool> &pool_, int nfreq_, int nt_chunk_, int stride_) :
 	timing_thread(pool_, true),    // pin_to_core=true
 	nfreq(nfreq_), nt_chunk(nt_chunk_), stride(stride_)
     { 
@@ -92,17 +92,17 @@ struct kernel_timing_thread : public timing_thread
 
 
 template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<(Nmax==0),int>::type = 0>
-inline std::thread make_kernel_timing_thread(const shared_ptr<timing_thread_pool> &pool, int polydeg, int nfreq, int nt_chunk, int stride)
+inline std::thread make_detrender_timing_thread(const shared_ptr<timing_thread_pool> &pool, int polydeg, int nfreq, int nt_chunk, int stride)
 {
-    throw runtime_error("internal error in make_kernel_timing_thread()");
+    throw runtime_error("internal error in make_detrender_timing_thread()");
 }
 
 template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<(Nmax>0),int>::type = 0>
-inline std::thread make_kernel_timing_thread(const shared_ptr<timing_thread_pool> &pool, int polydeg, int nfreq, int nt_chunk, int stride)
+inline std::thread make_detrender_timing_thread(const shared_ptr<timing_thread_pool> &pool, int polydeg, int nfreq, int nt_chunk, int stride)
 {
     if (Nmax == polydeg + 1)
-	return spawn_timing_thread< kernel_timing_thread<T,S,Nmax> > (pool, nfreq, nt_chunk, stride);
-    return make_kernel_timing_thread<T,S,(Nmax-1)> (pool, polydeg, nfreq, nt_chunk, stride);
+	return spawn_timing_thread< detrender_timing_thread<T,S,Nmax> > (pool, nfreq, nt_chunk, stride);
+    return make_detrender_timing_thread<T,S,(Nmax-1)> (pool, polydeg, nfreq, nt_chunk, stride);
 }
 
 
@@ -112,7 +112,7 @@ int main(int argc, char **argv)
     static const int Nmax = 17;
 
     if (argc != 6) {
-	cerr << "usage: time-kernels <nfreq> <nt_chunk> <stride> <polydeg> <nthreads>\n";
+	cerr << "usage: time-detrenders <nfreq> <nt_chunk> <stride> <polydeg> <nthreads>\n";
 	exit(2);
     }
 
@@ -133,7 +133,7 @@ int main(int argc, char **argv)
 
     vector<std::thread> threads(nthreads);
     for (int i = 0; i < nthreads; i++)
-        threads[i] = make_kernel_timing_thread<float,8,Nmax> (pool, polydeg, nfreq, nt_chunk, stride);
+        threads[i] = make_detrender_timing_thread<float,8,Nmax> (pool, polydeg, nfreq, nt_chunk, stride);
     for (int i = 0; i < nthreads; i++)
         threads[i].join();
 

@@ -147,7 +147,6 @@ static inline shared_ptr<wi_transform> _make_clipper2d(int Df, int Dt, int nt_ch
 shared_ptr<wi_transform> make_intensity_clipper2d(int Df, int Dt, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
     // SIMD length on this machine
-    // FIXME: support non-AVX machines
     static constexpr int S = 8;
 
     // MaxDf, MaxDt are the max downsampling factors allowed in the frequency and time directions.
