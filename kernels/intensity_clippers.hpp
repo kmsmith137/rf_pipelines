@@ -2,6 +2,8 @@
 #define _RF_PIPELINES_KERNELS_CLIP2D_HPP
 
 #include <cassert>  // XXX remove
+#include <simd_helpers/convert.hpp>
+
 #include "mean_rms_accumulator.hpp"
 #include "downsample.hpp"
 #include "mask.hpp"
@@ -13,12 +15,19 @@ namespace rf_pipelines {
 
 template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
 
+// _extract_first<T,S,S2>(x): a general-purpose helper which extracts first "S2" elements from x.
+template<typename T, unsigned int S, unsigned int S2, typename std::enable_if<(S==S2),int>::type = 0>
+inline simd_t<T,S2> _extract_first(simd_t<T,S> x) { return x; }
+
+template<typename T, unsigned int S, unsigned int S2, typename std::enable_if<(S==2*S2),int>::type = 0>
+inline simd_t<T,S2> _extract_first(simd_t<T,S> x) { return x.template extract_half<0>(); }
+    
 
 // -------------------------------------------------------------------------------------------------
 //
-// _kernel_clip2d_wrms<T,S,Df,Dt,Iflag,Wflag>(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, 
-//                                            const T *weights, int nfreq, int nt, int stride, 
-//                                            T *ds_intensity, T *ds_weights)
+// _kernel_clip2d_wrms<T, S, Df, Dt, Iflag, Wflag, Ti, Si>
+//    (simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, 
+//     int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
 //
 // Computes the weighted mean and rms of a 2D strided array,
 // with downsampling factors (Df,Dt) in the (frequency,time) axes.
@@ -34,7 +43,11 @@ template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
 // The Iflag, Wflag template arguments will omit writing the ds_intensity, ds_weights
 // arrays if set to 'false'.  In this case, passing a NULL pointer is OK.
 //
-// FIXME a more general version of these kernels is possible, with a template parameter R
+// The template parameters (Ti,Si) are the type and simd stride of the floating-point
+// type used internally when accumulating samples and computing the mean/rms.  For example,
+// it often makes sense to take (T,S)=(float,8) and (Ti,Si)=(double,4).
+//
+// FIXME a more general version of this kernel is possible, with a template parameter R
 // which controlls the number of rows read in each pass.
 
 
@@ -53,7 +66,7 @@ inline void _clip2d_write_if(T*& p, simd_t<T,S> x)
 }
 
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag>
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag, typename Ti, unsigned int Si>
 inline void _kernel_clip2d_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
 {
     // XXX assert -> throw
@@ -62,7 +75,7 @@ inline void _kernel_clip2d_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *in
     assert(nfreq % Df == 0);
     assert(nt % (Dt*S) == 0);
 
-    mean_rms_accumulator<T,S> acc;
+    mean_rms_accumulator<Ti,Si> acc;
 
     const simd_t<T,S> zero = simd_t<T,S>::zero();
     const simd_t<T,S> one = simd_t<T,S> (1.0);
@@ -84,7 +97,12 @@ inline void _kernel_clip2d_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *in
     }
 
     acc.horizontal_sum();
-    acc.get_mean_rms(mean, rms);
+
+    simd_t<Ti,Si> mean_i, rms_i;
+    acc.get_mean_rms(mean_i, rms_i);
+    
+    convert(mean, _extract_first<Ti,Si,S> (mean_i));
+    convert(rms, _extract_first<Ti,Si,S> (rms_i));
 }
 
 

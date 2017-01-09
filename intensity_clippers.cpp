@@ -87,7 +87,7 @@ struct clipper2d_transform : public wi_transform
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
     {
 	simd_t<float,S> mean, rms;
-	_kernel_clip2d_wrms<float,S,Df,Dt,DsiFlag,DswFlag> (mean, rms, intensity, weights, nfreq, nt_chunk, stride, ds_intensity, ds_weights);
+	_kernel_clip2d_wrms<float,S,Df,Dt,DsiFlag,DswFlag,float,S> (mean, rms, intensity, weights, nfreq, nt_chunk, stride, ds_intensity, ds_weights);
 
 	const float *s_intensity = DsiFlag ? ds_intensity : intensity;
 	const float *s_weights = DswFlag ? ds_weights : weights;
