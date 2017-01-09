@@ -11,6 +11,7 @@ namespace rf_pipelines {
 
 template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
 template<typename T, unsigned int S> using smask_t = simd_helpers::smask_t<T,S>;
+template<typename T, unsigned int S, unsigned int N> using simd_ntuple = simd_helpers::simd_ntuple<T,S,N>;
 
 
 // mean_rms_accumulator: helper class for computing weighted mean/rms (e.g. in clipper_transform)
