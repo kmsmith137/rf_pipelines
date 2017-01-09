@@ -11,46 +11,32 @@ using namespace rf_pipelines;
 
 // The template parameter N is (polydeg + 1)
 template<typename T, unsigned int S, unsigned int N>
-struct detrender_timing_thread : public timing_thread
+struct detrender_timing_thread : public transform_timing_thread
 {
-    const int nfreq;
-    const int nt_chunk;
-    const int stride;
-    const int niter = 16;
-
-    float *intensity = nullptr;
-    float *weights = nullptr;
-
     // A place to write dummy results, to keep the compiler from optimizing things out
     float *dummyp = nullptr;
 
     detrender_timing_thread(const shared_ptr<timing_thread_pool> &pool_, int nfreq_, int nt_chunk_, int stride_) :
-	timing_thread(pool_, true),    // pin_to_core=true
-	nfreq(nfreq_), nt_chunk(nt_chunk_), stride(stride_)
+	transform_timing_thread(pool_, nfreq_, nt_chunk_, stride_,
+				{ make_polynomial_detrender_time_axis(nt_chunk_, N-1),
+				  make_polynomial_detrender_freq_axis(nt_chunk_, N-1) })
     { 
-	assert(nfreq > 0);
-	assert(nt_chunk > 0 && (nt_chunk % 8 == 0));
-	assert(stride >= nt_chunk);
-
-	intensity = aligned_alloc<float> (nfreq * stride);
-	weights = aligned_alloc<float> (nfreq * stride);
 	dummyp = aligned_alloc<float> (16);
-
-	for (int i = 0; i < nfreq*stride; i++)
-	    weights[i] = 1.0;
     }
 
-    virtual void thread_body() override
+    virtual void thread_top() override
+    {
+	if (thread_id == 0) {
+            cout << "time-detrenders: nfreq=" << nfreq << ", nt_chunk=" << nt_chunk 
+		 << ", stride=" << stride  << ", polydeg=" << (N-1) << ", niter=" << niter << endl;
+	}
+    }
+
+    virtual void thread_bottom() override
     {
 	simd_trimatrix<T,S,N> smat;
 	simd_ntuple<T,S,N> svec;
 	simd_t<T,S> dummy(0.0);
-
-	if (thread_id == 0) {
-            cout << "nfreq=" << nfreq << ", nt_chunk=" << nt_chunk 
-		 << ", stride=" << stride  << ", polydeg=" << (N-1)
-		 << ", niter=" << niter << endl;
-	}
 
 	this->start_timer();
         for (int iter = 0; iter < niter; iter++)
