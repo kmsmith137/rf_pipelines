@@ -33,6 +33,7 @@ OFILES=badchannel_mask.o \
 	outdir_manager.o \
 	polynomial_detrenders.o \
 	psrfits_stream.o \
+	timing_thread.o \
 	wi_run_state.o \
 	wi_stream.o \
 	wi_transform.o \
@@ -143,5 +144,6 @@ run-unit-tests: run-unit-tests.o librf_pipelines.so
 test-kernels: test-kernels.cpp $(KERNEL_INCFILES)
 	$(CPP) -o $@ $<
 
-time-kernels: time-kernels.cpp $(INCFILES) $(KERNEL_INCFILES)
-	$(CPP) -o $@ $<
+time-kernels: time-kernels.cpp $(INCFILES) $(KERNEL_INCFILES) librf_pipelines.so
+	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines $(LIBS)
+
