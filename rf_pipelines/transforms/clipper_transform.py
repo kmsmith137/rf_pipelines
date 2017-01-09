@@ -78,11 +78,13 @@ class clipper_transform(rf_pipelines.py_wi_transform):
    
     Constructor syntax:
 
-      t = clipper_transform(thr=3, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False)
+      t = clipper_transform(thr=3, n_internal=6, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False)
 
       'thr=3.' is the multiplicative factor of maximum threshold,
         e.g., 3 * standard_deviation, meaning that (the absolute
         value of) any sample above this limit is clipped.
+
+      'n_internal=6' is the number of iterations used when calculating the weighted mean/rms before the final clip.
 
       'axis=None' is the axis convention:
         None: planar; freq and time. 
@@ -96,8 +98,8 @@ class clipper_transform(rf_pipelines.py_wi_transform):
 
       'test=False' enables a test mode.
     """
-
-    def __init__(self, thr=3., axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False):
+    
+    def __init__(self, thr=3., n_internal=6, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False):
 
         name = 'clipper_transform(thr=%f, axis=%s, nt_chunk=%d' % (thr, axis, nt_chunk)
         if dsample_nfreq is not None:
@@ -107,6 +109,7 @@ class clipper_transform(rf_pipelines.py_wi_transform):
         name += ')'
 
         self.thr = thr
+        self.n_internal = n_internal
         self.axis = axis
         self.name = name
         self.nt_chunk = nt_chunk
@@ -126,8 +129,8 @@ class clipper_transform(rf_pipelines.py_wi_transform):
             intensity = np.random.normal(0, 1, size=intensity.shape)
             weights = np.ones(weights.shape)
 
-        # Using clip_fx() mask the 'weights' in place. Assume 'n_internal=6'.
-        clip_fx(intensity, weights, self.thr, self.axis, self.dsample_nfreq, self.dsample_nt)
+        # Using clip_fx() mask the 'weights' in place.
+        clip_fx(intensity, weights, self.thr, self.n_internal, self.axis, self.dsample_nfreq, self.dsample_nt)
 
         if self.test: 
             unmasked_percentage = np.count_nonzero(weights_hres) / float(weights_hres.size) * 100.
