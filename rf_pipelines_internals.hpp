@@ -6,11 +6,13 @@
 #endif
 
 #include <cmath>
-#include <thread>
 #include <cstring>
 #include <sstream>
 #include <stdexcept>
 #include <sys/time.h>
+
+#include <thread>
+#include <condition_variable>
 
 #include "rf_pipelines.hpp"
 
