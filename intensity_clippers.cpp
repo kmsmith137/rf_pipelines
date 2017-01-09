@@ -91,8 +91,8 @@ struct clipper2d_transform : public wi_transform
 
 	const float *s_intensity = DsiFlag ? ds_intensity : intensity;
 	const float *s_weights = DswFlag ? ds_weights : weights;
-	int s_stride = DsiFlag ? stride : (nt_chunk/Dt);   // must use DsiFlag here, not DswFlag
-
+	int s_stride = DsiFlag ? (nt_chunk/Dt) : stride;   // must use DsiFlag here, not DswFlag
+	
 	for (int iter = 1; iter < niter; iter++) {
 	    // (s_intensity, s_weights, iter_sigma) here
 	    simd_t<float,S> thresh = simd_t<float,S>(iter_sigma) * rms;
