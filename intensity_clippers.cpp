@@ -111,6 +111,114 @@ struct clipper2d_transform : public wi_transform
 
 // -------------------------------------------------------------------------------------------------
 //
+// clipper1d_t_transform
+//
+// Currently implemented by calling the 2d kernels many times with nfreq=1.
+//
+// Note: If we want to optimize the clipper transforms further, it might be worth exploring
+// a generalization in which there is a template parameter R controlling the number of rows
+// of the array (i.e. frequency channels) read in each pass.  In this case, we would need
+// separate 1d_t and 2d kernels.
+
+
+template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
+struct clipper1d_t_transform : public wi_transform 
+{
+    // These compile-time flags determine whether downsampled intensity/weights
+    // arrays are written in _kernel_clip2d_wrms().
+    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
+    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
+
+    const int niter;
+    const double sigma;
+    const double iter_sigma;
+
+    float *ds_intensity = nullptr;
+    float *ds_weights = nullptr;
+
+    // Noncopyable
+    clipper1d_t_transform(const clipper1d_t_transform<S,Df,Dt,IterFlag> &) = delete;
+    clipper1d_t_transform<S,Df,Dt,IterFlag> operator&(const clipper1d_t_transform<S,Df,Dt,IterFlag> &) = delete;
+
+
+    clipper1d_t_transform(int nt_chunk_, double sigma_, int niter_, double iter_sigma_)
+	: niter(niter_), sigma(sigma_), iter_sigma(iter_sigma_ ? iter_sigma_ : sigma_)
+    {
+	stringstream ss;
+	ss << "intensity_clipper1d_t_transform(Df=" << Df << ",Dt=" << Dt << ",nt_chunk=" << nt_chunk_
+	   << ",sigma=" << sigma << ",niter=" << niter << ",iter_sigma=" << iter_sigma << ")";
+
+	this->name = ss.str();
+	this->nt_chunk = nt_chunk_;
+	this->nt_prepad = 0;
+	this->nt_postpad = 0;
+
+	// No need to make these asserts "verbose", since they should have been checked in make_intensity_clipper2d().
+	rf_assert(sigma >= 1.0);
+	rf_assert(iter_sigma >= 1.0);
+	rf_assert(nt_chunk > 0);
+	rf_assert(nt_chunk % Dt == 0);
+
+	if (IterFlag) rf_assert(niter > 1);
+	if (!IterFlag) rf_assert(niter == 1);
+    }
+
+
+    ~clipper1d_t_transform()
+    {
+	free(ds_intensity);
+	free(ds_weights);
+	ds_intensity = ds_weights = nullptr;
+    }
+
+
+    virtual void set_stream(const wi_stream &stream) override
+    {
+	rf_assert(stream.nfreq % Df == 0);
+
+	this->nfreq = stream.nfreq;
+
+	// These are now 1d arrays.
+	if (DsiFlag)
+	    this->ds_intensity = aligned_alloc<float> (nt_chunk/Dt);
+	if (DswFlag)
+	    this->ds_weights = aligned_alloc<float> (nt_chunk/Dt);
+    }
+
+
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
+    {
+	simd_t<float,S> mean, rms;
+
+	for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
+	    float *irow = intensity + ifreq * stride;
+	    float *wrow = intensity + ifreq * stride;
+
+	    // We use nfreq=1 and stride=0 here and throughout this routine.
+	    _kernel_clip2d_wrms<float,S,Df,Dt,DsiFlag,DswFlag,float,S> (mean, rms, irow, wrow, 1, nt_chunk, 0, ds_intensity, ds_weights);
+									
+	    const float *irow2 = DsiFlag ? ds_intensity : irow;
+	    const float *wrow2 = DswFlag ? ds_weights : wrow;
+	
+	    for (int iter = 1; iter < niter; iter++) {
+		// (irow2, wrow2, iter_sigma)
+		simd_t<float,S> thresh = simd_t<float,S>(iter_sigma) * rms;
+		_kernel_clip2d_iterate<float,S> (mean, rms, irow2, wrow2, mean, thresh, 1, nt_chunk/Dt, 0);   // nfreq=1, stride=0
+	    }
+
+	    // (irow2, wrow, sigma)
+	    simd_t<float,S> thresh = simd_t<float,S>(sigma) * rms;
+	    _kernel_clip2d_mask<float,S,Df,Dt> (wrow, irow2, mean, thresh, 1, nt_chunk, 0, 0);
+	}
+    }
+
+    virtual void start_substream(int isubstream, double t0) override { }
+    virtual void end_substream() override { }
+};
+
+
+// -------------------------------------------------------------------------------------------------
+//
 // Boilerplate needed to instantiate templates and export factory function.
 
 
