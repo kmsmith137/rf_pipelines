@@ -21,7 +21,8 @@ KERNEL_INCFILES=kernels/downsample.hpp \
 	kernels/polyfit.hpp
 
 # Source files for the core C++ library 'librf_pipelines.so'
-OFILES=bonsai_dedisperser.o \
+OFILES=badchannel_mask.o \
+	bonsai_dedisperser.o \
 	chime_file_stream.o \
 	chime_file_writer.o \
 	chime_network_stream.o \
