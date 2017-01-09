@@ -23,9 +23,11 @@ template<typename T, unsigned int S> using smask_t = simd_helpers::smask_t<T,S>;
 // sum of the weights is <= 0, or if the variance is too small compared to the mean.
 // Invalid entries are indicated by rms=0 and arbitrary mean.
 //
-// FIXME I think we should compute the mean/rms in double precision even when T=float.
-// Suggested generalization: struct mean_rms_accumulator<float, 8, double>.
-
+// The type simd_t<T,S> is the type which is used internally when accumulating samples.
+// This need not be the same as the type simd_t<Td,Sd> of the data samples themselves.
+// E.g. in the clipper_transform we use T=double and Td=float by default.
+// The only requirement is that the converter simd_t<Td,Sd> -> simd_ntuple<T,S,N>,
+// where N = Sd/S, is defined in simd_helpers/convert.hpp.
 
 template<typename T, unsigned int S>
 struct mean_rms_accumulator {
@@ -46,6 +48,31 @@ struct mean_rms_accumulator {
 	acc0 += wval;
 	acc1 += wi;
 	acc2 += wi * ival;
+    }
+
+    template<unsigned int N, typename std::enable_if<(N>0),int>::type = 0>
+    inline void accumulate(simd_ntuple<T,S,N> ival, simd_ntuple<T,S,N> wval)
+    {
+	accumulate(ival.v, wval.v);
+	accumulate(ival.x, wval.x);
+    }
+
+    inline void accumulate(simd_ntuple<T,S,0> ival, simd_ntuple<T,S,0> wval)
+    {
+	return;
+    }
+
+    template<typename Td, unsigned int Sd>
+    inline void accumulate(simd_t<Td,Sd> ival, simd_t<Td,Sd> wval)
+    {
+	static_assert(Sd % S == 0, "mean_rms_accumulator: \"data\" simd size Sd must be a multiple of \"accumulator\" simd size S");
+
+	static constexpr unsigned int N = Sd / S;
+	simd_ntuple<T,S,N> ival_c, wval_c;
+
+	convert(ival_c, ival);
+	convert(wval_c, wval);
+	accumulate(ival_c, wval_c);
     }
 
     inline void horizontal_sum()
