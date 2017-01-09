@@ -1,5 +1,18 @@
-#ifndef _RF_PIPELINES_KERNELS_CLIP2D_HPP
-#define _RF_PIPELINES_KERNELS_CLIP2D_HPP
+// Kernels defined here:
+//
+// _kernel_clip2d_wrms(): computes weighted mean/rms of a 2D array with optional downsampling 
+//    (there is also an option to write the downsampled intensity/weights to auxiliary arrays)
+//
+// _kernel_clip2d_iterate(): computes weighted mean/rms of a 2D array, including only elements
+//    in a certain range.  (there is no downsampling option here)
+//
+// _kernel_clip2d_mask(): sets weights to zero when intensity is outside a certain range.
+//    Optionally, the intensity array can be downsampled relative to the weights.
+//
+// To see how these are combined, see intensity_clipper.cpp
+
+#ifndef _RF_PIPELINES_KERNELS_INTENSITY_CLIPPERS_HPP
+#define _RF_PIPELINES_KERNELS_INTENSITY_CLIPPERS_HPP
 
 #include <cassert>  // XXX remove
 #include <simd_helpers/convert.hpp>

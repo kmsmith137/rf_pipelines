@@ -52,7 +52,7 @@ struct clipper2d_transform : public wi_transform
 	this->nt_prepad = 0;
 	this->nt_postpad = 0;
 
-	// No need to make these asserts "verbose", since they should have been checked in make_clipper2d().
+	// No need to make these asserts "verbose", since they should have been checked in make_intensity_clipper2d().
 	rf_assert(sigma >= 1.0);
 	rf_assert(iter_sigma >= 1.0);
 	rf_assert(nt_chunk > 0);
@@ -94,11 +94,13 @@ struct clipper2d_transform : public wi_transform
 	int s_stride = DsiFlag ? stride : (nt_chunk/Dt);   // must use DsiFlag here, not DswFlag
 
 	for (int iter = 1; iter < niter; iter++) {
-	    simd_t<float,S> thresh = simd_t<float,S>(iter_sigma) * rms;   // iter_sigma here
+	    // (s_intensity, s_weights, iter_sigma) here
+	    simd_t<float,S> thresh = simd_t<float,S>(iter_sigma) * rms;
 	    _kernel_clip2d_iterate<float,S> (mean, rms, s_intensity, s_weights, mean, thresh, nfreq/Df, nt_chunk/Dt, s_stride);
 	}
 
-	simd_t<float,S> thresh = simd_t<float,S>(sigma) * rms;           // sigma here
+	// (s_intensity, weights, sigma) here
+	simd_t<float,S> thresh = simd_t<float,S>(sigma) * rms;
 	_kernel_clip2d_mask<float,S,Df,Dt> (weights, s_intensity, mean, thresh, nfreq, nt_chunk, stride, s_stride);
     }
 
