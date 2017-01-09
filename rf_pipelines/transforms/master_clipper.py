@@ -45,4 +45,4 @@ class master_clipper(rf_pipelines.py_wi_transform):
                 rf_pipelines.clip_fx(intensity, weights, thr=3, dsample_nfreq=512, dsample_nt=self.dsample_nt/16)
                 rf_pipelines.clip_fx(intensity, weights, thr=3, axis=0, dsample_nt=self.dsample_nt)
                 rf_pipelines.clip_fx(intensity, weights, thr=3, axis=1, dsample_nt=self.dsample_nt)
-                rf_pipelines.filter_stdv(intensity, weights, thr=3, axis=0, dsample_nt=self.dsample_nt/16)
+                rf_pipelines.filter_stdv(intensity, weights, thr=3, axis=1, dsample_nt=self.dsample_nt/16)

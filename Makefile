@@ -52,7 +52,7 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/__init__.py \
 	rf_pipelines/transforms/chime_packetizer.py \
 	rf_pipelines/transforms/chime_transforms.py \
-	rf_pipelines/transforms/simple_detrender.py \
+	rf_pipelines/transforms/poly_detrender.py \
 	rf_pipelines/transforms/bonsai_dedisperser.py \
 	rf_pipelines/transforms/frb_injector_transform.py \
 	rf_pipelines/transforms/plotter_transform.py \
@@ -64,7 +64,8 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/std_dev_filter.py \
 	rf_pipelines/transforms/thermal_noise_weight.py \
 	rf_pipelines/transforms/RC_detrender.py \
-	rf_pipelines/transforms/master_clipper.py
+	rf_pipelines/transforms/master_clipper.py \
+	rf_pipelines/transforms/clipper2d.py
 
 # Used in 'make clean'
 CLEANDIRS=. site rf_pipelines rf_pipelines/streams rf_pipelines/transforms \
