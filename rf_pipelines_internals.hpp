@@ -88,7 +88,7 @@ struct plot_group {
 
 // -------------------------------------------------------------------------------------------------
 //
-// General-purpose timing thread.
+// timing_thread (general-purpose timing thread), and transform_timing_thread (subclass for timing wi_transforms).
 
 
 class timing_thread_pool {
@@ -139,13 +139,43 @@ protected:
     timing_thread_pool::time_t start_time;
     bool timer_is_running = false;
 
+    // Thread-collective: all threads wait at a barrier, then initialize their local timers.
     void start_timer();
 
+    // Thread-collective: the returned time is the average taken over all threads.
     // If 'name' is non-null, then timing will be announced on thread ID zero.
     double stop_timer(const char *name=nullptr);
 };
 
 
+struct transform_timing_thread : public timing_thread
+{
+    const int nfreq;
+    const int nt_chunk;
+    const int stride;
+    const int niter = 16;
+
+    float *intensity = nullptr;
+    float *weights = nullptr;
+
+    std::vector<std::shared_ptr<wi_transform>> transform_list;
+    int ntransforms = 0;
+
+    transform_timing_thread(const std::shared_ptr<timing_thread_pool> &pool, int nfreq, int nt_chunk, int stride, 
+			    const std::vector<std::shared_ptr<wi_transform>> &transform_list);
+
+    ~transform_timing_thread();
+
+    // Noncopyable
+    transform_timing_thread(const transform_timing_thread &) = delete;
+    transform_timing_thread &operator=(const transform_timing_thread &) = delete;
+
+    virtual void thread_body() override;   // overrides timing_thread::thread_body(), times transforms in transform_list
+    virtual void timing_thread_body() {}   // optional: if the timing thread should do anything else, it can go here
+};
+
+
+// Can be called for any subclass T of timing_thread (including T=transform_timing_thread)
 template<typename T, typename... Args>
 std::thread spawn_timing_thread(Args... args)
 {
