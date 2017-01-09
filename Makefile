@@ -112,7 +112,7 @@ endif
 ####################################################################################################
 
 
-all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so run-unit-tests test-kernels time-detrenders
+all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so run-unit-tests test-kernels time-clippers time-detrenders
 
 install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
 	mkdir -p $(INCDIR)/ $(LIBDIR)/ $(PYDIR)/rf_pipelines/streams $(PYDIR)/rf_pipelines/transforms
@@ -144,6 +144,9 @@ run-unit-tests: run-unit-tests.o librf_pipelines.so
 # test-kernels does not depend on $(INCFILES)
 test-kernels: test-kernels.cpp $(KERNEL_INCFILES)
 	$(CPP) -o $@ $<
+
+time-clippers: time-clippers.cpp $(INCFILES) $(KERNEL_INCFILES) librf_pipelines.so
+	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines $(LIBS)
 
 time-detrenders: time-detrenders.cpp $(INCFILES) $(KERNEL_INCFILES) librf_pipelines.so
 	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines $(LIBS)
