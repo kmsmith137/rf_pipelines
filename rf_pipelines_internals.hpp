@@ -170,8 +170,9 @@ struct transform_timing_thread : public timing_thread
     transform_timing_thread(const transform_timing_thread &) = delete;
     transform_timing_thread &operator=(const transform_timing_thread &) = delete;
 
+    virtual void thread_top();             // default thread_top(): prints nfreq, nt_chunk, stride on thread_id 0
     virtual void thread_body() override;   // overrides timing_thread::thread_body(), times transforms in transform_list
-    virtual void timing_thread_body() {}   // optional: if the timing thread should do anything else, it can go here
+    virtual void thread_bottom() {}        // optional: if the timing thread should do anything else, it can go here
 };
 
 

@@ -207,15 +207,21 @@ transform_timing_thread::~transform_timing_thread()
 }
 
 
-void transform_timing_thread::thread_body()
+// virtual member function
+void transform_timing_thread::thread_top()
 {
-    std::random_device rd;
-    std::mt19937 rng(rd());
-    
     if (thread_id == 0) {
 	cout << "nfreq=" << nfreq << ", nt_chunk=" << nt_chunk 
 	     << ", stride=" << stride << ", niter=" << niter << endl;
     }
+}
+
+void transform_timing_thread::thread_body()
+{
+    std::random_device rd;
+    std::mt19937 rng(rd());
+
+    this->thread_top();
 
     fake_stream s(nfreq, nt_chunk);
 
@@ -257,9 +263,12 @@ void transform_timing_thread::thread_body()
 	}
 
 	transform_list[itr]->end_substream();
+
+	if (thread_id == 0)
+	    cerr << transform_list[itr]->name << ": " << total_time << " sec\n";
     }
 
-    this->timing_thread_body();
+    this->thread_bottom();
 }
 
 
