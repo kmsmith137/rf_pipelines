@@ -35,7 +35,7 @@ def intensity_clipper(axis=None, Df=1, Dt=1, nt_chunk=1024, sigma=3, niter=1, it
 
     """
     assert (axis == None or axis == 0 or axis == 1), "axis must be None (planar; freq and time), 0 (along freq; constant time), or 1 (along time; constant freq)."
-    assert sigma >= 1. and iter_sigma >=1., "threshold values must be >= 1."
+    assert (sigma >= 1. and iter_sigma >= 1.), "threshold values must be >= 1."
     assert TODO
     assert nt_chunk > 0
     
