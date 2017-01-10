@@ -188,30 +188,18 @@ inline void _kernel_clip2d_iterate(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms, 
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag>
-inline void _kernel_clip1d_f_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
+inline void _kernel_clip1d_f_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_intensity, T *ds_weights)
 {
     mean_rms_accumulator<T,S> acc;
 
+    const simd_t<T,S> zero = simd_t<T,S>::zero();
+    const simd_t<T,S> one = simd_t<T,S> (1.0);
+
     for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
-	const T *irow = intensity + ifreq*stride;
-	const T *wrow = weights + ifreq*stride;
+	simd_t<T,S> wival, wval;
+	_kernel_downsample<T,S,Df,Dt> (wival, wval, intensity + ifreq*stride, weights + ifreq*stride, stride);
 
-	simd_ntuple<T,S,Dt> ivec, wvec;
-	ivec.loadu(irow);
-	wvec.loadu(wrow);
-
-	for (int jfreq = 1; jfreq < Df; jfreq++) {
-	    simd_ntuple<T,S,Dt> ivec2, wvec2;
-	    ivec2.loadu(irow + jfreq*stride);
-	    wvec2.loadu(wrow + jfreq*stride);
-
-	    ivec += ivec2;
-	    wvec += wvec2;
-	}
-
-	simd_t<T,S> ival = downsample(ivec);
-	simd_t<T,S> wval = downsample(wvec);
-
+	simd_t<T,S> ival = wival / blendv(wval.compare_gt(zero), wval, one);
 	acc.accumulate(ival, wval);
 
 	_write_and_advance_if<T,S,Iflag> (ds_intensity, ival);
