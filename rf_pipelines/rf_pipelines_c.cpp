@@ -1155,10 +1155,10 @@ static rf_pipelines::axis_type axis_type_from_python(const char *function_name, 
     if (obj == Py_None)
 	return rf_pipelines::AXIS_NONE;
 
-    if (!PyLong_Check(obj))
+    if (!PyInt_Check(obj))
 	throw runtime_error(string(function_name) + ": bad 'axis' parameter");
 
-    ssize_t ret = PyLong_AsSsize_t(obj);
+    ssize_t ret = PyInt_AsSsize_t(obj);
 
     if (ret == 0)
 	return rf_pipelines::AXIS_FREQ;
