@@ -998,9 +998,9 @@ struct clipper_ops_base3 : public clipper_ops_base2<T,S_>
 
 
 template<typename T, unsigned int S_, unsigned int Df_, unsigned int Dt_, bool Iflag_, bool Wflag_>
-struct clipper_wrms_ops : clipper_ops_base3<T,S_,Df_,Dt_>
+struct clipper_ops : clipper_ops_base3<T,S_,Df_,Dt_>
 {
-    clipper_wrms_ops() : clipper_ops_base3<T,S_,Df_,Dt_> (Iflag_, Wflag_) { }
+    clipper_ops() : clipper_ops_base3<T,S_,Df_,Dt_> (Iflag_, Wflag_) { }
     
     virtual void apply_fast_wrms_kernel_2d(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt) override
     {
@@ -1033,10 +1033,10 @@ template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typena
 inline void populate2(vector<shared_ptr<clipper_ops_base<T>>> &testsuite)
 {
     populate2<T,S,Df,(MaxDt/2)> (testsuite);
-    testsuite.push_back(make_shared<clipper_wrms_ops<T,S,Df,MaxDt,true,true>> ());
-    testsuite.push_back(make_shared<clipper_wrms_ops<T,S,Df,MaxDt,true,false>> ());
-    testsuite.push_back(make_shared<clipper_wrms_ops<T,S,Df,MaxDt,false,true>> ());
-    testsuite.push_back(make_shared<clipper_wrms_ops<T,S,Df,MaxDt,false,false>> ());
+    testsuite.push_back(make_shared<clipper_ops<T,S,Df,MaxDt,true,true>> ());
+    testsuite.push_back(make_shared<clipper_ops<T,S,Df,MaxDt,true,false>> ());
+    testsuite.push_back(make_shared<clipper_ops<T,S,Df,MaxDt,false,true>> ());
+    testsuite.push_back(make_shared<clipper_ops<T,S,Df,MaxDt,false,false>> ());
 }
 
 
