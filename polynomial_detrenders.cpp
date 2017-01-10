@@ -32,7 +32,7 @@ struct polynomial_detrender_base : public wi_transform
 	this->nt_prepad = 0;
 	this->nt_postpad = 0;
 
-	// No need to make these asserts "verbose", since they should have been checked in make_clipper2d().
+	// No need to make these asserts "verbose", since they should have been checked in make_polynomial_detrender().
 	rf_assert(nt_chunk > 0 && (nt_chunk % S == 0));
 	rf_assert(polydeg >= 0);
 	rf_assert(epsilon > 0.0);

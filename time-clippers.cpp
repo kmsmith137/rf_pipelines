@@ -9,7 +9,7 @@ using namespace std;
 using namespace rf_pipelines;
 
 // Semi-placeholder version: just times the wi_transform objects (via transform_timing_thread base class).
-// Will be expanded later to time kernels directly.
+// Will be expanded later to time kernels in a more granular way.
 
 struct clipper_timing_thread : public transform_timing_thread
 {
