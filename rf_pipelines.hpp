@@ -151,6 +151,13 @@ extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssiz
 // Factory functions returning wi_transforms
 
 
+enum axis_type {
+    AXIS_FREQ = 0,
+    AXIS_TIME = 1,
+    AXIS_NONE = 2
+};
+
+
 //
 // polynomial_detrender: detrends along either the time or frequency axis,
 // by subtracting a best-fit polynomial.  The detrending is independent in
@@ -176,7 +183,7 @@ inline std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend)
 
 
 //
-// intensity_clipper2d: this "clips" an array by masking outlier intensities.
+// intensity_clipper: this "clips" an array by masking outlier intensities.
 // The masking is performed by setting elements of the weights array to zero.
 //
 // The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.  Note
@@ -185,11 +192,16 @@ inline std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend)
 // The (Df,Dt) args are downsampling factors on the frequency/time axes.
 // If no downsampling is desired, set Df=Dt=1.
 //
+// The 'axis' argument has the following meaning:
+//   axis=AXIS_FREQ   clip along frequency axis, with an outer loop over time samples
+//   axis=AXIS_TIME   clip along time axis, with an outer loop over frequency samples
+//   axis=AXIS_NONE   2-d clipper
+//
 // If niter > 1, then the mean/rms intensity will be computed using iterated clipping,
 // with threshold 'iter_sigma' (which need not be the same as 'sigma').
 //
-extern std::shared_ptr<wi_transform> make_intensity_clipper2d(int Df, int Dt, int nt_chunk, double sigma, int niter, double iter_sigma);
 
+extern std::shared_ptr<wi_transform> make_intensity_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma);
 
 //
 // This is a pseudo-transform which doesn't actually modify the data, it just writes it to a file in

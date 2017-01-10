@@ -44,8 +44,9 @@ struct clipper2d_transform : public wi_transform
 	: niter(niter_), sigma(sigma_), iter_sigma(iter_sigma_ ? iter_sigma_ : sigma_)
     {
 	stringstream ss;
-	ss << "intensity_clipper2d_transform(Df=" << Df << ",Dt=" << Dt << ",nt_chunk=" << nt_chunk_
-	   << ",sigma=" << sigma << ",niter=" << niter << ",iter_sigma=" << iter_sigma << ")";
+	ss << "intensity_clipper_transform(Df=" << Df << ",Dt=" << Dt << ",axis=AXIS_NONE" 
+	   << ", nt_chunk=" << nt_chunk_ << ",sigma=" << sigma << ",niter=" << niter 
+	   << ",iter_sigma=" << iter_sigma << ")";
 
 	this->name = ss.str();
 	this->nt_chunk = nt_chunk_;
@@ -145,8 +146,9 @@ struct clipper1d_t_transform : public wi_transform
 	: niter(niter_), sigma(sigma_), iter_sigma(iter_sigma_ ? iter_sigma_ : sigma_)
     {
 	stringstream ss;
-	ss << "intensity_clipper1d_t_transform(Df=" << Df << ",Dt=" << Dt << ",nt_chunk=" << nt_chunk_
-	   << ",sigma=" << sigma << ",niter=" << niter << ",iter_sigma=" << iter_sigma << ")";
+	ss << "intensity_clipper_transform(Df=" << Df << ",Dt=" << Dt << ",axis=AXIS_TIME" 
+	   << ", nt_chunk=" << nt_chunk_ << ",sigma=" << sigma << ",niter=" << niter 
+	   << ",iter_sigma=" << iter_sigma << ")";
 
 	this->name = ss.str();
 	this->nt_chunk = nt_chunk_;
@@ -219,69 +221,94 @@ struct clipper1d_t_transform : public wi_transform
 
 // -------------------------------------------------------------------------------------------------
 //
-// Boilerplate needed to instantiate templates and export factory function.
+// Boilerplate needed to instantiate templates and export factory functions.
+
+
+template<unsigned int S, unsigned int Df, unsigned int Dt, unsigned int IterFlag>
+inline shared_ptr<wi_transform> _make_intensity_clipper4(axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
+{
+    if (axis == AXIS_FREQ)
+	throw runtime_error("rf_pipelines::make_intensity_clipper(): AXIS_FREQ is not implemented yet");
+    if (axis == AXIS_TIME)
+	return make_shared<clipper1d_t_transform<S,Df,Dt,IterFlag>> (nt_chunk, sigma, niter, iter_sigma);
+    if (axis == AXIS_NONE)
+	return make_shared<clipper2d_transform<S,Df,Dt,IterFlag>> (nt_chunk, sigma, niter, iter_sigma);
+
+    throw runtime_error("rf_pipelines::make_intensity_clipper(): axis='" + to_string(axis) + "' is not a valid value");
+}
+
+
+template<unsigned int S, unsigned int Df, unsigned int Dt>
+inline shared_ptr<wi_transform> _make_intensity_clipper3(axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
+{
+    if (niter > 1)
+	return _make_intensity_clipper4<S,Df,Dt,true> (axis, nt_chunk, sigma, niter, iter_sigma);
+    else
+	return _make_intensity_clipper4<S,Df,Dt,false> (axis, nt_chunk, sigma, niter, iter_sigma);
+}
 
 
 template<unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt==0),int>::type = 0>
-static inline shared_ptr<wi_transform> _make_clipper2d_df(int Dt, int nt_chunk, double sigma, int niter, double iter_sigma)
+inline shared_ptr<wi_transform> _make_intensity_clipper2(int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
-    throw runtime_error("rf_pipelines: internal error in _make_clipper2d_df()");
+    throw runtime_error("rf_pipelines internal error: Dt=" + to_string(Dt) + " not found in template chain");
 }
 
-template<unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt>0),int>::type = 0>
-static inline shared_ptr<wi_transform> _make_clipper2d_df(int Dt, int nt_chunk, double sigma, int niter, double iter_sigma)
+template<unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt > 0),int>::type = 0>
+inline shared_ptr<wi_transform> _make_intensity_clipper2(int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
-    if (Dt != MaxDt) 
-	return _make_clipper2d_df<S,Df,(MaxDt/2)> (Dt, nt_chunk, sigma, niter, iter_sigma);
-    if (niter > 1)
-	return make_shared< clipper2d_transform<S,Df,MaxDt,true> >(nt_chunk, sigma, niter, iter_sigma);
+    if (Dt == MaxDt)
+	throw _make_intensity_clipper3<S,Df,MaxDt> (axis, nt_chunk, sigma, niter, iter_sigma);
     else
-	return make_shared< clipper2d_transform<S,Df,MaxDt,false> >(nt_chunk, sigma, niter, iter_sigma);
+	throw _make_intensity_clipper2<S,Df,(MaxDt/2)> (Dt, axis, nt_chunk, sigma, niter, iter_sigma);
 }
+
 
 template<unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf==0),int>::type = 0>
-static inline shared_ptr<wi_transform> _make_clipper2d(int Df, int Dt, int nt_chunk, double sigma, int niter, double iter_sigma)
+inline shared_ptr<wi_transform> _make_intensity_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
-    throw runtime_error("rf_pipelines: internal error in _make_clipper2d()");
+    throw runtime_error("rf_pipelines internal error: Df=" + to_string(Df) + " not found in template chain");
 }
 
-template<unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf>0),int>::type = 0>
-static inline shared_ptr<wi_transform> _make_clipper2d(int Df, int Dt, int nt_chunk, double sigma, int niter, double iter_sigma)
+template<unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf > 0),int>::type = 0>
+inline shared_ptr<wi_transform> _make_intensity_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
-    if (Df == MaxDf) 
-	return _make_clipper2d_df<S,MaxDf,MaxDt> (Dt, nt_chunk, sigma, niter, iter_sigma);
-    return _make_clipper2d<S,(MaxDf/2),MaxDt> (Df, Dt, nt_chunk, sigma, niter, iter_sigma);
-};
+    if (Df == MaxDf)
+	return _make_intensity_clipper2<S,MaxDf,MaxDt> (Dt, axis, nt_chunk, sigma, niter, iter_sigma);
+    else
+	return _make_intensity_clipper<S,(MaxDf/2),MaxDt> (Df, Dt, axis, nt_chunk, sigma, niter, iter_sigma);
+}
 
 
-shared_ptr<wi_transform> make_intensity_clipper2d(int Df, int Dt, int nt_chunk, double sigma, int niter, double iter_sigma)
+// externally callable
+shared_ptr<wi_transform> make_intensity_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
     // SIMD length on this machine
     static constexpr int S = 8;
 
     // MaxDf, MaxDt are the max downsampling factors allowed in the frequency and time directions.
     // If you get the error message "no precompiled kernel available..." then you'll need to change these (see below).
-    // Increasing Df,Dt will increase compile time and object file size, but this shouldn't be a big deal.
     // IMPORTANT: Df,Dt should be powers of two, or unpredictable problems will result!
+
     static constexpr int MaxDf = 32;
     static constexpr int MaxDt = 32;
 
     if ((Df <= 0) || !is_power_of_two(Df))
-	throw runtime_error("rf_pipelines::make_intensity_clipper2d(): Df must be a power of two (value received = " + to_string(Df) + ")");
+	throw runtime_error("rf_pipelines::make_intensity_clipper(): Df must be a power of two (value received = " + to_string(Df) + ")");
     if ((Dt <= 0) || !is_power_of_two(Dt))
-	throw runtime_error("rf_pipelines::make_intensity_clipper2d(): Dt must be a power of two (value received = " + to_string(Dt) + ")");
+	throw runtime_error("rf_pipelines::make_intensity_clipper(): Dt must be a power of two (value received = " + to_string(Dt) + ")");
     if (nt_chunk <= 0)
-	throw runtime_error("rf_pipelines::make_intensity_clipper2d(): nt_chunk must be > 0 (value received = " + to_string(nt_chunk) + ")");
+	throw runtime_error("rf_pipelines::make_intensity_clipper(): nt_chunk must be > 0 (value received = " + to_string(nt_chunk) + ")");
     if (sigma < 2.0)
-	throw runtime_error("rf_pipelines::make_intensity_clipper2d(): sigma must be >= 2.0 (value received = " + to_string(sigma) + ")");
+	throw runtime_error("rf_pipelines::make_intensity_clipper(): sigma must be >= 2.0 (value received = " + to_string(sigma) + ")");
     if (niter < 1)
-	throw runtime_error("rf_pipelines::make_intensity_clipper2d(): niter must be >= 1 (value received = " + to_string(niter) + ")");
+	throw runtime_error("rf_pipelines::make_intensity_clipper(): niter must be >= 1 (value received = " + to_string(niter) + ")");
     if (iter_sigma < 2.0)
-	throw runtime_error("rf_pipelines::make_intensity_clipper2d(): iter_sigma must be >= 2.0 (value received = " + to_string(iter_sigma) + ")");
+	throw runtime_error("rf_pipelines::make_intensity_clipper(): iter_sigma must be >= 2.0 (value received = " + to_string(iter_sigma) + ")");
     
     if (nt_chunk % (Dt*S)) {
 	stringstream ss;
-	ss << "rf_pipelines::make_intensity_clipper2d(): nt_chunk=" << nt_chunk << " is not a multiple of S*Dt\n"
+	ss << "rf_pipelines::make_intensity_clipper(): nt_chunk=" << nt_chunk << " is not a multiple of S*Dt\n"
 	   << "Here, S=" << S << " is the simd length on this machine, and Dt=" << Dt << " is the requested time downsampling factor.\n"
 	   << "Note that the value of S may be machine-dependent!\n";
 
@@ -290,14 +317,14 @@ shared_ptr<wi_transform> make_intensity_clipper2d(int Df, int Dt, int nt_chunk, 
 
     if ((Df > MaxDf) || (Dt > MaxDt)) {
 	stringstream ss;
-	ss << "rf_pipelines::make_intensity_clipper2d(): no precompiled kernel is available for (Df,Dt)=(" << Df << "," << Dt << ")\n"
-	   << "Eventually, this will be fixed in a systematic way.  As a temporary workaround, you can change the values of\n"
-	   << "MaxDf and MaxDt in rf_pipelines/clipper_transforms.cpp::make_intensity_clipper2d() and recompile.\n";
+	ss << "rf_pipelines::make_intensity_clipper(): no precompiled kernel is available for (Df,Dt)=(" << Df << "," << Dt << ")\n"
+	   << "Eventually, this will be fixed in a systematic way.  As a temporary workaround, you can increase the values of\n"
+	   << "MaxDf and MaxDt in rf_pipelines/clipper_transforms.cpp::make_intensity_clipper() and recompile.\n";
 	
 	throw runtime_error(ss.str());
     }
 
-    return _make_clipper2d<S,MaxDf,MaxDt> (Df, Dt, nt_chunk, sigma, niter, iter_sigma);
+    return _make_intensity_clipper<S,MaxDf,MaxDt> (Df, Dt, axis, nt_chunk, sigma, niter, iter_sigma);
 }
 
 

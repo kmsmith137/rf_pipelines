@@ -1150,6 +1150,28 @@ static PyObject *make_chime_packetizer(PyObject *self, PyObject *args)
 }
 
 
+static rf_pipelines::axis_type axis_type_from_python(const char *function_name, PyObject *obj)
+{
+    if (obj == Py_None)
+	return rf_pipelines::AXIS_NONE;
+
+    if (!PyLong_Check(obj))
+	throw runtime_error(string(function_name) + ": bad 'axis' parameter");
+
+    ssize_t ret = PyLong_AsSsize_t(obj);
+
+    if (ret == 0)
+	return rf_pipelines::AXIS_FREQ;
+    if (ret == 1)
+	return rf_pipelines::AXIS_TIME;
+
+    if ((ret == -1) && PyErr_Occurred())
+	throw python_exception();
+
+    throw runtime_error(string(function_name) + ": bad 'axis' parameter");    
+}
+
+
 static PyObject *make_polynomial_detrender_time_axis(PyObject *self, PyObject *args)
 {
     int nt_chunk = 0;
@@ -1178,19 +1200,24 @@ static PyObject *make_polynomial_detrender_freq_axis(PyObject *self, PyObject *a
 }
 
 
-static PyObject *make_intensity_clipper2d(PyObject *self, PyObject *args)
+static PyObject *make_intensity_clipper(PyObject *self, PyObject *args)
 {
     int Df = 0;
     int Dt = 0;
+    PyObject *axis_ptr = Py_None;
     int nt_chunk = 0;
     double sigma = 0.0;
     int niter = 0;
     double iter_sigma = 0.0;
 
-    if (!PyArg_ParseTuple(args, "iiidid", &Df, &Dt, &nt_chunk, &sigma, &niter, &iter_sigma))
+    if (!PyArg_ParseTuple(args, "iiiOdid", &Df, &Dt, &axis_ptr, &nt_chunk, &sigma, &niter, &iter_sigma))
 	return NULL;
 
-    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_intensity_clipper2d(Df, Dt, nt_chunk, sigma, niter, iter_sigma);
+    object axis_obj(axis_ptr, false);
+
+    rf_pipelines::axis_type axis = axis_type_from_python("make_intensity_clipper()", axis_ptr);
+
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_intensity_clipper(Df, Dt, axis, nt_chunk, sigma, niter, iter_sigma);
     return wi_transform_object::make(ret);
 }
 
@@ -1282,8 +1309,8 @@ static constexpr const char *make_polynomial_detrender_freq_axis_docstring =
     "experimented systematically.\n";
 
 
-static constexpr const char *make_intensity_clipper2d_docstring =
-    "make_intensity_clipper2d(Df, Dt, nt_chunk, sigma, niter, iter_sigma)\n"
+static constexpr const char *make_intensity_clipper_docstring =
+    "make_intensity_clipper(Df, Dt, axis, nt_chunk, sigma, niter, iter_sigma)\n"
     "\n"
     "'Clips' an array by masking outlier intensities.\n"
     "The masking is performed by setting elements of the weights array to zero.\n"
@@ -1293,6 +1320,11 @@ static constexpr const char *make_intensity_clipper2d_docstring =
     "\n"
     "The (Df,Dt) args are downsampling factors on the frequency/time axes.\n"
     "If no downsampling is desired, set Df=Dt=1.\n"
+    "\n"
+    "The 'axis' argument has the following meaning:\n"
+    "   axis=0      clip along frequency axis, with an outer loop over time samples\n"
+    "   axis=1      clip along time axis, with an outer loop over frequency samples\n"
+    "   axis=None   2-d clipper\n"
     "\n"
     "If niter > 1, then the mean/rms intensity will be computed using iterated clipping,\n"
     "with threshold 'iter_sigma' (which need not be the same as 'sigma').\n";
@@ -1319,7 +1351,7 @@ static PyMethodDef module_methods[] = {
     { "make_chime_packetizer", tc_wrap2<make_chime_packetizer>, METH_VARARGS, dummy_module_method_docstring },
     { "make_polynomial_detrender_time_axis", tc_wrap2<make_polynomial_detrender_time_axis>, METH_VARARGS, make_polynomial_detrender_time_axis_docstring },
     { "make_polynomial_detrender_freq_axis", tc_wrap2<make_polynomial_detrender_freq_axis>, METH_VARARGS, make_polynomial_detrender_freq_axis_docstring },
-    { "make_intensity_clipper2d", tc_wrap2<make_intensity_clipper2d>, METH_VARARGS, make_intensity_clipper2d_docstring },
+    { "make_intensity_clipper", tc_wrap2<make_intensity_clipper>, METH_VARARGS, make_intensity_clipper_docstring },
     { "make_chime_file_writer", tc_wrap2<make_chime_file_writer>, METH_VARARGS, dummy_module_method_docstring },
     { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, dummy_module_method_docstring },
     { "make_badchannel_mask", tc_wrap2<make_badchannel_mask>, METH_VARARGS, make_badchannel_mask_docstring },
