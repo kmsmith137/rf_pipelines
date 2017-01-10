@@ -3,6 +3,7 @@ Intensity clipper.  This is a thin wrapper around a C++ implementation.
 See FIXME intensity_clippers.cpp, and python linkage in rf_pipelines_c.cpp.
 """
 
+import numpy as np
 from rf_pipelines import rf_pipelines_c
 
 def intensity_clipper(axis=None, Df=1, Dt=1, nt_chunk=1024, sigma=3, niter=1, iter_sigma=3):
@@ -35,10 +36,11 @@ def intensity_clipper(axis=None, Df=1, Dt=1, nt_chunk=1024, sigma=3, niter=1, it
 
     """
     assert (axis == None or axis == 0 or axis == 1), "axis must be None (planar; freq and time), 0 (along freq; constant time), or 1 (along time; constant freq)."
-    assert (sigma >= 1. and iter_sigma >= 1.), "threshold values must be >= 1."
-    assert TODO
+    assert ((np.log2(Df) % 2) in (0., 1.)) and ((np.log2(Dt) % 2) in (0., 1.)), "Downsampling factors must be powers of 2"
     assert nt_chunk > 0
-    
+    assert (sigma >= 1. and iter_sigma >= 1.), "threshold values must be >= 1."
+    assert niter >= 1
+
     if axis == 1:
         return TODO
     elif axis == 0:
