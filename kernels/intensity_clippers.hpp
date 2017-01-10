@@ -216,6 +216,7 @@ inline void _kernel_clip1d_f_mask(T *weights, const T *ds_intensity, simd_t<T,S>
     for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
 	simd_t<T,S> ival = simd_t<T,S>::loadu(ds_intensity);
 	ival -= mean;
+	ival = ival.abs();
 
 	smask_t<T,S> valid = ival.compare_lt(thresh);
 	_kernel_mask<T,S,Df,Dt> (weights + ifreq*stride, valid, stride);

@@ -956,7 +956,7 @@ void clipper_ops_base<T>::run_tests(std::mt19937 &rng)
     test_wrms_kernel_2d(rng, nfreq, nt, stride);
     test_wrms_kernel_1d_f(rng, nfreq, nt, stride);
     test_mask_kernel_2d(rng, nfreq, nt, stride, (nt/Dt) + std::uniform_int_distribution<>(0,4)(rng));
-    test_mask_kernel_1d_f(rng, nfreq, Df*S + std::uniform_int_distribution<>(0,4)(rng), S + std::uniform_int_distribution<>(0,4)(rng));
+    test_mask_kernel_1d_f(rng, nfreq, Dt*S + std::uniform_int_distribution<>(0,4)(rng), S + std::uniform_int_distribution<>(0,4)(rng));
     test_iterate_kernel_2d(rng, nfreq, nt, stride);
 }
 
