@@ -1210,7 +1210,7 @@ static PyObject *make_intensity_clipper(PyObject *self, PyObject *args)
     int niter = 0;
     double iter_sigma = 0.0;
 
-    if (!PyArg_ParseTuple(args, "iiiOdid", &Df, &Dt, &axis_ptr, &nt_chunk, &sigma, &niter, &iter_sigma))
+    if (!PyArg_ParseTuple(args, "iiOidid", &Df, &Dt, &axis_ptr, &nt_chunk, &sigma, &niter, &iter_sigma))
 	return NULL;
 
     object axis_obj(axis_ptr, false);
