@@ -258,9 +258,9 @@ template<unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enab
 inline shared_ptr<wi_transform> _make_intensity_clipper2(int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
     if (Dt == MaxDt)
-	throw _make_intensity_clipper3<S,Df,MaxDt> (axis, nt_chunk, sigma, niter, iter_sigma);
+	return _make_intensity_clipper3<S,Df,MaxDt> (axis, nt_chunk, sigma, niter, iter_sigma);
     else
-	throw _make_intensity_clipper2<S,Df,(MaxDt/2)> (Dt, axis, nt_chunk, sigma, niter, iter_sigma);
+	return _make_intensity_clipper2<S,Df,(MaxDt/2)> (Dt, axis, nt_chunk, sigma, niter, iter_sigma);
 }
 
 
