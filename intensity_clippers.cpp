@@ -116,10 +116,7 @@ struct clipper2d_transform : public wi_transform
 //
 // Currently implemented by calling the 2d kernels many times with nfreq=1.
 //
-// Note: If we want to optimize the clipper transforms further, it might be worth exploring
-// a generalization in which there is a template parameter R controlling the number of rows
-// of the array (i.e. frequency channels) read in each pass.  In this case, we would need
-// separate 1d_t and 2d kernels.
+// FIXME there is a little extra overhead here, should improve by writing real 1D kernels.
 
 
 template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
@@ -196,21 +193,21 @@ struct clipper1d_t_transform : public wi_transform
 	    float *irow = intensity + ifreq * stride;
 	    float *wrow = intensity + ifreq * stride;
 
-	    // We use nfreq=1 and stride=0 here and throughout this routine.
-	    _kernel_clip2d_wrms<float,S,Df,Dt,DsiFlag,DswFlag,float,S> (mean, rms, irow, wrow, 1, nt_chunk, 0, ds_intensity, ds_weights);
+	    // We pass nfreq=Df to _kernel_clip2d_wrms, not the "true" nfreq
+	    _kernel_clip2d_wrms<float,S,Df,Dt,DsiFlag,DswFlag,float,S> (mean, rms, irow, wrow, Df, nt_chunk, stride, ds_intensity, ds_weights);
 									
 	    const float *irow2 = DsiFlag ? ds_intensity : irow;
 	    const float *wrow2 = DswFlag ? ds_weights : wrow;
 	
 	    for (int iter = 1; iter < niter; iter++) {
-		// (irow2, wrow2, iter_sigma)
+		// Here we pass nfreq=1 and stride=0
 		simd_t<float,S> thresh = simd_t<float,S>(iter_sigma) * rms;
-		_kernel_clip2d_iterate<float,S> (mean, rms, irow2, wrow2, mean, thresh, 1, nt_chunk/Dt, 0);   // nfreq=1, stride=0
+		_kernel_clip2d_iterate<float,S> (mean, rms, irow2, wrow2, mean, thresh, 1, nt_chunk/Dt, 0);    // (irow2, wrow2, iter_sigma)
 	    }
 
-	    // (irow2, wrow, sigma)
+	    // Here we pass nfreq=Df.  Setting both strides to 'stride' is OK but this isn't completely obvious.
 	    simd_t<float,S> thresh = simd_t<float,S>(sigma) * rms;
-	    _kernel_clip2d_mask<float,S,Df,Dt> (wrow, irow2, mean, thresh, 1, nt_chunk, 0, 0);
+	    _kernel_clip2d_mask<float,S,Df,Dt> (wrow, irow2, mean, thresh, Df, nt_chunk, stride, stride);    // (wrow, irow2, sigma)
 	}
     }
 
