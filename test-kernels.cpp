@@ -527,7 +527,7 @@ struct clipper_wrms_vops {
     // fast_kernel1d_f
     //   - takes an input array of shape (nfreq, Dt*S)
     //   - computes mean/rms arrays of length S
-    //   - outputs downsamped arrays of shape (nfreq/Df, nt/Dt)
+    //   - outputs downsampled arrays of shape (nfreq/Df, S)
 
     virtual void apply_fast_kernel2d(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt) = 0;
     virtual void apply_fast_kernel1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_w) = 0;

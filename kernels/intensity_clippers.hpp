@@ -210,6 +210,20 @@ inline void _kernel_clip1d_f_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *
 }
 
 
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
+inline void _kernel_clip1d_f_mask(T *weights, const T *ds_intensity, simd_t<T,S> mean, simd_t<T,S> thresh, int nfreq, int stride, int ds_stride)
+{
+    for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
+	simd_t<T,S> ival = simd_t<T,S>::loadu(ds_intensity);
+	ival -= mean;
+
+	smask_t<T,S> valid = ival.compare_lt(thresh);
+	_kernel_mask<T,S,Df,Dt> (weights + ifreq*stride, valid, stride);
+
+	ds_intensity += ds_stride;
+    }
+}
+
 
 }  // namespace rf_pipelines
 
