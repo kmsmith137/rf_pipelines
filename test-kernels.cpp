@@ -541,48 +541,16 @@ static void reference_clip2d_wrms(T &mean, T &rms, const T *intensity, const T *
 }
 
 
-template<typename T, unsigned int S>
-void test_clip2d_wrms_postmortem(int Df, int Dt, int nfreq, int nt, int stride, T ref_mean, 
-				 T ref_rms, T *ref_ds_int, T *ref_ds_wt, simd_t<T,S> mean, 
-				 simd_t<T,S> rms, T *ds_int, T *ds_wt)
-{
-    stringstream ss;
-    ss << "test_clip2d_wrms failed:"
-       << " T=" << simd_helpers::type_name<T>()
-       << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt 
-       << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride;
-
-    vector<float> delta1 = vectorize(mean - simd_t<T,S> (ref_mean));
-    vector<float> delta2 = vectorize(rms - simd_t<T,S> (ref_rms));    
-    int n = (nfreq * nt) / (Df * Dt);
-
-    if ((simd_helpers::maxabs(delta1) > 1.0e-3 * Df*Dt) || (simd_helpers::maxabs(delta2) > 1.0e-3 * sqrt(Df*Dt))) {
-	cerr << ss.str() << "\n"
-	     << "  mean: " << ref_mean << ", " << mean << "\n"
-	     << "  rms: " << ref_rms << ", " << rms << "\n";
-	exit(1);
-    }
-
-    if (ds_int && (simd_helpers::maxdiff(n,ref_ds_int,ds_int) > 1.0e-3 * Df*Dt)) {
-	cerr << ss.str() << ": ds_int arrays differ\n";
-	exit(1);
-    }
-
-    if (ds_wt && (simd_helpers::maxdiff(n,ref_ds_wt,ds_wt) > 1.0e-3 * Df*Dt)) {
-	cerr << ss.str() << ": ds_wt arrays differ\n";
-	exit(1);
-    }
-}
-
-
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
-static void test_clip2d_wrms(std::mt19937 &rng, int nfreq, int nt, int stride)
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag>
+static void test_clip_wrms(std::mt19937 &rng, int nfreq, int nt, int stride)
 {
     assert(nfreq % Df == 0);
     assert(nt % (Dt*S) == 0);
     assert(stride >= nt);
 
     random_chunk rc(rng, nfreq, nt, stride);
+
+    // 2d test starts here 
 
     float ref_mean, ref_rms;
     vector<T> ref_ds_int((nfreq/Df) * (nt/Dt), -1.0);
@@ -591,62 +559,89 @@ static void test_clip2d_wrms(std::mt19937 &rng, int nfreq, int nt, int stride)
     reference_clip2d_wrms(ref_mean, ref_rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, Df, Dt, &ref_ds_int[0], &ref_ds_wt[0]);
     
     simd_t<T,S> mean, rms;
-    vector<T> ds_int((nfreq/Df) * (nt/Dt), -1.0);
-    vector<T> ds_wt((nfreq/Df) * (nt/Dt), -1.0);
-    
-    _kernel_clip2d_wrms<T,S,Df,Dt,false,false,T,S> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, nullptr, nullptr);
-    test_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms, (T *)nullptr, (T *)nullptr);
+    vector<T> ds_intv((nfreq/Df) * (nt/Dt), -1.0);
+    vector<T> ds_wtv((nfreq/Df) * (nt/Dt), -1.0);
 
-    _kernel_clip2d_wrms<T,S,Df,Dt,false,true,T,S> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, nullptr, &ds_wt[0]);
-    test_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms, (T *)nullptr, &ds_wt[0]);
+    T *ds_int = Iflag ? &ds_intv[0] : nullptr;
+    T *ds_wt = Wflag ? &ds_wtv[0] : nullptr;
 
-    _kernel_clip2d_wrms<T,S,Df,Dt,true,false,T,S> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, &ds_int[0], nullptr);
-    test_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms, &ds_int[0], (T *)nullptr);
+    _kernel_clip2d_wrms<T,S,Df,Dt,Iflag,Wflag,T,S> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, ds_int, ds_wt);
 
-    _kernel_clip2d_wrms<T,S,Df,Dt,true,true,T,S> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, &ds_int[0], &ds_wt[0]);
-    test_clip2d_wrms_postmortem(Df, Dt, nfreq, nt, stride, ref_mean, ref_rms, &ref_ds_int[0], &ref_ds_wt[0], mean, rms, &ds_int[0], &ds_wt[0]);
+    vector<float> delta1 = vectorize(mean - simd_t<T,S> (ref_mean));
+    vector<float> delta2 = vectorize(rms - simd_t<T,S> (ref_rms));    
+
+    if ((simd_helpers::maxabs(delta1) > 1.0e-3 * Df*Dt) || (simd_helpers::maxabs(delta2) > 1.0e-3 * sqrt(Df*Dt))) {
+	cerr << "_kernel_clip2d_wrms mean/rms mismatch:"
+	     << " T=" << simd_helpers::type_name<T>() << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt << ", Iflag=" << Iflag 
+	     << ", Wflag=" << Wflag << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n"
+	     << "  mean: " << ref_mean << ", " << mean << "\n"
+	     << "  rms: " << ref_rms << ", " << rms << "\n";
+	exit(1);
+    }
+
+    if (Iflag && (simd_helpers::maxdiff(ref_ds_int, ds_intv) > 1.0e-3 * Df*Dt)) {
+	cerr << "_kernel_clip2d_wrms ds_int mismatch:"
+	     << " T=" << simd_helpers::type_name<T>() << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt << ", Iflag=" << Iflag 
+	     << ", Wflag=" << Wflag << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n"
+	     << "  mean: " << ref_mean << ", " << mean << "\n"
+	     << "  rms: " << ref_rms << ", " << rms << "\n";
+	exit(1);
+    }
+
+    if (Wflag && (simd_helpers::maxdiff(ref_ds_wt, ds_wtv) > 1.0e-3 * Df*Dt)) {
+	cerr << "_kernel_clip2d_wrms ds_wt mismatch:"
+	     << " T=" << simd_helpers::type_name<T>() << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt << ", Iflag=" << Iflag 
+	     << ", Wflag=" << Wflag << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n"
+	     << "  mean: " << ref_mean << ", " << mean << "\n"
+	     << "  rms: " << ref_rms << ", " << rms << "\n";
+	exit(1);
+    }
 }
 
 
+
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
-static void test_clip2d_wrms(std::mt19937 &rng)
+static void test_clip_wrms(std::mt19937 &rng)
 {
     int nfreq = Df * std::uniform_int_distribution<>(10,20)(rng);
     int nt = Dt * S * std::uniform_int_distribution<>(10,20)(rng);
     int stride = nt + std::uniform_int_distribution<>(0,4)(rng);
 
-    test_clip2d_wrms<T,S,Df,Dt> (rng, nfreq, nt, stride);
+    test_clip_wrms<T,S,Df,Dt,true,true> (rng, nfreq, nt, stride);
+    test_clip_wrms<T,S,Df,Dt,true,false> (rng, nfreq, nt, stride);
+    test_clip_wrms<T,S,Df,Dt,false,true> (rng, nfreq, nt, stride);
+    test_clip_wrms<T,S,Df,Dt,false,false> (rng, nfreq, nt, stride);
 }
 
 
 // Fixed Df, many Dt
 template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt==1),int>::type = 0>
-static void test_clip2d_wrms_varying_dt(std::mt19937 &rng)
+static void test_clip_wrms_varying_dt(std::mt19937 &rng)
 {
-    test_clip2d_wrms<T,S,Df,1> (rng);
+    test_clip_wrms<T,S,Df,1> (rng);
 }
 
 // Fixed Df, many Dt
 template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt>1),int>::type = 0>
-static void test_clip2d_wrms_varying_dt(std::mt19937 &rng)
+static void test_clip_wrms_varying_dt(std::mt19937 &rng)
 {
-    test_clip2d_wrms_varying_dt<T,S,Df,MaxDt/2> (rng);
-    test_clip2d_wrms<T,S,Df,MaxDt> (rng);
+    test_clip_wrms_varying_dt<T,S,Df,MaxDt/2> (rng);
+    test_clip_wrms<T,S,Df,MaxDt> (rng);
 }
 
 // Many Df, many Dt
 template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf==1),int>::type = 0>
-static void test_clip2d_wrms_all(std::mt19937 &rng)
+static void test_clip_wrms_all(std::mt19937 &rng)
 {
-    test_clip2d_wrms_varying_dt<T,S,1,MaxDt> (rng);
+    test_clip_wrms_varying_dt<T,S,1,MaxDt> (rng);
 }
 
 // Many Df, many Dt
 template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf>1),int>::type = 0>
-static void test_clip2d_wrms_all(std::mt19937 &rng)
+static void test_clip_wrms_all(std::mt19937 &rng)
 {
-    test_clip2d_wrms_all<T,S,MaxDf/2,MaxDt> (rng);
-    test_clip2d_wrms_varying_dt<T,S,MaxDf,MaxDt> (rng);
+    test_clip_wrms_all<T,S,MaxDf/2,MaxDt> (rng);
+    test_clip_wrms_varying_dt<T,S,MaxDf,MaxDt> (rng);
 }
 
 
@@ -889,7 +884,7 @@ int main(int argc, char **argv)
     std::mt19937 rng(rd());
 
     test_polynomial_detrenders<float,8,16> (rng);
-    test_clip2d_wrms_all<float,8,32,32> (rng);
+    test_clip_wrms_all<float,8,32,32> (rng);
     test_clip2d_mask_all<float,8,32,32> (rng);
     test_clip2d_iterate_all<float,8> (rng);
 
