@@ -619,8 +619,7 @@ void clipper_wrms_vops<T>::test_kernel2d(std::mt19937 &rng, int nfreq, int nt, i
 
     apply_reference_kernel2d(ref_mean, ref_rms, rc.intensity, rc.weights, nfreq, nt, stride, &ref_ds_int[0], &ref_ds_wt[0]);
 
-    vector<T> mean(S);
-    vector<T> rms(S);
+    vector<T> mean(S), rms(S);
     vector<T> ds_intv((nfreq/Df) * (nt/Dt), -1.0);
     vector<T> ds_wtv((nfreq/Df) * (nt/Dt), -1.0);
 
@@ -658,6 +657,62 @@ void clipper_wrms_vops<T>::test_kernel2d(std::mt19937 &rng, int nfreq, int nt, i
 
 
 template<typename T>
+void clipper_wrms_vops<T>::test_kernel1d_f(std::mt19937 &rng, int nfreq, int nt, int stride)
+{
+    assert(nfreq % Df == 0);
+    assert(nt % (Dt*S) == 0);
+    assert(stride >= nt);
+
+    random_chunk rc(rng, nfreq, nt, stride);
+
+    vector<T> ref_mean(S), ref_rms(S);
+    vector<T> ref_ds_int((nfreq/Df) * S);
+    vector<T> ref_ds_wt((nfreq/Df) * S);
+
+    vector<T> mean(S), rms(S);
+    vector<T> ds_intv((nfreq/Df) * S);
+    vector<T> ds_wtv((nfreq/Df) * S);
+
+    T *ds_int = Iflag ? &ds_intv[0] : nullptr;
+    T *ds_wt = Wflag ? &ds_wtv[0] : nullptr;
+
+    for (int it = 0; it < nt; it += Dt*S) {
+	const T *icol = rc.intensity + it;
+	const T *wcol = rc.weights + it;
+
+	apply_reference_kernel1d_f(&ref_mean[0], &ref_rms[0], icol, wcol, nfreq, stride, &ref_ds_int[0], &ref_ds_wt[0]);
+	apply_fast_kernel1d_f(&mean[0], &rms[0], icol, wcol, nfreq, stride, ds_int, ds_wt);
+    
+	T delta_mean = simd_helpers::compare(mean, ref_mean);
+	T delta_rms = simd_helpers::compare(rms, ref_rms);
+	
+	if ((delta_mean > 1.0e-3 * Df*Dt) || (delta_rms > 1.0e-3 * sqrt(Df*Dt))) {
+	    cerr << "kernel_clip1d_f_wrms mean/rms mismatch:"
+		 << " T=" << simd_helpers::type_name<T>() << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt << ", Iflag=" << Iflag 
+		 << ", Wflag=" << Wflag << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n"
+		 << "  mean: " << simd_helpers::vecstr(ref_mean) << ", " << simd_helpers::vecstr(mean) << "\n"
+		 << "  rms: " << simd_helpers::vecstr(ref_rms) << ", " << simd_helpers::vecstr(rms) << "\n";
+	    exit(1);
+	}
+	
+	if (Iflag && (simd_helpers::maxdiff(ref_ds_int, ds_intv) > 1.0e-3 * Df*Dt)) {
+	    cerr << "kernel_clip1d_f_wrms ds_int mismatch:"
+		 << " T=" << simd_helpers::type_name<T>() << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt << ", Iflag=" << Iflag 
+		 << ", Wflag=" << Wflag << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n";
+	    exit(1);
+	}
+	
+	if (Wflag && (simd_helpers::maxdiff(ref_ds_wt, ds_wtv) > 1.0e-3 * Df*Dt)) {
+	    cerr << "kernel_clip1d_f_wrms ds_wt mismatch:"
+		 << " T=" << simd_helpers::type_name<T>() << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt << ", Iflag=" << Iflag 
+		 << ", Wflag=" << Wflag << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n";
+	    exit(1);
+	}
+    }
+}
+
+
+template<typename T>
 void clipper_wrms_vops<T>::run_tests(std::mt19937 &rng)
 {
     int nfreq = Df * std::uniform_int_distribution<>(10,20)(rng);
@@ -665,6 +720,7 @@ void clipper_wrms_vops<T>::run_tests(std::mt19937 &rng)
     int stride = nt + std::uniform_int_distribution<>(0,4)(rng);
 
     test_kernel2d(rng, nfreq, nt, stride);
+    test_kernel1d_f(rng, nfreq, nt, stride);
 }
 
 
