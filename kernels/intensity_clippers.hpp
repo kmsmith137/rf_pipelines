@@ -64,16 +64,17 @@ inline simd_t<T,S2> _extract_first(simd_t<T,S> x) { return x.template extract_ha
 // which controlls the number of rows read in each pass.
 
 
-// _clip2d_write_if(): helper for _kernel_clip2d_wrms()
+// _write_and_advance_if(): helper which writes data and advances a pointer, 
+// but only if a specified boolean predicate evaluates to true atc ompile-time.
 template<typename T, unsigned int S, bool flag, typename std::enable_if<flag,int>::type = 0>
-inline void _clip2d_write_if(T*& p, simd_t<T,S> x)
+inline void _write_and_advance_if(T*& p, simd_t<T,S> x)
 {
     x.storeu(p);
     p += S;
 }
 
 template<typename T, unsigned int S, bool flag, typename std::enable_if<(!flag),int>::type = 0>
-inline void _clip2d_write_if(T*& p, simd_t<T,S> x)
+inline void _write_and_advance_if(T*& p, simd_t<T,S> x)
 {
     return;
 }
@@ -104,8 +105,8 @@ inline void _kernel_clip2d_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *in
 	    simd_t<T,S> ival = wival / blendv(wval.compare_gt(zero), wval, one);
 	    acc.accumulate(ival, wval);
 
-	    _clip2d_write_if<T,S,Iflag> (ds_intensity, ival);
-	    _clip2d_write_if<T,S,Wflag> (ds_weights, wval);
+	    _write_and_advance_if<T,S,Iflag> (ds_intensity, ival);
+	    _write_and_advance_if<T,S,Wflag> (ds_weights, wval);
 	}
     }
 
@@ -181,6 +182,45 @@ inline void _kernel_clip2d_iterate(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms, 
     acc.horizontal_sum();
     acc.get_mean_rms(out_mean, out_rms);
 }
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag>
+inline void _kernel_clip1d_f_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
+{
+    mean_rms_accumulator<T,S> acc;
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
+	const T *irow = intensity + ifreq*stride;
+	const T *wrow = weights + ifreq*stride;
+
+	simd_ntuple<T,S,Dt> ivec, wvec;
+	ivec.loadu(irow);
+	wvec.loadu(wrow);
+
+	for (int jfreq = 1; jfreq < Df; jfreq++) {
+	    simd_ntuple<T,S,Dt> ivec2, wvec2;
+	    ivec2.loadu(irow + jfreq*stride);
+	    wvec2.loadu(wrow + jfreq*stride);
+
+	    ivec += ivec2;
+	    wvec += wvec2;
+	}
+
+	simd_t<T,S> ival = downsample(ivec);
+	simd_t<T,S> wval = downsample(wvec);
+
+	acc.accumulate(ival, wval);
+
+	_write_and_advance_if<T,S,Iflag> (ds_intensity, ival);
+	_write_and_advance_if<T,S,Wflag> (ds_weights, wval);
+    }
+
+    acc.get_mean_rms(mean, rms);
+}
+
 
 
 }  // namespace rf_pipelines
