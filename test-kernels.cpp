@@ -570,16 +570,19 @@ struct clipper_ops_base {
     virtual void apply_fast_wrms_kernel_2d(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt) = 0;
     virtual void apply_fast_wrms_kernel_1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_w) = 0;
     virtual void apply_fast_mask_kernel_2d(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int nt, int stride, int ds_stride) = 0;
+    virtual void apply_fast_mask_kernel_1d_f(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int stride, int ds_stride) = 0;
     virtual void apply_fast_iterate_kernel_2d(T *mean, T *rms, const T *intensity, const T *weights, T in_mean, T in_thresh, int nfreq, int nt, int stride) = 0;
     
     void apply_reference_wrms_kernel_2d(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt);
     void apply_reference_wrms_kernel_1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_wt);    
     void apply_reference_mask_kernel_2d(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int nt, int stride, int ds_stride);
+    void apply_reference_mask_kernel_1d_f(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int stride, int ds_stride);
     void apply_reference_iterate_kernel_2d(T &out_mean, T &out_rms, const T *intensity, const T *weights, T in_mean, T in_thresh, int nfreq, int nt, int stride);
 
     void test_wrms_kernel_2d(std::mt19937 &rng, int nfreq, int nt, int stride);
     void test_wrms_kernel_1d_f(std::mt19937 &rng, int nfreq, int nt, int stride);
     void test_mask_kernel_2d(std::mt19937 &rng, int nfreq, int nt, int stride, int ds_stride);
+    void test_mask_kernel_1d_f(std::mt19937 &rng, int nfreq, int stride, int ds_stride);
     void test_iterate_kernel_2d(std::mt19937 &rng, int nfreq, int nt, int stride);
 
     void run_tests(std::mt19937 &rng);
@@ -669,6 +672,13 @@ void clipper_ops_base<T>::apply_reference_mask_kernel_2d(T *weights, const T *ds
 		    weights[ifreq*stride+it] = 0.0;
 	}
     }    
+}
+
+
+template<typename T>
+void clipper_ops_base<T>::apply_reference_mask_kernel_1d_f(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int stride, int ds_stride)
+{
+    apply_reference_mask_kernel_2d(weights, ds_intensity, mean, thresh, nfreq, Dt*S, stride, ds_stride);
 }
 
 
@@ -855,6 +865,53 @@ void clipper_ops_base<T>::test_mask_kernel_2d(std::mt19937 &rng, int nfreq, int 
     }
 }
 
+
+template<typename T>
+void clipper_ops_base<T>::test_mask_kernel_1d_f(std::mt19937 &rng, int nfreq, int stride, int ds_stride)
+{
+    assert(nfreq % Df == 0);
+    assert(stride >= (Dt*S));
+    assert(ds_stride >= S);
+
+    int nfreq_ds = nfreq / Df;
+ 
+    T mean = std::uniform_real_distribution<>()(rng);
+    T thresh = std::uniform_real_distribution<>()(rng);
+
+    vector<T> weights = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
+    vector<T> weights2 = weights;
+
+    vector<T> ds_intensity(nfreq_ds * ds_stride, 0.0);
+
+    for (int ifreq_ds = 0; ifreq_ds < nfreq_ds; ifreq_ds++)
+	for (unsigned int s = 0; s < S; s++)
+	    ds_intensity[ifreq_ds*ds_stride + s] = mean + thresh * clip_rand(rng);
+
+    apply_reference_mask_kernel_1d_f(&weights[0], &ds_intensity[0], mean, thresh, nfreq, stride, ds_stride);
+    apply_fast_mask_kernel_1d_f(&weights2[0], &ds_intensity[0], mean, thresh, nfreq, stride, ds_stride);
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	for (int it = 0; it < Dt*S; it++) {
+	    if (weights[ifreq*stride+it] == weights2[ifreq*stride+it])
+		continue;
+
+	    int ifreq_ds = ifreq / Df;
+	    int it_ds = it / Dt;
+
+	    cerr << "test_make_kernel_1d_f failed:"
+		 << " T=" << simd_helpers::type_name<T>() << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt 
+		 << ", nfreq=" << nfreq << ", stride=" << stride << ", ds_stride=" << ds_stride << "\n"
+		 << "   at (ifreq,it)=(" << ifreq << "," << it << "): "
+		 << " wt_ref=" << weights[ifreq*stride+it] 
+		 << ", wt_fast=" << weights2[ifreq*stride+it] << "\n"
+		 << "   mean=" << mean << ", thresh=" << thresh 
+		 << ", ds_int=" << ds_intensity[ifreq_ds*ds_stride + it_ds] << "\n";
+
+	    exit(1);
+	}
+    }
+}
+
 		     
 template<typename T>
 void clipper_ops_base<T>::test_iterate_kernel_2d(std::mt19937 &rng, int nfreq, int nt, int stride)
@@ -895,11 +952,11 @@ void clipper_ops_base<T>::run_tests(std::mt19937 &rng)
     int nfreq = Df * std::uniform_int_distribution<>(10,20)(rng);
     int nt = Dt * S * std::uniform_int_distribution<>(10,20)(rng);
     int stride = nt + std::uniform_int_distribution<>(0,4)(rng);
-    int ds_stride = (nt/Dt) + std::uniform_int_distribution<>(0,4)(rng);
 
     test_wrms_kernel_2d(rng, nfreq, nt, stride);
     test_wrms_kernel_1d_f(rng, nfreq, nt, stride);
-    test_mask_kernel_2d(rng, nfreq, nt, stride, ds_stride);
+    test_mask_kernel_2d(rng, nfreq, nt, stride, (nt/Dt) + std::uniform_int_distribution<>(0,4)(rng));
+    test_mask_kernel_1d_f(rng, nfreq, Df*S + std::uniform_int_distribution<>(0,4)(rng), S + std::uniform_int_distribution<>(0,4)(rng));
     test_iterate_kernel_2d(rng, nfreq, nt, stride);
 }
 
@@ -931,6 +988,11 @@ struct clipper_ops_base3 : public clipper_ops_base2<T,S_>
     virtual void apply_fast_mask_kernel_2d(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int nt, int stride, int ds_stride) override
     {
 	_kernel_clip2d_mask<T,S_,Df_,Dt_> (weights, ds_intensity, simd_t<T,S_>(mean), simd_t<T,S_>(thresh), nfreq, nt, stride, ds_stride);
+    }
+
+    virtual void apply_fast_mask_kernel_1d_f(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int stride, int ds_stride) override
+    {
+	_kernel_clip1d_f_mask<T,S_,Df_,Dt_> (weights, ds_intensity, simd_t<T,S_> (mean), simd_t<T,S_> (thresh), nfreq, stride, ds_stride);
     }
 };
 
