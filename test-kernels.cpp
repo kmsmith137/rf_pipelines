@@ -531,12 +531,18 @@ struct clipper_wrms_vops {
 
     virtual void apply_fast_kernel2d(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt) = 0;
     virtual void apply_fast_kernel1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_w) = 0;
-
+    virtual void apply_fast_mask_kernel_2d(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int nt, int stride, int ds_stride) = 0;
+    virtual void apply_fast_iterate_kernel_2d(T *mean, T *rms, const T *intensity, const T *weights, T in_mean, T in_thresh, int nfreq, int nt, int stride) = 0;
+    
     void apply_reference_kernel2d(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt);
-    void apply_reference_kernel1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_wt);
+    void apply_reference_kernel1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_wt);    
+    void apply_reference_mask_kernel_2d(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int nt, int stride, int ds_stride);
+    void apply_reference_iterate_kernel_2d(T &out_mean, T &out_rms, const T *intensity, const T *weights, T in_mean, T in_thresh, int nfreq, int nt, int stride);
 
     void test_kernel2d(std::mt19937 &rng, int nfreq, int nt, int stride);
     void test_kernel1d_f(std::mt19937 &rng, int nfreq, int nt, int stride);
+    void test_mask_kernel_2d(std::mt19937 &rng, int nfreq, int nt, int stride, int ds_stride);
+    void test_iterate_kernel_2d(std::mt19937 &rng, int nfreq, int nt, int stride);
 
     void run_tests(std::mt19937 &rng);
 
@@ -605,6 +611,58 @@ void clipper_wrms_vops<T>::apply_reference_kernel1d_f(T *mean, T *rms, const T *
 
 
 template<typename T>
+void clipper_wrms_vops<T>::apply_reference_mask_kernel_2d(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int nt, int stride, int ds_stride)
+{
+    assert(nfreq % Df == 0);
+    assert(nt % Dt == 0);
+
+    int nfreq_ds = nfreq / Df;
+    int nt_ds = nt / Dt;
+
+    for (int ifreq_ds = 0; ifreq_ds < nfreq_ds; ifreq_ds++) {
+	for (int it_ds = 0; it_ds < nt_ds; it_ds++) {
+	    T ival = ds_intensity[ifreq_ds*ds_stride + it_ds];
+
+	    if (fabs(ival-mean) < thresh)
+		continue;
+
+	    for (int ifreq = ifreq_ds*Df; ifreq < (ifreq_ds+1)*Df; ifreq++)
+		for (int it = it_ds*Dt; it < (it_ds+1)*Dt; it++)
+		    weights[ifreq*stride+it] = 0.0;
+	}
+    }    
+}
+
+
+template<typename T>
+void clipper_wrms_vops<T>::apply_reference_iterate_kernel_2d(T &out_mean, T &out_rms, const T *intensity, const T *weights, T in_mean, T in_thresh, int nfreq, int nt, int stride)
+{
+    // double-precision here
+    double acc0 = 0.0;
+    double acc1 = 0.0;
+    double acc2 = 0.0;
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	for (int it = 0; it < nt; it++) {
+	    T ival = intensity[ifreq*stride + it];
+	    T wval = weights[ifreq*stride + it];
+	    
+	    if (fabs(ival - in_mean) >= in_thresh)
+		continue;
+
+	    acc0 += double(wval);
+	    acc1 += double(wval) * double(ival);
+	    acc2 += double(wval) * double(ival) * double(ival);
+	}
+    }
+
+    // FIXME case of invalid entries not tested
+    out_mean = acc1/acc0;
+    out_rms = sqrt(acc2/acc0 - out_mean*out_mean);
+}
+
+
+template<typename T>
 void clipper_wrms_vops<T>::test_kernel2d(std::mt19937 &rng, int nfreq, int nt, int stride)
 {
     assert(nfreq % Df == 0);
@@ -631,7 +689,7 @@ void clipper_wrms_vops<T>::test_kernel2d(std::mt19937 &rng, int nfreq, int nt, i
     T delta_mean = simd_helpers::compare(mean, vector<T>(S, ref_mean));
     T delta_rms = simd_helpers::compare(rms, vector<T>(S, ref_rms));
 
-    if ((delta_mean > 1.0e-3 * Df*Dt) || (delta_rms > 1.0e-3 * sqrt(Df*Dt))) {
+    if ((std::abs(delta_mean) > 1.0e-3 * Df*Dt) || (std::abs(delta_rms) > 1.0e-3 * sqrt(Df*Dt))) {
 	cerr << "kernel_clip2d_wrms mean/rms mismatch:"
 	     << " T=" << simd_helpers::type_name<T>() << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt << ", Iflag=" << Iflag 
 	     << ", Wflag=" << Wflag << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n"
@@ -686,7 +744,7 @@ void clipper_wrms_vops<T>::test_kernel1d_f(std::mt19937 &rng, int nfreq, int nt,
 	T delta_mean = simd_helpers::compare(mean, ref_mean);
 	T delta_rms = simd_helpers::compare(rms, ref_rms);
 	
-	if ((delta_mean > 1.0e-3 * Df*Dt) || (delta_rms > 1.0e-3 * sqrt(Df*Dt))) {
+	if ((std::abs(delta_mean) > 1.0e-3 * Df*Dt) || (std::abs(delta_rms) > 1.0e-3 * sqrt(Df*Dt))) {
 	    cerr << "kernel_clip1d_f_wrms mean/rms mismatch:"
 		 << " T=" << simd_helpers::type_name<T>() << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt << ", Iflag=" << Iflag 
 		 << ", Wflag=" << Wflag << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n"
@@ -713,24 +771,136 @@ void clipper_wrms_vops<T>::test_kernel1d_f(std::mt19937 &rng, int nfreq, int nt,
 
 
 template<typename T>
+void clipper_wrms_vops<T>::test_mask_kernel_2d(std::mt19937 &rng, int nfreq, int nt, int stride, int ds_stride)
+{
+    assert(nfreq % Df == 0);
+    assert(nt % Dt == 0);
+    assert(stride >= nt);
+    assert(ds_stride >= (nt/Dt));
+
+    int nfreq_ds = nfreq / Df;
+    int nt_ds = nt / Dt;
+
+    T mean = std::uniform_real_distribution<>()(rng);
+    T thresh = std::uniform_real_distribution<>()(rng);
+
+    vector<T> ds_intensity(nfreq_ds * ds_stride, 0.0);
+    vector<T> weights = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
+    vector<T> weights2 = weights;
+
+    for (int ifreq_ds = 0; ifreq_ds < nfreq_ds; ifreq_ds++)
+	for (int it_ds = 0; it_ds < nt_ds; it_ds++)
+	    ds_intensity[ifreq_ds*ds_stride + it_ds] = mean + thresh * clip_rand(rng);
+
+    apply_reference_mask_kernel_2d(&weights[0], &ds_intensity[0], mean, thresh, nfreq, nt, stride, ds_stride);
+    apply_fast_mask_kernel_2d(&weights2[0], &ds_intensity[0], mean, thresh, nfreq, nt, stride, ds_stride);
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	for (int it = 0; it < nt; it++) {
+	    if (weights[ifreq*stride+it] == weights2[ifreq*stride+it])
+		continue;
+
+	    int ifreq_ds = ifreq / Df;
+	    int it_ds = it / Dt;
+
+	    cerr << "test_clip2d_mask failed:"
+		 << " T=" << simd_helpers::type_name<T>() << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt 
+		 << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << ", ds_stride=" << ds_stride << "\n"
+		 << "   at (ifreq,it)=(" << ifreq << "," << it << "): "
+		 << " wt_ref=" << weights[ifreq*stride+it] 
+		 << ", wt_fast=" << weights2[ifreq*stride+it] << "\n"
+		 << "   mean=" << mean << ", thresh=" << thresh 
+		 << ", ds_int=" << ds_intensity[ifreq_ds*ds_stride + it_ds] << "\n";
+
+	    exit(1);
+	}
+    }
+}
+
+		     
+template<typename T>
+void clipper_wrms_vops<T>::test_iterate_kernel_2d(std::mt19937 &rng, int nfreq, int nt, int stride)
+{
+    random_chunk rc(rng, nfreq, nt, stride);
+
+    T in_mean = std::uniform_real_distribution<>()(rng);
+    T in_thresh = std::uniform_real_distribution<>(1.0, 2.0)(rng);
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq++)
+	for (int it = 0; it < nt; it++)
+	    rc.intensity[ifreq*stride + it] = in_mean + in_thresh * clip_rand(rng);
+    
+    T ref_mean, ref_rms;
+    apply_reference_iterate_kernel_2d(ref_mean, ref_rms, rc.intensity, rc.weights, in_mean, in_thresh, nfreq, nt, stride);
+
+    vector<T> mean(S), rms(S);
+    apply_fast_iterate_kernel_2d(&mean[0], &rms[0], rc.intensity, rc.weights, in_mean, in_thresh, nfreq, nt, stride);
+
+    T delta_mean = simd_helpers::compare(mean, vector<T>(S, ref_mean));
+    T delta_rms = simd_helpers::compare(rms, vector<T>(S, ref_rms));
+
+    if ((std::abs(delta_mean) > 1.0e-3) || (std::abs(delta_rms) > 1.0e-3)) {
+	cerr << "test_iterate_kernel2d failed:"
+	     << " T=" << simd_helpers::type_name<T>() << ", S=" << S
+	     << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n"
+	     << "  mean: " << ref_mean << ", " << simd_helpers::vecstr(mean) << "\n"
+	     << "  rms: " << ref_rms << ", " << simd_helpers::vecstr(rms) << "\n";
+
+	exit(1);
+    }
+}
+
+
+template<typename T>
 void clipper_wrms_vops<T>::run_tests(std::mt19937 &rng)
 {
     int nfreq = Df * std::uniform_int_distribution<>(10,20)(rng);
     int nt = Dt * S * std::uniform_int_distribution<>(10,20)(rng);
     int stride = nt + std::uniform_int_distribution<>(0,4)(rng);
+    int ds_stride = (nt/Dt) + std::uniform_int_distribution<>(0,4)(rng);
 
     test_kernel2d(rng, nfreq, nt, stride);
     test_kernel1d_f(rng, nfreq, nt, stride);
+    test_mask_kernel_2d(rng, nfreq, nt, stride, ds_stride);
+    test_iterate_kernel_2d(rng, nfreq, nt, stride);
 }
 
 
 // -------------------------------------------------------------------------------------------------
 
 
-template<typename T, unsigned int S_, unsigned int Df_, unsigned int Dt_, bool Iflag_, bool Wflag_>
-struct clipper_wrms_ops : clipper_wrms_vops<T>
+template<typename T, unsigned int S_>
+struct clipper_ops_base2 : public clipper_wrms_vops<T>
 {
-    clipper_wrms_ops() : clipper_wrms_vops<T>(S_, Df_, Dt_, Iflag_, Wflag_) { }
+    clipper_ops_base2(unsigned int Df_, unsigned int Dt_, bool Iflag_, bool Wflag_)
+	: clipper_wrms_vops<T> (S_, Df_, Dt_, Iflag_, Wflag_) { }
+
+    virtual void apply_fast_iterate_kernel_2d(T *mean, T *rms, const T *intensity, const T *weights, T in_mean, T in_thresh, int nfreq, int nt, int stride) override
+    {
+	simd_t<T,S_> mean_x, rms_x;
+	_kernel_clip2d_iterate(mean_x, rms_x, intensity, weights, simd_t<T,S_> (in_mean), simd_t<T,S_> (in_thresh), nfreq, nt, stride);
+	mean_x.storeu(mean);
+	rms_x.storeu(rms);
+    }
+};
+
+
+template<typename T, unsigned int S_, unsigned int Df_, unsigned int Dt_>
+struct clipper_ops_base3 : public clipper_ops_base2<T,S_>
+{
+    clipper_ops_base3(bool Iflag_, bool Wflag_) : clipper_ops_base2<T,S_>(Df_, Dt_, Iflag_, Wflag_) { }
+
+    virtual void apply_fast_mask_kernel_2d(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int nt, int stride, int ds_stride) override
+    {
+	_kernel_clip2d_mask<T,S_,Df_,Dt_> (weights, ds_intensity, simd_t<T,S_>(mean), simd_t<T,S_>(thresh), nfreq, nt, stride, ds_stride);
+    }
+};
+
+
+template<typename T, unsigned int S_, unsigned int Df_, unsigned int Dt_, bool Iflag_, bool Wflag_>
+struct clipper_wrms_ops : clipper_ops_base3<T,S_,Df_,Dt_>
+{
+    clipper_wrms_ops() : clipper_ops_base3<T,S_,Df_,Dt_> (Iflag_, Wflag_) { }
     
     virtual void apply_fast_kernel2d(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt) override
     {
@@ -795,201 +965,6 @@ inline void test_clip_wrms_all(std::mt19937 &rng)
 // -------------------------------------------------------------------------------------------------
 
 
-template<typename T>
-static void reference_clip2d_mask(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int nt, int stride, int Df, int Dt, int ds_stride)
-{
-    assert(nfreq % Df == 0);
-    assert(nt % Dt == 0);
-
-    int nfreq_ds = nfreq / Df;
-    int nt_ds = nt / Dt;
-
-    for (int ifreq_ds = 0; ifreq_ds < nfreq_ds; ifreq_ds++) {
-	for (int it_ds = 0; it_ds < nt_ds; it_ds++) {
-	    T ival = ds_intensity[ifreq_ds*ds_stride + it_ds];
-
-	    if (fabs(ival-mean) < thresh)
-		continue;
-
-	    for (int ifreq = ifreq_ds*Df; ifreq < (ifreq_ds+1)*Df; ifreq++)
-		for (int it = it_ds*Dt; it < (it_ds+1)*Dt; it++)
-		    weights[ifreq*stride+it] = 0.0;
-	}
-    }
-}
-
-
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
-static void test_clip2d_mask(std::mt19937 &rng, int nfreq, int nt, int stride, int ds_stride)
-{
-    assert(nfreq % Df == 0);
-    assert(nt % Dt == 0);
-    assert(stride >= nt);
-    assert(ds_stride >= (nt/Dt));
-
-    int nfreq_ds = nfreq / Df;
-    int nt_ds = nt / Dt;
-
-    T mean = std::uniform_real_distribution<>()(rng);
-    T thresh = std::uniform_real_distribution<>()(rng);
-
-    vector<T> ds_intensity(nfreq_ds * ds_stride, 0.0);
-    vector<T> weights = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
-    vector<T> weights2 = weights;
-
-    for (int ifreq_ds = 0; ifreq_ds < nfreq_ds; ifreq_ds++)
-	for (int it_ds = 0; it_ds < nt_ds; it_ds++)
-	    ds_intensity[ifreq_ds*ds_stride + it_ds] = mean + thresh * clip_rand(rng);
-
-    reference_clip2d_mask(&weights[0], &ds_intensity[0], mean, thresh, nfreq, nt, stride, Df, Dt, ds_stride);
-    _kernel_clip2d_mask<T,S,Df,Dt> (&weights2[0], &ds_intensity[0], simd_t<T,S>(mean), simd_t<T,S>(thresh), nfreq, nt, stride, ds_stride);
-
-    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	for (int it = 0; it < nt; it++) {
-	    if (weights[ifreq*stride+it] == weights2[ifreq*stride+it])
-		continue;
-
-	    int ifreq_ds = ifreq / Df;
-	    int it_ds = it / Dt;
-
-	    cerr << "test_clip2d_mask failed:"
-		 << " T=" << simd_helpers::type_name<T>() << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt 
-		 << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << ", ds_stride=" << ds_stride << "\n"
-		 << "   at (ifreq,it)=(" << ifreq << "," << it << "): "
-		 << " wt_ref=" << weights[ifreq*stride+it] 
-		 << ", wt_fast=" << weights2[ifreq*stride+it] << "\n"
-		 << "   mean=" << mean << ", thresh=" << thresh 
-		 << ", ds_int=" << ds_intensity[ifreq_ds*ds_stride + it_ds] << "\n";
-
-	    exit(1);
-	}
-    }
-}
-
-
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
-static void test_clip2d_mask(std::mt19937 &rng)
-{
-    int nfreq = Df * std::uniform_int_distribution<>(10,20)(rng);
-    int nt = Dt * S * std::uniform_int_distribution<>(10,20)(rng);
-    int stride = nt + std::uniform_int_distribution<>(0,4)(rng);
-    int ds_stride = (nt/Dt) + std::uniform_int_distribution<>(0,4)(rng);
-
-    test_clip2d_mask<T,S,Df,Dt> (rng, nfreq, nt, stride, ds_stride);
-}
-
-
-// Fixed Df, many Dt
-template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt==1),int>::type = 0>
-static void test_clip2d_mask_varying_dt(std::mt19937 &rng)
-{
-    test_clip2d_mask<T,S,Df,1> (rng);
-}
-
-// Fixed Df, many Dt
-template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt>1),int>::type = 0>
-static void test_clip2d_mask_varying_dt(std::mt19937 &rng)
-{
-    test_clip2d_mask_varying_dt<T,S,Df,MaxDt/2> (rng);
-    test_clip2d_mask<T,S,Df,MaxDt> (rng);
-}
-
-// Many Df, many Dt
-template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf==1),int>::type = 0>
-static void test_clip2d_mask_all(std::mt19937 &rng)
-{
-    test_clip2d_mask_varying_dt<T,S,1,MaxDt> (rng);
-}
-
-// Many Df, many Dt
-template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf>1),int>::type = 0>
-static void test_clip2d_mask_all(std::mt19937 &rng)
-{
-    test_clip2d_mask_all<T,S,MaxDf/2,MaxDt> (rng);
-    test_clip2d_mask_varying_dt<T,S,MaxDf,MaxDt> (rng);
-}
-
-
-// -------------------------------------------------------------------------------------------------
-
-
-template<typename T>
-void reference_clip2d_iterate(T &out_mean, T &out_rms, const T *intensity, const T *weights, T in_mean, T in_thresh, int nfreq, int nt, int stride)
-{
-    // double-precision here
-    double acc0 = 0.0;
-    double acc1 = 0.0;
-    double acc2 = 0.0;
-
-    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	for (int it = 0; it < nt; it++) {
-	    T ival = intensity[ifreq*stride + it];
-	    T wval = weights[ifreq*stride + it];
-	    
-	    if (fabs(ival - in_mean) >= in_thresh)
-		continue;
-
-	    acc0 += double(wval);
-	    acc1 += double(wval) * double(ival);
-	    acc2 += double(wval) * double(ival) * double(ival);
-	}
-    }
-
-    // FIXME case of invalid entries not tested
-    out_mean = acc1/acc0;
-    out_rms = sqrt(acc2/acc0 - out_mean*out_mean);
-}
-
-
-template<typename T, unsigned int S>
-static void test_clip2d_iterate(std::mt19937 &rng, int nfreq, int nt, int stride)
-{
-    random_chunk rc(rng, nfreq, nt, stride);
-
-    T in_mean = std::uniform_real_distribution<>()(rng);
-    T in_thresh = std::uniform_real_distribution<>(1.0, 2.0)(rng);
-
-    for (int ifreq = 0; ifreq < nfreq; ifreq++)
-	for (int it = 0; it < nt; it++)
-	    rc.intensity[ifreq*stride + it] = in_mean + in_thresh * clip_rand(rng);
-    
-    T ref_mean, ref_rms;
-    reference_clip2d_iterate(ref_mean, ref_rms, rc.intensity, rc.weights, in_mean, in_thresh, nfreq, nt, stride);
-
-    simd_t<T,S> fast_mean, fast_rms;
-    _kernel_clip2d_iterate(fast_mean, fast_rms, rc.intensity, rc.weights, simd_t<T,S> (in_mean), simd_t<T,S> (in_thresh), nfreq, nt, stride);
-
-    vector<float> delta1 = vectorize(fast_mean - simd_t<T,S> (ref_mean));
-    vector<float> delta2 = vectorize(fast_rms - simd_t<T,S> (ref_rms));    
-
-    if ((simd_helpers::maxabs(delta1) > 1.0e-3) || (simd_helpers::maxabs(delta2) > 1.0e-3)) {
-	cerr << "test_clip2d_iterate failed:"
-	     << " T=" << simd_helpers::type_name<T>() << ", S=" << S
-	     << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n"
-	     << "  mean: " << ref_mean << ", " << fast_mean << "\n"
-	     << "  rms: " << ref_rms << ", " << fast_rms << "\n";
-
-	exit(1);
-    }
-}
-
-
-template<typename T, unsigned int S>
-static void test_clip2d_iterate_all(std::mt19937 &rng)
-{
-    for (int iter = 0; iter < 100; iter++) {
-	int nfreq = std::uniform_int_distribution<>(10,20)(rng);
-	int nt = S * std::uniform_int_distribution<>(10,20)(rng);
-	int stride = nt + std::uniform_int_distribution<>(0,4)(rng);
-
-	test_clip2d_iterate<T,S> (rng, nfreq, nt, stride);
-    }
-}
-
-
-// -------------------------------------------------------------------------------------------------
-
-
 template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<(Nmax==0),int>::type = 0>
 static void test_polynomial_detrenders(std::mt19937 &rng)
 {
@@ -1032,8 +1007,6 @@ int main(int argc, char **argv)
 
     test_polynomial_detrenders<float,8,16> (rng);
     test_clip_wrms_all<float,8,32,32> (rng);
-    test_clip2d_mask_all<float,8,32,32> (rng);
-    test_clip2d_iterate_all<float,8> (rng);
 
     cout << "test-kernels: all tests passed\n";
     return 0;
