@@ -500,26 +500,69 @@ void test_detrend_transpose(std::mt19937 &rng, int n1, int n2, int stride1, int 
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// clippers_wrms_vops: contains wrms kernels for a fixed tuple (T,S,Df,Dt,Iflag,Wflag).
+//
+// This extra level of virtual functions was introduced in order to reduce compile time!
 
 
 template<typename T>
-static void reference_clip2d_wrms(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, int nds_f, int nds_t, T *ds_int, T *ds_wt)
+struct clipper_wrms_vops {
+    const unsigned int S;
+    const unsigned int Df;
+    const unsigned int Dt;
+    const bool Iflag;
+    const bool Wflag;
+    
+    clipper_wrms_vops(unsigned int S_, unsigned int Df_, unsigned int Dt_, bool Iflag_, bool Wflag_) :
+	S(S_), Df(Df_), Dt(Dt_), Iflag(Iflag_), Wflag(Wflag_) { }
+
+    virtual ~clipper_wrms_vops() { }
+
+    // fast_kernel2d
+    //   - takes an input array of shape (nfreq, nt)
+    //   - computes a scalar mean/rms, which is repeated redundantly S times
+    //   - outputs downsampled arrays of shape (nfreq/Df, nt/Dt)
+    //
+    // fast_kernel1d_f
+    //   - takes an input array of shape (nfreq, Dt*S)
+    //   - computes mean/rms arrays of length S
+    //   - outputs downsamped arrays of shape (nfreq/Df, nt/Dt)
+
+    virtual void apply_fast_kernel2d(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt) = 0;
+    virtual void apply_fast_kernel1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_w) = 0;
+
+    void apply_reference_kernel2d(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt);
+    void apply_reference_kernel1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_wt);
+
+    void test_kernel2d(std::mt19937 &rng, int nfreq, int nt, int stride);
+    void test_kernel1d_f(std::mt19937 &rng, int nfreq, int nt, int stride);
+
+    void run_tests(std::mt19937 &rng);
+
+    void _reference_kernel_helper(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt, int ds_stride);
+};
+
+
+template<typename T>
+void clipper_wrms_vops<T>::_reference_kernel_helper(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt, int ds_stride)
 {
-    assert(nfreq % nds_f == 0);
-    assert(nt % nds_t == 0);
+    assert(nfreq % Df == 0);
+    assert(nt % Dt == 0);
+    assert(ds_stride >= nt/Dt);
 
     // double-precision here
     double acc0 = 0.0;
     double acc1 = 0.0;
     double acc2 = 0.0;
-    
-    for (int ifreq = 0; ifreq < nfreq; ifreq += nds_f) {
-	for (int it = 0; it < nt; it += nds_t) {
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
+	for (int it = 0; it < nt; it += Dt) {
 	    T wival = 0.0;
 	    T wval = 0.0;
 
-	    for (int jfreq = ifreq; jfreq < ifreq + nds_f; jfreq++) {
-		for (int jt = it; jt < it + nds_t; jt++) {
+	    for (int jfreq = ifreq; jfreq < ifreq + Df; jfreq++) {
+		for (int jt = it; jt < it + Dt; jt++) {
 		    int s = jfreq*stride + jt;
 		    wival += weights[s] * intensity[s];
 		    wval += weights[s];
@@ -529,10 +572,14 @@ static void reference_clip2d_wrms(T &mean, T &rms, const T *intensity, const T *
 	    acc0 += double(wval);
 	    acc1 += double(wival);
 	    acc2 += double(wival) * double(wival) / double(wval);
-
+	    
 	    *(ds_int++) = wival / wval;
 	    *(ds_wt++) = wval;
 	}
+
+	// A little awkward but that's OK
+	ds_int += (ds_stride - (nt/Dt));
+	ds_wt += (ds_stride - (nt/Dt));
     }
 
     // FIXME case of invalid entries not tested
@@ -541,8 +588,24 @@ static void reference_clip2d_wrms(T &mean, T &rms, const T *intensity, const T *
 }
 
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag>
-static void test_clip_wrms(std::mt19937 &rng, int nfreq, int nt, int stride)
+template<typename T>
+void clipper_wrms_vops<T>::apply_reference_kernel2d(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt)
+{
+    // Call _reference_kernel_helper() with ds_stride = nt/Dt.
+    _reference_kernel_helper(mean, rms, intensity, weights, nfreq, nt, stride, ds_int, ds_wt, nt/Dt);
+}
+
+template<typename T>
+void clipper_wrms_vops<T>::apply_reference_kernel1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_wt)
+{
+    // Call _reference_kernel_helper() S times, with nt=Dt and ds_stride=S.
+    for (unsigned int s = 0; s < S; s++)
+	_reference_kernel_helper(mean[s], rms[s], intensity + s*Dt, weights + s*Dt, nfreq, Dt, stride, ds_int+s, ds_wt+s, S);
+}
+
+
+template<typename T>
+void clipper_wrms_vops<T>::test_kernel2d(std::mt19937 &rng, int nfreq, int nt, int stride)
 {
     assert(nfreq % Df == 0);
     assert(nt % (Dt*S) == 0);
@@ -550,98 +613,126 @@ static void test_clip_wrms(std::mt19937 &rng, int nfreq, int nt, int stride)
 
     random_chunk rc(rng, nfreq, nt, stride);
 
-    // 2d test starts here 
-
     float ref_mean, ref_rms;
     vector<T> ref_ds_int((nfreq/Df) * (nt/Dt), -1.0);
     vector<T> ref_ds_wt((nfreq/Df) * (nt/Dt), -1.0);
 
-    reference_clip2d_wrms(ref_mean, ref_rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, Df, Dt, &ref_ds_int[0], &ref_ds_wt[0]);
-    
-    simd_t<T,S> mean, rms;
+    apply_reference_kernel2d(ref_mean, ref_rms, rc.intensity, rc.weights, nfreq, nt, stride, &ref_ds_int[0], &ref_ds_wt[0]);
+
+    vector<T> mean(S);
+    vector<T> rms(S);
     vector<T> ds_intv((nfreq/Df) * (nt/Dt), -1.0);
     vector<T> ds_wtv((nfreq/Df) * (nt/Dt), -1.0);
 
     T *ds_int = Iflag ? &ds_intv[0] : nullptr;
     T *ds_wt = Wflag ? &ds_wtv[0] : nullptr;
 
-    _kernel_clip2d_wrms<T,S,Df,Dt,Iflag,Wflag,T,S> (mean, rms, rc.intensity, rc.weights, nfreq, nt, rc.stride, ds_int, ds_wt);
+    apply_fast_kernel2d(&mean[0], &rms[0], rc.intensity, rc.weights, nfreq, nt, stride, ds_int, ds_wt);
+    
+    T delta_mean = simd_helpers::compare(mean, vector<T>(S, ref_mean));
+    T delta_rms = simd_helpers::compare(rms, vector<T>(S, ref_rms));
 
-    vector<float> delta1 = vectorize(mean - simd_t<T,S> (ref_mean));
-    vector<float> delta2 = vectorize(rms - simd_t<T,S> (ref_rms));    
-
-    if ((simd_helpers::maxabs(delta1) > 1.0e-3 * Df*Dt) || (simd_helpers::maxabs(delta2) > 1.0e-3 * sqrt(Df*Dt))) {
-	cerr << "_kernel_clip2d_wrms mean/rms mismatch:"
+    if ((delta_mean > 1.0e-3 * Df*Dt) || (delta_rms > 1.0e-3 * sqrt(Df*Dt))) {
+	cerr << "kernel_clip2d_wrms mean/rms mismatch:"
 	     << " T=" << simd_helpers::type_name<T>() << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt << ", Iflag=" << Iflag 
 	     << ", Wflag=" << Wflag << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n"
-	     << "  mean: " << ref_mean << ", " << mean << "\n"
-	     << "  rms: " << ref_rms << ", " << rms << "\n";
+	     << "  mean: " << ref_mean << ", " << simd_helpers::vecstr(mean) << "\n"
+	     << "  rms: " << ref_rms << ", " << simd_helpers::vecstr(rms) << "\n";
 	exit(1);
     }
 
     if (Iflag && (simd_helpers::maxdiff(ref_ds_int, ds_intv) > 1.0e-3 * Df*Dt)) {
-	cerr << "_kernel_clip2d_wrms ds_int mismatch:"
+	cerr << "kernel_clip2d_wrms ds_int mismatch:"
 	     << " T=" << simd_helpers::type_name<T>() << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt << ", Iflag=" << Iflag 
-	     << ", Wflag=" << Wflag << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n"
-	     << "  mean: " << ref_mean << ", " << mean << "\n"
-	     << "  rms: " << ref_rms << ", " << rms << "\n";
+	     << ", Wflag=" << Wflag << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n";
 	exit(1);
     }
 
     if (Wflag && (simd_helpers::maxdiff(ref_ds_wt, ds_wtv) > 1.0e-3 * Df*Dt)) {
-	cerr << "_kernel_clip2d_wrms ds_wt mismatch:"
+	cerr << "kernel_clip2d_wrms ds_wt mismatch:"
 	     << " T=" << simd_helpers::type_name<T>() << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt << ", Iflag=" << Iflag 
-	     << ", Wflag=" << Wflag << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n"
-	     << "  mean: " << ref_mean << ", " << mean << "\n"
-	     << "  rms: " << ref_rms << ", " << rms << "\n";
+	     << ", Wflag=" << Wflag << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n";
 	exit(1);
     }
 }
 
 
-
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
-static void test_clip_wrms(std::mt19937 &rng)
+template<typename T>
+void clipper_wrms_vops<T>::run_tests(std::mt19937 &rng)
 {
     int nfreq = Df * std::uniform_int_distribution<>(10,20)(rng);
     int nt = Dt * S * std::uniform_int_distribution<>(10,20)(rng);
     int stride = nt + std::uniform_int_distribution<>(0,4)(rng);
 
-    test_clip_wrms<T,S,Df,Dt,true,true> (rng, nfreq, nt, stride);
-    test_clip_wrms<T,S,Df,Dt,true,false> (rng, nfreq, nt, stride);
-    test_clip_wrms<T,S,Df,Dt,false,true> (rng, nfreq, nt, stride);
-    test_clip_wrms<T,S,Df,Dt,false,false> (rng, nfreq, nt, stride);
+    test_kernel2d(rng, nfreq, nt, stride);
 }
 
 
-// Fixed Df, many Dt
-template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt==1),int>::type = 0>
-static void test_clip_wrms_varying_dt(std::mt19937 &rng)
+// -------------------------------------------------------------------------------------------------
+
+
+template<typename T, unsigned int S_, unsigned int Df_, unsigned int Dt_, bool Iflag_, bool Wflag_>
+struct clipper_wrms_ops : clipper_wrms_vops<T>
 {
-    test_clip_wrms<T,S,Df,1> (rng);
+    clipper_wrms_ops() : clipper_wrms_vops<T>(S_, Df_, Dt_, Iflag_, Wflag_) { }
+    
+    virtual void apply_fast_kernel2d(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt) override
+    {
+	simd_t<T,S_> mean_x;
+	simd_t<T,S_> rms_x;
+
+	_kernel_clip2d_wrms<T,S_,Df_,Dt_,Iflag_,Wflag_,T,S_> (mean_x, rms_x, intensity, weights, nfreq, nt, stride, ds_int, ds_wt);
+
+	mean_x.storeu(mean);
+	rms_x.storeu(rms);
+    }
+
+    virtual void apply_fast_kernel1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_wt) override
+    {
+	simd_t<T,S_> mean_x;
+	simd_t<T,S_> rms_x;
+
+	_kernel_clip1d_f_wrms<T,S_,Df_,Dt_,Iflag_,Wflag_> (mean_x, rms_x, intensity, weights, nfreq, stride, ds_int, ds_wt);
+
+	mean_x.storeu(mean);
+	rms_x.storeu(rms);
+    }
+};
+
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt==0),int>::type = 0>
+inline void populate2(vector<shared_ptr<clipper_wrms_vops<T>>> &testsuite) { return; }
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt > 0),int>::type = 0>
+inline void populate2(vector<shared_ptr<clipper_wrms_vops<T>>> &testsuite)
+{
+    populate2<T,S,Df,(MaxDt/2)> (testsuite);
+    testsuite.push_back(make_shared<clipper_wrms_ops<T,S,Df,MaxDt,true,true>> ());
+    testsuite.push_back(make_shared<clipper_wrms_ops<T,S,Df,MaxDt,true,false>> ());
+    testsuite.push_back(make_shared<clipper_wrms_ops<T,S,Df,MaxDt,false,true>> ());
+    testsuite.push_back(make_shared<clipper_wrms_ops<T,S,Df,MaxDt,false,false>> ());
 }
 
-// Fixed Df, many Dt
-template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt>1),int>::type = 0>
-static void test_clip_wrms_varying_dt(std::mt19937 &rng)
+
+template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf==0),int>::type = 0>
+inline void populate(vector<shared_ptr<clipper_wrms_vops<T>>> &testsuite) { return; }
+
+template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf > 0),int>::type = 0>
+inline void populate(vector<shared_ptr<clipper_wrms_vops<T>>> &testsuite)
 {
-    test_clip_wrms_varying_dt<T,S,Df,MaxDt/2> (rng);
-    test_clip_wrms<T,S,Df,MaxDt> (rng);
+    populate<T,S,(MaxDf/2),MaxDt> (testsuite);
+    populate2<T,S,MaxDf,MaxDt> (testsuite);
 }
 
-// Many Df, many Dt
-template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf==1),int>::type = 0>
-static void test_clip_wrms_all(std::mt19937 &rng)
-{
-    test_clip_wrms_varying_dt<T,S,1,MaxDt> (rng);
-}
 
-// Many Df, many Dt
-template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf>1),int>::type = 0>
-static void test_clip_wrms_all(std::mt19937 &rng)
+template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt>
+inline void test_clip_wrms_all(std::mt19937 &rng)
 {
-    test_clip_wrms_all<T,S,MaxDf/2,MaxDt> (rng);
-    test_clip_wrms_varying_dt<T,S,MaxDf,MaxDt> (rng);
+    vector<shared_ptr<clipper_wrms_vops<T>>> testsuite;
+    populate<T,S,MaxDf,MaxDt> (testsuite);
+    
+    for (const auto &test: testsuite)
+	test->run_tests(rng);
 }
 
 
