@@ -500,6 +500,44 @@ void test_detrend_transpose(std::mt19937 &rng, int n1, int n2, int stride1, int 
 
 
 // -------------------------------------------------------------------------------------------------
+
+
+template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<(Nmax==0),int>::type = 0>
+static void run_all_polynomial_detrender_tests(std::mt19937 &rng)
+{
+    return;
+}
+
+
+template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<(Nmax>0),int>::type = 0>
+static void run_all_polynomial_detrender_tests(std::mt19937 &rng)
+{
+    run_all_polynomial_detrender_tests<T,S,(Nmax-1)> (rng);
+
+    for (int iter = 0; iter < 10; iter++) {
+	int nfreq = std::uniform_int_distribution<>(10*Nmax,20*Nmax)(rng);
+	int nt = S * std::uniform_int_distribution<>((10*Nmax)/S,(20*Nmax)/S)(rng);
+	int stride = nt + S * std::uniform_int_distribution<>(0,4)(rng);
+
+	test_legpoly_eval<T,S,Nmax> (rng);
+
+	test_detrend_t_pass1<T,S,Nmax> (rng, nt);
+	test_detrend_t_pass2<T,S,Nmax> (rng, nt);
+	test_detrend_t_nulling<T,S,Nmax> (rng, nfreq, nt, stride);
+	test_detrend_t_idempotency<T,S,Nmax> (rng, nfreq, nt, stride);
+
+	test_detrend_f_nulling<T,S,Nmax> (rng, nfreq, nt, stride);
+	test_detrend_f_idempotency<T,S,Nmax> (rng, nfreq, nt, stride);
+
+	// n2, stride2 only used in test_detrend_transpose()
+	int n2 = S * std::uniform_int_distribution<>((10*Nmax)/S,(20*Nmax)/S)(rng);
+	int stride2 = n2 + S * std::uniform_int_distribution<>(0,4)(rng);
+	test_detrend_transpose<T,S,Nmax> (rng, nt, n2, stride, stride2);
+    }
+}
+
+
+// -------------------------------------------------------------------------------------------------
 //
 // clippers_wrms_vops: contains wrms kernels for a fixed tuple (T,S,Df,Dt,Iflag,Wflag).
 //
@@ -507,17 +545,17 @@ void test_detrend_transpose(std::mt19937 &rng, int n1, int n2, int stride1, int 
 
 
 template<typename T>
-struct clipper_wrms_vops {
+struct clipper_ops_base {
     const unsigned int S;
     const unsigned int Df;
     const unsigned int Dt;
     const bool Iflag;
     const bool Wflag;
     
-    clipper_wrms_vops(unsigned int S_, unsigned int Df_, unsigned int Dt_, bool Iflag_, bool Wflag_) :
+    clipper_ops_base(unsigned int S_, unsigned int Df_, unsigned int Dt_, bool Iflag_, bool Wflag_) :
 	S(S_), Df(Df_), Dt(Dt_), Iflag(Iflag_), Wflag(Wflag_) { }
 
-    virtual ~clipper_wrms_vops() { }
+    virtual ~clipper_ops_base() { }
 
     // fast_kernel2d
     //   - takes an input array of shape (nfreq, nt)
@@ -529,29 +567,29 @@ struct clipper_wrms_vops {
     //   - computes mean/rms arrays of length S
     //   - outputs downsampled arrays of shape (nfreq/Df, S)
 
-    virtual void apply_fast_kernel2d(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt) = 0;
-    virtual void apply_fast_kernel1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_w) = 0;
+    virtual void apply_fast_wrms_kernel_2d(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt) = 0;
+    virtual void apply_fast_wrms_kernel_1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_w) = 0;
     virtual void apply_fast_mask_kernel_2d(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int nt, int stride, int ds_stride) = 0;
     virtual void apply_fast_iterate_kernel_2d(T *mean, T *rms, const T *intensity, const T *weights, T in_mean, T in_thresh, int nfreq, int nt, int stride) = 0;
     
-    void apply_reference_kernel2d(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt);
-    void apply_reference_kernel1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_wt);    
+    void apply_reference_wrms_kernel_2d(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt);
+    void apply_reference_wrms_kernel_1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_wt);    
     void apply_reference_mask_kernel_2d(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int nt, int stride, int ds_stride);
     void apply_reference_iterate_kernel_2d(T &out_mean, T &out_rms, const T *intensity, const T *weights, T in_mean, T in_thresh, int nfreq, int nt, int stride);
 
-    void test_kernel2d(std::mt19937 &rng, int nfreq, int nt, int stride);
-    void test_kernel1d_f(std::mt19937 &rng, int nfreq, int nt, int stride);
+    void test_wrms_kernel_2d(std::mt19937 &rng, int nfreq, int nt, int stride);
+    void test_wrms_kernel_1d_f(std::mt19937 &rng, int nfreq, int nt, int stride);
     void test_mask_kernel_2d(std::mt19937 &rng, int nfreq, int nt, int stride, int ds_stride);
     void test_iterate_kernel_2d(std::mt19937 &rng, int nfreq, int nt, int stride);
 
     void run_tests(std::mt19937 &rng);
 
-    void _reference_kernel_helper(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt, int ds_stride);
+    void _reference_wrms_kernel_helper(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt, int ds_stride);
 };
 
 
 template<typename T>
-void clipper_wrms_vops<T>::_reference_kernel_helper(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt, int ds_stride)
+void clipper_ops_base<T>::_reference_wrms_kernel_helper(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt, int ds_stride)
 {
     assert(nfreq % Df == 0);
     assert(nt % Dt == 0);
@@ -595,23 +633,23 @@ void clipper_wrms_vops<T>::_reference_kernel_helper(T &mean, T &rms, const T *in
 
 
 template<typename T>
-void clipper_wrms_vops<T>::apply_reference_kernel2d(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt)
+void clipper_ops_base<T>::apply_reference_wrms_kernel_2d(T &mean, T &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt)
 {
-    // Call _reference_kernel_helper() with ds_stride = nt/Dt.
-    _reference_kernel_helper(mean, rms, intensity, weights, nfreq, nt, stride, ds_int, ds_wt, nt/Dt);
+    // Call _reference_wrms_kernel_helper() with ds_stride = nt/Dt.
+    _reference_wrms_kernel_helper(mean, rms, intensity, weights, nfreq, nt, stride, ds_int, ds_wt, nt/Dt);
 }
 
 template<typename T>
-void clipper_wrms_vops<T>::apply_reference_kernel1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_wt)
+void clipper_ops_base<T>::apply_reference_wrms_kernel_1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_wt)
 {
-    // Call _reference_kernel_helper() S times, with nt=Dt and ds_stride=S.
+    // Call _reference_wrms_kernel_helper() S times, with nt=Dt and ds_stride=S.
     for (unsigned int s = 0; s < S; s++)
-	_reference_kernel_helper(mean[s], rms[s], intensity + s*Dt, weights + s*Dt, nfreq, Dt, stride, ds_int+s, ds_wt+s, S);
+	_reference_wrms_kernel_helper(mean[s], rms[s], intensity + s*Dt, weights + s*Dt, nfreq, Dt, stride, ds_int+s, ds_wt+s, S);
 }
 
 
 template<typename T>
-void clipper_wrms_vops<T>::apply_reference_mask_kernel_2d(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int nt, int stride, int ds_stride)
+void clipper_ops_base<T>::apply_reference_mask_kernel_2d(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int nt, int stride, int ds_stride)
 {
     assert(nfreq % Df == 0);
     assert(nt % Dt == 0);
@@ -635,7 +673,7 @@ void clipper_wrms_vops<T>::apply_reference_mask_kernel_2d(T *weights, const T *d
 
 
 template<typename T>
-void clipper_wrms_vops<T>::apply_reference_iterate_kernel_2d(T &out_mean, T &out_rms, const T *intensity, const T *weights, T in_mean, T in_thresh, int nfreq, int nt, int stride)
+void clipper_ops_base<T>::apply_reference_iterate_kernel_2d(T &out_mean, T &out_rms, const T *intensity, const T *weights, T in_mean, T in_thresh, int nfreq, int nt, int stride)
 {
     // double-precision here
     double acc0 = 0.0;
@@ -663,7 +701,7 @@ void clipper_wrms_vops<T>::apply_reference_iterate_kernel_2d(T &out_mean, T &out
 
 
 template<typename T>
-void clipper_wrms_vops<T>::test_kernel2d(std::mt19937 &rng, int nfreq, int nt, int stride)
+void clipper_ops_base<T>::test_wrms_kernel_2d(std::mt19937 &rng, int nfreq, int nt, int stride)
 {
     assert(nfreq % Df == 0);
     assert(nt % (Dt*S) == 0);
@@ -675,7 +713,7 @@ void clipper_wrms_vops<T>::test_kernel2d(std::mt19937 &rng, int nfreq, int nt, i
     vector<T> ref_ds_int((nfreq/Df) * (nt/Dt), -1.0);
     vector<T> ref_ds_wt((nfreq/Df) * (nt/Dt), -1.0);
 
-    apply_reference_kernel2d(ref_mean, ref_rms, rc.intensity, rc.weights, nfreq, nt, stride, &ref_ds_int[0], &ref_ds_wt[0]);
+    apply_reference_wrms_kernel_2d(ref_mean, ref_rms, rc.intensity, rc.weights, nfreq, nt, stride, &ref_ds_int[0], &ref_ds_wt[0]);
 
     vector<T> mean(S), rms(S);
     vector<T> ds_intv((nfreq/Df) * (nt/Dt), -1.0);
@@ -684,7 +722,7 @@ void clipper_wrms_vops<T>::test_kernel2d(std::mt19937 &rng, int nfreq, int nt, i
     T *ds_int = Iflag ? &ds_intv[0] : nullptr;
     T *ds_wt = Wflag ? &ds_wtv[0] : nullptr;
 
-    apply_fast_kernel2d(&mean[0], &rms[0], rc.intensity, rc.weights, nfreq, nt, stride, ds_int, ds_wt);
+    apply_fast_wrms_kernel_2d(&mean[0], &rms[0], rc.intensity, rc.weights, nfreq, nt, stride, ds_int, ds_wt);
     
     T delta_mean = simd_helpers::compare(mean, vector<T>(S, ref_mean));
     T delta_rms = simd_helpers::compare(rms, vector<T>(S, ref_rms));
@@ -715,7 +753,7 @@ void clipper_wrms_vops<T>::test_kernel2d(std::mt19937 &rng, int nfreq, int nt, i
 
 
 template<typename T>
-void clipper_wrms_vops<T>::test_kernel1d_f(std::mt19937 &rng, int nfreq, int nt, int stride)
+void clipper_ops_base<T>::test_wrms_kernel_1d_f(std::mt19937 &rng, int nfreq, int nt, int stride)
 {
     assert(nfreq % Df == 0);
     assert(nt % (Dt*S) == 0);
@@ -738,8 +776,8 @@ void clipper_wrms_vops<T>::test_kernel1d_f(std::mt19937 &rng, int nfreq, int nt,
 	const T *icol = rc.intensity + it;
 	const T *wcol = rc.weights + it;
 
-	apply_reference_kernel1d_f(&ref_mean[0], &ref_rms[0], icol, wcol, nfreq, stride, &ref_ds_int[0], &ref_ds_wt[0]);
-	apply_fast_kernel1d_f(&mean[0], &rms[0], icol, wcol, nfreq, stride, ds_int, ds_wt);
+	apply_reference_wrms_kernel_1d_f(&ref_mean[0], &ref_rms[0], icol, wcol, nfreq, stride, &ref_ds_int[0], &ref_ds_wt[0]);
+	apply_fast_wrms_kernel_1d_f(&mean[0], &rms[0], icol, wcol, nfreq, stride, ds_int, ds_wt);
     
 	T delta_mean = simd_helpers::compare(mean, ref_mean);
 	T delta_rms = simd_helpers::compare(rms, ref_rms);
@@ -771,7 +809,7 @@ void clipper_wrms_vops<T>::test_kernel1d_f(std::mt19937 &rng, int nfreq, int nt,
 
 
 template<typename T>
-void clipper_wrms_vops<T>::test_mask_kernel_2d(std::mt19937 &rng, int nfreq, int nt, int stride, int ds_stride)
+void clipper_ops_base<T>::test_mask_kernel_2d(std::mt19937 &rng, int nfreq, int nt, int stride, int ds_stride)
 {
     assert(nfreq % Df == 0);
     assert(nt % Dt == 0);
@@ -819,7 +857,7 @@ void clipper_wrms_vops<T>::test_mask_kernel_2d(std::mt19937 &rng, int nfreq, int
 
 		     
 template<typename T>
-void clipper_wrms_vops<T>::test_iterate_kernel_2d(std::mt19937 &rng, int nfreq, int nt, int stride)
+void clipper_ops_base<T>::test_iterate_kernel_2d(std::mt19937 &rng, int nfreq, int nt, int stride)
 {
     random_chunk rc(rng, nfreq, nt, stride);
 
@@ -852,15 +890,15 @@ void clipper_wrms_vops<T>::test_iterate_kernel_2d(std::mt19937 &rng, int nfreq, 
 
 
 template<typename T>
-void clipper_wrms_vops<T>::run_tests(std::mt19937 &rng)
+void clipper_ops_base<T>::run_tests(std::mt19937 &rng)
 {
     int nfreq = Df * std::uniform_int_distribution<>(10,20)(rng);
     int nt = Dt * S * std::uniform_int_distribution<>(10,20)(rng);
     int stride = nt + std::uniform_int_distribution<>(0,4)(rng);
     int ds_stride = (nt/Dt) + std::uniform_int_distribution<>(0,4)(rng);
 
-    test_kernel2d(rng, nfreq, nt, stride);
-    test_kernel1d_f(rng, nfreq, nt, stride);
+    test_wrms_kernel_2d(rng, nfreq, nt, stride);
+    test_wrms_kernel_1d_f(rng, nfreq, nt, stride);
     test_mask_kernel_2d(rng, nfreq, nt, stride, ds_stride);
     test_iterate_kernel_2d(rng, nfreq, nt, stride);
 }
@@ -870,10 +908,10 @@ void clipper_wrms_vops<T>::run_tests(std::mt19937 &rng)
 
 
 template<typename T, unsigned int S_>
-struct clipper_ops_base2 : public clipper_wrms_vops<T>
+struct clipper_ops_base2 : public clipper_ops_base<T>
 {
     clipper_ops_base2(unsigned int Df_, unsigned int Dt_, bool Iflag_, bool Wflag_)
-	: clipper_wrms_vops<T> (S_, Df_, Dt_, Iflag_, Wflag_) { }
+	: clipper_ops_base<T> (S_, Df_, Dt_, Iflag_, Wflag_) { }
 
     virtual void apply_fast_iterate_kernel_2d(T *mean, T *rms, const T *intensity, const T *weights, T in_mean, T in_thresh, int nfreq, int nt, int stride) override
     {
@@ -902,7 +940,7 @@ struct clipper_wrms_ops : clipper_ops_base3<T,S_,Df_,Dt_>
 {
     clipper_wrms_ops() : clipper_ops_base3<T,S_,Df_,Dt_> (Iflag_, Wflag_) { }
     
-    virtual void apply_fast_kernel2d(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt) override
+    virtual void apply_fast_wrms_kernel_2d(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_int, T *ds_wt) override
     {
 	simd_t<T,S_> mean_x;
 	simd_t<T,S_> rms_x;
@@ -913,7 +951,7 @@ struct clipper_wrms_ops : clipper_ops_base3<T,S_,Df_,Dt_>
 	rms_x.storeu(rms);
     }
 
-    virtual void apply_fast_kernel1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_wt) override
+    virtual void apply_fast_wrms_kernel_1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_wt) override
     {
 	simd_t<T,S_> mean_x;
 	simd_t<T,S_> rms_x;
@@ -927,10 +965,10 @@ struct clipper_wrms_ops : clipper_ops_base3<T,S_,Df_,Dt_>
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt==0),int>::type = 0>
-inline void populate2(vector<shared_ptr<clipper_wrms_vops<T>>> &testsuite) { return; }
+inline void populate2(vector<shared_ptr<clipper_ops_base<T>>> &testsuite) { return; }
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt > 0),int>::type = 0>
-inline void populate2(vector<shared_ptr<clipper_wrms_vops<T>>> &testsuite)
+inline void populate2(vector<shared_ptr<clipper_ops_base<T>>> &testsuite)
 {
     populate2<T,S,Df,(MaxDt/2)> (testsuite);
     testsuite.push_back(make_shared<clipper_wrms_ops<T,S,Df,MaxDt,true,true>> ());
@@ -941,10 +979,10 @@ inline void populate2(vector<shared_ptr<clipper_wrms_vops<T>>> &testsuite)
 
 
 template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf==0),int>::type = 0>
-inline void populate(vector<shared_ptr<clipper_wrms_vops<T>>> &testsuite) { return; }
+inline void populate(vector<shared_ptr<clipper_ops_base<T>>> &testsuite) { return; }
 
 template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf > 0),int>::type = 0>
-inline void populate(vector<shared_ptr<clipper_wrms_vops<T>>> &testsuite)
+inline void populate(vector<shared_ptr<clipper_ops_base<T>>> &testsuite)
 {
     populate<T,S,(MaxDf/2),MaxDt> (testsuite);
     populate2<T,S,MaxDf,MaxDt> (testsuite);
@@ -952,9 +990,9 @@ inline void populate(vector<shared_ptr<clipper_wrms_vops<T>>> &testsuite)
 
 
 template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt>
-inline void test_clip_wrms_all(std::mt19937 &rng)
+inline void run_all_clipper_tests(std::mt19937 &rng)
 {
-    vector<shared_ptr<clipper_wrms_vops<T>>> testsuite;
+    vector<shared_ptr<clipper_ops_base<T>>> testsuite;
     populate<T,S,MaxDf,MaxDt> (testsuite);
     
     for (const auto &test: testsuite)
@@ -965,48 +1003,13 @@ inline void test_clip_wrms_all(std::mt19937 &rng)
 // -------------------------------------------------------------------------------------------------
 
 
-template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<(Nmax==0),int>::type = 0>
-static void test_polynomial_detrenders(std::mt19937 &rng)
-{
-    return;
-}
-
-
-template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<(Nmax>0),int>::type = 0>
-static void test_polynomial_detrenders(std::mt19937 &rng)
-{
-    test_polynomial_detrenders<T,S,(Nmax-1)> (rng);
-
-    for (int iter = 0; iter < 10; iter++) {
-	int nfreq = std::uniform_int_distribution<>(10*Nmax,20*Nmax)(rng);
-	int nt = S * std::uniform_int_distribution<>((10*Nmax)/S,(20*Nmax)/S)(rng);
-	int stride = nt + S * std::uniform_int_distribution<>(0,4)(rng);
-
-	test_legpoly_eval<T,S,Nmax> (rng);
-
-	test_detrend_t_pass1<T,S,Nmax> (rng, nt);
-	test_detrend_t_pass2<T,S,Nmax> (rng, nt);
-	test_detrend_t_nulling<T,S,Nmax> (rng, nfreq, nt, stride);
-	test_detrend_t_idempotency<T,S,Nmax> (rng, nfreq, nt, stride);
-
-	test_detrend_f_nulling<T,S,Nmax> (rng, nfreq, nt, stride);
-	test_detrend_f_idempotency<T,S,Nmax> (rng, nfreq, nt, stride);
-
-	// n2, stride2 only used in test_detrend_transpose()
-	int n2 = S * std::uniform_int_distribution<>((10*Nmax)/S,(20*Nmax)/S)(rng);
-	int stride2 = n2 + S * std::uniform_int_distribution<>(0,4)(rng);
-	test_detrend_transpose<T,S,Nmax> (rng, nt, n2, stride, stride2);
-    }
-}
-
-
 int main(int argc, char **argv)
 {
     std::random_device rd;
     std::mt19937 rng(rd());
 
-    test_polynomial_detrenders<float,8,16> (rng);
-    test_clip_wrms_all<float,8,32,32> (rng);
+    run_all_polynomial_detrender_tests<float,8,16> (rng);
+    run_all_clipper_tests<float,8,32,32> (rng);
 
     cout << "test-kernels: all tests passed\n";
     return 0;
