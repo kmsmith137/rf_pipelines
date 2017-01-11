@@ -93,10 +93,15 @@ namespace constants {
     static constexpr double chime_seconds_per_fpga_count = 2.56e-6;
 
     // Some of our assembly language transforms have parameters, such as max allowed downsampling,
-    // which must be known at compile time.  Generally, increasing these values and recompiling is OK,
-    // but may increase compile time and the file size of librf_pipelines.so.
+    // which must be known at compile time.  If you need to change them, note the following:
+    //
+    //   - make sure that the downsampling-related parameters are still powers of two
+    //   - the only downside is increased compile time and librf_pipelines.so file size
+    //   - you will need to recompile rf_pipelines after the change
 
     static constexpr int polynomial_detrender_max_degree = 20;
+    static constexpr int std_dev_clipper_max_frequency_downsampling = 32;
+    static constexpr int std_dev_clipper_max_time_downsampling = 32;
 
     // Number of single-precision floats which fit into a SIMD word on this machine.
     // For now, we just hardcode 8, assuming a CPU with the AVX instruction set but not AVX-512,
@@ -186,9 +191,6 @@ extern std::ostream &operator<<(std::ostream &os, axis_type axis);
 //
 extern std::shared_ptr<wi_transform> make_polynomial_detrender(axis_type axis, int nt_chunk, int polydeg, double epsilon=1.0e-2);
 
-// Functionality of polynomial_detrender transform as standalone function.
-extern void apply_polynomial_detrender(float *intensity, const float *weights, int nfreq, int nt, int stride, axis_type axis, int polydeg, double epsilon);
-
 
 // A "simple detrender" is a time-axis polynomial fitter with degree zero.
 // FIXME: this will be removed soon, in favor of calling make_polynomial_detrender() directly.
@@ -234,6 +236,11 @@ extern std::shared_ptr<wi_transform> make_intensity_clipper(int Df, int Dt, axis
 // The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.
 //
 std::shared_ptr<wi_transform> make_std_dev_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma);
+
+
+// Functionality of above transforms as standalone functions.
+extern void apply_polynomial_detrender(float *intensity, const float *weights, int nfreq, int nt, int stride, axis_type axis, int polydeg, double epsilon);
+extern void apply_std_dev_clipper(const float *intensity, float *weights, int Df, int Dt, axis_type axis, int nfreq, int nt, int stride, double sigma);
 
 
 //

@@ -113,8 +113,7 @@ static void check_params(axis_type axis, int nfreq, int nt, int stride, int poly
 
     if (_unlikely(polydeg > MaxDeg))
 	throw runtime_error("rf_pipelines polynomial detrender: polydeg=" + to_string(polydeg)
-			    + " must be <= constants::polynomial_detrender_max_degree=" + to_string(MaxDeg)
-			    + ".  You can increase the max degree in rf_pipelines.hpp, but you'll need to recompile rf_pipelines.");
+			    + " exceeds compile time limits; to fix this see 'constants' in rf_pipelines.hpp");
 
     if (_unlikely(epsilon <= 0.0))
 	throw runtime_error("rf_pipelines polynomial detrender: epsilon=" + to_string(epsilon) + ", positive number expected");
