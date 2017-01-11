@@ -1375,6 +1375,32 @@ static PyObject *apply_polynomial_detrender(PyObject *self, PyObject *args, PyOb
 }
 
 
+static PyObject *apply_std_dev_clipper(PyObject *self, PyObject *args, PyObject *kwds)
+{
+    PyObject *intensity_obj = Py_None;
+    PyObject *weights_obj = Py_None;
+    PyObject *axis_obj = Py_None;
+    double sigma = 0.0;
+    int Df = 1;   // meaningful default value
+    int Dt = 1;   // meaningful default value
+
+    static const char *kwlist[] = { "intensity", "weights", "axis", "sigma", "Df", "Dt" };
+
+    // Note: the object pointers will be borrowed references
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOd|ii", (char **)kwlist, &intensity_obj, &weights_obj, &axis_obj, &Df, &Dt))
+	return NULL;
+
+    arr_wi_helper wi(intensity_obj, weights_obj, false, true);   // (intensity_writeback, weights_writeback) = (false, true)
+
+    rf_pipelines::axis_type axis = axis_type_from_python("apply_std_dev_clipper", axis_obj);
+
+    rf_pipelines::apply_std_dev_clipper(wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, axis, sigma, Df, Dt);
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
 static PyObject *make_chime_file_writer(PyObject *self, PyObject *args)
 {
     char *filename = nullptr;
@@ -1499,6 +1525,22 @@ static constexpr const char *apply_polynomial_detrender_docstring =
     "experimented systematically.\n";
 
 
+static constexpr const char *apply_std_dev_clipper_docstring =
+    "apply_std_dev_clipper(intensity, weights, axis, sigma, Df=1, Dt=1)\n"
+    "\n"
+    "'Clips' an array by masking rows/columns whose standard deviation is an outlier.\n"
+    "The masking is performed by setting elements of the weights array to zero.\n"
+    "\n"
+    "The 'axis' argument has the following meaning:\n"
+    "   axis=0   clip time samples whose variance in frequency is high\n"
+    "   axis=1   clip frequency channels whose variance in time is high\n"
+    "\n"
+    "The (Df,Dt) args are downsampling factors on the frequency/time axes.\n"
+    "If no downsampling is desired, set Df=Dt=1.\n"
+    "\n"
+    "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.\n";
+
+
 static constexpr const char *make_badchannel_mask_docstring = 
     "make_badchannel_mask(maskpath, nt_chunk)\n"
     "\n"
@@ -1525,6 +1567,7 @@ static PyMethodDef module_methods[] = {
     { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, dummy_module_method_docstring },
     { "make_badchannel_mask", tc_wrap2<make_badchannel_mask>, METH_VARARGS, make_badchannel_mask_docstring },
     { "apply_polynomial_detrender", (PyCFunction) tc_wrap3<apply_polynomial_detrender>, METH_VARARGS | METH_KEYWORDS, apply_polynomial_detrender_docstring },
+    { "apply_std_dev_clipper", (PyCFunction) tc_wrap3<apply_std_dev_clipper>, METH_VARARGS | METH_KEYWORDS, apply_std_dev_clipper_docstring },
     { NULL, NULL, 0, NULL }
 };
 

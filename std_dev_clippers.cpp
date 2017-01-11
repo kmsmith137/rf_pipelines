@@ -344,7 +344,7 @@ struct sd_clipper_table {
 };
 
 
-void apply_std_dev_clipper(const float *intensity, float *weights, int Df, int Dt, axis_type axis, int nfreq, int nt, int stride, double sigma)
+void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, axis_type axis, double sigma, int Df, int Dt)
 {
     static sd_clipper_table ktab;
 

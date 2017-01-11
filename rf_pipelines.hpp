@@ -240,7 +240,7 @@ std::shared_ptr<wi_transform> make_std_dev_clipper(int Df, int Dt, axis_type axi
 
 // Functionality of above transforms as standalone functions.
 extern void apply_polynomial_detrender(float *intensity, const float *weights, int nfreq, int nt, int stride, axis_type axis, int polydeg, double epsilon);
-extern void apply_std_dev_clipper(const float *intensity, float *weights, int Df, int Dt, axis_type axis, int nfreq, int nt, int stride, double sigma);
+extern void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, axis_type axis, double sigma, int Df, int Dt);
 
 
 //
