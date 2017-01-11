@@ -22,7 +22,6 @@ namespace rf_pipelines {
 // FIXME: currently we need to compile a new kernel for every (Df,Dt) pair.  Eventually I'd
 // like to improve this by having special kernels to handle the large-Df and large-Dt cases.
 
-
 struct clipper_transform_base : public wi_transform 
 {
     // (Frequency, time) downsampling factors and axis.
@@ -35,7 +34,7 @@ struct clipper_transform_base : public wi_transform
     const double sigma;
     const double iter_sigma;
 
-    // Allocated in set_stream()
+    // Allocated in allocate_ds_arrays()
     float *ds_intensity = nullptr;
     float *ds_weights = nullptr;
 
@@ -56,7 +55,7 @@ struct clipper_transform_base : public wi_transform
 	this->nt_prepad = 0;
 	this->nt_postpad = 0;
 
-	// No need to make these asserts "verbose", since they should have been checked in make_intensity_clipper2d().
+	// No need to make these asserts "verbose", since they should have been checked in make_intensity_clipper().
 	rf_assert(sigma >= 1.0);
 	rf_assert(iter_sigma >= 1.0);
 	rf_assert(nt_chunk > 0);
@@ -70,8 +69,19 @@ struct clipper_transform_base : public wi_transform
 	ds_intensity = ds_weights = nullptr;
     }
 
+    virtual void set_stream(const wi_stream &stream) override
+    {
+	rf_assert(stream.nfreq % nds_f == 0);
+
+	this->nfreq = stream.nfreq;
+	this->allocate_ds_arrays();
+    }
+
     virtual void start_substream(int isubstream, double t0) override { }
     virtual void end_substream() override { }
+
+    // Subclass must define allocate_ds_arrays() and process_chunk().
+    virtual void allocate_ds_arrays() = 0;
 };
 
 
@@ -97,12 +107,8 @@ struct clipper_transform_2d : public clipper_transform_base
     }
 
 
-    virtual void set_stream(const wi_stream &stream) override
+    virtual void allocate_ds_arrays() override
     {
-	rf_assert(stream.nfreq % Df == 0);
-
-	this->nfreq = stream.nfreq;
-	
 	if (DsiFlag)
 	    this->ds_intensity = aligned_alloc<float> ((nfreq/Df) * (nt_chunk/Dt));
 	if (DswFlag)
@@ -157,12 +163,8 @@ struct clipper_transform_time_axis : clipper_transform_base
     }
 
 
-    virtual void set_stream(const wi_stream &stream) override
+    virtual void allocate_ds_arrays() override
     {
-	rf_assert(stream.nfreq % Df == 0);
-
-	this->nfreq = stream.nfreq;
-
 	if (DsiFlag)
 	    this->ds_intensity = aligned_alloc<float> (nt_chunk/Dt);
 	if (DswFlag)
@@ -222,12 +224,8 @@ struct clipper_transform_freq_axis : clipper_transform_base
     }
 
 
-    virtual void set_stream(const wi_stream &stream) override
+    virtual void allocate_ds_arrays() override
     {
-	rf_assert(stream.nfreq % Df == 0);
-
-	this->nfreq = stream.nfreq;
-
 	if (DsiFlag)
 	    this->ds_intensity = aligned_alloc<float> ((nfreq/Df) * S);
 	if (DswFlag)
@@ -293,7 +291,7 @@ inline shared_ptr<clipper_transform_base> _make_intensity_clipper3(axis_type axi
 template<unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt==0),int>::type = 0>
 inline shared_ptr<clipper_transform_base> _make_intensity_clipper2(int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
-    throw runtime_error("rf_pipelines internal error: Dt=" + to_string(Dt) + " not found in template chain");
+    throw runtime_error("rf_pipelines internal error: Dt=" + to_string(Dt) + " not found in intensity_clipper template chain");
 }
 
 template<unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt > 0),int>::type = 0>
@@ -309,7 +307,7 @@ inline shared_ptr<clipper_transform_base> _make_intensity_clipper2(int Dt, axis_
 template<unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf==0),int>::type = 0>
 inline shared_ptr<clipper_transform_base> _make_intensity_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
-    throw runtime_error("rf_pipelines internal error: Df=" + to_string(Df) + " not found in template chain");
+    throw runtime_error("rf_pipelines internal error: Df=" + to_string(Df) + " not found in intensity_clipper template chain");
 }
 
 template<unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf > 0),int>::type = 0>
@@ -377,5 +375,5 @@ shared_ptr<wi_transform> make_intensity_clipper(int Df, int Dt, axis_type axis, 
     return ret;
 }
 
-
 }  // namespace rf_pipelines
+
