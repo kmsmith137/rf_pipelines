@@ -81,15 +81,28 @@ class wi_run_state;
 struct outdir_manager;   // declared in rf_pipelines_internals.hpp
 struct plot_group;       // declared in rf_pipelines_internals.hpp
 
+
 namespace constants {
-    //
+
     // Throughout the CHIMEFRB backend, we represent times in seconds, but the raw packets use timestamps
     // constructed from FPGA counts.  We convert by assuming that each FPGA count is exactly 2.56e-6 seconds.
     // The precise conversion matters (to machine precision!) when predicting the location of the noise
     // source edges from the timestamps.  Therefore, the 2.56e-6 "magic number" must be used consistently
     // throughout rf_pipelines and ch_vdif_assembler.
-    //
+
     static constexpr double chime_seconds_per_fpga_count = 2.56e-6;
+
+    // Some of our assembly language transforms have parameters, such as max allowed downsampling,
+    // which must be known at compile time.  Generally, increasing these values and recompiling is OK,
+    // but may increase compile time and the file size of librf_pipelines.so.
+
+    static constexpr int polynomial_detrender_max_degree = 20;
+
+    // Number of single-precision floats which fit into a SIMD word on this machine.
+    // For now, we just hardcode 8, assuming a CPU with the AVX instruction set but not AVX-512,
+    // but we define a compile-time constant here as a hook for future improvement.
+
+    static constexpr int single_precision_simd_length = 8;
 };
 
 
@@ -171,14 +184,17 @@ extern std::ostream &operator<<(std::ostream &os, axis_type axis);
 // 'epsilon'.  I think that 1.0e-2 is a reasonable default here, but haven't
 // experimented systematically.
 //
-std::shared_ptr<wi_transform> make_polynomial_detrender(axis_type axis, int nt_chunk, int polydeg, double epsilon=1.0e-2);
+extern std::shared_ptr<wi_transform> make_polynomial_detrender(axis_type axis, int nt_chunk, int polydeg, double epsilon=1.0e-2);
+
+// Functionality of polynomial_detrender transform as standalone function.
+extern void apply_polynomial_detrender(float *intensity, const float *weights, int nfreq, int nt, int stride, axis_type axis, int polydeg, double epsilon);
 
 
 // A "simple detrender" is a time-axis polynomial fitter with degree zero.
-// This will be removed soon, in favor of calling make_polynomial_detrender_time_axis() directly.
+// FIXME: this will be removed soon, in favor of calling make_polynomial_detrender() directly.
 inline std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend)
 {
-    std::cerr << "make_simple_detrender(): this function is now deprecated in favor of make_polynomial_detrender())\n";
+    std::cerr << "make_simple_detrender(): this function is now deprecated in favor of make_polynomial_detrender()\n";
     return make_polynomial_detrender(AXIS_TIME, nt_detrend, 0);   // polydeg=0
 }
 

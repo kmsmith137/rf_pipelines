@@ -1,4 +1,5 @@
 #include <cassert>
+#include <array>
 
 #include "rf_pipelines_internals.hpp"
 #include "kernels/polyfit.hpp"
@@ -85,17 +86,52 @@ struct polynomial_detrender_freq_axis : public polynomial_detrender_base
 // Boilerplate needed to instantiate templates and export factory functions.
 
 
+// Helper function to check parameters passed to a detrending call
+static void check_params(axis_type axis, int nfreq, int nt, int stride, int polydeg, double epsilon)
+{
+    static constexpr int MaxDeg = constants::polynomial_detrender_max_degree;
+    static constexpr int S = constants::single_precision_simd_length;
+
+    if (_unlikely((axis != AXIS_FREQ) && (axis != AXIS_TIME)))
+	throw runtime_error("rf_pipelines polynomial detrender: axis=" + stringify(axis) + " is not defined for this transform");
+
+    if (_unlikely(nfreq <= 0))
+	throw runtime_error("rf_pipelines polynomial detrender: nfreq=" + to_string(nfreq) + ", positive number expected");
+
+    if (_unlikely(nt <= 0))
+	throw runtime_error("rf_pipelines polynomial detrender: nt_chunk=" + to_string(nt) + ", positive number expected");
+    
+    if (_unlikely((nt % S) != 0))
+	throw runtime_error("rf_pipelines polynomial detrender: nt_chunk=" + to_string(nt)
+			    + " must be a multiple of constants::single_precision_simd_length=" + to_string(S));
+    
+    if (_unlikely(abs(stride) < nt))
+	throw runtime_error("rf_pipelines polynomial detrender: stride=" + to_string(stride) + " must be >= nt");
+
+    if (_unlikely(polydeg < 0))
+	throw runtime_error("rf_pipelines polynomial detrender: polydeg=" + to_string(polydeg) + ", positive number expected");
+
+    if (_unlikely(polydeg > MaxDeg))
+	throw runtime_error("rf_pipelines polynomial detrender: polydeg=" + to_string(polydeg)
+			    + " must be <= constants::polynomial_detrender_max_degree=" + to_string(MaxDeg)
+			    + ".  You can increase the max degree in rf_pipelines.hpp, but you'll need to recompile rf_pipelines.");
+
+    if (_unlikely(epsilon <= 0.0))
+	throw runtime_error("rf_pipelines polynomial detrender: epsilon=" + to_string(epsilon) + ", positive number expected");
+}
+
+
 template<unsigned int S, unsigned int N, typename std::enable_if<(N==0),int>::type = 0>
-static shared_ptr<polynomial_detrender_base> _make_polynomial_detrender(axis_type axis, int nt_chunk, int polydeg, double epsilon)
+static shared_ptr<polynomial_detrender_base> _make_polynomial_detrender2(axis_type axis, int nt_chunk, int polydeg, double epsilon)
 {
     throw runtime_error("rf_pipelines::make_polynomial_detrender: internal error");
 }
 
 template<unsigned int S, unsigned int N, typename std::enable_if<(N>0),int>::type = 0>
-static shared_ptr<polynomial_detrender_base> _make_polynomial_detrender(axis_type axis, int nt_chunk, int polydeg, double epsilon)
+static shared_ptr<polynomial_detrender_base> _make_polynomial_detrender2(axis_type axis, int nt_chunk, int polydeg, double epsilon)
 {
     if (N != polydeg + 1)
-	return _make_polynomial_detrender<S,N-1> (axis, nt_chunk, polydeg, epsilon);
+	return _make_polynomial_detrender2<S,N-1> (axis, nt_chunk, polydeg, epsilon);
 
     if (axis == AXIS_FREQ)
 	return make_shared<polynomial_detrender_freq_axis<S,N> > (nt_chunk, epsilon);
@@ -108,32 +144,13 @@ static shared_ptr<polynomial_detrender_base> _make_polynomial_detrender(axis_typ
 }
 
 
-// Externally callable factory function
-shared_ptr<wi_transform> make_polynomial_detrender(axis_type axis, int nt_chunk, int polydeg, double epsilon)
+// Shouldn't be declared static, in order to avoid potentially instantiating every template twice.
+shared_ptr<polynomial_detrender_base> _make_polynomial_detrender(axis_type axis, int nt_chunk, int polydeg, double epsilon)
 {
-    // S = single-precision simd vector length on this machine (AVX instruction set assumed)
-    static constexpr int S = 8;
-    static constexpr int MaxDeg = 20;
+    static constexpr int MaxDeg = constants::polynomial_detrender_max_degree;
+    static constexpr int S = constants::single_precision_simd_length;
 
-    if ((nt_chunk <= 0) || (nt_chunk % S) != 0) {
-	stringstream ss;
-	ss << "rf_pipelines::make_polynomial_detrender(): nt_chunk=" << nt_chunk << " must be a multiple of S=" << S << "\n"
-	   << "Here, S is the simd vector size, and may vary between machines.";
-	throw ss.str();
-    }
-
-    if (polydeg > MaxDeg) {
-	stringstream ss;
-	ss << "rf_pipelines::make_polynomial_detrender(): polydeg=" << polydeg << " must be <= " << MaxDeg << "\n"
-	   << "The upper limit can be increased by editing rf_pipelines/polynomial_detrenders.cpp, changing\n"
-	   << "MaxDeg in make_polynomial_detrender() and recompling rf_pipelines";
-	throw ss.str();
-    }
-
-    if (epsilon <= 0.0)
-	throw runtime_error(string("rf_pipelines::make_polynomial_detrender(): epsilon must be > 0"));
-
-    shared_ptr<polynomial_detrender_base> ret = _make_polynomial_detrender<S,MaxDeg+1> (axis, nt_chunk, polydeg, epsilon);
+    shared_ptr<polynomial_detrender_base> ret = _make_polynomial_detrender2<S,MaxDeg+1> (axis, nt_chunk, polydeg, epsilon);
     
     assert(ret->axis == axis);
     assert(ret->nt_chunk == nt_chunk);
@@ -141,6 +158,58 @@ shared_ptr<wi_transform> make_polynomial_detrender(axis_type axis, int nt_chunk,
     assert(ret->epsilon == epsilon);
 
     return ret;
+}
+
+
+// Externally callable factory function
+shared_ptr<wi_transform> make_polynomial_detrender(axis_type axis, int nt_chunk, int polydeg, double epsilon)
+{
+    int dummy_nfreq = 16;         // arbitrary
+    int dummy_stride = nt_chunk;  // arbitrary
+
+    check_params(axis, dummy_nfreq, nt_chunk, dummy_stride, polydeg, epsilon);
+    return _make_polynomial_detrender(axis, nt_chunk, polydeg, epsilon);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+struct detrending_kernel_table {
+    static constexpr int MaxDeg = constants::polynomial_detrender_max_degree;
+
+    using ktab2_t = std::array<detrending_kernel_t, (MaxDeg+1)>;
+    using ktab_t = std::array<ktab2_t, 2>;
+
+    ktab_t entries;
+
+    detrending_kernel_table()
+    {
+	cerr << "XXX detrending_kernel_table constructor called\n";
+	for (axis_type axis: { AXIS_FREQ, AXIS_TIME }) {
+	    for (int polydeg = 0; polydeg <= MaxDeg; polydeg++) {
+		auto t = _make_polynomial_detrender (axis, 16, polydeg, 1.0e-2);   // (nt_chunk, epsilon) arbitrary here
+		entries.at(axis).at(polydeg) = t->kernel;
+	    }
+	}
+    }
+
+    inline detrending_kernel_t get(axis_type axis, int polydeg)
+    {
+	// Bounds-checked
+	return entries.at(axis).at(polydeg);
+    }
+};
+
+
+void apply_polynomial_detrender(float *intensity, const float *weights, int nfreq, int nt, int stride, axis_type axis, int polydeg, double epsilon)
+{
+    static detrending_kernel_table ktab;
+
+    check_params(axis, nfreq, nt, stride, polydeg, epsilon);
+
+    detrending_kernel_t k = ktab.get(axis, polydeg);
+    k(nfreq, nt, intensity, const_cast<float *> (weights), stride, epsilon);
 }
 
 

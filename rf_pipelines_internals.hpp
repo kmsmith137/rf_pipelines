@@ -261,6 +261,14 @@ inline ssize_t gcd(ssize_t m, ssize_t n)
     return m;
 }
 
+template<typename T>
+inline std::string stringify(const T &x)
+{
+    std::stringstream ss;
+    ss << x;
+    return ss.str();
+}
+
 inline bool startswith(const std::string &str, const std::string &prefix)
 {
     return std::equal(prefix.begin(), prefix.end(), str.begin());

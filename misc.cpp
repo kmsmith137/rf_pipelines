@@ -22,7 +22,9 @@ ostream &operator<<(ostream &os, axis_type axis)
 	os << "AXIS_TIME";
     else if (axis == AXIS_NONE)
 	os << "AXIS_NONE";
-    
+    else
+	os << int(axis);
+
     return os;
 }
 
