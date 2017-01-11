@@ -163,7 +163,6 @@ struct clipper_transform_time_axis : clipper_transform_base
 
 	this->nfreq = stream.nfreq;
 
-	// These are now 1d arrays.
 	if (DsiFlag)
 	    this->ds_intensity = aligned_alloc<float> (nt_chunk/Dt);
 	if (DswFlag)
@@ -173,13 +172,12 @@ struct clipper_transform_time_axis : clipper_transform_base
 
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
     {
-	simd_t<float,S> mean, rms;
-
 	for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
 	    float *irow = intensity + ifreq * stride;
-	    float *wrow = intensity + ifreq * stride;
+	    float *wrow = weights + ifreq * stride;
 
 	    // We pass nfreq=Df to _kernel_clip2d_wrms, not the "true" nfreq
+	    simd_t<float,S> mean, rms;
 	    _kernel_clip2d_wrms<float,S,Df,Dt,DsiFlag,DswFlag,float,S> (mean, rms, irow, wrow, Df, nt_chunk, stride, ds_intensity, ds_weights);
 									
 	    const float *irow2 = DsiFlag ? ds_intensity : irow;
@@ -201,6 +199,70 @@ struct clipper_transform_time_axis : clipper_transform_base
 
 // -------------------------------------------------------------------------------------------------
 //
+// clipper_transform_freq_axis
+//
+// Currently implemented by calling the 2d kernels many times with nfreq=1.
+//
+// FIXME there is a little extra overhead here, should improve by writing real 1D kernels.
+
+
+template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
+struct clipper_transform_freq_axis : clipper_transform_base
+{
+    // These compile-time flags determine whether downsampled intensity/weights
+    // arrays are written in _kernel_clip2d_wrms().
+    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
+    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
+
+    clipper_transform_freq_axis(int nt_chunk_, double sigma_, int niter_, double iter_sigma_) :
+	clipper_transform_base(Df, Dt, AXIS_FREQ, nt_chunk_, sigma_, niter_, iter_sigma_)
+    { 
+	if (IterFlag) rf_assert(niter > 1);
+	if (!IterFlag) rf_assert(niter == 1);
+    }
+
+
+    virtual void set_stream(const wi_stream &stream) override
+    {
+	rf_assert(stream.nfreq % Df == 0);
+
+	this->nfreq = stream.nfreq;
+
+	if (DsiFlag)
+	    this->ds_intensity = aligned_alloc<float> ((nfreq/Df) * S);
+	if (DswFlag)
+	    this->ds_weights = aligned_alloc<float> ((nfreq/Df) * S);
+    }
+
+
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
+    {
+	for (int it = 0; it < nt_chunk; it += Dt*S) {
+	    float *icol = intensity + it;
+	    float *wcol = weights + it;
+
+	    simd_t<float,S> mean, rms;	
+	    _kernel_clip1d_f_wrms<float,S,Df,Dt,DsiFlag,DswFlag> (mean, rms, icol, wcol, nfreq, stride, ds_intensity, ds_weights);
+									
+	    const float *icol2 = DsiFlag ? ds_intensity : icol;
+	    const float *wcol2 = DswFlag ? ds_weights : wcol;
+	    int stride2 = DsiFlag ? S : stride;   // must use DsiFlag here, not DswFlag
+	
+	    for (int iter = 1; iter < niter; iter++) {
+		// Here we can use _kernel_clip2d_iterate() with (nfreq,nt) replaced by (nfreq/Df,S)
+		simd_t<float,S> thresh = simd_t<float,S>(iter_sigma) * rms;
+		_kernel_clip2d_iterate<float,S> (mean, rms, icol2, wcol2, mean, thresh, nfreq/Df, S, stride2);    // (irow2, wrow2, iter_sigma)
+	    }
+
+	    simd_t<float,S> thresh = simd_t<float,S>(sigma) * rms;
+	    _kernel_clip1d_f_mask<float,S,Df,Dt> (wcol, icol2, mean, thresh, nfreq, stride, stride2);
+	}
+    }
+};
+
+
+// -------------------------------------------------------------------------------------------------
+//
 // Boilerplate needed to instantiate templates and export factory functions.
 
 
@@ -208,7 +270,7 @@ template<unsigned int S, unsigned int Df, unsigned int Dt, unsigned int IterFlag
 inline shared_ptr<clipper_transform_base> _make_intensity_clipper4(axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
     if (axis == AXIS_FREQ)
-	throw runtime_error("rf_pipelines::make_intensity_clipper(): AXIS_FREQ is not implemented yet");
+	return make_shared<clipper_transform_freq_axis<S,Df,Dt,IterFlag>> (nt_chunk, sigma, niter, iter_sigma);
     if (axis == AXIS_TIME)
 	return make_shared<clipper_transform_time_axis<S,Df,Dt,IterFlag>> (nt_chunk, sigma, niter, iter_sigma);
     if (axis == AXIS_NONE)

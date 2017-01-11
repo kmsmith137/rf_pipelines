@@ -19,7 +19,8 @@ struct clipper_timing_thread : public transform_timing_thread
 
     clipper_timing_thread(const shared_ptr<timing_thread_pool> &pool_, int nfreq_, int nt_chunk_, int stride_, int Df_, int Dt_, int niter_) :
 	transform_timing_thread{ pool_, nfreq_, nt_chunk_, stride_,
-	    { make_intensity_clipper(Df_, Dt_, AXIS_TIME, nt_chunk_, 1.0e10, niter_, 1.0e10),
+	    { make_intensity_clipper(Df_, Dt_, AXIS_FREQ, nt_chunk_, 1.0e10, niter_, 1.0e10),
+	      make_intensity_clipper(Df_, Dt_, AXIS_TIME, nt_chunk_, 1.0e10, niter_, 1.0e10),
 	      make_intensity_clipper(Df_, Dt_, AXIS_NONE, nt_chunk_, 1.0e10, niter_, 1.0e10) }
         },
 	Df(Df_), 
