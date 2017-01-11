@@ -14,6 +14,123 @@ static PyObject *make_temporary_stream(const rf_pipelines::wi_stream &s);
 
 // -------------------------------------------------------------------------------------------------
 //
+// arr_2d_helper: a helper class for receiving an array from python
+// arr_wi_helper: a helper class for receiving an (intensity, weights) array pair from python
+
+
+struct arr_2d_helper {
+    object a_ref;
+    bool writeback = false;
+
+    float *data = nullptr;
+    int nfreq = 0;
+    int nt = 0;
+    int stride = 0;
+
+
+    // Helper function for constructor
+    inline bool try_array(PyArrayObject *a, bool writeback)
+    {
+	if (PyArray_TYPE(a) != NPY_FLOAT)
+	    return false;
+	if (PyArray_ITEMSIZE(a) != sizeof(float))
+	    return false;
+	if (PyArray_NDIM(a) != 2)
+	    return false;
+	if (PyArray_STRIDE(a,1) != sizeof(float))
+	    return false;
+	if (PyArray_STRIDE(a,0) % sizeof(float))
+	    return false;
+	if (writeback && ((PyArray_FLAGS(a) & NPY_ARRAY_WRITEABLE) != NPY_ARRAY_WRITEABLE))
+	    return false;
+
+	this->data = reinterpret_cast<float *> (PyArray_DATA(a));
+	this->nfreq = PyArray_DIM(a, 0);
+	this->nt = PyArray_DIM(a, 1);
+	this->stride = PyArray_STRIDE(a,0) / sizeof(float);
+
+	return true;
+    }
+
+    
+    void set_contiguous(PyObject *obj)
+    {
+	// The NPY_ARRAY_FORECAST flag allows conversion double -> float
+	int requirements = NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED | NPY_ARRAY_ENSUREARRAY | NPY_ARRAY_FORCECAST;
+
+	if (writeback)
+	    requirements |= NPY_ARRAY_UPDATEIFCOPY;
+
+	// FIXME I'm a little hazy on whether PyArray_DescrFromType() increments the refcount.
+	PyObject *a0 = PyArray_FromAny(obj, PyArray_DescrFromType(NPY_FLOAT), 2, 2, requirements, NULL);
+	this->a_ref = object(a0, false);   // manages refcount, throws exception on NULL
+
+	PyArrayObject *a = (PyArrayObject *) a0;
+
+	// If either of these exception is thrown, then my understsanding of the python array API is incomplete!
+	if (!try_array(a, writeback))
+	    throw runtime_error("rf_pipelines internal error: try_array() failed in arr_2d_helper::set_contiguous()");
+	if (stride != nt)
+	    throw runtime_error("rf_pipelines internal error: unexpected stride in arr_2d_helper::set_contiguous()");
+    }
+
+
+    void set_contiguous()
+    {
+	assert(a_ref.ptr);
+	set_contiguous(a_ref.ptr);
+    }
+
+
+    arr_2d_helper(PyObject *obj, bool writeback_)
+	: writeback(writeback_)
+    {
+	// FIXME do I want PyArray_Check() or PyArray_CheckExact() here?
+
+	if (PyArray_CheckExact(obj) && try_array((PyArrayObject *) obj, writeback)) {
+	    // fast track: array works "as is", no need to convert or cast anything
+	    this->a_ref = object(obj, true);   // increment_refcount = true
+	    return;
+	}
+
+	set_contiguous(obj);
+    }
+};
+
+
+struct arr_wi_helper {
+    arr_2d_helper intensity;
+    arr_2d_helper weights;
+
+    // Same for both arrays.
+    int nfreq;
+    int nt;
+    int stride;
+    
+    arr_wi_helper(PyObject *intensity_obj, PyObject *weights_obj, bool intensity_writeback, bool weights_writeback) :
+	intensity(intensity_obj, intensity_writeback),
+	weights(weights_obj, weights_writeback)
+    {
+	if ((intensity.nfreq != weights.nfreq) || (intensity.nt != weights.nt))
+	    throw runtime_error("intensity and weights arrays have mismatched dimensions (nfreq, nt)");
+
+	this->nfreq = intensity.nfreq;
+	this->nt = intensity.nt;
+
+	if (intensity.stride != weights.stride) {
+	    if (intensity.stride != nt)
+		intensity.set_contiguous();
+	    if (weights.stride != nt)
+		weights.set_contiguous();
+	}
+
+	this->stride = intensity.stride;
+    }
+};
+
+
+// -------------------------------------------------------------------------------------------------
+//
 // wi_transform wrapper class
 
 
@@ -1233,6 +1350,31 @@ static PyObject *make_std_dev_clipper(PyObject *self, PyObject *args)
 }
 
 
+static PyObject *apply_polynomial_detrender(PyObject *self, PyObject *args, PyObject *kwds)
+{
+    PyObject *intensity_obj = Py_None;
+    PyObject *weights_obj = Py_None;
+    PyObject *axis_obj = Py_None;
+    int polydeg = -1;
+    double epsilon = 1.0e-2;   // meaningful default value
+
+    static const char *kwlist[] = { "intensity", "weights", "axis", "polydeg", "epsilon", NULL };
+
+    // Note: the object pointers will be borrowed references
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOi|d", (char **)kwlist, &intensity_obj, &weights_obj, &axis_obj, &polydeg, &epsilon))
+	return NULL;
+
+    arr_wi_helper wi(intensity_obj, weights_obj, true, false);   // (intensity_writeback, weights_writeback) = (true, false)
+
+    rf_pipelines::axis_type axis = axis_type_from_python("apply_polynomial_detrender", axis_obj);
+
+    rf_pipelines::apply_polynomial_detrender(wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, axis, polydeg, epsilon);
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
 static PyObject *make_chime_file_writer(PyObject *self, PyObject *args)
 {
     char *filename = nullptr;
@@ -1297,7 +1439,7 @@ static constexpr const char *make_gaussian_noise_stream_docstring =
 
 
 static constexpr const char *make_polynomial_detrender_docstring =
-    "make_polynomial_detrender_time_axis(axis, nt_chunk, polydeg, epsilon)\n"
+    "make_polynomial_detrender(axis, nt_chunk, polydeg, epsilon)\n"
     "\n"
     "Detrends along the specified axis by subtracting a best-fit polynomial.\n"
     "axis=0 means 'detrend in time', axis=1 means 'detrend in frequency'.\n"
@@ -1345,6 +1487,18 @@ static constexpr const char *make_std_dev_clipper_docstring =
     "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.\n";
 
 
+static constexpr const char *apply_polynomial_detrender_docstring =
+    "apply_polynomial_detrender(intensity, weights, axis, polydeg, epsilon=1.0e-2)\n"
+    "\n"
+    "Detrends along the specified axis by subtracting a best-fit polynomial.\n"
+    "axis=0 means 'detrend in time', axis=1 means 'detrend in frequency'.\n"
+    "\n"
+    "If the fit is poorly conditioned then the entire frequency channel will be masked\n"
+    "(by setting its weights to zero).  The threshold is controlled by the parameter\n"
+    "'epsilon'.  I think that 1.0e-2 is a reasonable default here, but haven't\n"
+    "experimented systematically.\n";
+
+
 static constexpr const char *make_badchannel_mask_docstring = 
     "make_badchannel_mask(maskpath, nt_chunk)\n"
     "\n"
@@ -1370,6 +1524,7 @@ static PyMethodDef module_methods[] = {
     { "make_chime_file_writer", tc_wrap2<make_chime_file_writer>, METH_VARARGS, dummy_module_method_docstring },
     { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, dummy_module_method_docstring },
     { "make_badchannel_mask", tc_wrap2<make_badchannel_mask>, METH_VARARGS, make_badchannel_mask_docstring },
+    { "apply_polynomial_detrender", (PyCFunction) tc_wrap3<apply_polynomial_detrender>, METH_VARARGS | METH_KEYWORDS, apply_polynomial_detrender_docstring },
     { NULL, NULL, 0, NULL }
 };
 

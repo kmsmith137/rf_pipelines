@@ -185,7 +185,6 @@ struct detrending_kernel_table {
 
     detrending_kernel_table()
     {
-	cerr << "XXX detrending_kernel_table constructor called\n";
 	for (axis_type axis: { AXIS_FREQ, AXIS_TIME }) {
 	    for (int polydeg = 0; polydeg <= MaxDeg; polydeg++) {
 		auto t = _make_polynomial_detrender (axis, 16, polydeg, 1.0e-2);   // (nt_chunk, epsilon) arbitrary here
