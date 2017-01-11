@@ -54,6 +54,8 @@ struct sd_clipper_transform_base : public wi_transform
     sd_clipper_transform_base(int nds_f_, int nds_t_, axis_type axis_, int nt_chunk_, double sigma_, kernel_ntmp_t f_ntmp_, kernel_clip_t f_clip_)
 	: nds_f(nds_f_), nds_t(nds_t_), axis(axis_), sigma(sigma_), f_ntmp(f_ntmp_), f_clip(f_clip_)
     {
+	static constexpr int S = constants::single_precision_simd_length;
+
 	stringstream ss;
 	ss << "std_dev_clipper_transform(Df=" << nds_f << ",Dt=" << nds_t << ",axis=" << axis
 	   << ",nt_chunk=" << nt_chunk_ << ",sigma=" << sigma << ")";
@@ -66,7 +68,7 @@ struct sd_clipper_transform_base : public wi_transform
 	// No need to make these asserts "verbose", since they should have been checked in make_intensity_clipper2d().
 	rf_assert(sigma >= 1.0);
 	rf_assert(nt_chunk > 0);
-	rf_assert(nt_chunk % nds_t == 0);
+	rf_assert(nt_chunk % (nds_t*S) == 0);
     }
 
     virtual ~sd_clipper_transform_base()
@@ -315,10 +317,16 @@ struct sd_clipper_table {
 
     sd_clipper_table()
     {
+	static constexpr int S = constants::single_precision_simd_length;
+
 	for (axis_type axis: { AXIS_FREQ, AXIS_TIME }) {
 	    for (int idf = 0; idf < NDf; idf++) {
 		for (int idt = 0; idt < NDt; idt++) {
-		    auto t = _make_std_dev_clipper(1 << idf, 1 << idt, axis, 16, 2.0);   // nt_chunk, sigma arbitrary
+		    int Df = 1 << idf;
+		    int Dt = 1 << idt;
+
+		    // XXXXXXXXXXXXXXXXX  should be 'axis' not AXIS_TIME  XXXXXXXXXXXXX
+		    auto t = _make_std_dev_clipper(Df, Dt, AXIS_TIME, Dt*S, 2.0);   // nt_chunk, sigma arbitrary
 		    entries.at(axis).at(idf).at(idt) = { t->f_ntmp, t->f_clip };
 		}
 	    }

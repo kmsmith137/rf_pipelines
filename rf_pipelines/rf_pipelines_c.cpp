@@ -1384,10 +1384,10 @@ static PyObject *apply_std_dev_clipper(PyObject *self, PyObject *args, PyObject 
     int Df = 1;   // meaningful default value
     int Dt = 1;   // meaningful default value
 
-    static const char *kwlist[] = { "intensity", "weights", "axis", "sigma", "Df", "Dt" };
+    static const char *kwlist[] = { "intensity", "weights", "axis", "sigma", "Df", "Dt", NULL };
 
     // Note: the object pointers will be borrowed references
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOd|ii", (char **)kwlist, &intensity_obj, &weights_obj, &axis_obj, &Df, &Dt))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOd|ii", (char **)kwlist, &intensity_obj, &weights_obj, &axis_obj, &sigma, &Df, &Dt))
 	return NULL;
 
     arr_wi_helper wi(intensity_obj, weights_obj, false, true);   // (intensity_writeback, weights_writeback) = (false, true)
