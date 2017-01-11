@@ -171,16 +171,15 @@ extern std::ostream &operator<<(std::ostream &os, axis_type axis);
 // 'epsilon'.  I think that 1.0e-2 is a reasonable default here, but haven't
 // experimented systematically.
 //
-extern std::shared_ptr<wi_transform> make_polynomial_detrender_time_axis(int nt_chunk, int polydeg, double epsilon=1.0e-2);
-extern std::shared_ptr<wi_transform> make_polynomial_detrender_freq_axis(int nt_chunk, int polydeg, double epsilon=1.0e-2);
+std::shared_ptr<wi_transform> make_polynomial_detrender(axis_type axis, int nt_chunk, int polydeg, double epsilon=1.0e-2);
 
 
 // A "simple detrender" is a time-axis polynomial fitter with degree zero.
 // This will be removed soon, in favor of calling make_polynomial_detrender_time_axis() directly.
 inline std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend)
 {
-    std::cerr << "make_simple_detrender(): this function is now deprecated in favor of make_polynomial_detrender_time_axis(polydeg=0)\n";
-    return make_polynomial_detrender_time_axis(nt_detrend, 0);
+    std::cerr << "make_simple_detrender(): this function is now deprecated in favor of make_polynomial_detrender())\n";
+    return make_polynomial_detrender(AXIS_TIME, nt_detrend, 0);   // polydeg=0
 }
 
 

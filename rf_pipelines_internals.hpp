@@ -196,6 +196,12 @@ extern std::vector<std::string> listdir(const std::string &dirname);
 
 // Inlines follow...
 
+template<typename T> 
+inline T square(T x) 
+{ 
+    return x*x; 
+}
+
 inline bool is_power_of_two(int n)
 {
     rf_assert(n >= 1);
