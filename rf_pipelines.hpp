@@ -157,6 +157,8 @@ enum axis_type {
     AXIS_NONE = 2
 };
 
+// In misc.cpp
+extern std::ostream &operator<<(std::ostream &os, axis_type axis);
 
 //
 // polynomial_detrender: detrends along either the time or frequency axis,

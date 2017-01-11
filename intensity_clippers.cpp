@@ -11,41 +11,44 @@ namespace rf_pipelines {
 
 // -------------------------------------------------------------------------------------------------
 //
-// clipper2d_transform
+// clipper_transform_base
 //
 // The compile-time arguments Df,Dt are the frequency/time downsampling factors, and the
 // compile-time boolean argument IterFlag should be set to 'true' if and only if niter > 1.
+//
+// The pure virtual functions set_stream() and process_chunk() are undefined in
+// clipper_transform_base, and must be defined in the subclass.
 //
 // FIXME: currently we need to compile a new kernel for every (Df,Dt) pair.  Eventually I'd
 // like to improve this by having special kernels to handle the large-Df and large-Dt cases.
 
 
-template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
-struct clipper2d_transform : public wi_transform 
+struct clipper_transform_base : public wi_transform 
 {
-    // These compile-time flags determine whether downsampled intensity/weights
-    // arrays are written in _kernel_clip2d_wrms().
-    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
-    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
-
+    // (Frequency, time) downsampling factors and axis.
+    const int nds_f;
+    const int nds_t;
+    const axis_type axis;
+    
+    // Clipping thresholds.
     const int niter;
     const double sigma;
     const double iter_sigma;
 
+    // Allocated in set_stream()
     float *ds_intensity = nullptr;
     float *ds_weights = nullptr;
 
     // Noncopyable
-    clipper2d_transform(const clipper2d_transform<S,Df,Dt,IterFlag> &) = delete;
-    clipper2d_transform<S,Df,Dt,IterFlag> operator&(const clipper2d_transform<S,Df,Dt,IterFlag> &) = delete;
+    clipper_transform_base(const clipper_transform_base &) = delete;
+    clipper_transform_base &operator=(const clipper_transform_base &) = delete;
 
-
-    clipper2d_transform(int nt_chunk_, double sigma_, int niter_, double iter_sigma_)
-	: niter(niter_), sigma(sigma_), iter_sigma(iter_sigma_ ? iter_sigma_ : sigma_)
+    clipper_transform_base(int nds_f_, int nds_t_, axis_type axis_, int nt_chunk_, double sigma_, int niter_, double iter_sigma_)
+	: nds_f(nds_f_), nds_t(nds_t_), axis(axis_), niter(niter_), sigma(sigma_), iter_sigma(iter_sigma_ ? iter_sigma_ : sigma_)
     {
 	stringstream ss;
-	ss << "intensity_clipper_transform(Df=" << Df << ",Dt=" << Dt << ",axis=AXIS_NONE" 
-	   << ", nt_chunk=" << nt_chunk_ << ",sigma=" << sigma << ",niter=" << niter 
+	ss << "intensity_clipper_transform(Df=" << nds_f << ",Dt=" << nds_t << ",axis=" << axis
+	   << ",nt_chunk=" << nt_chunk_ << ",sigma=" << sigma << ",niter=" << niter 
 	   << ",iter_sigma=" << iter_sigma << ")";
 
 	this->name = ss.str();
@@ -57,18 +60,40 @@ struct clipper2d_transform : public wi_transform
 	rf_assert(sigma >= 1.0);
 	rf_assert(iter_sigma >= 1.0);
 	rf_assert(nt_chunk > 0);
-	rf_assert(nt_chunk % Dt == 0);
-
-	if (IterFlag) rf_assert(niter > 1);
-	if (!IterFlag) rf_assert(niter == 1);
+	rf_assert(nt_chunk % nds_t == 0);
     }
 
-
-    ~clipper2d_transform()
+    virtual ~clipper_transform_base()
     {
 	free(ds_intensity);
 	free(ds_weights);
 	ds_intensity = ds_weights = nullptr;
+    }
+
+    virtual void start_substream(int isubstream, double t0) override { }
+    virtual void end_substream() override { }
+};
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// clipper_transform_2d
+
+
+template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
+struct clipper_transform_2d : public clipper_transform_base
+{
+    // These compile-time flags determine whether downsampled intensity/weights
+    // arrays are written in _kernel_clip2d_wrms().
+    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
+    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
+
+
+    clipper_transform_2d(int nt_chunk_, double sigma_, int niter_, double iter_sigma_)
+	: clipper_transform_base(Df, Dt, AXIS_NONE, nt_chunk_, sigma_, niter_, iter_sigma_)
+    { 
+	if (IterFlag) rf_assert(niter > 1);
+	if (!IterFlag) rf_assert(niter == 1);
     }
 
 
@@ -104,15 +129,12 @@ struct clipper2d_transform : public wi_transform
 	simd_t<float,S> thresh = simd_t<float,S>(sigma) * rms;
 	_kernel_clip2d_mask<float,S,Df,Dt> (weights, s_intensity, mean, thresh, nfreq, nt_chunk, stride, s_stride);
     }
-
-    virtual void start_substream(int isubstream, double t0) override { }
-    virtual void end_substream() override { }
 };
 
 
 // -------------------------------------------------------------------------------------------------
 //
-// clipper1d_t_transform
+// clipper_transform_time_axis
 //
 // Currently implemented by calling the 2d kernels many times with nfreq=1.
 //
@@ -120,54 +142,18 @@ struct clipper2d_transform : public wi_transform
 
 
 template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
-struct clipper1d_t_transform : public wi_transform 
+struct clipper_transform_time_axis : clipper_transform_base
 {
     // These compile-time flags determine whether downsampled intensity/weights
     // arrays are written in _kernel_clip2d_wrms().
     static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
     static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
 
-    const int niter;
-    const double sigma;
-    const double iter_sigma;
-
-    float *ds_intensity = nullptr;
-    float *ds_weights = nullptr;
-
-    // Noncopyable
-    clipper1d_t_transform(const clipper1d_t_transform<S,Df,Dt,IterFlag> &) = delete;
-    clipper1d_t_transform<S,Df,Dt,IterFlag> operator&(const clipper1d_t_transform<S,Df,Dt,IterFlag> &) = delete;
-
-
-    clipper1d_t_transform(int nt_chunk_, double sigma_, int niter_, double iter_sigma_)
-	: niter(niter_), sigma(sigma_), iter_sigma(iter_sigma_ ? iter_sigma_ : sigma_)
-    {
-	stringstream ss;
-	ss << "intensity_clipper_transform(Df=" << Df << ",Dt=" << Dt << ",axis=AXIS_TIME" 
-	   << ", nt_chunk=" << nt_chunk_ << ",sigma=" << sigma << ",niter=" << niter 
-	   << ",iter_sigma=" << iter_sigma << ")";
-
-	this->name = ss.str();
-	this->nt_chunk = nt_chunk_;
-	this->nt_prepad = 0;
-	this->nt_postpad = 0;
-
-	// No need to make these asserts "verbose", since they should have been checked in make_intensity_clipper2d().
-	rf_assert(sigma >= 1.0);
-	rf_assert(iter_sigma >= 1.0);
-	rf_assert(nt_chunk > 0);
-	rf_assert(nt_chunk % Dt == 0);
-
+    clipper_transform_time_axis(int nt_chunk_, double sigma_, int niter_, double iter_sigma_) :
+	clipper_transform_base(Df, Dt, AXIS_TIME, nt_chunk_, sigma_, niter_, iter_sigma_)
+    { 
 	if (IterFlag) rf_assert(niter > 1);
 	if (!IterFlag) rf_assert(niter == 1);
-    }
-
-
-    ~clipper1d_t_transform()
-    {
-	free(ds_intensity);
-	free(ds_weights);
-	ds_intensity = ds_weights = nullptr;
     }
 
 
@@ -210,9 +196,6 @@ struct clipper1d_t_transform : public wi_transform
 	    _kernel_clip2d_mask<float,S,Df,Dt> (wrow, irow2, mean, thresh, Df, nt_chunk, stride, stride);    // (wrow, irow2, sigma)
 	}
     }
-
-    virtual void start_substream(int isubstream, double t0) override { }
-    virtual void end_substream() override { }
 };
 
 
@@ -227,9 +210,9 @@ inline shared_ptr<wi_transform> _make_intensity_clipper4(axis_type axis, int nt_
     if (axis == AXIS_FREQ)
 	throw runtime_error("rf_pipelines::make_intensity_clipper(): AXIS_FREQ is not implemented yet");
     if (axis == AXIS_TIME)
-	return make_shared<clipper1d_t_transform<S,Df,Dt,IterFlag>> (nt_chunk, sigma, niter, iter_sigma);
+	return make_shared<clipper_transform_time_axis<S,Df,Dt,IterFlag>> (nt_chunk, sigma, niter, iter_sigma);
     if (axis == AXIS_NONE)
-	return make_shared<clipper2d_transform<S,Df,Dt,IterFlag>> (nt_chunk, sigma, niter, iter_sigma);
+	return make_shared<clipper_transform_2d<S,Df,Dt,IterFlag>> (nt_chunk, sigma, niter, iter_sigma);
 
     throw runtime_error("rf_pipelines::make_intensity_clipper(): axis='" + to_string(axis) + "' is not a valid value");
 }
@@ -277,7 +260,8 @@ inline shared_ptr<wi_transform> _make_intensity_clipper(int Df, int Dt, axis_typ
 }
 
 
-// externally callable
+// Externally callable "bottom line" routine which returns clipper transform with specified downsampling and axis.
+
 shared_ptr<wi_transform> make_intensity_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
     // SIMD length on this machine

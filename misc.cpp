@@ -14,6 +14,19 @@ namespace rf_pipelines {
 #endif
 
 
+ostream &operator<<(ostream &os, axis_type axis)
+{
+    if (axis == AXIS_FREQ)
+	os << "AXIS_FREQ";
+    else if (axis == AXIS_TIME)
+	os << "AXIS_TIME";
+    else if (axis == AXIS_NONE)
+	os << "AXIS_NONE";
+    
+    return os;
+}
+
+
 bool file_exists(const string &filename)
 {
     struct stat s;
