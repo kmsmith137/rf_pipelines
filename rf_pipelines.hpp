@@ -216,8 +216,7 @@ extern std::shared_ptr<wi_transform> make_intensity_clipper(int Df, int Dt, axis
 // The (Df,Dt) args are downsampling factors on the frequency/time axes.
 // If no downsampling is desired, set Df=Dt=1.
 //
-// The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.  Note
-// that the weights are used when calculating both the mean and rms intensity.
+// The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.
 //
 std::shared_ptr<wi_transform> make_std_dev_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma);
 

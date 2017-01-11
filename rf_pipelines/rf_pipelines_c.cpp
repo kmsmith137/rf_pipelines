@@ -1222,6 +1222,26 @@ static PyObject *make_intensity_clipper(PyObject *self, PyObject *args)
 }
 
 
+static PyObject *make_std_dev_clipper(PyObject *self, PyObject *args)
+{
+    int Df = 0;
+    int Dt = 0;
+    PyObject *axis_ptr = Py_None;
+    int nt_chunk = 0;
+    double sigma = 0.0;
+
+    if (!PyArg_ParseTuple(args, "iiOid", &Df, &Dt, &axis_ptr, &nt_chunk, &sigma))
+	return NULL;
+
+    object axis_obj(axis_ptr, false);
+
+    rf_pipelines::axis_type axis = axis_type_from_python("make_std_dev_clipper()", axis_ptr);
+
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_std_dev_clipper(Df, Dt, axis, nt_chunk, sigma);
+    return wi_transform_object::make(ret);
+}
+
+
 static PyObject *make_chime_file_writer(PyObject *self, PyObject *args)
 {
     char *filename = nullptr;
@@ -1330,6 +1350,22 @@ static constexpr const char *make_intensity_clipper_docstring =
     "with threshold 'iter_sigma' (which need not be the same as 'sigma').\n";
 
 
+static constexpr const char *make_std_dev_clipper_docstring =
+    "make_std_dev_clipper(Df, Dt, axis, nt_chunk, sigma)\n"
+    "\n"
+    "'Clips' an array by masking rows/columns whose standard deviation is an outlier.\n"
+    "The masking is performed by setting elements of the weights array to zero.\n"
+    "\n"
+    "The 'axis' argument has the following meaning:\n"
+    "   axis=AXIS_FREQ   clip time samples whose variance in frequency is high\n"
+    "   axis=AXIS_TIME   clip frequency channels whose variance in time is high\n"
+    "\n"
+    "The (Df,Dt) args are downsampling factors on the frequency/time axes.\n"
+    "If no downsampling is desired, set Df=Dt=1.\n"
+    "\n"
+    "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.\n";
+
+
 static constexpr const char *make_badchannel_mask_docstring = 
     "make_badchannel_mask(maskpath, nt_chunk)\n"
     "\n"
@@ -1352,6 +1388,7 @@ static PyMethodDef module_methods[] = {
     { "make_polynomial_detrender_time_axis", tc_wrap2<make_polynomial_detrender_time_axis>, METH_VARARGS, make_polynomial_detrender_time_axis_docstring },
     { "make_polynomial_detrender_freq_axis", tc_wrap2<make_polynomial_detrender_freq_axis>, METH_VARARGS, make_polynomial_detrender_freq_axis_docstring },
     { "make_intensity_clipper", tc_wrap2<make_intensity_clipper>, METH_VARARGS, make_intensity_clipper_docstring },
+    { "make_std_dev_clipper", tc_wrap2<make_std_dev_clipper>, METH_VARARGS, make_std_dev_clipper_docstring },
     { "make_chime_file_writer", tc_wrap2<make_chime_file_writer>, METH_VARARGS, dummy_module_method_docstring },
     { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, dummy_module_method_docstring },
     { "make_badchannel_mask", tc_wrap2<make_badchannel_mask>, METH_VARARGS, make_badchannel_mask_docstring },

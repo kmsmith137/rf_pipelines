@@ -91,7 +91,7 @@ template<unsigned int S, unsigned int Df, unsigned int Dt>
 struct sd_clipper_transform_time_axis : public sd_clipper_transform_base
 {
     sd_clipper_transform_time_axis(int nt_chunk_, double sigma_)
-	: sd_clipper_transform_base(Df, Dt, AXIS_NONE, nt_chunk_, sigma_)
+	: sd_clipper_transform_base(Df, Dt, AXIS_TIME, nt_chunk_, sigma_)
     { }
 
     
