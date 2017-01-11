@@ -33,6 +33,7 @@ OFILES=badchannel_mask.o \
 	outdir_manager.o \
 	polynomial_detrenders.o \
 	psrfits_stream.o \
+	std_dev_clippers.o \
 	timing_thread.o \
 	wi_run_state.o \
 	wi_stream.o \

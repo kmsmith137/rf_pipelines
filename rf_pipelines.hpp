@@ -205,6 +205,23 @@ inline std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend)
 
 extern std::shared_ptr<wi_transform> make_intensity_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma);
 
+
+//
+// std_dev_clipper: this "clips" an array by masking rows/columns whose standard deviation is an outlier.
+//
+// The 'axis' argument has the following meaning:
+//   axis=AXIS_FREQ   clip time samples whose variance in frequency is high
+//   axis=AXIS_TIME   clip frequency channels whose variance in time is high
+//
+// The (Df,Dt) args are downsampling factors on the frequency/time axes.
+// If no downsampling is desired, set Df=Dt=1.
+//
+// The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.  Note
+// that the weights are used when calculating both the mean and rms intensity.
+//
+std::shared_ptr<wi_transform> make_std_dev_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma);
+
+
 //
 // This is a pseudo-transform which doesn't actually modify the data, it just writes it to a file in
 // CHIME hdf5 format.  (For now, the entire stream is written to a single file, I'll generalize later

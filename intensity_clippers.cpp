@@ -16,9 +16,6 @@ namespace rf_pipelines {
 // The compile-time arguments Df,Dt are the frequency/time downsampling factors, and the
 // compile-time boolean argument IterFlag should be set to 'true' if and only if niter > 1.
 //
-// The pure virtual functions set_stream() and process_chunk() are undefined in
-// clipper_transform_base, and must be defined in the subclass.
-//
 // FIXME: currently we need to compile a new kernel for every (Df,Dt) pair.  Eventually I'd
 // like to improve this by having special kernels to handle the large-Df and large-Dt cases.
 
