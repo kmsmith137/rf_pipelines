@@ -255,8 +255,8 @@ static void check_params(int Df, int Dt, axis_type axis, int nfreq, int nt, int 
     if (_unlikely(abs(stride) < nt))
 	throw runtime_error("rf_pipelines std_dev clipper: stride=" + to_string(stride) + " must be >= nt");
 
-    if (_unlikely(sigma < 2.0))
-	throw runtime_error("rf_pipelines std_dev clipper: sigma=" + to_string(sigma) + " must be >= 2.0");
+    if (_unlikely(sigma < 1.0))
+	throw runtime_error("rf_pipelines std_dev clipper: sigma=" + to_string(sigma) + " must be >= 1.0");
     
     if (_unlikely((nt % (Dt*S)) != 0))
 	throw runtime_error("rf_pipelines std_dev clipper: nt=" + to_string(nt)
