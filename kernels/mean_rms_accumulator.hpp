@@ -83,11 +83,11 @@ struct mean_rms_accumulator {
 	acc2 = acc2.horizontal_sum();
     }
 
-    inline void get_mean_variance(simd_t<T,S> &mean, simd_t<T,S> &var) const
+    inline void get_mean_variance(simd_t<T,S> &mean, simd_t<T,S> &var, smask_t<T,S> &valid) const
     {
 	static constexpr T eps = 1.0e3 * simd_helpers::machine_epsilon<T> ();
 
-	smask_t<T,S> valid = acc0.compare_gt(simd_t<T,S>::zero());
+	valid = acc0.compare_gt(simd_t<T,S>::zero());
 
 	simd_t<T,S> t0 = blendv(valid, acc0, simd_t<T,S>(1.0));
 	mean = acc1 / t0;
@@ -98,6 +98,12 @@ struct mean_rms_accumulator {
 	simd_t<T,S> thresh = simd_t<T,S>(eps) * mean2;
 	valid = valid.bitwise_and(var.compare_gt(thresh));
 	var = var.apply_mask(valid);
+    }
+
+    inline void get_mean_variance(simd_t<T,S> &mean, simd_t<T,S> &var) const
+    {
+	smask_t<T,S> valid;
+	get_mean_variance(mean, var, valid);
     }
 
     inline void get_mean_rms(simd_t<T,S> &mean, simd_t<T,S> &rms) const
