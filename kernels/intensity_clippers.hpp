@@ -15,7 +15,6 @@
 #define _RF_PIPELINES_KERNELS_INTENSITY_CLIPPERS_HPP
 
 #include <cassert>  // XXX remove
-#include <simd_helpers/convert.hpp>
 
 #include "mean_rms_accumulator.hpp"
 #include "downsample.hpp"

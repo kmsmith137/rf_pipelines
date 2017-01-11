@@ -1,7 +1,7 @@
 #ifndef _RF_PIPELINES_KERNELS_MEAN_RMS_ACCUMULATOR_HPP
 #define _RF_PIPELINES_KERNELS_MEAN_RMS_ACCUMULATOR_HPP
 
-#include <simd_helpers/simd_float32.hpp>
+#include <simd_helpers/convert.hpp>
 
 namespace rf_pipelines {
 #if 0
@@ -83,7 +83,7 @@ struct mean_rms_accumulator {
 	acc2 = acc2.horizontal_sum();
     }
 
-    inline void get_mean_rms(simd_t<T,S> &mean, simd_t<T,S> &rms) const
+    inline void get_mean_variance(simd_t<T,S> &mean, simd_t<T,S> &var) const
     {
 	static constexpr T eps = 1.0e3 * simd_helpers::machine_epsilon<T> ();
 
@@ -93,18 +93,18 @@ struct mean_rms_accumulator {
 	mean = acc1 / t0;
 
 	simd_t<T,S> mean2 = mean * mean;
-	simd_t<T,S> var = acc2/t0 - mean2;
+	var = acc2/t0 - mean2;
 
 	simd_t<T,S> thresh = simd_t<T,S>(eps) * mean2;
 	valid = valid.bitwise_and(var.compare_gt(thresh));
 	var = var.apply_mask(valid);
-	rms = var.sqrt();
     }
 
-    inline void get_mean_rms(simd_t<T,S> &mean, simd_t<T,S> &rms, simd_t<T,S> sigma) const
+    inline void get_mean_rms(simd_t<T,S> &mean, simd_t<T,S> &rms) const
     {
-	get_mean_rms(mean, rms);
-	rms *= sigma;
+	simd_t<T,S> var;
+	get_mean_variance(mean, var);
+	rms = var.sqrt();
     }
 };
 
