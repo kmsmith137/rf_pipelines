@@ -1,6 +1,7 @@
 // Note: this file should only include kernel headers (kernels/*.hpp), not toplevel headers (./*.hpp)
 // (This is because it has a Makefile dependency on the former but not the latter.)
 
+#include <memory>
 #include <cassert>
 #include <stdexcept>
 
