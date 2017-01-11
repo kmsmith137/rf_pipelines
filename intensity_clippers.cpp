@@ -205,7 +205,7 @@ struct clipper_transform_time_axis : clipper_transform_base
 
 
 template<unsigned int S, unsigned int Df, unsigned int Dt, unsigned int IterFlag>
-inline shared_ptr<wi_transform> _make_intensity_clipper4(axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
+inline shared_ptr<clipper_transform_base> _make_intensity_clipper4(axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
     if (axis == AXIS_FREQ)
 	throw runtime_error("rf_pipelines::make_intensity_clipper(): AXIS_FREQ is not implemented yet");
@@ -219,7 +219,7 @@ inline shared_ptr<wi_transform> _make_intensity_clipper4(axis_type axis, int nt_
 
 
 template<unsigned int S, unsigned int Df, unsigned int Dt>
-inline shared_ptr<wi_transform> _make_intensity_clipper3(axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
+inline shared_ptr<clipper_transform_base> _make_intensity_clipper3(axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
     if (niter > 1)
 	return _make_intensity_clipper4<S,Df,Dt,true> (axis, nt_chunk, sigma, niter, iter_sigma);
@@ -229,13 +229,13 @@ inline shared_ptr<wi_transform> _make_intensity_clipper3(axis_type axis, int nt_
 
 
 template<unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt==0),int>::type = 0>
-inline shared_ptr<wi_transform> _make_intensity_clipper2(int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
+inline shared_ptr<clipper_transform_base> _make_intensity_clipper2(int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
     throw runtime_error("rf_pipelines internal error: Dt=" + to_string(Dt) + " not found in template chain");
 }
 
 template<unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt > 0),int>::type = 0>
-inline shared_ptr<wi_transform> _make_intensity_clipper2(int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
+inline shared_ptr<clipper_transform_base> _make_intensity_clipper2(int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
     if (Dt == MaxDt)
 	return _make_intensity_clipper3<S,Df,MaxDt> (axis, nt_chunk, sigma, niter, iter_sigma);
@@ -245,13 +245,13 @@ inline shared_ptr<wi_transform> _make_intensity_clipper2(int Dt, axis_type axis,
 
 
 template<unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf==0),int>::type = 0>
-inline shared_ptr<wi_transform> _make_intensity_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
+inline shared_ptr<clipper_transform_base> _make_intensity_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
     throw runtime_error("rf_pipelines internal error: Df=" + to_string(Df) + " not found in template chain");
 }
 
 template<unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf > 0),int>::type = 0>
-inline shared_ptr<wi_transform> _make_intensity_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
+inline shared_ptr<clipper_transform_base> _make_intensity_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
     if (Df == MaxDf)
 	return _make_intensity_clipper2<S,MaxDf,MaxDt> (Dt, axis, nt_chunk, sigma, niter, iter_sigma);
@@ -264,7 +264,7 @@ inline shared_ptr<wi_transform> _make_intensity_clipper(int Df, int Dt, axis_typ
 
 shared_ptr<wi_transform> make_intensity_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
 {
-    // SIMD length on this machine
+    // SIMD word length on this machine (AVX instruction set assumed)
     static constexpr int S = 8;
 
     // MaxDf, MaxDt are the max downsampling factors allowed in the frequency and time directions.
@@ -305,7 +305,14 @@ shared_ptr<wi_transform> make_intensity_clipper(int Df, int Dt, axis_type axis, 
 	throw runtime_error(ss.str());
     }
 
-    return _make_intensity_clipper<S,MaxDf,MaxDt> (Df, Dt, axis, nt_chunk, sigma, niter, iter_sigma);
+    shared_ptr<clipper_transform_base> ret = _make_intensity_clipper<S,MaxDf,MaxDt> (Df, Dt, axis, nt_chunk, sigma, niter, iter_sigma);
+    
+    // Sanity check on the template instantiation
+    assert(ret->nds_f == Df);
+    assert(ret->nds_t == Dt);
+    assert(ret->axis == axis);
+    
+    return ret;
 }
 
 
