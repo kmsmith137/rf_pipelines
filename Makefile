@@ -18,7 +18,8 @@ KERNEL_INCFILES=kernels/downsample.hpp \
 	kernels/intensity_clippers.hpp \
 	kernels/mask.hpp \
 	kernels/mean_rms_accumulator.hpp \
-	kernels/polyfit.hpp
+	kernels/polyfit.hpp \
+	kernels/std_dev_clippers.hpp
 
 # Source files for the core C++ library 'librf_pipelines.so'
 OFILES=badchannel_mask.o \

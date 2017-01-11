@@ -1,5 +1,7 @@
+#include <cassert>
+
 #include "rf_pipelines_internals.hpp"
-#include "kernels/intensity_clippers.hpp"
+#include "kernels/std_dev_clippers.hpp"
 
 using namespace std;
 
@@ -33,7 +35,7 @@ struct sd_clipper_transform_base : public wi_transform
 
     // Allocated in set_stream()
     float *tmp_sd = nullptr;
-    mask_t *tmp_mask = nullptr;
+    mask_t *tmp_valid = nullptr;
 
     // Noncopyable
     sd_clipper_transform_base(const sd_clipper_transform_base &) = delete;
@@ -60,10 +62,10 @@ struct sd_clipper_transform_base : public wi_transform
     virtual ~sd_clipper_transform_base()
     {
 	free(tmp_sd);
-	free(tmp_mask);
+	free(tmp_valid);
 
 	tmp_sd = nullptr;
-	tmp_mask = nullptr;
+	tmp_valid = nullptr;
     }
 
     virtual void set_stream(const wi_stream &stream) override
@@ -72,6 +74,38 @@ struct sd_clipper_transform_base : public wi_transform
 
 	this->nfreq = stream.nfreq;
 	this->allocate_tmp_arrays();
+    }
+
+    void clip_tmp_arrays(int n)
+    {
+	float acc0 = 0.0;
+	float acc1 = 0.0;
+
+	for (int i = 0; i < n; i++) {
+	    if (tmp_valid[i]) {
+		acc0 += 1.0;
+		acc1 += tmp_sd[i];
+	    }
+	}
+
+	if (acc0 < 1.5) {
+	    memset(tmp_valid, 0, n * sizeof(mask_t));
+	    return;
+	}
+
+	float mean = acc1 / acc0;
+	float acc2 = 0.0;
+
+	for (int i = 0; i < n; i++)
+	    if (tmp_valid[i])
+		acc2 += square(tmp_sd[i] - mean);
+
+	float thresh = sigma * sqrtf(acc2/(acc0-1.0));
+
+	for (int i = 0; i < n; i++) {
+	    if (fabs(tmp_sd[i] - mean) >= thresh)
+		tmp_valid[i] = 0;
+	}
     }
 
     virtual void start_substream(int isubstream, double t0) override { }
@@ -98,13 +132,20 @@ struct sd_clipper_transform_time_axis : public sd_clipper_transform_base
     virtual void allocate_tmp_arrays() override
     {
 	this->tmp_sd = aligned_alloc<float> (nfreq/Df);
-	this->tmp_mask = aligned_alloc<mask_t> (nfreq/Df);
+	this->tmp_valid = aligned_alloc<mask_t> (nfreq/Df);
     }
 
 
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
     {
-	throw runtime_error("sd_clipper_transform_time_axis::process_chunk() not written yet");
+	_kernel_std_dev_t<float,S,Df,Dt> (tmp_sd, tmp_valid, intensity, weights, nfreq, nt_chunk, stride);
+	
+	this->clip_tmp_arrays(nfreq/Df);
+
+	for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	    if (!tmp_valid[ifreq])
+		memset(weights + ifreq*stride, 0, nt_chunk * sizeof(float));
+	}
     }
 };
 
