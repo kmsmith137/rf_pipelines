@@ -1374,7 +1374,10 @@ static PyObject *apply_polynomial_detrender(PyObject *self, PyObject *args, PyOb
 	return NULL;
 
     object axis_obj(axis_ptr, false);
-    arr_wi_helper wi(intensity_obj, weights_obj, true, false);   // (intensity_writeback, weights_writeback) = (true, false)
+
+    // (intensity_writeback, weights_writeback) = (true, true)
+    // Note that the weights can be updated if the fit is poorly conditioned.
+    arr_wi_helper wi(intensity_obj, weights_obj, true, true); 
 
     rf_pipelines::axis_type axis = axis_type_from_python("apply_polynomial_detrender", axis_ptr);
 
