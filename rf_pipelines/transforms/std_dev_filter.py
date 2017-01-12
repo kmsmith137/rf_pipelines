@@ -91,7 +91,7 @@ class std_dev_filter(rf_pipelines.py_wi_transform):
        number of pixles along the freq and time axes, respectively.
     """
 
-    def __init__(self, thr=3., axis=None, nt_chunk=1024, dsample_nfre=None, dsample_nt=None):
+    def __init__(self, thr=3., axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None):
         
         self.thr = thr
         self.axis = axis
