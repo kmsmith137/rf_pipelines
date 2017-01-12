@@ -108,6 +108,17 @@ struct sd_clipper_transform_base : public wi_transform
 
 static void clip_1d(int n, float *tmp_sd, mask_t *tmp_valid, double sigma)
 {
+#if 0
+    cerr << "clip_1d: [";
+    for (int i = 0; i < n; i++) {
+	if (tmp_valid[i])
+	    cerr << " " << tmp_sd[i];
+	else
+	    cerr << " -";
+    }
+    cerr << " ]\n";
+#endif
+
     float acc0 = 0.0;
     float acc1 = 0.0;
     
@@ -350,8 +361,7 @@ struct sd_clipper_table {
 		    int Df = 1 << idf;
 		    int Dt = 1 << idt;
 
-		    // XXXXXXXXXXXXXXXXX  should be 'axis' not AXIS_TIME  XXXXXXXXXXXXX
-		    auto t = _make_std_dev_clipper(Df, Dt, AXIS_TIME, Dt*S, 2.0);   // nt_chunk, sigma arbitrary
+		    auto t = _make_std_dev_clipper(Df, Dt, axis, Dt*S, 2.0);   // nt_chunk, sigma arbitrary
 		    entries.at(axis).at(idf).at(idt) = { t->f_ntmp, t->f_clip };
 		}
 	    }

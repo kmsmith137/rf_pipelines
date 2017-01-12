@@ -73,8 +73,6 @@ inline void _kernel_std_dev_f(T *out_sd, smask_t<T,1> *out_valid, const T *inten
 	const T *wcol = weights + it;
 
 	mean_rms_accumulator<T,S> acc;
-	simd_t<T,S> mean, var;
-	smask_t<T,S> valid;
 
 	for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
 	    simd_t<T,S> wival, wval;
@@ -84,8 +82,10 @@ inline void _kernel_std_dev_f(T *out_sd, smask_t<T,1> *out_valid, const T *inten
 	    acc.accumulate(ival, wval);	    
 	}
 
+	simd_t<T,S> mean, var;
+	smask_t<T,S> valid;
 	acc.get_mean_variance(mean, var, valid);
-
+	
 	var.storeu(out_sd);
 	valid.storeu(out_valid);
 
