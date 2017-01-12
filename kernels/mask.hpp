@@ -12,6 +12,7 @@ namespace rf_pipelines {
 #endif
 
 template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
+template<typename T, unsigned int S> using smask_t = simd_helpers::smask_t<T,S>;
 template<typename T, unsigned int S, unsigned int D> using simd_ntuple = simd_helpers::simd_ntuple<T,S,D>;
 template<typename T, unsigned int S, unsigned int D> using smask_ntuple = simd_helpers::smask_ntuple<T,S,D>;
 
@@ -96,6 +97,31 @@ inline void _kernel_mask(T *weights, smask_t<T,S> mask, int stride)
     simd_helpers::upsample(masku, mask);
 
     _kernel_mask2<T,S,R,S,D/S> (weights, masku, stride);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// _kernel_mask_columns<T,S,Dt> (T *weights, smask_t<T,1> *mask, int nfreq, int nt, int stride)
+//
+// This kernel is applied to a 2D strided array with shape (nfreq, nt).
+// The mask is a 1D array of length nt/Dt, which is upsampled by a factor Dt and applied.
+// Caller must check that nt % (Dt*S) == 0.
+
+
+template<typename T, unsigned int S, unsigned int Dt>
+inline void _kernel_mask_columns(T *weights, const smask_t<T,1> *mask, int nfreq, int nt, int stride)
+{
+    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	T *wrow = weights + ifreq * stride;
+	const smask_t<T,1> *mrow = mask;
+
+	for (int it = 0; it < nt; it += Dt*S) {
+	    smask_t<T,S> m = smask_t<T,S>::loadu(mrow);
+	    _kernel_mask<T,S,1,Dt> (wrow + it, m, stride);
+	    mrow += S;
+	}
+    }
 }
 
 

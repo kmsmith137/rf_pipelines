@@ -1,7 +1,7 @@
 import numpy as np
 import rf_pipelines
 
-def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_nt=None):
+def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_nt=None, imitate_cpp=False):
     """Helper function for std_dev_filter. Modifies 'weights' array in place."""
     
     (nfreq, nt_chunk) = intensity.shape
@@ -36,11 +36,20 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
 
     # Compute the weighted standard deviation of the intensity
     # array along the selected axis.
-    num = np.asarray(np.sum(weights*(intensity)**2, axis=axis))
-    den = np.asarray(np.sum(weights, axis=axis))
-    
-    np.putmask(den, den==0., 1.0)
-    sd = np.sqrt(num/den)
+
+    if imitate_cpp:
+        # In the C++ code, we use the variance rather than the standard deviation
+        # (i.e. no square root), and subtract the mean.
+        den = np.sum(weights, axis=axis)
+        np.putmask(den, den==0., 1.0)
+        mean = np.sum(weights*intensity, axis=axis) / den
+        mean = rf_pipelines.tile_arr(mean, axis, dsample_nfreq, dsample_nt)
+        sd = np.sum(weights*(intensity-mean)**2, axis=axis) / den
+    else:
+        num = np.asarray(np.sum(weights*(intensity)**2, axis=axis))
+        den = np.asarray(np.sum(weights, axis=axis))
+        np.putmask(den, den==0., 1.0)
+        sd = np.sqrt(num/den)
 
     # Tile 'sd' so that it matches with the shape of intensity.
     sd = rf_pipelines.tile_arr(sd, axis, dsample_nfreq, dsample_nt)

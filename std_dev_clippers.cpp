@@ -6,6 +6,8 @@
 #include <cassert>
 
 #include "rf_pipelines_internals.hpp"
+
+#include "kernels/mask.hpp"
 #include "kernels/std_dev_clippers.hpp"
 
 using namespace std;
@@ -149,10 +151,23 @@ static void _kernel_clip_time_axis(float *intensity, float *weights, int nfreq, 
 
     clip_1d(nfreq/Df, tmp_sd, tmp_valid, sigma);
 
-    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	if (!tmp_valid[ifreq/Df])
+    for (int i = 0; i < nfreq/Df; i++) {
+	if (tmp_valid[i])
+	    continue;
+	for (int ifreq = i*Df; ifreq < (i+1)*Df; ifreq++)
 	    memset(weights + ifreq*stride, 0, nt * sizeof(float));
     }
+}
+
+
+template<unsigned int S, unsigned int Df, unsigned int Dt>
+static void _kernel_clip_freq_axis(float *intensity, float *weights, int nfreq, int nt, int stride, double sigma, float *tmp_sd, mask_t *tmp_valid)
+{
+    _kernel_std_dev_f<float,S,Df,Dt> (tmp_sd, tmp_valid, intensity, weights, nfreq, nt, stride);
+
+    clip_1d(nt/Dt, tmp_sd, tmp_valid, sigma);
+
+    _kernel_mask_columns<float,S,Dt> (weights, tmp_valid, nfreq, nt, stride);
 }
 
 
@@ -161,6 +176,15 @@ struct sd_clipper_transform_time_axis : public sd_clipper_transform_base
 {
     sd_clipper_transform_time_axis(int nt_chunk_, double sigma_)
 	: sd_clipper_transform_base(Df, Dt, AXIS_TIME, nt_chunk_, sigma_, _kernel_ntmp_time_axis<Df>, _kernel_clip_time_axis<S,Df,Dt>)
+    { }
+};
+
+
+template<unsigned int S, unsigned int Df, unsigned int Dt>
+struct sd_clipper_transform_freq_axis : public sd_clipper_transform_base
+{
+    sd_clipper_transform_freq_axis(int nt_chunk_, double sigma_)
+	: sd_clipper_transform_base(Df, Dt, AXIS_FREQ, nt_chunk_, sigma_, _kernel_ntmp_freq_axis<Dt>, _kernel_clip_freq_axis<S,Df,Dt>)
     { }
 };
 
@@ -174,7 +198,7 @@ template<unsigned int S, unsigned int Df, unsigned int Dt>
 inline shared_ptr<sd_clipper_transform_base> _make_std_dev_clipper4(axis_type axis, int nt_chunk, double sigma)
 {
     if (axis == AXIS_FREQ)
-	throw runtime_error("sd_clipper_transform_freq_axis not written yet");
+	return make_shared<sd_clipper_transform_freq_axis<S,Df,Dt>> (nt_chunk, sigma);
     if (axis == AXIS_TIME)
 	return make_shared<sd_clipper_transform_time_axis<S,Df,Dt>> (nt_chunk, sigma);
     if (axis == AXIS_NONE)
