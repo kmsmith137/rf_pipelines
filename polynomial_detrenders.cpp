@@ -1,3 +1,9 @@
+// FIXME (low-priority) a nuisance issue when working with this code is that functions
+// which are very similar have different argument orderings, e.g.
+//
+//          make_polynomial_detrender(nt_chunk, axis, polydeg, epsilon)
+//   calls _make_polynomial_detrender(axis, nt_chunk, polydeg, epsilon)
+
 #include <cassert>
 #include <array>
 
@@ -162,7 +168,7 @@ shared_ptr<polynomial_detrender_base> _make_polynomial_detrender(axis_type axis,
 
 
 // Externally callable factory function
-shared_ptr<wi_transform> make_polynomial_detrender(axis_type axis, int nt_chunk, int polydeg, double epsilon)
+shared_ptr<wi_transform> make_polynomial_detrender(int nt_chunk, axis_type axis, int polydeg, double epsilon)
 {
     int dummy_nfreq = 16;         // arbitrary
     int dummy_stride = nt_chunk;  // arbitrary

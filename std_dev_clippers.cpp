@@ -1,3 +1,9 @@
+// FIXME (low-priority) a nuisance issue when working with this code is that functions
+// which are very similar have different argument orderings, e.g.
+//
+//          make_std_dev_clipper(nt_chunk, axis, sigma, Df, Dt)
+//   calls _make_std_dev_clipper(Df, Dt, axis, nt_chunk, sigma)
+
 // FIXME: currently we need to compile a new kernel for every (Df,Dt) pair, where
 // Df,Dt are the frequency/time downsampling factors.  Eventually I'd like to 
 // improve this by having special kernels to handle the large-Df and large-Dt cases.
@@ -315,7 +321,7 @@ static void check_params(int Df, int Dt, axis_type axis, int nfreq, int nt, int 
 
 // Externally callable "bottom line" routine which returns clipper transform with specified downsampling and axis.
 
-shared_ptr<wi_transform> make_std_dev_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma)
+shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, axis_type axis, double sigma, int Df, int Dt)
 {
     int dummy_nfreq = Df;         // arbitrary
     int dummy_stride = nt_chunk;  // arbitrary

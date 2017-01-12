@@ -1289,84 +1289,94 @@ static rf_pipelines::axis_type axis_type_from_python(const char *function_name, 
 }
 
 
-static PyObject *make_polynomial_detrender(PyObject *self, PyObject *args)
+static PyObject *make_polynomial_detrender(PyObject *self, PyObject *args, PyObject *kwds)
 {
-    PyObject *axis_ptr = Py_None;
+    static const char *kwlist[] = { "nt_chunk", "axis", "polydeg", "epsilon", NULL };
+
     int nt_chunk = 0;
+    PyObject *axis_ptr = Py_None;
     int polydeg = 0;
-    double epsilon = 0.0;
+    double epsilon = 1.0e-2;   // meaningful default value
 
-    if (!PyArg_ParseTuple(args, "Oiid", &axis_ptr, &nt_chunk, &polydeg, &epsilon))
+    // Note: the object pointers will be borrowed references
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "iOi|d", (char **)kwlist, &nt_chunk, &axis_ptr, &polydeg, &epsilon))
 	return NULL;
 
     object axis_obj(axis_ptr, false);
 
     rf_pipelines::axis_type axis = axis_type_from_python("make_intensity_clipper()", axis_ptr);
 
-    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_polynomial_detrender(axis, nt_chunk, polydeg, epsilon);
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_polynomial_detrender(nt_chunk, axis, polydeg, epsilon);
     return wi_transform_object::make(ret);
 }
 
 
-static PyObject *make_intensity_clipper(PyObject *self, PyObject *args)
+static PyObject *make_intensity_clipper(PyObject *self, PyObject *args, PyObject *kwds)
 {
-    int Df = 0;
-    int Dt = 0;
-    PyObject *axis_ptr = Py_None;
-    int nt_chunk = 0;
-    double sigma = 0.0;
-    int niter = 0;
-    double iter_sigma = 0.0;
+    static const char *kwlist[] = { "nt_chunk", "axis", "sigma", "niter", "iter_sigma", "Df", "Dt", NULL };    
 
-    if (!PyArg_ParseTuple(args, "iiOidid", &Df, &Dt, &axis_ptr, &nt_chunk, &sigma, &niter, &iter_sigma))
+    int nt_chunk = 0;
+    PyObject *axis_ptr = Py_None;
+    double sigma = 0.0;
+    int niter = 1;             // meaningful default value
+    double iter_sigma = 0.0;   // meaningful default value
+    int Df = 1;                // meaningful default value
+    int Dt = 1;                // meaningful default value
+
+    // Note: the object pointers will be borrowed references
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "iOd|idii", (char **)kwlist, &nt_chunk, &axis_ptr, &sigma, &niter, &iter_sigma, &Df, &Dt))
 	return NULL;
 
     object axis_obj(axis_ptr, false);
 
     rf_pipelines::axis_type axis = axis_type_from_python("make_intensity_clipper()", axis_ptr);
 
-    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_intensity_clipper(Df, Dt, axis, nt_chunk, sigma, niter, iter_sigma);
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_intensity_clipper(nt_chunk, axis, sigma, niter, iter_sigma, Df, Dt);
     return wi_transform_object::make(ret);
 }
 
 
-static PyObject *make_std_dev_clipper(PyObject *self, PyObject *args)
+static PyObject *make_std_dev_clipper(PyObject *self, PyObject *args, PyObject *kwds)
 {
-    int Df = 0;
-    int Dt = 0;
-    PyObject *axis_ptr = Py_None;
-    int nt_chunk = 0;
-    double sigma = 0.0;
+    static const char *kwlist[] = { "nt_chunk", "axis", "sigma", "Df", "Dt", NULL };
 
-    if (!PyArg_ParseTuple(args, "iiOid", &Df, &Dt, &axis_ptr, &nt_chunk, &sigma))
+    int nt_chunk = 0;
+    PyObject *axis_ptr = Py_None;
+    double sigma = 0.0;
+    int Df = 1;   // meaningful default value
+    int Dt = 1;   // meaningful default value
+
+    // Note: the object pointers will be borrowed references
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "iOd|ii", (char **)kwlist, &nt_chunk, &axis_ptr, &sigma, &Df, &Dt))
 	return NULL;
 
     object axis_obj(axis_ptr, false);
 
     rf_pipelines::axis_type axis = axis_type_from_python("make_std_dev_clipper()", axis_ptr);
 
-    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_std_dev_clipper(Df, Dt, axis, nt_chunk, sigma);
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_std_dev_clipper(nt_chunk, axis, sigma, Df, Dt);
     return wi_transform_object::make(ret);
 }
 
 
 static PyObject *apply_polynomial_detrender(PyObject *self, PyObject *args, PyObject *kwds)
 {
+    static const char *kwlist[] = { "intensity", "weights", "axis", "polydeg", "epsilon", NULL };
+
     PyObject *intensity_obj = Py_None;
     PyObject *weights_obj = Py_None;
-    PyObject *axis_obj = Py_None;
+    PyObject *axis_ptr = Py_None;
     int polydeg = -1;
     double epsilon = 1.0e-2;   // meaningful default value
 
-    static const char *kwlist[] = { "intensity", "weights", "axis", "polydeg", "epsilon", NULL };
-
     // Note: the object pointers will be borrowed references
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOi|d", (char **)kwlist, &intensity_obj, &weights_obj, &axis_obj, &polydeg, &epsilon))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOi|d", (char **)kwlist, &intensity_obj, &weights_obj, &axis_ptr, &polydeg, &epsilon))
 	return NULL;
 
+    object axis_obj(axis_ptr, false);
     arr_wi_helper wi(intensity_obj, weights_obj, true, false);   // (intensity_writeback, weights_writeback) = (true, false)
 
-    rf_pipelines::axis_type axis = axis_type_from_python("apply_polynomial_detrender", axis_obj);
+    rf_pipelines::axis_type axis = axis_type_from_python("apply_polynomial_detrender", axis_ptr);
 
     rf_pipelines::apply_polynomial_detrender(wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, axis, polydeg, epsilon);
 
@@ -1377,24 +1387,25 @@ static PyObject *apply_polynomial_detrender(PyObject *self, PyObject *args, PyOb
 
 static PyObject *apply_intensity_clipper(PyObject *self, PyObject *args, PyObject *kwds)
 {
+    static const char *kwlist[] = { "intensity", "weights", "axis", "sigma", "niter", "iter_sigma", "Df", "Dt", NULL };
+
     PyObject *intensity_obj = Py_None;
     PyObject *weights_obj = Py_None;
-    PyObject *axis_obj = Py_None;
+    PyObject *axis_ptr = Py_None;
     double sigma = 0.0;
     int niter = 1;             // meaningful default value
     double iter_sigma = 0.0;   // meaningful default value
     int Df = 1;                // meaningful default value
     int Dt = 1;                // meaningful default value
 
-    static const char *kwlist[] = { "intensity", "weights", "axis", "sigma", "niter", "iter_sigma", "Df", "Dt", NULL };    
-
     // Note: the object pointers will be borrowed references
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOd|idii", (char **)kwlist, &intensity_obj, &weights_obj, &axis_obj, &sigma, &niter, &iter_sigma, &Df, &Dt))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOd|idii", (char **)kwlist, &intensity_obj, &weights_obj, &axis_ptr, &sigma, &niter, &iter_sigma, &Df, &Dt))
 	return NULL;
 
+    object axis_obj(axis_ptr, false);
     arr_wi_helper wi(intensity_obj, weights_obj, false, true);   // (intensity_writeback, weights_writeback) = (false, true)
 
-    rf_pipelines::axis_type axis = axis_type_from_python("apply_intensity_clipper", axis_obj);
+    rf_pipelines::axis_type axis = axis_type_from_python("apply_intensity_clipper", axis_ptr);
 
     rf_pipelines::apply_intensity_clipper(wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, axis, sigma, niter, iter_sigma, Df, Dt);
 
@@ -1405,22 +1416,23 @@ static PyObject *apply_intensity_clipper(PyObject *self, PyObject *args, PyObjec
 
 static PyObject *apply_std_dev_clipper(PyObject *self, PyObject *args, PyObject *kwds)
 {
+    static const char *kwlist[] = { "intensity", "weights", "axis", "sigma", "Df", "Dt", NULL };
+
     PyObject *intensity_obj = Py_None;
     PyObject *weights_obj = Py_None;
-    PyObject *axis_obj = Py_None;
+    PyObject *axis_ptr = Py_None;
     double sigma = 0.0;
     int Df = 1;   // meaningful default value
     int Dt = 1;   // meaningful default value
 
-    static const char *kwlist[] = { "intensity", "weights", "axis", "sigma", "Df", "Dt", NULL };
-
     // Note: the object pointers will be borrowed references
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOd|ii", (char **)kwlist, &intensity_obj, &weights_obj, &axis_obj, &sigma, &Df, &Dt))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOd|ii", (char **)kwlist, &intensity_obj, &weights_obj, &axis_ptr, &sigma, &Df, &Dt))
 	return NULL;
 
+    object axis_obj(axis_ptr, false);
     arr_wi_helper wi(intensity_obj, weights_obj, false, true);   // (intensity_writeback, weights_writeback) = (false, true)
 
-    rf_pipelines::axis_type axis = axis_type_from_python("apply_std_dev_clipper", axis_obj);
+    rf_pipelines::axis_type axis = axis_type_from_python("apply_std_dev_clipper", axis_ptr);
 
     rf_pipelines::apply_std_dev_clipper(wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, axis, sigma, Df, Dt);
 
@@ -1493,7 +1505,7 @@ static constexpr const char *make_gaussian_noise_stream_docstring =
 
 
 static constexpr const char *make_polynomial_detrender_docstring =
-    "make_polynomial_detrender(axis, nt_chunk, polydeg, epsilon)\n"
+    "make_polynomial_detrender(nt_chunk, axis, polydeg, epsilon = 1.0e-2)\n"
     "\n"
     "Detrends along the specified axis by subtracting a best-fit polynomial.\n"
     "axis=0 means 'detrend in time', axis=1 means 'detrend in frequency'.\n"
@@ -1505,7 +1517,7 @@ static constexpr const char *make_polynomial_detrender_docstring =
 
 
 static constexpr const char *make_intensity_clipper_docstring =
-    "make_intensity_clipper(Df, Dt, axis, nt_chunk, sigma, niter, iter_sigma)\n"
+    "make_intensity_clipper(nt_chunk, axis, sigma, niter=1, iter_sigma=0, Df=1, Dt=1)\n"
     "\n"
     "'Clips' an array by masking outlier intensities.\n"
     "The masking is performed by setting elements of the weights array to zero.\n"
@@ -1527,7 +1539,7 @@ static constexpr const char *make_intensity_clipper_docstring =
 
 
 static constexpr const char *make_std_dev_clipper_docstring =
-    "make_std_dev_clipper(Df, Dt, axis, nt_chunk, sigma)\n"
+    "make_std_dev_clipper(nt_chunk, axis, sigma, Df=1, Dt=1)\n"
     "\n"
     "'Clips' an array by masking rows/columns whose standard deviation is an outlier.\n"
     "The masking is performed by setting elements of the weights array to zero.\n"
@@ -1611,9 +1623,9 @@ static PyMethodDef module_methods[] = {
     { "make_chime_network_stream", tc_wrap2<make_chime_network_stream>, METH_VARARGS, dummy_module_method_docstring },
     { "make_gaussian_noise_stream", tc_wrap2<make_gaussian_noise_stream>, METH_VARARGS, make_gaussian_noise_stream_docstring },
     { "make_chime_packetizer", tc_wrap2<make_chime_packetizer>, METH_VARARGS, dummy_module_method_docstring },
-    { "make_polynomial_detrender", tc_wrap2<make_polynomial_detrender>, METH_VARARGS, make_polynomial_detrender_docstring },
-    { "make_intensity_clipper", tc_wrap2<make_intensity_clipper>, METH_VARARGS, make_intensity_clipper_docstring },
-    { "make_std_dev_clipper", tc_wrap2<make_std_dev_clipper>, METH_VARARGS, make_std_dev_clipper_docstring },
+    { "make_polynomial_detrender", (PyCFunction) tc_wrap3<make_polynomial_detrender>, METH_VARARGS, make_polynomial_detrender_docstring },
+    { "make_intensity_clipper", (PyCFunction) tc_wrap3<make_intensity_clipper>, METH_VARARGS, make_intensity_clipper_docstring },
+    { "make_std_dev_clipper", (PyCFunction) tc_wrap3<make_std_dev_clipper>, METH_VARARGS, make_std_dev_clipper_docstring },
     { "make_chime_file_writer", tc_wrap2<make_chime_file_writer>, METH_VARARGS, dummy_module_method_docstring },
     { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, dummy_module_method_docstring },
     { "make_badchannel_mask", tc_wrap2<make_badchannel_mask>, METH_VARARGS, make_badchannel_mask_docstring },

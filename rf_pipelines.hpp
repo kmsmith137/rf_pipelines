@@ -191,7 +191,7 @@ extern std::ostream &operator<<(std::ostream &os, axis_type axis);
 // 'epsilon'.  I think that 1.0e-2 is a reasonable default here, but haven't
 // experimented systematically.
 //
-extern std::shared_ptr<wi_transform> make_polynomial_detrender(axis_type axis, int nt_chunk, int polydeg, double epsilon=1.0e-2);
+extern std::shared_ptr<wi_transform> make_polynomial_detrender(int nt_chunk, axis_type axis, int polydeg, double epsilon=1.0e-2);
 
 
 // A "simple detrender" is a time-axis polynomial fitter with degree zero.
@@ -199,7 +199,7 @@ extern std::shared_ptr<wi_transform> make_polynomial_detrender(axis_type axis, i
 inline std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend)
 {
     std::cerr << "make_simple_detrender(): this function is now deprecated in favor of make_polynomial_detrender()\n";
-    return make_polynomial_detrender(AXIS_TIME, nt_detrend, 0);   // polydeg=0
+    return make_polynomial_detrender(nt_detrend, AXIS_TIME, 0);   // polydeg=0
 }
 
 
@@ -223,7 +223,7 @@ inline std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend)
 // to 'sigma', but the two thresholds need not be the same.
 //
 
-extern std::shared_ptr<wi_transform> make_intensity_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma, int niter=1, double iter_sigma=0.0);
+extern std::shared_ptr<wi_transform> make_intensity_clipper(int nt_chunk, axis_type axis, double sigma, int niter=1, double iter_sigma=0.0, int Df=1, int Dt=1);
 
 
 //
@@ -238,10 +238,11 @@ extern std::shared_ptr<wi_transform> make_intensity_clipper(int Df, int Dt, axis
 //
 // The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.
 //
-std::shared_ptr<wi_transform> make_std_dev_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma);
+std::shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, axis_type axis, double sigma, int Df=1, int Dt=1);
 
 
-// Functionality of above transforms as standalone functions.
+// Standalone functions with the equivalent functionality to the polynomial_detrender,
+// intensity_clipper, and std_dev_clipper transforms.  (See comments above for documentation.)
 
 extern void apply_polynomial_detrender(float *intensity, const float *weights, int nfreq, int nt, 
 				       int stride, axis_type axis, int polydeg, double epsilon);

@@ -18,8 +18,8 @@ struct detrender_timing_thread : public transform_timing_thread
 
     detrender_timing_thread(const shared_ptr<timing_thread_pool> &pool_, int nfreq_, int nt_chunk_, int stride_) :
 	transform_timing_thread(pool_, nfreq_, nt_chunk_, stride_,
-				{ make_polynomial_detrender(AXIS_TIME, nt_chunk_, N-1),
-				  make_polynomial_detrender(AXIS_FREQ, nt_chunk_, N-1) })
+				{ make_polynomial_detrender(nt_chunk_, AXIS_TIME, N-1),
+				  make_polynomial_detrender(nt_chunk_, AXIS_FREQ, N-1) })
     { 
 	dummyp = aligned_alloc<float> (16);
     }

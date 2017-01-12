@@ -1,3 +1,13 @@
+// FIXME (low-priority) a nuisance issue when working with this code is that functions
+// which are very similar have different argument orderings, e.g.
+//
+//          make_intensity_clipper(nt_chunk, axis, sigma, niter, iter_sigma, Df, Dt)
+//   calls _make_intensity_clipper(Df, Dt, axis, nt_chunk, sigma, niter, iter_sigma)
+
+// FIXME: currently we need to compile a new kernel for every (Df,Dt) pair, where
+// Df,Dt are the frequency/time downsampling factors.  Eventually I'd like to 
+// improve this by having special kernels to handle the large-Df and large-Dt cases.
+
 // #include <simd_helpers/simd_debug.hpp>
 
 #include <array>
@@ -25,9 +35,7 @@ using kernel_clip_t = void (*)(float *, float *, int, int, int, int, double, dou
 //
 // The compile-time arguments Df,Dt are the frequency/time downsampling factors, and the
 // compile-time boolean argument IterFlag should be set to 'true' if and only if niter > 1.
-//
-// FIXME: currently we need to compile a new kernel for every (Df,Dt) pair.  Eventually I'd
-// like to improve this by having special kernels to handle the large-Df and large-Dt cases.
+
 
 struct clipper_transform_base : public wi_transform 
 {
@@ -85,7 +93,7 @@ struct clipper_transform_base : public wi_transform
 	rf_assert(stream.nfreq % nds_f == 0);
 
 	int nds_int, nds_wt;
-	this->f_nds(nds_int, nds_wt, nfreq, nt_chunk);
+	this->f_nds(nds_int, nds_wt, stream.nfreq, nt_chunk);
 
 	this->nfreq = stream.nfreq;
 	this->ds_intensity = aligned_alloc<float> (nds_int);
@@ -404,14 +412,13 @@ shared_ptr<clipper_transform_base> _make_intensity_clipper(int Df, int Dt, axis_
     assert(ret->axis == axis);
     assert(ret->niter == niter);
     assert(ret->sigma == sigma);
-    assert(ret->iter_sigma == iter_sigma);
-    
+
     return ret;
 }
 
 
 // Externally callable "bottom line" routine which returns clipper transform with specified downsampling and axis.
-shared_ptr<wi_transform> make_intensity_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma)
+shared_ptr<wi_transform> make_intensity_clipper(int nt_chunk, axis_type axis, double sigma, int niter, double iter_sigma, int Df, int Dt)
 {
     int dummy_nfreq = Df;         // arbitrary
     int dummy_stride = nt_chunk;  // arbitrary
