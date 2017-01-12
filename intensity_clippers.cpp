@@ -452,15 +452,16 @@ struct clipper_table {
     {
 	static constexpr int S = constants::single_precision_simd_length;
 
-	for (axis_type axis: { AXIS_FREQ, AXIS_TIME }) {
+	for (axis_type axis: { AXIS_FREQ, AXIS_TIME, AXIS_NONE }) {
 	    for (int idf = 0; idf < NDf; idf++) {
 		for (int idt = 0; idt < NDt; idt++) {
 		    for (int niter = 1; niter < 3; niter++) {
 			int Df = 1 << idf;
 			int Dt = 1 << idt;
+			int iflag = (niter > 1) ? 1 : 0;
 
 			auto t = _make_intensity_clipper(Df, Dt, axis, Dt*S, 2.0, niter, 2.0);   // nt_chunk, sigma arbitrary
-			entries.at(axis).at(idf).at(idt).at(niter-1) = { t->f_nds, t->f_clip };
+			entries.at(axis).at(idf).at(idt).at(iflag) = { t->f_nds, t->f_clip };
 		    }
 		}
 	    }
