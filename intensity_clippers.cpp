@@ -1,3 +1,5 @@
+// #include <simd_helpers/simd_debug.hpp>
+
 #include <array>
 #include "rf_pipelines_internals.hpp"
 #include "kernels/intensity_clippers.hpp"
@@ -134,6 +136,10 @@ static void kernel_clip_2d(float *intensity, float *weights, int nfreq, int nt, 
 	simd_t<float,S> thresh = simd_t<float,S>(iter_sigma) * rms;
 	_kernel_clip2d_iterate<float,S> (mean, rms, s_intensity, s_weights, mean, thresh, nfreq/Df, nt/Dt, s_stride);
     }
+
+    // needs simd_debug.hpp
+    // cerr << "kernel_clip_2d: mean=" << mean << endl;
+    // cerr << "kernel_clip_2d: rms=" << rms << endl;
 
     // (s_intensity, weights, sigma) here
     simd_t<float,S> thresh = simd_t<float,S>(sigma) * rms;

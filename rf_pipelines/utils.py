@@ -17,7 +17,7 @@ def weighted_mean_and_rms(arr, weights, niter=1, sigma_clip=3.0):
     assert weights is not None
     assert arr.shape == weights.shape
     assert niter >= 1
-    assert sigma_clip >= 2.0   # lower than this really wouldn't make sense
+    assert sigma_clip >= 1.0   # lower than this really wouldn't make sense
 
     assert np.all(weights >= 0.0)
     weights = np.copy(weights)
@@ -39,6 +39,7 @@ def weighted_mean_and_rms(arr, weights, niter=1, sigma_clip=3.0):
         mask = np.abs(arr-mean) <= sigma_clip*rms
         weights = np.where(mask, weights, 0.0)
 
+    # print >>sys.stderr, 'weighted_mean_and_rms:', (mean,rms)
     return (mean, rms)
 
 
