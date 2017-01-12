@@ -92,7 +92,7 @@ struct sd_clipper_transform_base : public wi_transform
     {
 	rf_assert(stream.nfreq % nds_f == 0);
 
-	int ntmp = f_ntmp(nfreq, nt_chunk);
+	int ntmp = f_ntmp(stream.nfreq, nt_chunk);
 
 	this->nfreq = stream.nfreq;
 	this->tmp_sd = aligned_alloc<float> (ntmp);
