@@ -100,6 +100,8 @@ namespace constants {
     //   - you will need to recompile rf_pipelines after the change
 
     static constexpr int polynomial_detrender_max_degree = 20;
+    static constexpr int intensity_clipper_max_frequency_downsampling = 32;
+    static constexpr int intensity_clipper_max_time_downsampling = 32;
     static constexpr int std_dev_clipper_max_frequency_downsampling = 32;
     static constexpr int std_dev_clipper_max_time_downsampling = 32;
 
@@ -217,10 +219,11 @@ inline std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend)
 //   axis=AXIS_NONE   2-d clipper
 //
 // If niter > 1, then the mean/rms intensity will be computed using iterated clipping,
-// with threshold 'iter_sigma' (which need not be the same as 'sigma').
+// with threshold 'iter_sigma'.  If the 'iter_sigma' argument is zero, then it defaults
+// to 'sigma', but the two thresholds need not be the same.
 //
 
-extern std::shared_ptr<wi_transform> make_intensity_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma, int niter, double iter_sigma);
+extern std::shared_ptr<wi_transform> make_intensity_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma, int niter=1, double iter_sigma=0.0);
 
 
 //
@@ -239,9 +242,15 @@ std::shared_ptr<wi_transform> make_std_dev_clipper(int Df, int Dt, axis_type axi
 
 
 // Functionality of above transforms as standalone functions.
-extern void apply_polynomial_detrender(float *intensity, const float *weights, int nfreq, int nt, int stride, axis_type axis, int polydeg, double epsilon);
-extern void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, axis_type axis, double sigma, int Df, int Dt);
 
+extern void apply_polynomial_detrender(float *intensity, const float *weights, int nfreq, int nt, 
+				       int stride, axis_type axis, int polydeg, double epsilon);
+
+extern void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, 
+				    axis_type axis, double sigma, int niter=1, double iter_sigma=0.0, int Df=1, int Dt=1);
+
+extern void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, int nt, 
+				  int stride, axis_type axis, double sigma, int Df=1, int Dt=1);
 
 //
 // This is a pseudo-transform which doesn't actually modify the data, it just writes it to a file in

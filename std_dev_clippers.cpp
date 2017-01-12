@@ -251,7 +251,8 @@ inline shared_ptr<sd_clipper_transform_base> _make_std_dev_clipper2(int Df, int 
 }
 
 
-// non-static
+// Non-static
+// Caller must call check_params() first.
 shared_ptr<sd_clipper_transform_base> _make_std_dev_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma)
 {
     static constexpr int S = constants::single_precision_simd_length;
@@ -260,10 +261,11 @@ shared_ptr<sd_clipper_transform_base> _make_std_dev_clipper(int Df, int Dt, axis
     
     auto ret = _make_std_dev_clipper2<S,MaxDf,MaxDt> (Df, Dt, axis, nt_chunk, sigma);
 
-    // Sanity check on the template instantiation
+    // Sanity check the template instantiation
     assert(ret->nds_f == Df);
     assert(ret->nds_t == Dt);
     assert(ret->axis == axis);
+    assert(ret->sigma == sigma);
     
     return ret;
 }
@@ -295,7 +297,11 @@ static void check_params(int Df, int Dt, axis_type axis, int nfreq, int nt, int 
 
     if (_unlikely(sigma < 1.0))
 	throw runtime_error("rf_pipelines std_dev clipper: sigma=" + to_string(sigma) + " must be >= 1.0");
-    
+
+    if (_unlikely((nfreq % Df) != 0))
+	throw runtime_error("rf_pipelines std_dev clipper: nfreq=" + to_string(nfreq)
+			    + " must be a multiple of the downsampling factor Df=" + to_string(Df));
+
     if (_unlikely((nt % (Dt*S)) != 0))
 	throw runtime_error("rf_pipelines std_dev clipper: nt=" + to_string(nt)
 			    + " must be a multiple of the downsampling factor Dt=" + to_string(Dt)
@@ -311,7 +317,7 @@ static void check_params(int Df, int Dt, axis_type axis, int nfreq, int nt, int 
 
 shared_ptr<wi_transform> make_std_dev_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma)
 {
-    int dummy_nfreq = 16;         // arbitrary
+    int dummy_nfreq = Df;         // arbitrary
     int dummy_stride = nt_chunk;  // arbitrary
 
     check_params(Df, Dt, axis, dummy_nfreq, nt_chunk, dummy_stride, sigma);
@@ -342,8 +348,8 @@ struct sd_clipper_table {
 	kernel_clip_t f_clip;
     };
 
-    using ktab3_t = std::array<kernels, (NDt)>;
-    using ktab2_t = std::array<ktab3_t, (NDf)>;
+    using ktab3_t = std::array<kernels, NDt>;
+    using ktab2_t = std::array<ktab3_t, NDf>;
     using ktab_t = std::array<ktab2_t, 2>;
 
     ktab_t entries;

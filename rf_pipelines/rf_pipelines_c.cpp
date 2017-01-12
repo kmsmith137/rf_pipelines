@@ -1375,6 +1375,34 @@ static PyObject *apply_polynomial_detrender(PyObject *self, PyObject *args, PyOb
 }
 
 
+static PyObject *apply_intensity_clipper(PyObject *self, PyObject *args, PyObject *kwds)
+{
+    PyObject *intensity_obj = Py_None;
+    PyObject *weights_obj = Py_None;
+    PyObject *axis_obj = Py_None;
+    double sigma = 0.0;
+    int niter = 1;             // meaningful default value
+    double iter_sigma = 0.0;   // meaningful default value
+    int Df = 1;                // meaningful default value
+    int Dt = 1;                // meaningful default value
+
+    static const char *kwlist[] = { "intensity", "weights", "axis", "sigma", "niter", "iter_sigma", "Df", "Dt", NULL };    
+
+    // Note: the object pointers will be borrowed references
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOd|idii", (char **)kwlist, &intensity_obj, &weights_obj, &axis_obj, &sigma, &niter, &iter_sigma, &Df, &Dt))
+	return NULL;
+
+    arr_wi_helper wi(intensity_obj, weights_obj, false, true);   // (intensity_writeback, weights_writeback) = (false, true)
+
+    rf_pipelines::axis_type axis = axis_type_from_python("apply_intensity_clipper", axis_obj);
+
+    rf_pipelines::apply_intensity_clipper(wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, axis, sigma, niter, iter_sigma, Df, Dt);
+
+    Py_INCREF(Py_None);
+    return Py_None;    
+}
+
+
 static PyObject *apply_std_dev_clipper(PyObject *self, PyObject *args, PyObject *kwds)
 {
     PyObject *intensity_obj = Py_None;
@@ -1494,7 +1522,8 @@ static constexpr const char *make_intensity_clipper_docstring =
     "   axis=None   2-d clipper\n"
     "\n"
     "If niter > 1, then the mean/rms intensity will be computed using iterated clipping,\n"
-    "with threshold 'iter_sigma' (which need not be the same as 'sigma').\n";
+    "with threshold 'iter_sigma'.  If the 'iter_sigma' argument is zero, then it defaults\n"
+    "to 'sigma', but the two thresholds need not be the same.\n";
 
 
 static constexpr const char *make_std_dev_clipper_docstring =
@@ -1523,6 +1552,28 @@ static constexpr const char *apply_polynomial_detrender_docstring =
     "(by setting its weights to zero).  The threshold is controlled by the parameter\n"
     "'epsilon'.  I think that 1.0e-2 is a reasonable default here, but haven't\n"
     "experimented systematically.\n";
+
+
+static constexpr const char *apply_intensity_clipper_docstring =
+    "apply_intensity_clipper(intensity, weights, axis, sigma, niter=1, iter_sigma=0.0, Df=1, Dt=1)\n"
+    "\n"
+    "'Clips' an array by masking outlier intensities.\n"
+    "The masking is performed by setting elements of the weights array to zero.\n"
+    "\n"
+    "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.  Note\n"
+    "that the weights are used when calculating both the mean and rms intensity.\n"
+    "\n"
+    "The (Df,Dt) args are downsampling factors on the frequency/time axes.\n"
+    "If no downsampling is desired, set Df=Dt=1.\n"
+    "\n"
+    "The 'axis' argument has the following meaning:\n"
+    "   axis=0      clip along frequency axis, with an outer loop over time samples\n"
+    "   axis=1      clip along time axis, with an outer loop over frequency samples\n"
+    "   axis=None   2-d clipper\n"
+    "\n"
+    "If niter > 1, then the mean/rms intensity will be computed using iterated clipping,\n"
+    "with threshold 'iter_sigma'.  If the 'iter_sigma' argument is zero, then it defaults\n"
+    "to 'sigma', but the two thresholds need not be the same.\n";
 
 
 static constexpr const char *apply_std_dev_clipper_docstring =
@@ -1567,6 +1618,7 @@ static PyMethodDef module_methods[] = {
     { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, dummy_module_method_docstring },
     { "make_badchannel_mask", tc_wrap2<make_badchannel_mask>, METH_VARARGS, make_badchannel_mask_docstring },
     { "apply_polynomial_detrender", (PyCFunction) tc_wrap3<apply_polynomial_detrender>, METH_VARARGS | METH_KEYWORDS, apply_polynomial_detrender_docstring },
+    { "apply_intensity_clipper", (PyCFunction) tc_wrap3<apply_intensity_clipper>, METH_VARARGS | METH_KEYWORDS, apply_intensity_clipper_docstring },
     { "apply_std_dev_clipper", (PyCFunction) tc_wrap3<apply_std_dev_clipper>, METH_VARARGS | METH_KEYWORDS, apply_std_dev_clipper_docstring },
     { NULL, NULL, 0, NULL }
 };

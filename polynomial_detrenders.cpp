@@ -150,7 +150,8 @@ shared_ptr<polynomial_detrender_base> _make_polynomial_detrender(axis_type axis,
     static constexpr int S = constants::single_precision_simd_length;
 
     shared_ptr<polynomial_detrender_base> ret = _make_polynomial_detrender2<S,MaxDeg+1> (axis, nt_chunk, polydeg, epsilon);
-    
+
+    // Sanity check the template instantiation
     assert(ret->axis == axis);
     assert(ret->nt_chunk == nt_chunk);
     assert(ret->polydeg == polydeg);
