@@ -1,7 +1,7 @@
 import numpy as np
 import rf_pipelines
 
-def clip_fx(intensity, weights, thr=3, n_internal=6, axis=None, dsample_nfreq=None, dsample_nt=None):
+def clip_fx(intensity, weights, thr=3, n_internal=6, axis=None, dsample_nfreq=None, dsample_nt=None, imitate_cpp=False):
     """Helper function for clipper_transform. Modifies 'weights' array in place."""
     
     (nfreq, nt_chunk) = intensity.shape
@@ -34,7 +34,8 @@ def clip_fx(intensity, weights, thr=3, n_internal=6, axis=None, dsample_nfreq=No
         # Downsample the weights and intensity.
         (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights, dsample_nfreq, dsample_nt)
 
-    if axis == None: #2D
+    if axis == None: 
+        # In the 2D case, the behavior with and without imitate_cpp is the same.
         # Compute (mean,rms) values after 'n_internal' iterations while clipping at the level of 'thr'
         (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, n_internal, thr)
         clip = rf_pipelines.tile_arr(np.asarray(rms), axis, dsample_nfreq, dsample_nt)
@@ -42,7 +43,18 @@ def clip_fx(intensity, weights, thr=3, n_internal=6, axis=None, dsample_nfreq=No
         # Boolean array which is True for masked values
         mask = np.abs(intensity-mean) > (thr * clip)
 
-    else: #1D
+    elif imitate_cpp:
+        # 1D case, with imitate_cpp=True
+        (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, n_internal, thr, axis)
+
+        mean = rf_pipelines.tile_arr(mean, axis, dsample_nfreq, dsample_nt)
+        clip = rf_pipelines.tile_arr(rms, axis, dsample_nfreq, dsample_nt)
+
+        # Boolean array which is True for masked values
+        mask = np.abs(intensity-mean) > (thr * clip)
+
+    else:
+        # 1D case, with imitate_cpp=False
         # Compute (sum_i W_i I_i^2) and (sum_i W_i)
         num = np.asarray(np.sum(weights*(intensity)**2, axis=axis))
         den = np.asarray(np.sum(weights, axis=axis))
