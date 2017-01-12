@@ -128,7 +128,8 @@ static void clip_1d(int n, float *tmp_sd, mask_t *tmp_valid, double sigma)
 	if (tmp_valid[i])
 	    acc2 += square(tmp_sd[i] - mean);
     
-    float thresh = sigma * sqrtf(acc2/(acc0-1.0));
+    float stdv = sqrtf(acc2/acc0);
+    float thresh = sigma * stdv;
 
     for (int i = 0; i < n; i++) {
 	if (fabs(tmp_sd[i] - mean) >= thresh)
@@ -145,11 +146,11 @@ template<unsigned int S, unsigned int Df, unsigned int Dt>
 static void _kernel_clip_time_axis(float *intensity, float *weights, int nfreq, int nt, int stride, double sigma, float *tmp_sd, mask_t *tmp_valid)
 {
     _kernel_std_dev_t<float,S,Df,Dt> (tmp_sd, tmp_valid, intensity, weights, nfreq, nt, stride);
-    
+
     clip_1d(nfreq/Df, tmp_sd, tmp_valid, sigma);
 
     for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	if (!tmp_valid[ifreq])
+	if (!tmp_valid[ifreq/Df])
 	    memset(weights + ifreq*stride, 0, nt * sizeof(float));
     }
 }

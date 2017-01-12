@@ -45,7 +45,7 @@ inline void _kernel_std_dev_t(T *out_sd, smask_t<T,1> *out_valid, const T *inten
 	acc.get_mean_variance(mean, var);
 
 	// scalar instructions should be fine here
-	T sd = mean.template extract<0> ();
+	T sd = var.template extract<0> ();
 	*out_sd++ = sd;
 	*out_valid++ = (sd > 0.0) ? smask_t<T,1>(-1) : 0;
     }
