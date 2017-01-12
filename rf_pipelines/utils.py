@@ -7,39 +7,93 @@ except:
     pass  # warning message has already been printed in rf_pipelines/__init__.py
 
 
-def weighted_mean_and_rms(arr, weights, niter=1, sigma_clip=3.0):
+def expand_array(arr, new_shape, axis):
+    arr = np.array(arr)
+    ret = np.empty(new_shape, dtype=arr.dtype)
+
+    if axis is None:
+        assert arr.ndim == 0
+        ret.fill(arr)
+        return ret
+
+    assert 0 <= axis < len(new_shape)
+
+    expected_shape = new_shape[:axis] + new_shape[(axis+1):]
+    assert arr.shape == expected_shape
+    
+    # adds new length-1 axis
+    arr = np.expand_dims(arr, axis)
+
+    # numpy array assignment will correctly "promote" the length-1 axis to length new_shape[axis].
+    ret[:] = arr[:]
+    return ret
+
+
+def weighted_mean_and_rms(arr, weights, niter=1, sigma_clip=3.0, axis=None):
     """
     If niter > 1, then the calculation will be iterated, "clipping" outlier samples which
     deviate from the mean by more than 3 sigma (or a different threshold, if the sigma_clip
     parameter is specified).
+
+    If axis=None, returns a pair of scalars (mean, rms).
+
+    If axis is not None, returns a pair of arrays (mean, rms) whose dimension is
+    one less than the input arrays.
     """
 
     assert weights is not None
     assert arr.shape == weights.shape
     assert niter >= 1
     assert sigma_clip >= 1.0   # lower than this really wouldn't make sense
-
     assert np.all(weights >= 0.0)
-    weights = np.copy(weights)
 
-    (mean, rms) = (0.0, 0.0)
+    input_shape = arr.shape
+    weights = np.copy(weights)   # make copy, since we'll modify the weights as we iterate
 
     for iter in xrange(niter):
-        wsum = np.sum(weights)
-        if wsum <= 0.0:
-            return (mean, 0.0)
+        wsum = np.sum(weights, axis=axis)
 
-        mean = np.sum(weights*arr) / np.sum(weights)
-        var = np.sum(weights*(arr-mean)**2) / np.sum(weights)
+        if iter == 0:
+            # Some initializations in the first iteration of the loop
+            output_shape = wsum.shape
+            mean = np.zeros(output_shape)
+            rms = np.zeros(output_shape)
 
-        if var <= 0.0:
-            return (mean, rms)
+        # The mask has the dimensions of the output array.
+        # Outputs where the corresponding weight sum is zero (or negative) are masked.
+        # Masked outputs will be represented by rms=0 and arbitrary mean.
+        mask = (wsum > 0.0)
 
+        # "Regulate" wsum: replaced masked entries by 1.0 to prevent divide-by zero.
+        # These entries will be masked in the end anyway, so the value we use is arbitrary; we just
+        # want python to process these array elements without throwing a divide-by-zero exception.
+        wsum = np.where(mask, wsum, 1.0)
+
+        # Compute the mean, and expand it to have the dimensions of the input array.
+        mean = np.sum(weights*arr, axis=axis) / wsum
+        mean_e = expand_array(mean, input_shape, axis)
+
+        var = np.sum(weights*(arr-mean_e)**2, axis=axis) / wsum
+
+        # Regulate variance array by assigning zero to masked entries.
+        mask = np.logical_and(mask, var > 0.0)
+        var = np.where(mask, var, 0.0)
+
+        # Compute rms and expand it to have dimensions of the input array
         rms = np.sqrt(var)
-        mask = np.abs(arr-mean) <= sigma_clip*rms
+        rms_e = expand_array(rms, input_shape, axis)
+
+        # After this line, 'mask' now has dimensions of the input array.
+        # Note that the previous mask is implicitly included, since the rms will be zero
+        # for masked entries, and the comparison will evaluate to False.
+        mask = np.abs(arr-mean_e) < sigma_clip * rms_e
+
+        # Expand the mask and proceed to the next iteration
         weights = np.where(mask, weights, 0.0)
 
+    # Sometimes useful for debugging
     # print >>sys.stderr, 'weighted_mean_and_rms:', (mean,rms)
+
     return (mean, rms)
 
 
