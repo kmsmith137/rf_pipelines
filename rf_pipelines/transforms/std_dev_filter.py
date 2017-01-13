@@ -64,7 +64,7 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
         (sd_mean, sd_rms) = rf_pipelines.weighted_mean_and_rms(sd, sd_weights, sigma_clip=thr)
 
         # 1D boolean mask (clipped values are represented by True)
-        mask = (np.abs(sd-sd_mean) >= thr*sd_rms)
+        mask = np.logical_or((sd_weights == 0.0), (np.abs(sd-sd_mean) >= thr*sd_rms))
 
         # 2D boolean mask (still needs upsampling)
         mask = rf_pipelines.tile_arr(mask, axis, dsample_nfreq, dsample_nt)
