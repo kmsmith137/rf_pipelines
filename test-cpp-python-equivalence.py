@@ -157,6 +157,67 @@ def test_polynomial_detrenders():
 
 
 ####################################################################################################
+#
+# Test intensity_clipper and std_dev_clipper
+#
+# Note: test_clippers() only tests the intensity clipper in the case niter = 1.
+# See later in the file for a unit test which addresses the niter > 1 case.
+
+
+def make_clipper_test_data(nfreq, nt, axis, Df, Dt):
+    """Helper function for clipper unit tests.  Returns (intensity, weights) pair."""
+
+    intensity = rand.standard_normal(size=(nfreq,nt))
+    weights = rand.uniform(size=(nfreq,nt))
+
+    if rand.uniform() < 0.02:
+        # Test a corner case by masking all elements of the array.
+        weights[:,:] = 0.0
+        
+    elif rand.uniform() < 0.02:
+        # Test a corner case by masking all elements of the array except one.
+        ifreq = rand.randint(0, nfreq)
+        it = rand.randint(0, nt)
+        weights[:,:] = 0.0
+        weights[ifreq,it] = rand.uniform()
+        
+    elif (axis == 0) and (rand.uniform() < 0.02):
+        # Test a corner case by masking all columns of the array except one
+        it = rand.randint(0, nt)
+        weights[:,it] = rand.uniform(size=nfreq)
+        
+    elif (axis == 1) and (rand.uniform() < 0.02):
+        # Test a corner case by masking all rows of the array except one
+        ifreq = rand.randint(0, nfreq)
+        weights[ifreq,:] = rand.uniform(size=nt)
+        
+    elif axis == 0:
+        # Test a corner case by making a few columns "sparse"
+        for j in xrange(nt//Dt):
+            if rand.uniform() < 0.8:
+                continue
+            
+            weights[:,(j*Dt):((j+1)*Dt)] = 0.
+            if rand.uniform() < 0.5:
+                continue
+            
+            i = rand.randint(0,nfreq//Df)
+            weights[(i*Df):((i+1)*Df),(j*Dt):((j+1)*Dt)] = rand.uniform(size=(Df,Dt))
+
+    elif axis == 1:
+        # Test a corner case by making a few rows "sparse"
+        for i in xrange(nfreq//Df):
+            if rand.uniform() < 0.8:
+                continue
+            
+            weights[(i*Df):((i+1)*Df),:] = 0.
+            if rand.uniform() < 0.5:
+                continue
+            
+            j = rand.randint(0,nt//Dt)
+            weights[(i*Df):((i+1)*Df),(j*Dt):((j+1)*Dt)] = rand.uniform(size=(Df,Dt))
+
+    return (intensity, weights)
 
 
 def test_clippers():
@@ -173,56 +234,7 @@ def test_clippers():
         # Debug
         # print >>sys.stderr, '(Df,Dt,axis,nfreq,nt,thresh)=(%d,%d,%s,%d,%d,%s)' % (Df,Dt,axis,nfreq,nt,thresh)
 
-        intensity = rand.standard_normal(size=(nfreq,nt))
-        weights0 = rand.uniform(size=(nfreq,nt))
-
-        if rand.uniform() < 0.02:
-            # Test a corner case by masking all elements of the array.
-            weights0[:,:] = 0.0
-
-        elif rand.uniform() < 0.02:
-            # Test a corner case by masking all elements of the array except one.
-            ifreq = rand.randint(0, nfreq)
-            it = rand.randint(0, nt)
-            weights0[:,:] = 0.0
-            weights0[ifreq,it] = rand.uniform()
-
-        elif (axis == 0) and (rand.uniform() < 0.02):
-            # Test a corner case by masking all columns of the array except one
-            it = rand.randint(0, nt)
-            weights0[:,it] = rand.uniform(size=nfreq)
-
-        elif (axis == 1) and (rand.uniform() < 0.02):
-            # Test a corner case by masking all rows of the array except one
-            ifreq = rand.randint(0, nfreq)
-            weights0[ifreq,:] = rand.uniform(size=nt)
-
-        elif axis == 0:
-            # Test a corner case by making a few columns "sparse"
-            for j in xrange(nt//Dt):
-                if rand.uniform() < 0.8:
-                    continue
-
-                weights0[:,(j*Dt):((j+1)*Dt)] = 0.
-                if rand.uniform() < 0.5:
-                    continue
-                
-                i = rand.randint(0,nfreq//Df)
-                weights0[(i*Df):((i+1)*Df),(j*Dt):((j+1)*Dt)] = rand.uniform(size=(Df,Dt))
-
-        elif axis == 1:
-            # Test a corner case by making a few rows "sparse"
-            for i in xrange(nfreq//Df):
-                if rand.uniform() < 0.8:
-                    continue
-
-                weights0[(i*Df):((i+1)*Df),:] = 0.
-                if rand.uniform() < 0.5:
-                    continue
-                
-                j = rand.randint(0,nt//Dt)
-                weights0[(i*Df):((i+1)*Df),(j*Dt):((j+1)*Dt)] = rand.uniform(size=(Df,Dt))
-
+        (intensity, weights0) = make_clipper_test_data(nfreq, nt, axis, Df, Dt)
 
         weights1 = copy_array(weights0, tame=True)
         rf_pipelines.clip_fx(intensity, weights1, thr = 0.999 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt, imitate_cpp=True)
@@ -273,6 +285,28 @@ def test_clippers():
 
 
 ####################################################################################################
+#
+# Test intensity_clipper for niter > 1
+
+
+def test_iterated_intensity_clipper():
+    for iter in xrange(1000):
+        sys.stderr.write('.')
+
+        axis = rand.randint(0,2) if (rand.uniform() < 0.66) else None
+        Df = 2**rand.randint(0,6)
+        Dt = 2**rand.randint(0,6)
+        nfreq = Df * rand.randint(8,16)
+        nt = Dt * 8 * rand.randint(1,8)
+        sigma = rand.uniform(1.1, 1.3)
+        niter = rand.randint(1, 6)
+        iter_sigma = rand.uniform(1.1, 1.3)
+
+        # more to come!
+
+
+####################################################################################################
+
 
 
 test_polynomial_detrenders()
