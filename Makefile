@@ -67,7 +67,7 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/thermal_noise_weight.py \
 	rf_pipelines/transforms/RC_detrender.py \
 	rf_pipelines/transforms/master_clipper.py \
-	rf_pipelines/transforms/clipper2d.py
+	rf_pipelines/transforms/intensity_clipper.py
 
 TESTBINFILES=run-unit-tests \
 	test-kernels \

@@ -66,7 +66,7 @@ Transforms:
    plotter_transform()        makes waterfall plots at a specified place in the pipeline, very useful for debugging
    RC_detrender()             exponential detrender, with bidirectional feature intended to remove "step-like" features
    poly_detreneder()          fast detrending algorithm in C++
-   clipper2d()                fast clipping algorithm in C++
+   intensity_clipper()        fast clipping algorithm in C++
    std_dev_filter()           masks data based on variance
    thermal_noise_weight()     applies optimal weighting assuming flat gains and variance proportional to intensity
 """
