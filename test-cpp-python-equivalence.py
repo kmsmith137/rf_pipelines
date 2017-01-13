@@ -176,12 +176,53 @@ def test_clippers():
         intensity = rand.standard_normal(size=(nfreq,nt))
         weights0 = rand.uniform(size=(nfreq,nt))
 
-        if rand.uniform() < 0.03:
+        if rand.uniform() < 0.02:
+            # Test a corner case by masking all elements of the array.
+            weights0[:,:] = 0.0
+
+        elif rand.uniform() < 0.02:
             # Test a corner case by masking all elements of the array except one.
             ifreq = rand.randint(0, nfreq)
             it = rand.randint(0, nt)
             weights0[:,:] = 0.0
             weights0[ifreq,it] = rand.uniform()
+
+        elif (axis == 0) and (rand.uniform() < 0.02):
+            # Test a corner case by masking all columns of the array except one
+            it = rand.randint(0, nt)
+            weights0[:,it] = rand.uniform(size=nfreq)
+
+        elif (axis == 1) and (rand.uniform() < 0.02):
+            # Test a corner case by masking all rows of the array except one
+            ifreq = rand.randint(0, nfreq)
+            weights0[ifreq,:] = rand.uniform(size=nt)
+
+        elif axis == 0:
+            # Test a corner case by making a few columns "sparse"
+            for j in xrange(nt//Dt):
+                if rand.uniform() < 0.8:
+                    continue
+
+                weights0[:,(j*Dt):((j+1)*Dt)] = 0.
+                if rand.uniform() < 0.5:
+                    continue
+                
+                i = rand.randint(0,nfreq//Df)
+                weights0[(i*Df):((i+1)*Df),(j*Dt):((j+1)*Dt)] = rand.uniform(size=(Df,Dt))
+
+        elif axis == 1:
+            # Test a corner case by making a few rows "sparse"
+            for i in xrange(nfreq//Df):
+                if rand.uniform() < 0.8:
+                    continue
+
+                weights0[(i*Df):((i+1)*Df),:] = 0.
+                if rand.uniform() < 0.5:
+                    continue
+                
+                j = rand.randint(0,nt//Dt)
+                weights0[(i*Df):((i+1)*Df),(j*Dt):((j+1)*Dt)] = rand.uniform(size=(Df,Dt))
+
 
         weights1 = copy_array(weights0, tame=True)
         rf_pipelines.clip_fx(intensity, weights1, thr = 0.999 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt, imitate_cpp=True)
