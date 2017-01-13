@@ -12,22 +12,21 @@ namespace rf_pipelines {
 };  // pacify emacs c-mode!
 #endif
 
-
 #ifndef HAVE_CH_FRB_IO
 
-shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &filename, ssize_t nt_chunk, ssize_t noise_source_align)
+shared_ptr<wi_stream> make_chime_frb_stream_from_glob(const string &filename, ssize_t nt_chunk)
 {
-    throw runtime_error("rf_pipelines::make_chime_stream_from_acqdir() was called, but rf_pipelines was compiled without ch_frb_io");
+    throw runtime_error("rf_pipelines::make_chime_frb_stream_from_glob() was called, but rf_pipelines was compiled without ch_frb_io");
 }
 
-shared_ptr<wi_stream> make_chime_stream_from_filename(const string &filename, ssize_t nt_chunk, ssize_t noise_source_align)
+shared_ptr<wi_stream> make_chime_frb_stream_from_filename(const string &filename, ssize_t nt_chunk, ssize_t noise_source_align)
 {
-    throw runtime_error("rf_pipelines::make_chime_stream_from_filename() was called, but rf_pipelines was compiled without ch_frb_io");
+    throw runtime_error("rf_pipelines::make_chime_frb_stream_from_filename() was called, but rf_pipelines was compiled without ch_frb_io");
 }
 
-shared_ptr<wi_stream> make_chime_stream_from_filename_list(const vector<string> &filename_list, ssize_t nt_chunk, ssize_t noise_source_align)
+shared_ptr<wi_stream> make_chime_frb_stream_from_filename_list(const vector<string> &filename_list, ssize_t nt_chunk, ssize_t noise_source_align)
 {
-    throw runtime_error("rf_pipelines::make_chime_stream_from_filename_list() was called, but rf_pipelines was compiled without ch_frb_io");
+    throw runtime_error("rf_pipelines::make_chime_frb_stream_from_filename_list() was called, but rf_pipelines was compiled without ch_frb_io");
 }
 
 #else  // HAVE_CH_FRB_IO
@@ -240,7 +239,7 @@ static bool is_chime_file(const string &basename)
 
 
 // Lists all files of the form ${dirname}/NNNNNNNN.h5, where N=[0,9]
-static void list_chime_acqdir(vector<string> &chime_files, const string &dirname, bool allow_empty=false)
+static void list_chime_glob(vector<string> &chime_files, const string &dirname, bool allow_empty=false)
 {
     chime_files.resize(0);
     bool wflag = false;
@@ -261,12 +260,12 @@ static void list_chime_acqdir(vector<string> &chime_files, const string &dirname
 }
 
 
-shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &dirname, ssize_t nt_chunk, ssize_t noise_source_align)
+shared_ptr<wi_stream> make_chime_stream_from_glob(const string &dirname, ssize_t nt_chunk, ssize_t noise_source_align)
 {
     bool allow_empty = false;
     vector<string> filename_list;
-    list_chime_acqdir(filename_list, dirname, allow_empty);
-    cerr << dirname << ": " << filename_list.size() << " data files found in acqdir\n";
+    list_chime_glob(filename_list, dirname, allow_empty);
+    cerr << dirname << ": " << filename_list.size() << " data files found in glob\n";
 
     return make_chime_stream_from_filename_list(filename_list, nt_chunk, noise_source_align);
 }

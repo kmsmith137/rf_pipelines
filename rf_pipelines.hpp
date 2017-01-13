@@ -102,7 +102,7 @@ extern std::shared_ptr<wi_stream> make_psrfits_stream(const std::string &filenam
 
 
 //
-// CHIME file streams, either from single file, explciit filename, or acquisition directory.
+// CHIME file streams, either from single file, explicit filename, or acquisition directory.
 // In the 'acqusition directory' case, the directory is scanned for filenames of the form NNNNNNNN.h5, where N=[0,9].
 //    
 // The 'nt_chunk' arg is the chunk size used internally when moving data from hdf5 file
