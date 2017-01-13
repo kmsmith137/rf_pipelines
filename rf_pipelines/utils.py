@@ -75,8 +75,9 @@ def weighted_mean_and_rms(arr, weights, niter=1, sigma_clip=3.0, axis=None):
 
         var = np.sum(weights*(arr-mean_e)**2, axis=axis) / wsum
 
-        # Regulate variance array by assigning zero to masked entries.
-        mask = np.logical_and(mask, var > 0.0)
+        # If the variance is very small compared to the mean, then the result isn't 
+        # numerically stable, so just mask it by setting the variance to zero.
+        mask = np.logical_and(mask, var > 1.0e-10 * mean**2)
         var = np.where(mask, var, 0.0)
 
         # Compute rms and expand it to have dimensions of the input array

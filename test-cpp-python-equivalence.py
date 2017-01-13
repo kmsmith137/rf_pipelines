@@ -176,6 +176,14 @@ def test_clippers():
         intensity = rand.standard_normal(size=(nfreq,nt))
         weights0 = rand.uniform(size=(nfreq,nt))
 
+        if axis is None:
+            if rand.uniform() < 0.1:
+                # Test a corner case by masking all elements of the array except one.
+                ifreq = rand.randint(0, nfreq)
+                it = rand.randint(0, nt)
+                weights0[:,:] = 0.0
+                weights0[ifreq,it] = rand.uniform()
+
         weights1 = copy_array(weights0, tame=True)
         rf_pipelines.clip_fx(intensity, weights1, thr = 0.999 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt, imitate_cpp=True)
 

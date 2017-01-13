@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import rf_pipelines
 
@@ -41,7 +42,7 @@ def clip_fx(intensity, weights, thr=3, n_internal=6, axis=None, dsample_nfreq=No
         clip = rf_pipelines.tile_arr(np.asarray(rms), axis, dsample_nfreq, dsample_nt)
         
         # Boolean array which is True for masked values
-        mask = np.abs(intensity-mean) > (thr * clip)
+        mask = np.abs(intensity-mean) >= (thr * clip)
 
     elif imitate_cpp:
         # 1D case, with imitate_cpp=True
