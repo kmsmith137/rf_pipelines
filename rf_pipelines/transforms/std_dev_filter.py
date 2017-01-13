@@ -38,19 +38,9 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
     # selected axis.  We also build up a weights array 'sd_weights' which is 0 or 1.
 
     if imitate_cpp:
-        den = np.sum(weights, axis=axis)
-        sd_weights = (den > 0)
-
-        # In the C++ code, we use the variance rather than the standard deviation
-        # (i.e. no square root), and subtract the mean.
-        den = np.where(sd_weights, den, 1.0)
-        mean = np.sum(weights*intensity, axis=axis) / den
-        mean_e = rf_pipelines.tile_arr(mean, axis, dsample_nfreq, dsample_nt)
-        sd = np.sum(weights*(intensity-mean_e)**2, axis=axis) / den
-
-        # Expand the mask to exclude elements where the standard deviation
-        # is very small compared to the mean.
-        sd_weights = np.logical_and(sd_weights, (sd > (1.0e-10 * mean**2)))
+        (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, axis=axis)
+        sd = rms**2
+        sd_weights = (rms > 0)
 
     else:
         num = np.asarray(np.sum(weights*(intensity)**2, axis=axis))
