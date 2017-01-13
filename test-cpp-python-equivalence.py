@@ -176,14 +176,14 @@ def test_clippers():
         intensity = rand.standard_normal(size=(nfreq,nt))
         weights0 = rand.uniform(size=(nfreq,nt))
 
-        weights1 = np.array(weights0, dtype=np.float32)
+        weights1 = copy_array(weights0, tame=True)
         rf_pipelines.clip_fx(intensity, weights1, thr = 0.999 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt, imitate_cpp=True)
 
-        weights2 = np.array(weights0, dtype=np.float32)
+        weights2 = copy_array(weights0, tame=True)
         rf_pipelines.clip_fx(intensity, weights2, thr = 1.001 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt, imitate_cpp=True)
             
-        weights3 = np.array(weights0, dtype=np.float32)
-        rf_pipelines_c.apply_intensity_clipper(intensity, weights3, axis, thresh, Df=Df, Dt=Dt)
+        weights3 = copy_array(weights0)
+        rf_pipelines_c.apply_intensity_clipper(copy_array(intensity), weights3, axis, thresh, Df=Df, Dt=Dt)
 
         ok = np.logical_and(weights1 <= weights3, weights3 <= weights2)
 
@@ -229,4 +229,3 @@ def test_clippers():
 
 test_polynomial_detrenders()
 test_clippers()
-
