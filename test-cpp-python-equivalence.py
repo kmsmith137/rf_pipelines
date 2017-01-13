@@ -176,7 +176,7 @@ def test_clippers():
         intensity = rand.standard_normal(size=(nfreq,nt))
         weights0 = rand.uniform(size=(nfreq,nt))
 
-        if rand.uniform() < 1.0:
+        if rand.uniform() < 0.03:
             # Test a corner case by masking all elements of the array except one.
             ifreq = rand.randint(0, nfreq)
             it = rand.randint(0, nt)
@@ -204,7 +204,7 @@ def test_clippers():
             print >>sys.stderr, 'weights:', weights1[ifreq,it], weights3[ifreq,it], weights2[ifreq,it]
             sys.exit(1)
             
-        if True: # XXX axis is None:
+        if axis is None:
             continue   # std_dev clipper is not defined for axis=None
 
         weights1 = np.array(weights0, dtype=np.float32)
@@ -234,5 +234,5 @@ def test_clippers():
 ####################################################################################################
 
 
-# test_polynomial_detrenders()
+test_polynomial_detrenders()
 test_clippers()
