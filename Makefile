@@ -69,6 +69,11 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/master_clipper.py \
 	rf_pipelines/transforms/clipper2d.py
 
+TESTBINFILES=run-unit-tests \
+	test-kernels \
+	time-clippers \
+	time-detrenders
+
 # Used in 'make clean'
 CLEANDIRS=. site rf_pipelines rf_pipelines/streams rf_pipelines/transforms \
 	examples/example1_toy examples/example2_gbncc examples/example3_chime
@@ -114,7 +119,7 @@ endif
 ####################################################################################################
 
 
-all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so run-unit-tests test-kernels time-clippers time-detrenders
+all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so $(TESTBINFILES)
 
 install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
 	mkdir -p $(INCDIR)/ $(LIBDIR)/ $(PYDIR)/rf_pipelines/streams $(PYDIR)/rf_pipelines/transforms
@@ -128,7 +133,7 @@ uninstall:
 	rm -rf $(PYDIR)/rf_pipelines/
 
 clean:
-	rm -f run-unit-tests test-kernels
+	rm -f $(TESTBINFILES)
 	for d in $(CLEANDIRS); do rm -f $$d/*~ $$d/*.o $$d/*.so $$d/*.pyc; done
 
 %.o: %.cpp $(INCFILES) $(KERNEL_INCFILES)
