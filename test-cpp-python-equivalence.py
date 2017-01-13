@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+#
+# This tests equivalence of the C++ and python implementations of
+# polynomial_detrender, intensity_clipper, and std_dev_clipper.
 
 import sys
 import numpy as np
@@ -52,6 +55,7 @@ def copy_array(arr, tame=False):
     return ret
 
 
+
 ####################################################################################################
 #
 # Test polynomial detrender
@@ -87,8 +91,10 @@ def random_sparse_vector(num_elts, num_nonzero):
     return ret
 
 
-def test_detrender():
+def test_polynomial_detrenders():
     for iter in xrange(1000):
+        sys.stderr.write('.')
+
         axis = rand.randint(0,2)
         polydeg = rand.randint(0,10)
 
@@ -101,7 +107,7 @@ def test_detrender():
 
         # Debug
         # (axis, polydeg, nfreq, nt) = (xx, xx, xx, xx)
-        # print 'axis=', axis, 'polydeg=', polydeg, 'nfreq=', nfreq, 'nt=', nt
+        # print >>sys.stderr, 'axis=', axis, 'polydeg=', polydeg, 'nfreq=', nfreq, 'nt=', nt
 
         # The python reference detrender includes hardcoded special behavior
         # if the sum of the weights is < 20, so we choose a large scale for
@@ -147,85 +153,80 @@ def test_detrender():
         assert np.array_equal(doctored_weights, zeroed_weights)
         assert epsilon < 1.0e-3
 
-    print 'test_detrender: pass'
-
-test_detrender()
-sys.exit(0)
+    print >>sys.stderr, 'test_polynomial_detrenders: pass'
 
 
 ####################################################################################################
 
 
-def remove_axis(arr, ax):
-    if ax == 0:
-        return arr[0,:]
-    elif ax == 1:
-        return arr[:,0]
-    else:
-        raise RuntimeError('bad call to remove_axis')
+def test_clippers():
+    for iter in xrange(1000):
+        sys.stderr.write('.')
 
+        axis = rand.randint(0,2) if (rand.uniform() < 0.66) else None
+        Df = 2**rand.randint(0,6)
+        Dt = 2**rand.randint(0,6)
+        nfreq = Df * rand.randint(8,16)
+        nt = Dt * 8 * rand.randint(1,8)
+        thresh = rand.uniform(1.1, 1.3)
 
-nfreq = 256
-nt = 512
-thresh = 1.2
-axis = 0
+        # Debug
+        # print >>sys.stderr, '(Df,Dt,axis,nfreq,nt,thresh)=(%d,%d,%s,%d,%d,%s)' % (Df,Dt,axis,nfreq,nt,thresh)
 
+        intensity = rand.standard_normal(size=(nfreq,nt))
+        weights0 = rand.uniform(size=(nfreq,nt))
 
+        weights1 = np.array(weights0, dtype=np.float32)
+        rf_pipelines.clip_fx(intensity, weights1, thr = 0.999 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt, imitate_cpp=True)
 
-for iter in xrange(10):
-    print >>sys.stderr, 'starting clipper testing round', (iter+1)
-
-    for Df in [ 2**i for i in xrange(6) ]:
-        for Dt in [ 2**i for i in xrange(6) ]:
-            for axis in [ None, 0, 1 ]:
-                intensity = rand.standard_normal(size=(nfreq,nt))
-                weights0 = rand.uniform(size=(nfreq,nt))
-
-                weights1 = np.array(weights0, dtype=np.float32)
-                rf_pipelines.clip_fx(intensity, weights1, thr = 0.999 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt, imitate_cpp=True)
-
-                weights2 = np.array(weights0, dtype=np.float32)
-                rf_pipelines.clip_fx(intensity, weights2, thr = 1.001 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt, imitate_cpp=True)
+        weights2 = np.array(weights0, dtype=np.float32)
+        rf_pipelines.clip_fx(intensity, weights2, thr = 1.001 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt, imitate_cpp=True)
             
-                weights3 = np.array(weights0, dtype=np.float32)
-                rf_pipelines_c.apply_intensity_clipper(intensity, weights3, axis, thresh, Df=Df, Dt=Dt)
+        weights3 = np.array(weights0, dtype=np.float32)
+        rf_pipelines_c.apply_intensity_clipper(intensity, weights3, axis, thresh, Df=Df, Dt=Dt)
 
-                ok = np.logical_and(weights1 <= weights3, weights3 <= weights2)
+        ok = np.logical_and(weights1 <= weights3, weights3 <= weights2)
 
-                if not np.all(ok):
-                    print >>sys.stderr, 'intensity_clipper failed for (Df,Dt,axis)=(%d,%d,%s)' % (Df,Dt,axis)
+        if not np.all(ok):
+            print >>sys.stderr, 'intensity_clipper failed for (Df,Dt,axis,nfreq,nt,thresh)=(%d,%d,%s,%d,%d,%s)' % (Df,Dt,axis,nfreq,nt,thresh)
 
-                    t = np.argmax(np.logical_not(ok))
-                    (ifreq, it) = np.unravel_index(t, ok.shape)
-                    print >>sys.stderr, 'failure at (ifreq,it)=', (ifreq,it)
-                    print >>sys.stderr, 'intensity:', intensity[ifreq,it]
-                    print >>sys.stderr, 'weights:', weights1[ifreq,it], weights3[ifreq,it], weights2[ifreq,it]
-                    sys.exit(1)
-
-                if axis is None:
-                    continue   # std_dev clipper is not defined for axis=None
-
-                weights1 = np.array(weights0, dtype=np.float32)
-                rf_pipelines.filter_stdv(intensity, weights1, thr = 0.999 * thresh, axis = axis, dsample_nfreq = nfreq//Df, dsample_nt = nt//Dt, imitate_cpp = True)
-
-                weights2 = np.array(weights0, dtype=np.float32)
-                rf_pipelines.filter_stdv(intensity, weights2, thr = 1.001 * thresh, axis = axis, dsample_nfreq = nfreq//Df, dsample_nt = nt//Dt, imitate_cpp = True)
+            t = np.argmax(np.logical_not(ok))
+            (ifreq, it) = np.unravel_index(t, ok.shape)
+            print >>sys.stderr, 'failure at (ifreq,it)=', (ifreq,it)
+            print >>sys.stderr, 'intensity:', intensity[ifreq,it]
+            print >>sys.stderr, 'weights:', weights1[ifreq,it], weights3[ifreq,it], weights2[ifreq,it]
+            sys.exit(1)
             
-                weights3 = np.array(weights0, dtype=np.float32)
-                rf_pipelines_c.apply_std_dev_clipper(intensity, weights3, axis, thresh, Df, Dt)
+        if axis is None:
+            continue   # std_dev clipper is not defined for axis=None
 
-                if (not np.all(weights1 <= weights3)) or (not np.all(weights3 <= weights2)):
-                    weights1 = remove_axis(weights1, axis)
-                    weights2 = remove_axis(weights2, axis)
-                    weights3 = remove_axis(weights3, axis)
+        weights1 = np.array(weights0, dtype=np.float32)
+        rf_pipelines.filter_stdv(intensity, weights1, thr = 0.999 * thresh, axis = axis, dsample_nfreq = nfreq//Df, dsample_nt = nt//Dt, imitate_cpp = True)
+
+        weights2 = np.array(weights0, dtype=np.float32)
+        rf_pipelines.filter_stdv(intensity, weights2, thr = 1.001 * thresh, axis = axis, dsample_nfreq = nfreq//Df, dsample_nt = nt//Dt, imitate_cpp = True)
+        
+        weights3 = np.array(weights0, dtype=np.float32)
+        rf_pipelines_c.apply_std_dev_clipper(intensity, weights3, axis, thresh, Df, Dt)
+
+        ok = np.logical_and(weights1 <= weights3, weights3 <= weights2)
+        
+        if not np.all(ok):
+            print >>sys.stderr, 'std_dev_clipper failed for (Df,Dt,axis,nfreq,nt,thresh)=(%d,%d,%s,%d,%d,%s)' % (Df,Dt,axis,nfreq,nt,thresh)
+
+            t = np.argmax(np.logical_not(ok))
+            (ifreq, it) = np.unravel_index(t, ok.shape)
+            print >>sys.stderr, 'failure at (ifreq,it)=', (ifreq,it)
+            print >>sys.stderr, 'intensity:', intensity[ifreq,it]
+            print >>sys.stderr, 'weights:', weights1[ifreq,it], weights3[ifreq,it], weights2[ifreq,it]
+            sys.exit(1)
                     
-                    for (w1, w3, w2) in zip(weights1, weights3, weights2):
-                        print w1, w3, w2
-                    
-                    raise RuntimeError('sd_clipper failed for (Df,Dt,axis)=(%d,%d,%s)' % (Df,Dt,axis))
-                
+    print 'test_clippers: pass'
+
 
 ####################################################################################################
 
 
+test_polynomial_detrenders()
+test_clippers()
 
