@@ -7,17 +7,8 @@ run-unit-tests
 Makefile.local
 TODO
 
-examples/example4_cpp_toy/example4
-examples/example3_chime/bonsai_config.hdf5
-examples/example3_chime/clipper*.png
-examples/example3_chime/triggers*.png
-examples/example3_chime/raw*.png
-examples/example3_chime/triggers*.hdf5
-examples/example3_chime/trigraw*.hdf5
-examples/example3_chime/nohup.out
-examples/example3_chime/log
-examples/example3_chime/*.json
-examples/example3_chime/*dc_out*.png
 examples/example3_chime/test/
 time-kernels
+time-clippers
+time-detrenders
 test-kernels
