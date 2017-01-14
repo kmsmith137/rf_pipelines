@@ -81,7 +81,6 @@ struct arr_2d_helper {
 	set_contiguous(a_ref.ptr);
     }
 
-
     arr_2d_helper(PyObject *obj, bool writeback_)
 	: writeback(writeback_)
     {
@@ -1302,8 +1301,6 @@ static PyObject *make_polynomial_detrender(PyObject *self, PyObject *args, PyObj
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "iOi|d", (char **)kwlist, &nt_chunk, &axis_ptr, &polydeg, &epsilon))
 	return NULL;
 
-    object axis_obj(axis_ptr, false);
-
     rf_pipelines::axis_type axis = axis_type_from_python("make_intensity_clipper()", axis_ptr);
 
     shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_polynomial_detrender(nt_chunk, axis, polydeg, epsilon);
@@ -1327,8 +1324,6 @@ static PyObject *make_intensity_clipper(PyObject *self, PyObject *args, PyObject
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "iOd|idii", (char **)kwlist, &nt_chunk, &axis_ptr, &sigma, &niter, &iter_sigma, &Df, &Dt))
 	return NULL;
 
-    object axis_obj(axis_ptr, false);
-
     rf_pipelines::axis_type axis = axis_type_from_python("make_intensity_clipper()", axis_ptr);
 
     shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_intensity_clipper(nt_chunk, axis, sigma, niter, iter_sigma, Df, Dt);
@@ -1350,8 +1345,6 @@ static PyObject *make_std_dev_clipper(PyObject *self, PyObject *args, PyObject *
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "iOd|ii", (char **)kwlist, &nt_chunk, &axis_ptr, &sigma, &Df, &Dt))
 	return NULL;
 
-    object axis_obj(axis_ptr, false);
-
     rf_pipelines::axis_type axis = axis_type_from_python("make_std_dev_clipper()", axis_ptr);
 
     shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_std_dev_clipper(nt_chunk, axis, sigma, Df, Dt);
@@ -1372,8 +1365,6 @@ static PyObject *apply_polynomial_detrender(PyObject *self, PyObject *args, PyOb
     // Note: the object pointers will be borrowed references
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOi|d", (char **)kwlist, &intensity_obj, &weights_obj, &axis_ptr, &polydeg, &epsilon))
 	return NULL;
-
-    object axis_obj(axis_ptr, false);
 
     // (intensity_writeback, weights_writeback) = (true, true)
     // Note that the weights can be updated if the fit is poorly conditioned.
@@ -1405,7 +1396,6 @@ static PyObject *apply_intensity_clipper(PyObject *self, PyObject *args, PyObjec
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOd|idii", (char **)kwlist, &intensity_obj, &weights_obj, &axis_ptr, &sigma, &niter, &iter_sigma, &Df, &Dt))
 	return NULL;
 
-    object axis_obj(axis_ptr, false);
     arr_wi_helper wi(intensity_obj, weights_obj, false, true);   // (intensity_writeback, weights_writeback) = (false, true)
 
     rf_pipelines::axis_type axis = axis_type_from_python("apply_intensity_clipper", axis_ptr);
@@ -1432,7 +1422,6 @@ static PyObject *apply_std_dev_clipper(PyObject *self, PyObject *args, PyObject 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOd|ii", (char **)kwlist, &intensity_obj, &weights_obj, &axis_ptr, &sigma, &Df, &Dt))
 	return NULL;
 
-    object axis_obj(axis_ptr, false);
     arr_wi_helper wi(intensity_obj, weights_obj, false, true);   // (intensity_writeback, weights_writeback) = (false, true)
 
     rf_pipelines::axis_type axis = axis_type_from_python("apply_std_dev_clipper", axis_ptr);
