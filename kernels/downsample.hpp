@@ -119,6 +119,43 @@ inline void _kernel_downsample(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T *i
 }
 
 
+// -------------------------------------------------------------------------------------------------
+//
+// _kernel_downsample_2d<T,S,Df,Dt> (out_intensity, out_weights, out_stride, in_intensity, in_nfreq, in_nt, in_stride)
+//
+// Caller must check that nfreq is divisible by Df, and nt is divisible by (Dt*S).
+//
+// This is the kernel which gets called in the externally visible function wi_downsample().
+
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
+static void _kernel_downsample_2d(T *out_intensity, T *out_weights, int out_stride, const T *in_intensity, const T *in_weights, int in_nfreq, int in_nt, int in_stride)
+{
+    const simd_t<T,S> zero = simd_t<T,S>::zero();
+    const simd_t<T,S> one = simd_t<T,S> (1.0);
+
+    int out_nfreq = in_nfreq / Df;
+    int out_nt = in_nt / Dt;
+
+    for (int ifreq = 0; ifreq < out_nfreq; ifreq++) {
+	T *out_irow = out_intensity + ifreq * out_stride;
+	T *out_wrow = out_weights + ifreq * out_stride;
+
+	const T *in_irow = in_intensity + (ifreq*Df) * in_stride;
+	const T *in_wrow = in_weights + (ifreq*Df) * in_stride;
+
+	for (int it = 0; it < out_nt; it += S) {
+	    simd_t<T,S> ds_wival, ds_wval;
+	    _kernel_downsample<T,S,Df,Dt> (ds_wival, ds_wval, in_irow + it*Dt, in_wrow + it*Dt, in_stride);
+
+	    simd_t<T,S> ds_ival = ds_wival / blendv(ds_wval.compare_gt(zero), ds_wval, one);
+	    ds_ival.storeu(out_irow + it);
+	    ds_wval.storeu(out_wrow + it);
+	}
+    }
+}
+
+
 }  // namespace rf_pipelines
 
 #endif
