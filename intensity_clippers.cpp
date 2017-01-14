@@ -266,9 +266,8 @@ static void kernel_clip_1d_f(float *intensity, float *weights, int nfreq, int nt
 	int stride2 = DsiFlag ? S : stride;   // must use DsiFlag here, not DswFlag
 	
 	for (int iter = 1; iter < niter; iter++) {
-	    // Here we can use _kernel_clip2d_iterate() with (nfreq,nt) replaced by (nfreq/Df,S)
 	    simd_t<float,S> thresh = simd_t<float,S>(iter_sigma) * rms;
-	    _kernel_clip2d_iterate<float,S> (mean, rms, icol2, wcol2, mean, thresh, nfreq/Df, S, stride2);    // (irow2, wrow2, iter_sigma)
+	    _kernel_clip1d_f_iterate<float,S> (mean, rms, icol2, wcol2, mean, thresh, nfreq/Df, stride2);    // (irow2, wrow2, iter_sigma)
 	}
 
 	simd_t<float,S> thresh = simd_t<float,S>(sigma) * rms;

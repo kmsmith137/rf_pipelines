@@ -209,6 +209,32 @@ inline void _kernel_clip1d_f_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *
 }
 
 
+// Iterates on a "strip" of shape (nfreq, S).
+// There are no downsampling factors, so in the larger AXIS_FREQ kernel, it will be called with (nfreq/Df) instead of nfreq.
+template<typename T, unsigned int S>
+inline void _kernel_clip1d_f_iterate(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms, const T *intensity, const T *weights,
+				     simd_t<T,S> in_mean, simd_t<T,S> in_thresh, int nfreq, int stride)
+{
+    mean_rms_accumulator<T,S> acc;
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	const T *irow = intensity + ifreq*stride;
+	const T *wrow = weights + ifreq*stride;
+
+	simd_t<T,S> ival = simd_t<T,S>::loadu(irow);
+	simd_t<T,S> wval = simd_t<T,S>::loadu(wrow);
+
+	simd_t<T,S> ival_c = (ival - in_mean).abs();
+	smask_t<T,S> valid = ival_c.compare_lt(in_thresh);
+
+	wval = wval.apply_mask(valid);
+	acc.accumulate(ival, wval);
+    }
+
+    acc.get_mean_rms(out_mean, out_rms);
+}
+
+
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
 inline void _kernel_clip1d_f_mask(T *weights, const T *ds_intensity, simd_t<T,S> mean, simd_t<T,S> thresh, int nfreq, int stride, int ds_stride)
 {
