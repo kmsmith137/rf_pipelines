@@ -75,7 +75,7 @@ def apply_reference_detrender(intensity, weights, axis, polydeg):
         def __init__(self, nfreq):
             self.nfreq = nfreq
 
-    t = rf_pipelines.legendre_detrender(polydeg, axis, nt)
+    t = rf_pipelines.polynomial_detrender(deg=polydeg, axis=axis, nt_chunk=nt)
     t.set_stream(fake_stream(nfreq))
     t.process_chunk(0, 0, intensity, weights, None, None)
 
@@ -289,11 +289,8 @@ def test_clippers():
 # Test intensity_clipper for niter > 1
 
 
-def test_iterated_intensity_clipper():
+def test_iterated_intensity_clippers():
     for iter in xrange(1000):
-        sys.stderr.write('.')
-
-        axis = rand.randint(0,2) if (rand.uniform() < 0.66) else None
         Df = 2**rand.randint(0,6)
         Dt = 2**rand.randint(0,6)
         nfreq = Df * rand.randint(8,16)
@@ -301,13 +298,59 @@ def test_iterated_intensity_clipper():
         sigma = rand.uniform(1.1, 1.3)
         niter = rand.randint(1, 6)
         iter_sigma = rand.uniform(1.1, 1.3)
+        
+        sys.stderr.write('.')
+        # print 'iteration %d: (Df,Dt,nfreq,nt,sigma,niter,iter_sigma) = %s' % (iter, (Df,Dt,nfreq,nt,sigma,niter,iter_sigma))
 
-        # more to come!
+        (intensity, weights0) = make_clipper_test_data(nfreq, nt, axis=None, Df=Df, Dt=Dt)
+
+        # Test 1: AXIS_TIME iterated intensity_clipper is equivalent to 
+        # looping over row blocks and running the AXIS_NONE clipper.
+
+        weights1 = copy_array(weights0)
+        weights2 = copy_array(weights0)
+
+        # AXIS_TIME
+        rf_pipelines_c.apply_intensity_clipper(copy_array(intensity), weights1, 1, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
+
+        # AXIS_NONE
+        for ifreq in xrange(nfreq//Df):
+            iblock = intensity[(ifreq*Df):((ifreq+1)*Df),:]
+            wblock = weights2[(ifreq*Df):((ifreq+1)*Df),:]
+            rf_pipelines_c.apply_intensity_clipper(iblock, wblock, None, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
+
+        assert np.array_equal(weights1, weights2)
+
+        # Test 2: AXIS_FREQ iterated intensity_clipper is equivalent to 
+        # looping over column blocks and running the AXIS_NONE clipper.
+
+        weights1 = copy_array(weights0)
+        weights2 = copy_array(weights0)
+
+        # AXIS_FREQ
+        rf_pipelines_c.apply_intensity_clipper(copy_array(intensity), weights1, 0, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
+
+        for it in xrange(nt//Dt):
+            # need a little hacking to satisfy simd-derived rf_pipelines_c divisibility requirements...
+            iblock = np.zeros((nfreq, 8*Dt))
+            wblock = np.zeros((nfreq, 8*Dt))
+
+            iblock[:,:Dt] = intensity[:,(it*Dt):((it+1)*Dt)]
+            wblock[:,:Dt] = weights2[:,(it*Dt):((it+1)*Dt)]
+        
+            rf_pipelines_c.apply_intensity_clipper(iblock, wblock, None, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
+
+            weights2[:,(it*Dt):((it+1)*Dt)] = wblock[:,:Dt]
+
+        assert np.array_equal(weights1, weights2)
+
+    print >>sys.stderr, 'test_iterated_intensity_clippers: pass'
 
 
 ####################################################################################################
 
 
-
 test_polynomial_detrenders()
 test_clippers()
+test_iterated_intensity_clippers()
+
