@@ -132,7 +132,7 @@ class std_dev_clipper(rf_pipelines.py_wi_transform):
         name += ')'
         self.name = name
 
-    def set_stream(self,stream):
+    def set_stream(self, stream):
         self.nfreq = stream.nfreq
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
