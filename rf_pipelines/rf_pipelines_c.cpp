@@ -1456,12 +1456,10 @@ static PyObject *wi_downsample(PyObject *self, PyObject *args, PyObject *kwds)
 
     npy_intp out_shape[2] = { (wi.nfreq / Df), (wi.nt / Dt) };
 
-    // Note syntax is: PyArray_New(subtype, nd, dims, type_num, npy_intp* strides, void* data, int itemsize, int flags, PyObject* obj)
-    // The NPY_ARRAY_CARRAY flags include NPY_ARRAY_C_CONTIGUOUS, which ensures out_stride = out_nt.
-    PyObject *ds_iptr = PyArray_New(&PyArray_Type, 2, out_shape, NPY_FLOAT, NULL, NULL, 0, NPY_ARRAY_CARRAY, NULL);
+    PyObject *ds_iptr = PyArray_SimpleNew(2, out_shape, NPY_FLOAT);
     object ds_iobj(ds_iptr, false);   // manage refcount
 
-    PyObject *ds_wptr = PyArray_New(&PyArray_Type, 2, out_shape, NPY_FLOAT, NULL, NULL, 0, NPY_ARRAY_CARRAY, NULL);
+    PyObject *ds_wptr = PyArray_SimpleNew(2, out_shape, NPY_FLOAT);
     object ds_wobj(ds_wptr, false);   // manage refcount
     
     rf_pipelines::wi_downsample((float *) PyArray_DATA((PyArrayObject *) ds_iptr),   // out_intensity
