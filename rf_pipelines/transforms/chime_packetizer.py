@@ -5,7 +5,6 @@ which in turn in a wrapper around code in libch_frb_io.
 
 from rf_pipelines import rf_pipelines_c
 
-
 def chime_packetizer(dstname, nfreq_per_packet, nt_per_chunk, nt_per_packet, wt_cutoff, target_gbps):
     """
     Returns a pseudo-transform which packetizes the stream without modifying it.  The chime_packetizer
@@ -36,4 +35,3 @@ def chime_packetizer(dstname, nfreq_per_packet, nt_per_chunk, nt_per_packet, wt_
     """
 
     return rf_pipelines_c.make_chime_packetizer(dstname, nfreq_per_packet, nt_per_chunk, nt_per_packet, wt_cutoff, target_gbps)
-

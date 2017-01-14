@@ -2,13 +2,23 @@ import sys
 import numpy as np
 import rf_pipelines
 
-def clip_fx(intensity, weights, thr=3, n_internal=6, axis=None, dsample_nfreq=None, dsample_nt=None, imitate_cpp=False):
-    """Helper function for intensity_clipper. Modifies 'weights' array in place."""
+def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=None, dsample_nt=None, imitate_cpp=False):
+    """
+    Helper function for intensity_clipper. Modifies 'weights' array in place. 
+    
+    Limitations:
+        - 'n_internal=1' is only supported in 2D (axis=None).
+        - In 2D (axis=None), the same threshold value 'thr=3' is 
+        used for the internal and external clipping loops.
+    
+    Note: 
+        + See 'intensity_clipper_cpp.py' for an advanced implementation (in 2D and 1D) where the two 'thr' values need not be the same.
+    """
     
     (nfreq, nt_chunk) = intensity.shape
 
     # ------ Helper '__init__' calls ------
-    assert (axis == None or axis == 0 or axis == 1), "axis must be None (planar; freq and time), 0 (along freq; constant time), or 1 (along time; constant freq)."
+    assert axis in (None, 0, 1), "axis must be None (planar; freq and time), 0 (along freq; constant time), or 1 (along time; constant freq)."
     assert thr >= 1., "threshold must be >= 1."
     assert nt_chunk > 0
     assert (dsample_nt is None or dsample_nt > 0), "Invalid downsampling number along the time axis!"
@@ -76,28 +86,28 @@ def clip_fx(intensity, weights, thr=3, n_internal=6, axis=None, dsample_nfreq=No
 
 class intensity_clipper(rf_pipelines.py_wi_transform):
     """
-   This transform clips the intensity along a selected 
-   axis -- also works in planar (2D) mode -- and above 
-   a given threshold. Results are applied to the weights 
-   array (i.e., weights[clipped] = 0.) for masking 
-   extreme values.
+    This transform clips the intensity along a selected 
+    axis -- also works in planar (2D) mode -- and above 
+    a given threshold. Results are applied to the weights 
+    array (i.e., weights[clipped] = 0.) for masking 
+    extreme values.
 
-   + Assumes zero mean (i.e., the intensity has already 
-   been detrended along the selected axis).
-   + Currently based on the weighted standard deviation 
-   as explained in "chime_zerodm_notes".
-   + Available in a coarse-grained mode by using 
-   'dsample_nfreq', and 'dsample_nt'.
+    + Assumes zero mean (i.e., the intensity has already 
+    been detrended along the selected axis).
+    + Currently based on the weighted standard deviation 
+    as explained in "chime_zerodm_notes".
+    + Available in a coarse-grained mode by using 
+    'dsample_nfreq', and 'dsample_nt'.
    
     Constructor syntax:
 
-      t = intensity_clipper(thr=3, n_internal=6, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False)
+      t = intensity_clipper(thr=3, n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False)
 
       'thr=3.' is the multiplicative factor of maximum threshold,
-        e.g., 3 * standard_deviation, meaning that (the absolute
-        value of) any sample above this limit is clipped.
+       e.g., 3 * standard_deviation, meaning that (the absolute
+       value of) any sample above this limit is clipped.
 
-      'n_internal=6' is the number of iterations used when calculating the weighted mean/rms before the final clip.
+      'n_internal=1' is the number of iterations used when calculating the weighted mean/rms before the final clip.
 
       'axis=None' is the axis convention:
         None: planar; freq and time. 
@@ -112,7 +122,7 @@ class intensity_clipper(rf_pipelines.py_wi_transform):
       'test=False' enables a test mode.
     """
     
-    def __init__(self, thr=3., n_internal=6, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False):
+    def __init__(self, thr=3., n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False):
 
         name = 'intensity_clipper(thr=%f, axis=%s, nt_chunk=%d' % (thr, axis, nt_chunk)
         if dsample_nfreq is not None:

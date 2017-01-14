@@ -5,7 +5,6 @@ See bonsai_dedisperser.cpp, and python linkage in rf_pipelines_c.cpp.
 
 from rf_pipelines import rf_pipelines_c
 
-
 def bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename=None, trigger_plot_stem=None, nt_per_file=0, ibeam=0):
     """
     Returns a "transform" which doesn't actually modify the data, it just runs the bonsai dedisperser.  

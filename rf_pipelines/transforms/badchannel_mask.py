@@ -3,17 +3,17 @@ import rf_pipelines
 
 class badchannel_mask(rf_pipelines.py_wi_transform):
     """
-   This transform sets bad freq channels of a weights array to 0.
+    This transform sets bad freq channels of a weights array to 0.
 
     Constructor syntax:
 
       t = badchannel_mask(maskpath, nt_chunk=1024)
 
       'maskpath' is the full path to a mask file that contains affected freq 
-      intervals, written in rows with the following format: e.g., 420.02,423.03
+       intervals, written in rows with the following format: e.g., 420.02,423.03
 
       'nt_chunk=1024' is the buffer size, which is allowed to have a different 
-      value in a chain of transforms.
+       value in a chain of transforms.
     """
 
     def __init__(self, maskpath, nt_chunk=1024):

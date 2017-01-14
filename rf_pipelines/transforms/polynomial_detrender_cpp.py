@@ -23,8 +23,8 @@ def polynomial_detrender_cpp(nt_chunk, axis=1, polydeg=0, epsilon=1.0e-2):
       'polydeg=0' is the degree of fit.
 
       'epsilon=1.0e-2' is the threshold value for a poorly conditioned fit.
-
     """ 
+    
     assert (polydeg >= 0 and type(polydeg) == int), "poly degree must be an integer >= 0"
     assert epsilon > 0., "choose a threshold value > 0 or leave it as default (1.0e-2)"
 

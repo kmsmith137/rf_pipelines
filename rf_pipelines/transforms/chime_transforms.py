@@ -5,7 +5,6 @@ implementation.  See chime_file_writer.cpp, and python linkage in rf_pipelines_c
 
 from rf_pipelines import rf_pipelines_c
 
-
 def chime_file_writer(filename, clobber=False, bitshuffle=2, nt_chunk=0):
     """
     This is a pseudo-transform which doesn't actually modify the data, it just writes it to a file in
@@ -26,4 +25,3 @@ def chime_file_writer(filename, clobber=False, bitshuffle=2, nt_chunk=0):
     """
 
     return rf_pipelines_c.make_chime_file_writer(filename, clobber, bitshuffle, nt_chunk)
-
