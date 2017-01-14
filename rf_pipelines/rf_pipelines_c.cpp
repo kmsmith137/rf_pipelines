@@ -1433,6 +1433,52 @@ static PyObject *apply_std_dev_clipper(PyObject *self, PyObject *args, PyObject 
 }
 
 
+static PyObject *wi_downsample(PyObject *self, PyObject *args, PyObject *kwds)
+{
+    static const char *kwlist[] = { "intensity", "weights", "Df", "Dt", NULL };
+
+    PyObject *intensity_obj = Py_None;
+    PyObject *weights_obj = Py_None;
+    int Df = 0;
+    int Dt = 0;
+    
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOii|", (char **)kwlist, &intensity_obj, &weights_obj, &Df, &Dt))
+	return NULL;
+
+    // Argument-checking is done systematically in wi_downsample(), but we need this check up-front
+    // to make sure that we don't divide by zero when computing out_shape.
+
+    if ((Df <= 0) || (Dt <= 0))
+	throw runtime_error("wi_downsample(): (Df,Dt)=(" + to_string(Df) + "," + to_string(Dt) + ") is invalid");
+
+    // (intensity_writeback, weights_writeback) = (false, false)
+    arr_wi_helper wi(intensity_obj, weights_obj, false, false);
+
+    npy_intp out_shape[2] = { (wi.nfreq /Df), (wi.nt / Dt) };
+
+    // Note syntax is: PyArray_New(subtype, nd, dims, type_num, npy_intp* strides, void* data, int itemsize, int flags, PyObject* obj)
+    // The NPY_ARRAY_CARRAY flags include NPY_ARRAY_C_CONTIGUOUS, which ensures out_stride = out_nt.
+    PyObject *ds_iptr = PyArray_New(&PyArray_Type, 2, out_shape, NPY_FLOAT, NULL, NULL, 0, NPY_ARRAY_CARRAY, NULL);
+    object ds_iobj(ds_iptr, false);   // manage refcount
+
+    PyObject *ds_wptr = PyArray_New(&PyArray_Type, 2, out_shape, NPY_FLOAT, NULL, NULL, 0, NPY_ARRAY_CARRAY, NULL);
+    object ds_wobj(ds_iptr, false);   // manage refcount
+    
+    rf_pipelines::wi_downsample((float *) PyArray_DATA((PyArrayObject *) ds_iptr),   // out_intensity
+				(float *) PyArray_DATA((PyArrayObject *) ds_wptr),   // out_weights
+				wi.nt / Dt, wi.intensity.data, wi.weights.data,
+				wi.nfreq, wi.nt, wi.stride, Df, Dt);
+
+    PyObject *ret = PyTuple_Pack(2, ds_iptr, ds_wptr);
+
+    // Note: PyTuple_Pack() increments (ds_iptr, ds_wptr) refcounts when it creates the tuple.
+    // When this routine exits, the (ds_iobj, ds_wobj) destructors will decrement the refcounts.
+    // It follows that we don't need calls to either Py_INCREF() or Py_DECREF() here.
+    
+    return ret;
+}
+
+
 static PyObject *make_chime_file_writer(PyObject *self, PyObject *args)
 {
     char *filename = nullptr;
@@ -1596,6 +1642,13 @@ static constexpr const char *apply_std_dev_clipper_docstring =
     "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.\n";
 
 
+static constexpr const char *wi_downsample_docstring =
+    "wi_downsample(intensity, weights, Df, Dt)\n"
+    "\n"
+    "Downsamples a weighted intensity array, and returns a new pair (intensity, weights).\n"
+    "The downsampling factors (Df,Dt) must be powers of two.\n";
+
+
 static constexpr const char *make_badchannel_mask_docstring = 
     "make_badchannel_mask(maskpath, nt_chunk)\n"
     "\n"
@@ -1624,6 +1677,7 @@ static PyMethodDef module_methods[] = {
     { "apply_polynomial_detrender", (PyCFunction) tc_wrap3<apply_polynomial_detrender>, METH_VARARGS | METH_KEYWORDS, apply_polynomial_detrender_docstring },
     { "apply_intensity_clipper", (PyCFunction) tc_wrap3<apply_intensity_clipper>, METH_VARARGS | METH_KEYWORDS, apply_intensity_clipper_docstring },
     { "apply_std_dev_clipper", (PyCFunction) tc_wrap3<apply_std_dev_clipper>, METH_VARARGS | METH_KEYWORDS, apply_std_dev_clipper_docstring },
+    { "wi_downsample", (PyCFunction) tc_wrap3<wi_downsample>, METH_VARARGS | METH_KEYWORDS, wi_downsample_docstring },
     { NULL, NULL, 0, NULL }
 };
 
