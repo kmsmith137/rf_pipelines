@@ -61,13 +61,12 @@ Transforms:
    clipper_transform()        masks data based on intensity values
    frb_injector_transform()   simulates an FRB (currently S/N calculation only works for toy noise models)
    kurtosis_filter()          masks data based on kurtosis
-   legendre_detrender()       polynomial detrender
    mask_expander()            expands mask based on weights
    plotter_transform()        makes waterfall plots at a specified place in the pipeline, very useful for debugging
    RC_detrender()             exponential detrender, with bidirectional feature intended to remove "step-like" features
-   poly_detreneder()          fast detrending algorithm in C++
-   intensity_clipper()        fast clipping algorithm in C++
-   std_dev_filter()           masks data based on variance
+   polynomial_detrender()     detrending algorithm (also available in C++)
+   intensity_clipper()        clipping algorithm based on variance of intensity (also available in C++)
+   std_dev_clipper()          masks data based on variance of variances (also available in C++)
    thermal_noise_weight()     applies optimal weighting assuming flat gains and variance proportional to intensity
 """
 
@@ -373,19 +372,20 @@ from .streams.gaussian_noise_stream import gaussian_noise_stream
 from .transforms.chime_packetizer import chime_packetizer
 from .transforms.chime_transforms import chime_file_writer
 from .transforms.plotter_transform import plotter_transform
-from .transforms.poly_detrender import poly_detrender
 from .transforms.bonsai_dedisperser import bonsai_dedisperser
 from .transforms.frb_injector_transform import frb_injector_transform
 from .transforms.badchannel_mask import badchannel_mask
-from .transforms.clipper_transform import clipper_transform, clip_fx
-from .transforms.legendre_detrender import legendre_detrender
+from .transforms.intensity_clipper import intensity_clipper, clip_fx
+from .transforms.intensity_clipper_cpp import intensity_clipper_cpp
+from .transforms.polynomial_detrender import polynomial_detrender
+from .transforms.polynomial_detrender_cpp import polynomial_detrender_cpp
 from .transforms.mask_expander import mask_expander
 from .transforms.kurtosis_filter import kurtosis_filter
-from .transforms.std_dev_filter import std_dev_filter, filter_stdv
+from .transforms.std_dev_clipper import std_dev_clipper, filter_stdv
+from .transforms.std_dev_clipper_cpp import std_dev_clipper_cpp
 from .transforms.thermal_noise_weight import thermal_noise_weight
 from .transforms.RC_detrender import RC_detrender
 from .transforms.master_clipper import master_clipper
-from .transforms.clipper2d import clipper2d
 
 # Helper routines for implementing new transforms in python.
 

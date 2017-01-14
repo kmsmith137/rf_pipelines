@@ -65,9 +65,8 @@ struct clipper_transform_base : public wi_transform
 	: nds_f(nds_f_), nds_t(nds_t_), axis(axis_), niter(niter_), sigma(sigma_), iter_sigma(iter_sigma_ ? iter_sigma_ : sigma_), f_nds(f_nds_), f_clip(f_clip_)
     {
 	stringstream ss;
-	ss << "intensity_clipper_transform(Df=" << nds_f << ",Dt=" << nds_t << ",axis=" << axis
-	   << ",nt_chunk=" << nt_chunk_ << ",sigma=" << sigma << ",niter=" << niter 
-	   << ",iter_sigma=" << iter_sigma << ")";
+        ss << "intensity_clipper_cpp(nt_chunk=" << nt_chunk_ << ", axis=" << axis << ", sigma=" << sigma
+           << ", niter=" << niter << ", iter_sigma=" << iter_sigma << ", Df=" << nds_f << ", Dt=" << nds_t << ")";
 
 	this->name = ss.str();
 	this->nt_chunk = nt_chunk_;

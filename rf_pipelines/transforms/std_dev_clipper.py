@@ -2,7 +2,7 @@ import numpy as np
 import rf_pipelines
 
 def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_nt=None, imitate_cpp=False):
-    """Helper function for std_dev_filter. Modifies 'weights' array in place."""
+    """Helper function for std_dev_clipper. Modifies 'weights' array in place."""
     
     (nfreq, nt_chunk) = intensity.shape
     
@@ -93,14 +93,14 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
     np.putmask(weights_hres, mask, 0.)
 
 
-class std_dev_filter(rf_pipelines.py_wi_transform):
+class std_dev_clipper(rf_pipelines.py_wi_transform):
     """
    Masks weights array based on the weighted (intensity) 
    standard deviation deviating by some sigma. 
    
     Constructor syntax:
 
-      t = std_dev_filter(thr=3., axis=None, nt_chunk=1024)
+      t = std_dev_clipper(thr=3., axis=None, nt_chunk=1024)
 
       'thr=3.' is the sigma value to clip. 
 
@@ -124,7 +124,7 @@ class std_dev_filter(rf_pipelines.py_wi_transform):
         self.dsample_nfreq = dsample_nfreq
         self.dsample_nt = dsample_nt
 
-        name = 'std_dev_filter(thr=%f, axis=%s, nt_chunk=%d' % (thr, axis, nt_chunk)
+        name = 'std_dev_clipper(thr=%f, axis=%s, nt_chunk=%d' % (thr, axis, nt_chunk)
         if dsample_nfreq is not None:
             name += ', dsample_nfreq=%d' % dsample_nfreq
         if dsample_nt is not None:
@@ -132,7 +132,7 @@ class std_dev_filter(rf_pipelines.py_wi_transform):
         name += ')'
         self.name = name
 
-    def set_stream(self,stream):
+    def set_stream(self, stream):
         self.nfreq = stream.nfreq
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):

@@ -41,7 +41,7 @@ struct polynomial_detrender_base : public wi_transform
 	axis(axis_), polydeg(polydeg_), epsilon(epsilon_), kernel(kernel_)
     {
 	stringstream ss;
-	ss << "polynomial_detrender(axis=" << axis << ",nt_chunk=" << nt_chunk_ << ",polydeg=" << polydeg << ",epsilon=" << epsilon_ << ")";
+        ss << "polynomial_detrender_cpp(nt_chunk=" << nt_chunk_ << ", axis=" << axis << ", polydeg=" << polydeg << ", epsilon=" << epsilon_ << ")";
 
 	this->name = ss.str();
 	this->nt_chunk = nt_chunk_;

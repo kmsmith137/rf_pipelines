@@ -1502,7 +1502,7 @@ static constexpr const char *make_polynomial_detrender_docstring =
     "Detrends along the specified axis by subtracting a best-fit polynomial.\n"
     "axis=0 means 'detrend in time', axis=1 means 'detrend in frequency'.\n"
     "\n"
-    "If the fit is poorly conditioned then the entire frequency channel will be masked\n"
+    "If the fit is poorly conditioned then the entire frequency channel (FIXME or the entire time sample when axis=1 ?? ) will be masked\n"
     "(by setting its weights to zero).  The threshold is controlled by the parameter\n"
     "'epsilon'.  I think that 1.0e-2 is a reasonable default here, but haven't\n"
     "experimented systematically.\n";
