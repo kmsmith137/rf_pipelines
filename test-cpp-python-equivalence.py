@@ -381,6 +381,24 @@ def test_iterated_intensity_clippers():
         # Test 3: intensity_clipper with downsampling factors (Df,Dt) is equivalent
         # to downsampling the array, and runnning intensity_clipper with (Dt,Dt)=(1,1).
 
+        weights1 = copy_array(weights0)
+        weights2 = copy_array(weights0)
+
+        # AXIS_NONE
+        rf_pipelines_c.apply_intensity_clipper(copy_array(intensity), weights1, None, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
+
+        (ds_int, ds_wt) = rf_pipelines_c.wi_downsample(copy_array(intensity), weights0, Df, Dt)
+        rf_pipelines_c.apply_intensity_clipper(ds_int, ds_wt, None, sigma, niter=niter, iter_sigma=iter_sigma, Df=1, Dt=1)
+
+        # Apply upsampled mask to weights2
+        t = rf_pipelines.upsample(ds_wt, nfreq, nt)
+        weights2 = np.where(t > 0, weights2, 0)
+
+        assert np.array_equal(weights1, weights2)
+
+        # At this point in the code, the task of proving correctness of the iterated
+        # intensity_clipper has been reduced to the case (axis,Df,Dt) = (AXIS_NONE,1,1).
+
 
     print >>sys.stderr, 'test_iterated_intensity_clippers: pass'
 
