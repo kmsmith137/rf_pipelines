@@ -54,20 +54,21 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/__init__.py \
 	rf_pipelines/transforms/chime_packetizer.py \
 	rf_pipelines/transforms/chime_transforms.py \
-	rf_pipelines/transforms/poly_detrender.py \
 	rf_pipelines/transforms/bonsai_dedisperser.py \
 	rf_pipelines/transforms/frb_injector_transform.py \
 	rf_pipelines/transforms/plotter_transform.py \
 	rf_pipelines/transforms/badchannel_mask.py \
-	rf_pipelines/transforms/clipper_transform.py \
-	rf_pipelines/transforms/legendre_detrender.py \
+	rf_pipelines/transforms/polynomial_detrender.py \
+	rf_pipelines/transforms/polynomial_detrender_cpp.py \
 	rf_pipelines/transforms/mask_expander.py \
 	rf_pipelines/transforms/kurtosis_filter.py \
-	rf_pipelines/transforms/std_dev_filter.py \
+	rf_pipelines/transforms/std_dev_clipper.py \
+	rf_pipelines/transforms/std_dev_clipper_cpp.py \
 	rf_pipelines/transforms/thermal_noise_weight.py \
 	rf_pipelines/transforms/RC_detrender.py \
 	rf_pipelines/transforms/master_clipper.py \
-	rf_pipelines/transforms/intensity_clipper.py
+	rf_pipelines/transforms/intensity_clipper.py \
+	rf_pipelines/transforms/intensity_clipper_cpp.py
 
 TESTBINFILES=run-unit-tests \
 	test-kernels \

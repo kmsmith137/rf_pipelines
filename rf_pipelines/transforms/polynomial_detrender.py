@@ -1,7 +1,7 @@
 import numpy as np
 import rf_pipelines
 
-class legendre_detrender(rf_pipelines.py_wi_transform):
+class polynomial_detrender(rf_pipelines.py_wi_transform):
     """
    This transform removes a degree-d weighted-fit legendre 
    polynomial from the intensity along a specified axis. 
@@ -13,7 +13,7 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
 
     Constructor syntax:
 
-      t = legendre_detrender(deg=0, axis=0, nt_chunk=1024, test=False)
+      t = polynomial_detrender(deg=0, axis=0, nt_chunk=1024, test=False)
       
       'deg=0' is the degree of fit.
       
@@ -35,7 +35,7 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
 
         self.deg = deg
         self.axis = axis
-        self.name = 'legendre_detrender(deg=%d, axis=%d, nt_chunk=%d)' % (deg, axis, nt_chunk)
+        self.name = 'polynomial_detrender(deg=%d, axis=%d, nt_chunk=%d)' % (deg, axis, nt_chunk)
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
@@ -66,7 +66,7 @@ class legendre_detrender(rf_pipelines.py_wi_transform):
         # The test mode replaces the weights and intensity with
         # simulated chunks (see __test below).
         if self.test:
-            weights, intensity = self._legendre_detrender__test(weights, intensity)
+            weights, intensity = self._polynomial_detrender__test(weights, intensity)
 
         # Checking whether the coefficients array matches
         # (in dimension) with the weights and intensity 

@@ -1,18 +1,18 @@
 """
-Poly detrender.  This is a thin wrapper around a C++ implementation.
+Polynomial detrender.  This is a thin wrapper around a C++ implementation.
 See polynomial_detrenders.cpp, and python linkage in rf_pipelines_c.cpp.
 """
 
 from rf_pipelines import rf_pipelines_c
 
-def poly_detrender(nt_detrend, axis=1, deg=0, epsilon=1.0e-2):
+def polynomial_detrender_cpp(nt_detrend, axis=1, deg=0, epsilon=1.0e-2):
     """
     Returns a transform object (wi_transform) which detrends the intensity
     along time or frequency.
 
     Constructor syntax:
 
-      t = poly_detrender(nt_detrend, axis=1, deg=0, epsilon=1.0e-2)
+      t = polynomial_detrender_cpp(nt_detrend, axis=1, deg=0, epsilon=1.0e-2)
       
       'nt_detrend=1024' is the chunk size (in number of samples).
 
