@@ -100,10 +100,8 @@ namespace constants {
     //   - you will need to recompile rf_pipelines after the change
 
     static constexpr int polynomial_detrender_max_degree = 20;
-    static constexpr int intensity_clipper_max_frequency_downsampling = 32;
-    static constexpr int intensity_clipper_max_time_downsampling = 32;
-    static constexpr int std_dev_clipper_max_frequency_downsampling = 32;
-    static constexpr int std_dev_clipper_max_time_downsampling = 32;
+    static constexpr int max_frequency_downsampling = 32;
+    static constexpr int max_time_downsampling = 32;
 
     // Number of single-precision floats which fit into a SIMD word on this machine.
     // For now, we just hardcode 8, assuming a CPU with the AVX instruction set but not AVX-512,
@@ -252,6 +250,16 @@ extern void apply_intensity_clipper(const float *intensity, float *weights, int 
 
 extern void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, int nt, 
 				  int stride, axis_type axis, double sigma, int Df=1, int Dt=1);
+
+
+// Helper routines for the RFI transforms above, factored out as standalone functions.
+//
+// wi_downsample(): downsamples an (intensity, weights) pair.  The downsampling factors (Df,Dt)
+// must be powers of two.
+
+extern void wi_downsample(float *out_intensity, float *out_weights, int out_stride, const float *in_intensity, 
+			  const float *in_weights, int in_nfreq, int in_nt, int in_stride, int Df, int Dt);
+
 
 //
 // This is a pseudo-transform which doesn't actually modify the data, it just writes it to a file in

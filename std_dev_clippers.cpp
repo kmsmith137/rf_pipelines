@@ -262,8 +262,8 @@ inline shared_ptr<sd_clipper_transform_base> _make_std_dev_clipper2(int Df, int 
 shared_ptr<sd_clipper_transform_base> _make_std_dev_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma)
 {
     static constexpr int S = constants::single_precision_simd_length;
-    static constexpr int MaxDf = constants::std_dev_clipper_max_frequency_downsampling;
-    static constexpr int MaxDt = constants::std_dev_clipper_max_time_downsampling;
+    static constexpr int MaxDf = constants::max_frequency_downsampling;
+    static constexpr int MaxDt = constants::max_time_downsampling;
     
     auto ret = _make_std_dev_clipper2<S,MaxDf,MaxDt> (Df, Dt, axis, nt_chunk, sigma);
 
@@ -280,8 +280,8 @@ shared_ptr<sd_clipper_transform_base> _make_std_dev_clipper(int Df, int Dt, axis
 static void check_params(int Df, int Dt, axis_type axis, int nfreq, int nt, int stride, double sigma)
 {
     static constexpr int S = constants::single_precision_simd_length;
-    static constexpr int MaxDf = constants::std_dev_clipper_max_frequency_downsampling;
-    static constexpr int MaxDt = constants::std_dev_clipper_max_time_downsampling;
+    static constexpr int MaxDf = constants::max_frequency_downsampling;
+    static constexpr int MaxDt = constants::max_time_downsampling;
 
     if (_unlikely((Df <= 0) || !is_power_of_two(Df)))
 	throw runtime_error("rf_pipelines std_dev clipper: Df=" + to_string(Df) + " must be a power of two");
@@ -334,20 +334,14 @@ shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, axis_type axis, doub
 // -------------------------------------------------------------------------------------------------
 
 
-// Compile-time integer-valued log_2()
-template<unsigned int D, typename std::enable_if<(D==1),int>::type = 0>
-inline constexpr int IntegerLog2() { return 0; }
-
-template<unsigned int D, typename std::enable_if<(D>1 && (D%2)==0),int>::type = 0>
-inline constexpr int IntegerLog2() { return IntegerLog2<(D/2)>() + 1; }
-
-
 struct sd_clipper_table {
-    static constexpr int MaxDf = constants::std_dev_clipper_max_frequency_downsampling;
-    static constexpr int MaxDt = constants::std_dev_clipper_max_time_downsampling;
-
+    static constexpr int MaxDf = constants::max_frequency_downsampling;
+    static constexpr int MaxDt = constants::max_time_downsampling;
     static constexpr int NDf = IntegerLog2<MaxDf>() + 1;
     static constexpr int NDt = IntegerLog2<MaxDt>() + 1;
+
+    // Weird: for some reason using std::max() here gives a clang linker (not compiler) error.
+    static constexpr int MaxD = (MaxDf > MaxDt) ? MaxDf : MaxDt;
 
     struct kernels {
 	kernel_ntmp_t f_ntmp;
@@ -361,9 +355,10 @@ struct sd_clipper_table {
     ktab_t entries;
 
     // Lookup table for integer-valued log_2
-    std::vector<int> ilog2_lookup;
+    integer_log2_lookup_table ilog2_lookup;
 
-    sd_clipper_table()
+    sd_clipper_table() :
+	ilog2_lookup(MaxD)
     {
 	static constexpr int S = constants::single_precision_simd_length;
 
@@ -378,21 +373,13 @@ struct sd_clipper_table {
 		}
 	    }
 	}
-
-	// Weird: for some reason using std::max() here gives a clang linker (not compiler) error.
-	int n = (MaxDf > MaxDt) ? (MaxDf+1) : (MaxDt+1);
-
-	ilog2_lookup = vector<int> (n, -1);
-
-	for (int i = 0; (1<<i) < n; i++)
-	    ilog2_lookup[1<<i] = i;
     }
 
     // Caller must call check_params()!
     inline kernels get(axis_type axis, int Df, int Dt)
     {
-	int idf = ilog2_lookup[Df];
-	int idt = ilog2_lookup[Dt];
+	int idf = ilog2_lookup(Df);
+	int idt = ilog2_lookup(Dt);
 	
 	return entries.at(axis).at(idf).at(idt);
     }

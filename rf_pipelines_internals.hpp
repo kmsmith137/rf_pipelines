@@ -88,6 +88,44 @@ struct plot_group {
 
 // -------------------------------------------------------------------------------------------------
 //
+// log_2(2^n) -> n
+
+
+inline bool is_power_of_two(int n)
+{
+    rf_assert(n >= 1);
+    return (n & (n-1)) == 0;
+}
+
+struct integer_log2_lookup_table {
+    int nmax;
+    std::vector<int> v;
+
+    integer_log2_lookup_table(int nmax)
+    {
+	rf_assert((nmax > 0) && is_power_of_two(nmax));
+	
+	this->v = std::vector<int> (nmax+1,-1);
+	for (int i = 0; (1<<i) <= nmax; i++)
+	    v[1<<i] = i;
+    }
+
+    // Caller must check 0 <= n <= nmax.
+    // If n is not a power of two, then (-1) will be returnd.
+    inline int operator()(int n) { return v[n]; }
+};
+
+
+// Compile-time integer-valued log_2()
+template<unsigned int D, typename std::enable_if<(D==1),int>::type = 0>
+inline constexpr int IntegerLog2() { return 0; }
+
+template<unsigned int D, typename std::enable_if<(D>1 && (D%2)==0),int>::type = 0>
+inline constexpr int IntegerLog2() { return IntegerLog2<(D/2)>() + 1; }
+
+
+// -------------------------------------------------------------------------------------------------
+//
 // timing_thread (general-purpose timing thread), and transform_timing_thread (subclass for timing wi_transforms).
 
 
@@ -200,12 +238,6 @@ template<typename T>
 inline T square(T x) 
 { 
     return x*x; 
-}
-
-inline bool is_power_of_two(int n)
-{
-    rf_assert(n >= 1);
-    return (n & (n-1)) == 0;
 }
 
 inline double uniform_rand()
