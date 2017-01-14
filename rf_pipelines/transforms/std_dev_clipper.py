@@ -7,7 +7,7 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
     (nfreq, nt_chunk) = intensity.shape
     
     # ------ Helper '__init__' calls ------
-    assert (axis == 0 or axis == 1), "axis must be 0 (along freq; constant time), or 1 (along time; constant freq)."
+    assert axis in (0, 1), "axis must be 0 (along freq; constant time), or 1 (along time; constant freq)."
     assert thr >= 1., "threshold must be >= 1."
     assert nt_chunk > 0
     assert (dsample_nt is None or dsample_nt > 0), "Invalid downsampling number along the time axis!"
@@ -83,7 +83,6 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
 
         # Boolean array which is True for masked values
         mask = np.abs(sd-sd_mean) > (thr*sd_stdv)
-        
 
     # Upsample to original resolution
     if coarse_grained:
@@ -92,11 +91,10 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
     # Apply mask to original hi-res weights array
     np.putmask(weights_hres, mask, 0.)
 
-
 class std_dev_clipper(rf_pipelines.py_wi_transform):
     """
-   Masks weights array based on the weighted (intensity) 
-   standard deviation deviating by some sigma. 
+    Masks weights array based on the weighted (intensity) 
+    standard deviation deviating by some sigma. 
    
     Constructor syntax:
 
@@ -113,7 +111,7 @@ class std_dev_clipper(rf_pipelines.py_wi_transform):
       'dsample_nfreq' and 'dsample_nt' are the downsampled
        number of pixles along the freq and time axes, respectively.
     """
-
+    
     def __init__(self, thr=3., axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None):
         
         self.thr = thr

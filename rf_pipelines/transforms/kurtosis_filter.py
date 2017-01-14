@@ -23,8 +23,7 @@ class kurtosis_filter(rf_pipelines.py_wi_transform):
     """ 
 
     def __init__(self,thr=(-1,1),nt_chunk=1024):
-        assert type(thr) is tuple and thr[0] < thr[1],\
-                "Bad threshold choice! See docstring."
+        assert (type(thr) is tuple) and (thr[0] < thr[1]), "Bad threshold choice! See docstring."
         self.lo_cut, self.hi_cut = thr 
         self.nt_chunk = nt_chunk
 
@@ -35,4 +34,3 @@ class kurtosis_filter(rf_pipelines.py_wi_transform):
         k = kurtosis(np.ma.masked_where(weights == 0,intensity,copy=False),1)
         k[~np.isfinite(k)] = -4
         weights[(k < self.lo_cut) | (k > self.hi_cut)] = 0.
-
