@@ -110,35 +110,14 @@ void wi_downsample(float *out_intensity, float *out_weights, int out_stride, con
 
     // Part 1: Argument megacheck
 
-    if (_unlikely(!out_intensity))
-	throw runtime_error("wi_downsample(): 'out_intensity' argument is a NULL pointer");
+    if (_unlikely((in_nfreq <= 0) || (in_nt <= 0)))
+	throw runtime_error("wi_downsample(): (in_nfreq,in_nt)=(" + to_string(in_nfreq) + "," + to_string(in_nt) + ") is invalid");
 
-    if (_unlikely(!out_weights))
-	throw runtime_error("wi_downsample(): 'out_weights' argument is a NULL pointer");
+    if (_unlikely((Df <= 0) || (Dt <= 0)))
+	throw runtime_error("wi_downsample(): (Df,Dt)=(" + to_string(Df) + "," + to_string(Dt) + ") is invalid");
 
-    if (_unlikely(!in_intensity))
-	throw runtime_error("wi_downsample(): 'in_intensity' argument is a NULL pointer");
-
-    if (_unlikely(!in_weights))
-	throw runtime_error("wi_downsample(): 'in_weights' argument is a NULL pointer");
-
-    if (_unlikely(in_nfreq <= 0))
-	throw runtime_error("wi_downsample(): in_nfreq=" + to_string(in_nfreq) + " is invalid");
-
-    if (_unlikely(in_nt <= 0))
-	throw runtime_error("wi_downsample(): in_nfreq=" + to_string(in_nt) + " is invalid");
-
-    if (_unlikely(Df <= 0))
-	throw runtime_error("wi_downsample(): Df=" + to_string(Df) + " is invalid");
-
-    if (_unlikely(Dt <= 0))
-	throw runtime_error("wi_downsample(): Dt=" + to_string(Dt) + " is invalid");
-
-    if (_unlikely(!is_power_of_two(Df)))
-	throw runtime_error("wi_downsample(): Df=" + to_string(Df) + " is not a power of two");
-
-    if (_unlikely(!is_power_of_two(Dt)))
-	throw runtime_error("wi_downsample(): Dt=" + to_string(Dt) + " is not a power of two");
+    if (_unlikely(!is_power_of_two(Df) || !is_power_of_two(Dt)))
+	throw runtime_error("wi_downsample(): (Df,Dt)=(" + to_string(Df) + "," + to_string(Dt) + ") must be powers of two");
 
     if (_unlikely(in_nfreq % Df))
 	throw runtime_error("wi_downsample(): in_nfreq=" + to_string(in_nfreq) + " is not divisible by Df=" + to_string(Df));
@@ -157,6 +136,18 @@ void wi_downsample(float *out_intensity, float *out_weights, int out_stride, con
 	throw runtime_error("wi_downsample(): (Df,Dt)=(" + to_string(Df) + "," + to_string(Dt) + ")"
 			    + " exceeds compile time limits; to fix this see 'constants' in rf_pipelines.hpp");
     }
+
+    if (_unlikely(!out_intensity))
+	throw runtime_error("wi_downsample(): 'out_intensity' argument is a NULL pointer");
+
+    if (_unlikely(!out_weights))
+	throw runtime_error("wi_downsample(): 'out_weights' argument is a NULL pointer");
+
+    if (_unlikely(!in_intensity))
+	throw runtime_error("wi_downsample(): 'in_intensity' argument is a NULL pointer");
+
+    if (_unlikely(!in_weights))
+	throw runtime_error("wi_downsample(): 'in_weights' argument is a NULL pointer");
 
     // Part 2: Get and apply downsampling kernel
 
