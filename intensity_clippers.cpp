@@ -422,7 +422,7 @@ shared_ptr<wi_transform> make_intensity_clipper(int nt_chunk, axis_type axis, do
     int dummy_stride = nt_chunk;  // arbitrary
 
     check_params(Df, Dt, axis, dummy_nfreq, nt_chunk, dummy_stride, sigma, niter, iter_sigma);
-    return _make_intensity_clipper(Dt, Dt, axis, nt_chunk, sigma, niter, iter_sigma);
+    return _make_intensity_clipper(Df, Dt, axis, nt_chunk, sigma, niter, iter_sigma);
 }
 
 
