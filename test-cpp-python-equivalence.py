@@ -57,6 +57,37 @@ def copy_array(arr, tame=False):
 
 
 ####################################################################################################
+
+
+def test_utils():
+    for iter in xrange(1000):
+        Df = 2**rand.randint(0,6)
+        Dt = 2**rand.randint(0,6)
+        nfreq = Df * rand.randint(8,16)
+        nt = Dt * 8 * rand.randint(1,8)
+
+        sys.stderr.write('.')
+        # print >>sys.stderr, '(Df,Dt,nfreq,nt)=(%d,%d,%d,%d)' % (Df,Dt,nfreq,nt)
+
+        intensity = rand.uniform(size=(nfreq,nt))
+        weights = rand.uniform(size=(nfreq,nt))
+
+        (ds_int, ds_wt) = rf_pipelines.wi_downsample(intensity, weights, nfreq//Df, nt//Dt)
+        (ds_int2, ds_wt2) = rf_pipelines_c.wi_downsample(copy_array(intensity), copy_array(weights), Df, Dt)
+
+        # Different weights convention used in python/C++ wi_downsample().
+        ds_wt *= (Df*Dt)
+
+        epsilon_w = np.max(np.abs(ds_wt - ds_wt2))
+        epsilon_i = np.max(np.abs(ds_int - ds_int2))
+
+        assert epsilon_w < 1.0e-3
+        assert epsilon_i < 1.0e-3
+
+    print >>sys.stderr, 'test_utils: pass'
+
+
+####################################################################################################
 #
 # Test polynomial detrender
 
@@ -344,13 +375,20 @@ def test_iterated_intensity_clippers():
 
         assert np.array_equal(weights1, weights2)
 
+        # At this point in the code, the task of proving correctness of the iterated
+        # intensity_clipper has been reduced to the case axis=AXIS_NONE
+        #
+        # Test 3: intensity_clipper with downsampling factors (Df,Dt) is equivalent
+        # to downsampling the array, and runnning intensity_clipper with (Dt,Dt)=(1,1).
+
+
     print >>sys.stderr, 'test_iterated_intensity_clippers: pass'
 
 
 ####################################################################################################
 
 
+test_utils()
 test_polynomial_detrenders()
 test_clippers()
 test_iterated_intensity_clippers()
-
