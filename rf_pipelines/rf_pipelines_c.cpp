@@ -1454,7 +1454,7 @@ static PyObject *wi_downsample(PyObject *self, PyObject *args, PyObject *kwds)
     // (intensity_writeback, weights_writeback) = (false, false)
     arr_wi_helper wi(intensity_obj, weights_obj, false, false);
 
-    npy_intp out_shape[2] = { (wi.nfreq /Df), (wi.nt / Dt) };
+    npy_intp out_shape[2] = { (wi.nfreq / Df), (wi.nt / Dt) };
 
     // Note syntax is: PyArray_New(subtype, nd, dims, type_num, npy_intp* strides, void* data, int itemsize, int flags, PyObject* obj)
     // The NPY_ARRAY_CARRAY flags include NPY_ARRAY_C_CONTIGUOUS, which ensures out_stride = out_nt.
@@ -1462,7 +1462,7 @@ static PyObject *wi_downsample(PyObject *self, PyObject *args, PyObject *kwds)
     object ds_iobj(ds_iptr, false);   // manage refcount
 
     PyObject *ds_wptr = PyArray_New(&PyArray_Type, 2, out_shape, NPY_FLOAT, NULL, NULL, 0, NPY_ARRAY_CARRAY, NULL);
-    object ds_wobj(ds_iptr, false);   // manage refcount
+    object ds_wobj(ds_wptr, false);   // manage refcount
     
     rf_pipelines::wi_downsample((float *) PyArray_DATA((PyArrayObject *) ds_iptr),   // out_intensity
 				(float *) PyArray_DATA((PyArrayObject *) ds_wptr),   // out_weights
@@ -1474,7 +1474,7 @@ static PyObject *wi_downsample(PyObject *self, PyObject *args, PyObject *kwds)
     // Note: PyTuple_Pack() increments (ds_iptr, ds_wptr) refcounts when it creates the tuple.
     // When this routine exits, the (ds_iobj, ds_wobj) destructors will decrement the refcounts.
     // It follows that we don't need calls to either Py_INCREF() or Py_DECREF() here.
-    
+
     return ret;
 }
 
