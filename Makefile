@@ -36,6 +36,7 @@ OFILES=badchannel_mask.o \
 	psrfits_stream.o \
 	std_dev_clippers.o \
 	timing_thread.o \
+	udsample.o \
 	wi_run_state.o \
 	wi_stream.o \
 	wi_transform.o \
