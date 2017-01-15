@@ -1,6 +1,6 @@
 // Kernels defined here:
 //
-// _kernel_clip2d_wrms(): computes weighted mean/rms of a 2D array with optional downsampling 
+// _kernel_noniterative_wrms_2d(): computes weighted mean/rms of a 2D array with optional downsampling 
 //    (there is also an option to write the downsampled intensity/weights to auxiliary arrays)
 //
 // _kernel_clip2d_iterate(): computes weighted mean/rms of a 2D array, including only elements
@@ -9,7 +9,12 @@
 // _kernel_clip2d_mask(): sets weights to zero when intensity is outside a certain range.
 //    Optionally, the intensity array can be downsampled relative to the weights.
 //
-// To see how these are combined, see intensity_clipper.cpp
+// _kernel_iterative_wrms_2d():
+//   This is the "bottom line" routine which is wrapped by weighted_mean_and_rms().
+//
+// _kernel_clip2d(): 
+//   This is the "bottom line" kernel which is wrapped by the intensity_clipper(AXIS_NONE).
+
 
 #ifndef _RF_PIPELINES_KERNELS_INTENSITY_CLIPPERS_HPP
 #define _RF_PIPELINES_KERNELS_INTENSITY_CLIPPERS_HPP
@@ -35,9 +40,22 @@ template<typename T, unsigned int S, unsigned int S2, typename std::enable_if<(S
 inline simd_t<T,S2> _extract_first(simd_t<T,S> x) { return x.template extract_half<0>(); }
     
 
+// _write_and_advance_if(): helper which writes data and advances a pointer, 
+// but only if a specified boolean predicate evaluates to true at compile-time.
+template<typename T, unsigned int S, bool flag, typename std::enable_if<flag,int>::type = 0>
+inline void _write_and_advance_if(T*& p, simd_t<T,S> x)
+{
+    x.storeu(p);
+    p += S;
+}
+
+template<typename T, unsigned int S, bool flag, typename std::enable_if<(!flag),int>::type = 0>
+inline void _write_and_advance_if(T*& p, simd_t<T,S> x) { return; }
+
+
 // -------------------------------------------------------------------------------------------------
 //
-// _kernel_clip2d_wrms<T, S, Df, Dt, Iflag, Wflag, Ti, Si>
+// _kernel_noniterative_wrms_2d<T, S, Df, Dt, Iflag, Wflag, Ti, Si>
 //    (simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, 
 //     int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
 //
@@ -63,24 +81,8 @@ inline simd_t<T,S2> _extract_first(simd_t<T,S> x) { return x.template extract_ha
 // which controlls the number of rows read in each pass.
 
 
-// _write_and_advance_if(): helper which writes data and advances a pointer, 
-// but only if a specified boolean predicate evaluates to true atc ompile-time.
-template<typename T, unsigned int S, bool flag, typename std::enable_if<flag,int>::type = 0>
-inline void _write_and_advance_if(T*& p, simd_t<T,S> x)
-{
-    x.storeu(p);
-    p += S;
-}
-
-template<typename T, unsigned int S, bool flag, typename std::enable_if<(!flag),int>::type = 0>
-inline void _write_and_advance_if(T*& p, simd_t<T,S> x)
-{
-    return;
-}
-
-
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag, typename Ti, unsigned int Si>
-inline void _kernel_clip2d_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
+inline void _kernel_noniterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
 {
     // XXX assert -> throw
     assert(nfreq > 0);
@@ -120,6 +122,9 @@ inline void _kernel_clip2d_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *in
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// _kernel_clip2d_mask(): Masks all intensity samples which differ from the mean by more than 
+// 'thresh'.  The intensity array can be downsampled relative to the weights array.
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
@@ -154,6 +159,9 @@ inline void _kernel_clip2d_mask(T *weights, const T *ds_intensity, simd_t<T,S> m
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// _kernel_clip2d_iterate(): Computes the weighted mean/rms of a 2D array, using only samples
+// which differ by the mean by more than 'thresh'.  No downsampling in this one.
 
 
 template<typename T, unsigned int S>
@@ -180,6 +188,53 @@ inline void _kernel_clip2d_iterate(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms, 
 
     acc.horizontal_sum();
     acc.get_mean_rms(out_mean, out_rms);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// _kernel_iterative_wrms_2d():
+//   This is the "bottom line" routine which is wrapped by weighted_mean_and_rms().
+//
+// _kernel_clip_2d(): 
+//    This is the "bottom line" routine which is wrapped by intensity_clipper(AXIS_NONE).
+//
+// Note: caller must ensure that the IterFlag compile-time argument is 'true' iff (niter > 0).
+
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
+inline void _kernel_iterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, T *ds_int, T *ds_wt)
+{
+    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
+    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
+
+    _kernel_noniterative_wrms_2d<T,S,Df,Dt,DsiFlag,DswFlag,T,S> (mean, rms, intensity, weights, nfreq, nt, stride, ds_int, ds_wt);
+
+    const T *s_intensity = DsiFlag ? ds_int : intensity;
+    const T *s_weights = DswFlag ? ds_wt : weights;
+    int s_stride = DsiFlag ? (nt/Dt) : stride;   // must use DsiFlag here, not DswFlag
+	
+    for (int iter = 1; iter < niter; iter++) {
+	simd_t<T,S> thresh = simd_t<T,S>(sigma) * rms;
+	_kernel_clip2d_iterate<T,S> (mean, rms, s_intensity, s_weights, mean, thresh, nfreq/Df, nt/Dt, s_stride);
+    }
+}
+
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
+inline void _kernel_clip_2d(T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_int, T *ds_wt)
+{
+    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
+
+    simd_t<T,S> mean, rms;
+    _kernel_iterative_wrms_2d<T,S,Df,Dt,IterFlag> (mean, rms, intensity, weights, nfreq, nt, stride, niter, iter_sigma, ds_int, ds_wt);
+
+    const T *s_intensity = DsiFlag ? ds_int : intensity;
+    int s_stride = DsiFlag ? (nt/Dt) : stride;   // must use DsiFlag here, not DswFlag
+
+    // (s_intensity, weights, sigma) here
+    simd_t<T,S> thresh = simd_t<T,S>(sigma) * rms;
+    _kernel_clip2d_mask<T,S,Df,Dt> (weights, s_intensity, mean, thresh, nfreq, nt, stride, s_stride);
 }
 
 

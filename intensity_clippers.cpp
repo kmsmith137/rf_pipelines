@@ -126,39 +126,10 @@ static void kernel_nds_2d(int &nds_int, int &nds_wt, int nfreq, int nt)
 
 
 template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
-static void kernel_clip_2d(float *intensity, float *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, float *ds_int, float *ds_wt)
-{
-    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
-    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
-
-    simd_t<float,S> mean, rms;
-    _kernel_clip2d_wrms<float,S,Df,Dt,DsiFlag,DswFlag,float,S> (mean, rms, intensity, weights, nfreq, nt, stride, ds_int, ds_wt);
-
-    const float *s_intensity = DsiFlag ? ds_int : intensity;
-    const float *s_weights = DswFlag ? ds_wt : weights;
-    int s_stride = DsiFlag ? (nt/Dt) : stride;   // must use DsiFlag here, not DswFlag
-	
-    for (int iter = 1; iter < niter; iter++) {
-	// (s_intensity, s_weights, iter_sigma) here
-	simd_t<float,S> thresh = simd_t<float,S>(iter_sigma) * rms;
-	_kernel_clip2d_iterate<float,S> (mean, rms, s_intensity, s_weights, mean, thresh, nfreq/Df, nt/Dt, s_stride);
-    }
-
-    // needs simd_debug.hpp
-    // cerr << "kernel_clip_2d: mean=" << mean << endl;
-    // cerr << "kernel_clip_2d: rms=" << rms << endl;
-
-    // (s_intensity, weights, sigma) here
-    simd_t<float,S> thresh = simd_t<float,S>(sigma) * rms;
-    _kernel_clip2d_mask<float,S,Df,Dt> (weights, s_intensity, mean, thresh, nfreq, nt, stride, s_stride);
-}
-
-
-template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
 struct clipper_transform_2d : public clipper_transform_base
 {
     clipper_transform_2d(int nt_chunk_, double sigma_, int niter_, double iter_sigma_)
-	: clipper_transform_base(Df, Dt, AXIS_NONE, nt_chunk_, sigma_, niter_, iter_sigma_, kernel_nds_2d<S,Df,Dt,IterFlag>, kernel_clip_2d<S,Df,Dt,IterFlag>)
+	: clipper_transform_base(Df, Dt, AXIS_NONE, nt_chunk_, sigma_, niter_, iter_sigma_, kernel_nds_2d<S,Df,Dt,IterFlag>, _kernel_clip_2d<float,S,Df,Dt,IterFlag>)
     { 
 	if (IterFlag) rf_assert(niter > 1);
 	if (!IterFlag) rf_assert(niter == 1);
@@ -198,7 +169,7 @@ static void kernel_clip_1d_t(float *intensity, float *weights, int nfreq, int nt
 	
 	// We pass nfreq=Df to _kernel_clip2d_wrms, not the "true" nfreq
 	simd_t<float,S> mean, rms;
-	_kernel_clip2d_wrms<float,S,Df,Dt,DsiFlag,DswFlag,float,S> (mean, rms, irow, wrow, Df, nt, stride, ds_int, ds_wt);
+	_kernel_noniterative_wrms_2d<float,S,Df,Dt,DsiFlag,DswFlag,float,S> (mean, rms, irow, wrow, Df, nt, stride, ds_int, ds_wt);
 	
 	const float *irow2 = DsiFlag ? ds_int : irow;
 	const float *wrow2 = DswFlag ? ds_wt : wrow;
