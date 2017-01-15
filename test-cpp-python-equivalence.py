@@ -72,6 +72,10 @@ def test_utils():
         intensity = rand.uniform(size=(nfreq,nt))
         weights = rand.uniform(size=(nfreq,nt))
 
+        #
+        # Test 1: compare rf_pipelines.wi_downsample() and rf_pipelines_c.wi_downsample()
+        #
+
         (ds_int, ds_wt) = rf_pipelines.wi_downsample(intensity, weights, nfreq//Df, nt//Dt)
         (ds_int2, ds_wt2) = rf_pipelines_c.wi_downsample(copy_array(intensity), copy_array(weights), Df, Dt)
 
@@ -83,6 +87,20 @@ def test_utils():
 
         assert epsilon_w < 1.0e-3
         assert epsilon_i < 1.0e-3
+
+        #
+        # Test 2: compare rf_pipelines.weighted_mean_and_rms() and rf_pipelines_c.weighted_mean_and_rms(),
+        # with (niter, Df, Dt, axis) = (1, 1, 1, None).
+        #
+
+        (mean1, rms1) = rf_pipelines.weighted_mean_and_rms(intensity, weights)
+        (mean2, rms2) = rf_pipelines_c.weighted_mean_and_rms(copy_array(intensity), copy_array(weights), 3.0)
+
+        epsilon_m = np.abs(mean1-mean2)
+        epsilon_r = np.abs(rms1-rms2)
+
+        assert epsilon_m < 1.0e-4
+        assert epsilon_r < 1.0e-4
 
     print >>sys.stderr, 'test_utils: pass'
 
@@ -317,7 +335,11 @@ def test_clippers():
 
 ####################################################################################################
 #
-# Test intensity_clipper for niter > 1
+# The previously-defined test_clippers() tests the intensity_clipper for niter == 1.
+#
+# This test covers the niter > 1 case.  The logic here is a little tricky and the unit
+# test is organized as a "correctness proof".
+
 
 
 def test_iterated_intensity_clippers():
@@ -333,7 +355,9 @@ def test_iterated_intensity_clippers():
         sys.stderr.write('.')
         # print 'iteration %d: (Df,Dt,nfreq,nt,sigma,niter,iter_sigma) = %s' % (iter, (Df,Dt,nfreq,nt,sigma,niter,iter_sigma))
 
-        (intensity, weights0) = make_clipper_test_data(nfreq, nt, axis=None, Df=Df, Dt=Dt)
+        (intensity0, weights0) = make_clipper_test_data(nfreq, nt, axis=None, Df=Df, Dt=Dt)
+
+        intensity = copy_array(intensity0)
 
         # Test 1: AXIS_TIME iterated intensity_clipper is equivalent to 
         # looping over row blocks and running the AXIS_NONE clipper.
@@ -342,7 +366,7 @@ def test_iterated_intensity_clippers():
         weights2 = copy_array(weights0)
 
         # AXIS_TIME
-        rf_pipelines_c.apply_intensity_clipper(copy_array(intensity), weights1, 1, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
+        rf_pipelines_c.apply_intensity_clipper(intensity, weights1, 1, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
 
         # AXIS_NONE
         for ifreq in xrange(nfreq//Df):
@@ -359,7 +383,7 @@ def test_iterated_intensity_clippers():
         weights2 = copy_array(weights0)
 
         # AXIS_FREQ
-        rf_pipelines_c.apply_intensity_clipper(copy_array(intensity), weights1, 0, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
+        rf_pipelines_c.apply_intensity_clipper(intensity, weights1, 0, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
 
         for it in xrange(nt//Dt):
             # need a little hacking to satisfy simd-derived rf_pipelines_c divisibility requirements...
@@ -380,14 +404,17 @@ def test_iterated_intensity_clippers():
         #
         # Test 3: intensity_clipper with downsampling factors (Df,Dt) is equivalent
         # to downsampling the array, and runnning intensity_clipper with (Dt,Dt)=(1,1).
+        #
+        # Note: this test depends on correctness of rf_pipelines_c.wi_downsample(),
+        # which is independently unit-tested in test_utils() above.
 
         weights1 = copy_array(weights0)
         weights2 = copy_array(weights0)
 
         # AXIS_NONE
-        rf_pipelines_c.apply_intensity_clipper(copy_array(intensity), weights1, None, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
+        rf_pipelines_c.apply_intensity_clipper(intensity, weights1, None, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
 
-        (ds_int, ds_wt) = rf_pipelines_c.wi_downsample(copy_array(intensity), weights0, Df, Dt)
+        (ds_int, ds_wt) = rf_pipelines_c.wi_downsample(intensity, weights0, Df, Dt)
         rf_pipelines_c.apply_intensity_clipper(ds_int, ds_wt, None, sigma, niter=niter, iter_sigma=iter_sigma, Df=1, Dt=1)
 
         # Apply upsampled mask to weights2
@@ -405,7 +432,7 @@ def test_iterated_intensity_clippers():
         weights1 = copy_array(weights0)
 
         # (axis, Df, Dt, iter_sigma) = (None, 1, 1, sigma)
-        rf_pipelines_c.apply_intensity_clipper(copy_array(intensity), weights1, None, sigma, niter=niter, iter_sigma=sigma)
+        rf_pipelines_c.apply_intensity_clipper(intensity, weights1, None, sigma, niter=niter, iter_sigma=sigma)
         
         (mean1, rms1) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights1, sigma, 1)
         (mean2, rms2) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights0, sigma, niter+1)
@@ -413,6 +440,28 @@ def test_iterated_intensity_clippers():
 
         assert epsilon_m < 1.0e-6
         assert epsilon_r < 1.0e-6
+
+        # Test 5: this test shows that correctness of weighted_mean_rms(niter) implies
+        # correctness of intensity_clipper(niter).
+        #
+        # Taken together with test 4, this gives an inductive proof of correctness for
+        # all niter > 1, which completes the test!
+
+        weights1 = copy_array(weights0)
+        weights2 = copy_array(weights0)
+
+        rf_pipelines_c.apply_intensity_clipper(intensity, weights1, None, sigma, niter=niter, iter_sigma=iter_sigma)
+
+        (mean, rms) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights2, iter_sigma, niter)
+        
+        w32 = copy_array(weights0, tame=True)
+        z32 = np.array(0.0, dtype=np.float32)
+
+        weights_lo = np.where(np.abs(intensity-mean) < 0.999 * sigma * rms, w32, z32)
+        weights_hi = np.where(np.abs(intensity-mean) < 1.001 * sigma * rms, w32, z32)
+        
+        assert np.all(weights_lo <= weights1)
+        assert np.all(weights1 <= weights_hi)
 
 
     print >>sys.stderr, 'test_iterated_intensity_clippers: pass'

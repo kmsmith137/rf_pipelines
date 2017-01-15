@@ -12,7 +12,7 @@
 // _kernel_iterative_wrms_2d():
 //   This is the "bottom line" routine which is wrapped by weighted_mean_and_rms().
 //
-// _kernel_clip2d(): 
+// _kernel_clip_2d(): 
 //   This is the "bottom line" kernel which is wrapped by the intensity_clipper(AXIS_NONE).
 
 
