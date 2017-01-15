@@ -482,7 +482,7 @@ void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, 
 // Externally-visible routine weighted_mean_and_rms()
 
 
-void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, double sigma, int niter)
+void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, int niter, double sigma)
 {
     static constexpr int S = constants::single_precision_simd_length;
 

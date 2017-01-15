@@ -112,7 +112,7 @@ def test_utils():
         #
 
         (mean1, rms1) = rf_pipelines.weighted_mean_and_rms(intensity, weights)
-        (mean2, rms2) = rf_pipelines_c.weighted_mean_and_rms(copy_array(intensity), copy_array(weights), 3.0)
+        (mean2, rms2) = rf_pipelines_c.weighted_mean_and_rms(copy_array(intensity), copy_array(weights))
 
         epsilon_m = np.abs(mean1-mean2)
         epsilon_r = np.abs(rms1-rms2)
@@ -458,8 +458,8 @@ def test_iterated_intensity_clippers():
         # (axis, Df, Dt, iter_sigma) = (None, 1, 1, sigma)
         rf_pipelines_c.apply_intensity_clipper(intensity, weights1, None, sigma, niter=niter, iter_sigma=sigma)
         
-        (mean1, rms1) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights1, sigma, 1)
-        (mean2, rms2) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights0, sigma, niter+1)
+        (mean1, rms1) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights1, 1, sigma)
+        (mean2, rms2) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights0, niter+1, sigma)
         (epsilon_m, epsilon_r) = (np.abs(mean1-mean2), np.abs(rms1-rms2))
 
         assert epsilon_m < 1.0e-6
@@ -476,7 +476,7 @@ def test_iterated_intensity_clippers():
 
         rf_pipelines_c.apply_intensity_clipper(intensity, weights1, None, sigma, niter=niter, iter_sigma=iter_sigma)
 
-        (mean, rms) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights2, iter_sigma, niter)
+        (mean, rms) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights2, niter, iter_sigma)
         
         w32 = copy_array(weights0, tame=True)
         z32 = np.array(0.0, dtype=np.float32)

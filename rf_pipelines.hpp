@@ -266,7 +266,7 @@ extern void wi_downsample(float *out_intensity, float *out_weights, int out_stri
 			  const float *in_weights, int in_nfreq, int in_nt, int in_stride, int Df, int Dt);
 
 extern void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, const float *weights, 
-				  int nfreq, int nt, int stride, double sigma, int niter=1);
+				  int nfreq, int nt, int stride, int niter=1, double sigma=3.0);
 
 
 //

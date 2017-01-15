@@ -1479,21 +1479,21 @@ static PyObject *wi_downsample(PyObject *self, PyObject *args, PyObject *kwds)
 
 static PyObject *weighted_mean_and_rms(PyObject *self, PyObject *args, PyObject *kwds)
 {
-    static const char *kwlist[] = { "intensity", "weights", "sigma", "niter", NULL };
+    static const char *kwlist[] = { "intensity", "weights", "niter", "sigma", NULL };
 
     PyObject *intensity_obj = Py_None;
     PyObject *weights_obj = Py_None;
-    double sigma = 0.0;
-    int niter = 1;   // meaningful default value
+    int niter = 1;       // meaningful default value
+    double sigma = 3.0;  // meaningful default value
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOd|i", (char **)kwlist, &intensity_obj, &weights_obj, &sigma, &niter))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OO|id", (char **)kwlist, &intensity_obj, &weights_obj, &niter, &sigma))
 	return NULL;
 
     // (intensity_writeback, weights_writeback) = (false, false)
     arr_wi_helper wi(intensity_obj, weights_obj, false, false);
 
     float mean, rms;
-    rf_pipelines::weighted_mean_and_rms(mean, rms, wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, sigma, niter);
+    rf_pipelines::weighted_mean_and_rms(mean, rms, wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, niter, sigma);
 
     return Py_BuildValue("(dd)", mean, rms);
 }
@@ -1670,7 +1670,7 @@ static constexpr const char *wi_downsample_docstring =
 
 
 static constexpr const char *weighted_mean_and_rms_docstring =
-    "weighted_mean_and_rms(intensity, weights, sigma, niter=1)\n"
+    "weighted_mean_and_rms(intensity, weights, niter=1, sigma=3.0)\n"
     "\n"
     "Computes weighted mean/rms of a 2D intensity array.\n"
     "If the 'niter' argument is >1, then the calculation will be iterated, clipping\n"
