@@ -477,5 +477,26 @@ void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, 
 }
 
 
+// -------------------------------------------------------------------------------------------------
+//
+// Externally-visible routine weighted_mean_and_rms()
+
+
+void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, double sigma, int niter)
+{
+    static constexpr int S = constants::single_precision_simd_length;
+    
+    simd_t<float,S> mean_x, rms_x;
+
+    // Note: in the case (Df,Dt)=(1,1), the value of the compile-time argument IterFlag doesn't matter,
+    // and it's always OK to take ds_int = ds_wt = NULL.
+    _kernel_iterative_wrms_2d<float,S,1,1,false> (mean_x, rms_x, intensity, weights, nfreq, nt, stride, niter, sigma, NULL, NULL);
+
+    mean = mean_x.template extract<0> ();
+    rms = rms_x.template extract<0> ();
+}
+
+
+
 }  // namespace rf_pipelines
 

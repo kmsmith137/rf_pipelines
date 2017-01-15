@@ -203,7 +203,8 @@ inline void _kernel_clip2d_iterate(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms, 
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
-inline void _kernel_iterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, T *ds_int, T *ds_wt)
+inline void _kernel_iterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, 
+				      int nfreq, int nt, int stride, int niter, double sigma, T *ds_int, T *ds_wt)
 {
     static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
     static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
