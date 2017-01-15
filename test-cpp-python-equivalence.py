@@ -55,6 +55,24 @@ def copy_array(arr, tame=False):
     return ret
 
 
+def random_divisor(n):
+    m = 2
+    ret = 1
+
+    while m**2 <= n:
+        p = 0
+        while (n % m) == 0:
+            n = n / m
+            p += 1
+
+        ret = ret * m**rand.randint(0,p+1)
+        m += 1
+
+    if rand.uniform() < 0.5:
+        ret = ret * n
+        
+    return ret
+
 
 ####################################################################################################
 
@@ -140,10 +158,39 @@ def random_sparse_vector(num_elts, num_nonzero):
     return ret
 
 
+def make_detrender_test_data(nfreq, nt, axis, polydeg):
+    """Helper function for detrender unit tests.  Returns 4-tuple (intensity, undoctored_weights, doctored_weights, zeroed_weights)."""
+
+    # The python reference detrender includes hardcoded special behavior
+    # if the sum of the weights is < 20, so we choose a large scale for
+    # the weights, to avoid triggering this.
+
+    intensity0 = rand.standard_normal(size=(nfreq,nt))
+    weights0 = rand.uniform(100.0, 200.0, size=(nfreq,nt))
+
+    doctored_weights = copy_array(weights0)
+    zeroed_weights = copy_array(weights0)
+
+    # In a few locations, we "doctor" the weights to make the polynomial
+    # fit poorly behaved, and we "zero" the weights as well.
+
+    if axis == 0:
+        for it in xrange(nt):
+            if rand.uniform() < 0.5:
+                doctored_weights[:,it] = random_sparse_vector(nfreq, polydeg)
+                zeroed_weights[:,it] = 0.
+
+    elif axis == 1:
+        for ifreq in xrange(nfreq):
+            if rand.uniform() < 0.5:
+                doctored_weights[ifreq,:] = random_sparse_vector(nt, polydeg)
+                zeroed_weights[ifreq,:] = 0.
+
+    return (intensity0, weights0, doctored_weights, zeroed_weights)
+
+
 def test_polynomial_detrenders():
     for iter in xrange(1000):
-        sys.stderr.write('.')
-
         axis = rand.randint(0,2)
         polydeg = rand.randint(0,10)
 
@@ -154,33 +201,10 @@ def test_polynomial_detrenders():
             nfreq = rand.randint(2, 20)
             nt = 8 * rand.randint(polydeg+2, 2*polydeg+4)
 
-        # Debug
-        # (axis, polydeg, nfreq, nt) = (xx, xx, xx, xx)
+        sys.stderr.write('.')
         # print >>sys.stderr, 'axis=', axis, 'polydeg=', polydeg, 'nfreq=', nfreq, 'nt=', nt
 
-        # The python reference detrender includes hardcoded special behavior
-        # if the sum of the weights is < 20, so we choose a large scale for
-        # the weights, to avoid triggering this.
-
-        intensity0 = rand.standard_normal(size=(nfreq,nt))
-        weights0 = rand.uniform(100.0, 200.0, size=(nfreq,nt))
-
-        doctored_weights = copy_array(weights0)
-        zeroed_weights = copy_array(weights0)
-
-        # In a few locations, we "doctor" the weights to make the polynomial
-        # fit poorly behaved, and we "zero" the weights as well.
-
-        if axis == 0:
-            for it in xrange(nt):
-                if rand.uniform() < 0.5:
-                    doctored_weights[:,it] = random_sparse_vector(nfreq, polydeg)
-                    zeroed_weights[:,it] = 0.
-        elif axis == 1:
-            for ifreq in xrange(nfreq):
-                if rand.uniform() < 0.5:
-                    doctored_weights[ifreq,:] = random_sparse_vector(nt, polydeg)
-                    zeroed_weights[ifreq,:] = 0.
+        (intensity0, weights0, doctored_weights, zeroed_weights) = make_detrender_test_data(nfreq, nt, axis, polydeg)
         
         intensity1 = copy_array(intensity0)
         rf_pipelines_c.apply_polynomial_detrender(intensity1, doctored_weights, axis, polydeg)
@@ -468,9 +492,148 @@ def test_iterated_intensity_clippers():
 
 
 ####################################################################################################
+#
+# Test transforms: tests equivalence between apply_* functions and transform objects.
+
+
+def make_weird_data(nfreq, nt):
+    """Returns (intensity, weights) pair, designed to be as weird as possible."""
+
+    if rand.uniform() < 0.5:
+        axis = rand.randint(0,2)
+        polydeg = rand.randint(0, min(nt,10))
+        (intensity, weights, w1, w2) = make_detrender_test_data(nfreq, nt, axis, polydeg)
+        return (intensity, weights)
+
+    else:
+        axis = rand.randint(0,2) if (rand.uniform() < 0.66) else None
+        Df = random_divisor(nfreq)
+        Dt = random_divisor(nt)
+        return make_clipper_test_data(nfreq, nt, axis, Df, Dt)
+    
+
+def make_random_transform():
+    """Returns (transform, f_apply) pair."""
+
+    transform_type = rand.randint(0,3)
+
+    if transform_type == 0:
+        # poly detrender
+        axis = rand.randint(0,2)
+        polydeg = rand.randint(0,10)
+        epsilon = rand.uniform(0.01, 0.1)
+        nt_chunk = 8 * rand.randint(polydeg+2, 2*polydeg+4)
+
+        t = rf_pipelines_c.make_polynomial_detrender(nt_chunk, axis, polydeg, epsilon)
+        f = lambda intensity, weights: rf_pipelines_c.apply_polynomial_detrender(intensity, weights, axis, polydeg, epsilon)
+
+    elif transform_type == 1:
+        # intensity_clipper
+        axis = rand.randint(0,2) if (rand.uniform() < 0.66) else None
+        Df = 2**rand.randint(0,6)
+        Dt = 2**rand.randint(0,6)
+        sigma = rand.uniform(1.1, 1.3)
+        niter = rand.randint(1,5)
+        iter_sigma = rand.uniform(1.8, 2.0)
+        nt_chunk = Dt * 8 * rand.randint(1,8)
+
+        t = rf_pipelines_c.make_intensity_clipper(nt_chunk, axis, sigma, niter, iter_sigma, Df, Dt)
+        f = lambda intensity, weights: rf_pipelines_c.apply_intensity_clipper(intensity, weights, axis, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
+
+    else:
+        # std_dev_clipper
+        axis = rand.randint(0,2)
+        Df = 2**rand.randint(0,6)
+        Dt = 2**rand.randint(0,6)
+        sigma = rand.uniform(1.1, 1.3)
+        nt_chunk = Dt * 8 * rand.randint(1,8)
+
+        t = rf_pipelines_c.make_std_dev_clipper(nt_chunk, axis, sigma, Df, Dt)
+        f = lambda intensity, weights: rf_pipelines_c.apply_std_dev_clipper(intensity, weights, axis, sigma, Df=Df, Dt=Dt)
+
+    assert t.nt_chunk == nt_chunk
+    assert t.nt_prepad == 0
+    assert t.nt_postpad == 0
+
+    return (t, f)
+
+
+class test_initializer(rf_pipelines.py_wi_transform):
+    def __init__(self, f_apply, nt_chunk):
+        rf_pipelines.py_wi_transform.__init__(self)
+
+        self.f_apply = f_apply
+        self.nt_chunk = nt_chunk
+        self.nt_prepad = 0
+        self.nt_postpad = 0
+
+        self.expected_intensity = [ ]
+        self.expected_weights = [ ]
+
+
+    def set_stream(self, s):
+        self.nfreq = s.nfreq
+
+
+    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
+        (intensity0, weights0) = make_weird_data(self.nfreq, self.nt_chunk)
+
+        intensity[:,:] = intensity0[:,:]
+        weights[:,:] = weights0[:,:]
+
+        self.expected_intensity.append(copy_array(intensity0))
+        self.expected_weights.append(copy_array(weights0))
+
+        self.f_apply(self.expected_intensity[-1], self.expected_weights[-1])
+
+
+class test_finalizer(rf_pipelines.py_wi_transform):
+    def __init__(self, initializer):
+        rf_pipelines.py_wi_transform.__init__(self)
+
+        self.initializer = initializer
+        self.nt_chunk = initializer.nt_chunk
+        self.nt_prepad = 0
+        self.nt_postpad = 0
+        self.ichunk = 0
+
+    def set_stream(self, s):
+        self.nfreq = s.nfreq
+
+    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
+        assert np.array_equal(intensity, self.initializer.expected_intensity[self.ichunk])
+        assert np.array_equal(weights, self.initializer.expected_weights[self.ichunk])
+        self.ichunk += 1
+
+
+def test_transforms():
+    for iouter in xrange(20):
+        sys.stderr.write('.')
+
+        transform_chain = [ ]
+        for itransform in xrange(10):
+            (t, f) = make_random_transform()
+            ti = test_initializer(f, t.nt_chunk)
+            tf = test_finalizer(ti)
+            transform_chain += [ ti, t, tf ]
+
+        nfreq = 32 * rand.randint(1, 8)
+        nt_tot = rand.randint(1000, 5000)
+        freq_lo_MHz = 400.   # arbitrary
+        freq_hi_MHz = 800.
+        dt_sample = 1.0e-3
+        stream = rf_pipelines.gaussian_noise_stream(nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample)
+
+        stream.run(transform_chain, outdir=None, noisy=False)
+
+    print >>sys.stderr, 'test_iterated_intensity_clippers: pass'
+
+
+####################################################################################################
 
 
 test_utils()
 test_polynomial_detrenders()
 test_clippers()
 test_iterated_intensity_clippers()
+test_transforms()
