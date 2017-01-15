@@ -65,10 +65,10 @@ struct sd_clipper_transform_base : public wi_transform
 	static constexpr int S = constants::single_precision_simd_length;
 
 	stringstream ss;
-	ss << "std_dev_clipper_transform(Df=" << nds_f << ",Dt=" << nds_t << ",axis=" << axis
-	   << ",nt_chunk=" << nt_chunk_ << ",sigma=" << sigma << ")";
-
-	this->name = ss.str();
+        ss << "std_dev_clipper_transform_cpp(nt_chunk=" << nt_chunk_ << ", axis=" << axis
+           << ", sigma=" << sigma << ", Df=" << nds_f << ", Dt=" << nds_t << ")";
+	
+        this->name = ss.str();
 	this->nt_chunk = nt_chunk_;
 	this->nt_prepad = 0;
 	this->nt_postpad = 0;
