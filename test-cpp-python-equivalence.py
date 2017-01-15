@@ -90,9 +90,7 @@ def test_utils():
         intensity = rand.uniform(size=(nfreq,nt))
         weights = rand.uniform(size=(nfreq,nt))
 
-        #
         # Test 1: compare rf_pipelines.wi_downsample() and rf_pipelines_c.wi_downsample()
-        #
 
         (ds_int, ds_wt) = rf_pipelines.wi_downsample(intensity, weights, nfreq//Df, nt//Dt)
         (ds_int2, ds_wt2) = rf_pipelines_c.wi_downsample(copy_array(intensity), copy_array(weights), Df, Dt)
@@ -106,10 +104,8 @@ def test_utils():
         assert epsilon_w < 1.0e-3
         assert epsilon_i < 1.0e-3
 
-        #
         # Test 2: compare rf_pipelines.weighted_mean_and_rms() and rf_pipelines_c.weighted_mean_and_rms(),
         # with (niter, Df, Dt, axis) = (1, 1, 1, None).
-        #
 
         (mean1, rms1) = rf_pipelines.weighted_mean_and_rms(intensity, weights)
         (mean2, rms2) = rf_pipelines_c.weighted_mean_and_rms(copy_array(intensity), copy_array(weights))
