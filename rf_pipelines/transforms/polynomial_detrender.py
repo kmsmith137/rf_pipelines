@@ -13,28 +13,28 @@ class polynomial_detrender(rf_pipelines.py_wi_transform):
 
     Constructor syntax:
 
-      t = polynomial_detrender(deg=0, axis=0, nt_chunk=1024, test=False)
+      t = polynomial_detrender(nt_chunk=1024, deg=0, axis=0, test=False)
       
+      'nt_chunk=1024' is the buffer size.
+
       'deg=0' is the degree of fit.
       
       'axis=0' is the axis convention:
         0: along freq; constant time.
         1: along time; constant freq.
 
-      'nt_chunk=1024' is the buffer size.
-
       'test=False' enables a test mode.
     """
 
-    def __init__(self, deg=0, axis=0, nt_chunk=1024, test=False):
+    def __init__(self, nt_chunk=1024, deg=0, axis=0, test=False):
         
         assert (deg >= 0 and type(deg) == int), "degree must be an integer >= 0"
         assert axis in (0, 1), "axis must be 0 (along freq; constant time) or 1 (along time; constant freq)."
-
+        
+        self.nt_chunk = nt_chunk
         self.deg = deg
         self.axis = axis
-        self.name = 'polynomial_detrender(deg=%d, axis=%d, nt_chunk=%d)' % (deg, axis, nt_chunk)
-        self.nt_chunk = nt_chunk
+        self.name = 'polynomial_detrender(nt_chunk=%d, deg=%d, axis=%d)' % (nt_chunk, deg, axis)
         self.nt_prepad = 0
         self.nt_postpad = 0
         self.test = test

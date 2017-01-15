@@ -98,11 +98,11 @@ class std_dev_clipper(rf_pipelines.py_wi_transform):
    
     Constructor syntax:
 
-      t = std_dev_clipper(thr=3., axis=None, nt_chunk=1024)
+      t = std_dev_clipper(thr=3., axis=1, nt_chunk=1024)
 
       'thr=3.' is the sigma value to clip. 
 
-      'axis=0' is the axis convention:
+      'axis=1' is the axis convention:
         0: along freq; constant time.
         1: along time; constant freq.
 
@@ -112,7 +112,7 @@ class std_dev_clipper(rf_pipelines.py_wi_transform):
        number of pixles along the freq and time axes, respectively.
     """
     
-    def __init__(self, thr=3., axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None):
+    def __init__(self, thr=3., axis=1, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None):
         
         self.thr = thr
         self.axis = axis
