@@ -1477,6 +1477,28 @@ static PyObject *wi_downsample(PyObject *self, PyObject *args, PyObject *kwds)
 }
 
 
+static PyObject *weighted_mean_and_rms(PyObject *self, PyObject *args, PyObject *kwds)
+{
+    static const char *kwlist[] = { "intensity", "weights", "sigma", "niter", NULL };
+
+    PyObject *intensity_obj = Py_None;
+    PyObject *weights_obj = Py_None;
+    double sigma = 0.0;
+    int niter = 1;   // meaningful default value
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOd|i", (char **)kwlist, &intensity_obj, &weights_obj, &sigma, &niter))
+	return NULL;
+
+    // (intensity_writeback, weights_writeback) = (false, false)
+    arr_wi_helper wi(intensity_obj, weights_obj, false, false);
+
+    float mean, rms;
+    rf_pipelines::weighted_mean_and_rms(mean, rms, wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, sigma, niter);
+
+    return Py_BuildValue("(dd)", mean, rms);
+}
+
+
 static PyObject *make_chime_file_writer(PyObject *self, PyObject *args)
 {
     char *filename = nullptr;
@@ -1647,6 +1669,14 @@ static constexpr const char *wi_downsample_docstring =
     "The downsampling factors (Df,Dt) must be powers of two.\n";
 
 
+static constexpr const char *weighted_mean_and_rms_docstring =
+    "weighted_mean_and_rms(intensity, weights, sigma, niter=1)\n"
+    "\n"
+    "Computes weighted mean/rms of a 2D intensity array.\n"
+    "If the 'niter' argument is >1, then the calculation will be iterated, clipping\n"
+    "outlier samples which differ from the mean by the specified number of \"sigmas\".\n";
+
+
 static constexpr const char *make_badchannel_mask_docstring = 
     "make_badchannel_mask(maskpath, nt_chunk)\n"
     "\n"
@@ -1676,6 +1706,7 @@ static PyMethodDef module_methods[] = {
     { "apply_intensity_clipper", (PyCFunction) tc_wrap3<apply_intensity_clipper>, METH_VARARGS | METH_KEYWORDS, apply_intensity_clipper_docstring },
     { "apply_std_dev_clipper", (PyCFunction) tc_wrap3<apply_std_dev_clipper>, METH_VARARGS | METH_KEYWORDS, apply_std_dev_clipper_docstring },
     { "wi_downsample", (PyCFunction) tc_wrap3<wi_downsample>, METH_VARARGS | METH_KEYWORDS, wi_downsample_docstring },
+    { "weighted_mean_and_rms", (PyCFunction) tc_wrap3<weighted_mean_and_rms>, METH_VARARGS | METH_KEYWORDS, weighted_mean_and_rms_docstring },
     { NULL, NULL, 0, NULL }
 };
 

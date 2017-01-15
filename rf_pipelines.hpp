@@ -256,9 +256,17 @@ extern void apply_std_dev_clipper(const float *intensity, float *weights, int nf
 //
 // wi_downsample(): downsamples an (intensity, weights) pair.  The downsampling factors (Df,Dt)
 // must be powers of two.
+//
+// weighted_mean_and_rms(): computes weighted mean/rms of a 2D intensity array.
+// If the 'niter' argument is >1, then the calculation will be iterated, clipping
+// outlier samples which differ from the mean by the specified number of "sigmas".
+
 
 extern void wi_downsample(float *out_intensity, float *out_weights, int out_stride, const float *in_intensity, 
 			  const float *in_weights, int in_nfreq, int in_nt, int in_stride, int Df, int Dt);
+
+extern void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, const float *weights, 
+				  int nfreq, int nt, int stride, double sigma, int niter=1);
 
 
 //
