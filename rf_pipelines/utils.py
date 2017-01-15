@@ -55,7 +55,7 @@ def weighted_mean_and_rms(arr, weights, niter=1, sigma_clip=3.0, axis=None):
             # The 'mean' and 'rms' arrays have been computed in a previous iteration of the loop.
             mean_e = expand_array(mean, arr.shape, axis)
             rms_e = expand_array(rms, arr.shape, axis)
-            mask = (np.abs(arr-mean_e) > sigma_clip * rms_e)
+            mask = (np.abs(arr-mean_e) < sigma_clip * rms_e)
             weights = weights * mask     # make copy (using the *= operator here would be a bug)
 
         wsum = np.sum(weights, axis=axis)
