@@ -485,7 +485,28 @@ void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, 
 void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, double sigma, int niter)
 {
     static constexpr int S = constants::single_precision_simd_length;
+
+    if (_unlikely((nfreq <= 0) || (nt <= 0)))
+	throw runtime_error("weighted_mean_and_rms(): (nfreq,nt)=(" + to_string(nfreq) + "," + to_string(nt) + ") is invalid");
     
+    if (_unlikely(stride < nt))
+	throw runtime_error("weighted_mean_and_rms(): stride=" + to_string(stride) + " is < nt=" + to_string(nt));	
+
+    if (_unlikely(sigma < 1.0))
+	throw runtime_error("weighted_mean_and_rms(): sigma=" + to_string(sigma) + ", expected >= 1.0");
+
+    if (_unlikely(niter < 1))
+	throw runtime_error("weighted_mean_and_rms(): niter=" + to_string(niter) + " is invalid");
+
+    if (_unlikely(nt % S))
+	throw runtime_error("weighted_mean_and_rms(): nt=" + to_string(nt) + " must be divisible by S=" + to_string(S) + ", the single-precision simd length on this machine");
+
+    if (_unlikely(!intensity))
+	throw runtime_error("weighted_mean_and_rms(): 'intensity' argument is a NULL pointer");
+
+    if (_unlikely(!weights))
+	throw runtime_error("weighted_mean_and_rms(): 'weights' argument is a NULL pointer");
+
     simd_t<float,S> mean_x, rms_x;
 
     // Note: in the case (Df,Dt)=(1,1), the value of the compile-time argument IterFlag doesn't matter,
@@ -499,4 +520,3 @@ void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, cons
 
 
 }  // namespace rf_pipelines
-
