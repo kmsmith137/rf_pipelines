@@ -19,13 +19,21 @@ rand.seed(1)
 # General utils
 
 
-def copy_array(arr, tame=False):
+def copy_array(arr, tame=False, allow_float64=False):
     """
     Make a float32 copy of an array, in a way which is artificially
     designed to make trouble for the python-to-C++ layer.
+
+    If the 'allow_float64' flag is set, then the returned copy will
+    be float64 instead.  We use this in a few places below, to test
+    the double-to-single-precision conversion logic.
     """
 
     assert arr.ndim == 2
+
+    dtype = np.float32
+    if allow_float64 and (rand.uniform() < 0.5):
+        dtype = np.float64
 
     pad = 0
     step = 1
@@ -43,7 +51,7 @@ def copy_array(arr, tame=False):
 
     (nx, ny) = arr.shape
 
-    ret = np.zeros((nx,ny*step + pad), dtype=np.float32)
+    ret = np.zeros((nx,ny*step + pad), dtype=dtype)
     ret[:] = rand.uniform(-1.0e10, 1.0e10, size=ret.shape)
 
     ret = ret[:,:ny*step:step]
@@ -202,7 +210,7 @@ def test_polynomial_detrenders():
 
         (intensity0, weights0, doctored_weights, zeroed_weights) = make_detrender_test_data(nfreq, nt, axis, polydeg)
         
-        intensity1 = copy_array(intensity0)
+        intensity1 = copy_array(intensity0, allow_float64=True)
         rf_pipelines_c.apply_polynomial_detrender(intensity1, doctored_weights, axis, polydeg)
 
         intensity2 = np.copy(intensity0)
@@ -311,7 +319,7 @@ def test_clippers():
         weights2 = copy_array(weights0, tame=True)
         rf_pipelines.clip_fx(intensity, weights2, thr = 1.001 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt, imitate_cpp=True)
             
-        weights3 = copy_array(weights0)
+        weights3 = copy_array(weights0, allow_float64=True)
         rf_pipelines_c.apply_intensity_clipper(copy_array(intensity), weights3, axis, thresh, Df=Df, Dt=Dt)
 
         ok = np.logical_and(weights1 <= weights3, weights3 <= weights2)
@@ -636,7 +644,7 @@ def test_transforms():
 
         stream.run(transform_chain, outdir=None, noisy=False)
 
-    print >>sys.stderr, 'test_iterated_intensity_clippers: pass'
+    print >>sys.stderr, 'test_transforms: pass'
 
 
 ####################################################################################################
