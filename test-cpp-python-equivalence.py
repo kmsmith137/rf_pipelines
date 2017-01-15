@@ -398,6 +398,21 @@ def test_iterated_intensity_clippers():
 
         # At this point in the code, the task of proving correctness of the iterated
         # intensity_clipper has been reduced to the case (axis,Df,Dt) = (AXIS_NONE,1,1).
+        #
+        # Test 4: this test shows that correctness of intensity_clipper(niter) implies
+        # correctness of weighted_mean_rms(niter+1).
+
+        weights1 = copy_array(weights0)
+
+        # (axis, Df, Dt, iter_sigma) = (None, 1, 1, sigma)
+        rf_pipelines_c.apply_intensity_clipper(copy_array(intensity), weights1, None, sigma, niter=niter, iter_sigma=sigma)
+        
+        (mean1, rms1) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights1, sigma, 1)
+        (mean2, rms2) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights0, sigma, niter+1)
+        (epsilon_m, epsilon_r) = (np.abs(mean1-mean2), np.abs(rms1-rms2))
+
+        assert epsilon_m < 1.0e-6
+        assert epsilon_r < 1.0e-6
 
 
     print >>sys.stderr, 'test_iterated_intensity_clippers: pass'
