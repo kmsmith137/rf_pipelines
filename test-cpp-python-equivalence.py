@@ -494,6 +494,11 @@ def test_iterated_intensity_clippers():
 ####################################################################################################
 #
 # Test transforms: tests equivalence between apply_* functions and transform objects.
+#
+# Another loose end tested by this code is that NaN or Inf never appears in the output
+# of a transform/apply_*.
+#
+# Finally, this is a nontrivial test of the core pipeline ring buffer logic.
 
 
 def make_weird_data(nfreq, nt):
@@ -601,13 +606,22 @@ class test_finalizer(rf_pipelines.py_wi_transform):
         self.nfreq = s.nfreq
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        assert np.array_equal(intensity, self.initializer.expected_intensity[self.ichunk])
-        assert np.array_equal(weights, self.initializer.expected_weights[self.ichunk])
+        expected_intensity = self.initializer.expected_intensity[self.ichunk]
+        expected_weights = self.initializer.expected_weights[self.ichunk]
+        
+        assert np.all(np.isfinite(intensity))
+        assert np.all(np.isfinite(weights))
+        assert np.all(np.isfinite(expected_intensity))
+        assert np.all(np.isfinite(expected_weights))
+
+        assert np.array_equal(intensity, expected_intensity)
+        assert np.array_equal(weights, expected_weights)
+
         self.ichunk += 1
 
 
 def test_transforms():
-    for iouter in xrange(20):
+    for iouter in xrange(25):
         sys.stderr.write('.')
 
         transform_chain = [ ]
