@@ -388,7 +388,7 @@ void test_detrend_t_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride
     _kernel_detrend_t<T,S,N> (nfreq, nt, &intensity2[0], &weights[0], stride);
     
     double epsilon = simd_helpers::maxdiff(intensity, intensity2);
-    assert(epsilon < 1.0e-4);
+    assert(epsilon < 1.0e-3);
 
     for (int ifreq = 0; ifreq < nfreq; ifreq++)
 	assert(check_masking(&weights[ifreq*stride], nt, 1, well_conditioned[ifreq]));
@@ -450,7 +450,7 @@ void test_detrend_f_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride
     _kernel_detrend_f<T,S,N> (nfreq, nt, &intensity2[0], &weights[0], stride);
     
     double epsilon = simd_helpers::maxdiff(intensity, intensity2);
-    assert(epsilon < 1.0e-4);
+    assert(epsilon < 1.0e-3);
 
     for (int it = 0; it < nt; it++)
 	assert(check_masking(&weights[it], nfreq, stride, well_conditioned[it]));
