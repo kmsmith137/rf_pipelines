@@ -32,6 +32,7 @@ script:
     - ln -s site/Makefile.local.travis Makefile.local
     - make
     - make run-unit-tests
+    - ./run-unit-tests
 
 addons:
   apt:
