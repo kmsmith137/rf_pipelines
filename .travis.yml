@@ -38,3 +38,4 @@ addons:
     packages:
       - libhdf5-serial-dev
       - libjsoncpp-dev
+      - python-numpy
