@@ -1,7 +1,7 @@
-# TODO import .c, print proper, pars as dict (if too many)
 import numpy as np
-from types import DictType
+from types import DictType, ListType
 import rf_pipelines
+from rf_pipelines import rf_pipelines_c
 
 class master_transform(rf_pipelines.py_wi_transform):
     """
@@ -12,7 +12,7 @@ class master_transform(rf_pipelines.py_wi_transform):
 
     Constructor syntax:
 
-      t = master_transform(nt_chunk=1024, fdict=None, rms_cut=0., max_niter=1):
+      t = master_transform(nt_chunk=1024, fdict=None, rms_cut=0., mask_cut=0.05, max_niter=1, test=False):
       
       'nt_chunk=1024' is the buffer size (in number of samples).
 
@@ -33,25 +33,38 @@ class master_transform(rf_pipelines.py_wi_transform):
       
       'rms_cut=0.' is the rms threshold for the entire chunk.
        If the chunk rms is above this threshold, then all weights 
-       are set to zero and further iterations are terminated.
+       are set to zero and further iterations are broken.
+
+      'mask_cut=0.05' is the masking thershold for the entire chunk.
+       Iterations proceed only if two consecutive iterations result
+       in a fraction-of-unmasked difference greater than this value.
     
       'max_niter=1' is the maximum number of iterations for each chunk.
+
+      'test=False' triggers the test flag.
     """
 
-    def __init__(self, nt_chunk=1024, fdict=None, rms_cut=0., max_niter=1):
+    def __init__(self, nt_chunk=1024, fdict=None, rms_cut=0., mask_cut=0.05, max_niter=1, test=False):
         
         assert nt_chunk > 0
-        assert (type(fdict) is DictType) and ({for i in fdict.keys()} == {'py', 'imitate_cpp', 'cpp'}),
+        assert (type(fdict) is DictType) and ({for key in fdict.keys()} == {'py', 'imitate_cpp', 'cpp'}),
             "master_transform: 'fdict' must be a dictionary with the following format:\n
             fdict = {'py':[], 'imitate_cpp':[], 'cpp':[]}"
+        for value in fdict.values():
+            assert type(value) is ListType
         assert rms_cut >= 0., "master_transform: rms threshold must be >= 0."
+        assert 0.0 < mask_cut < 0.1
         assert max_niter >= 1
+        assert type(test) = bool
 
         self.nt_chunk = nt_chunk
         self.fdict = fdict
         self.rms_cut = rms_cut
+        self.mask_cut = mask_cut
         self.max_niter = max_niter
-        self.name = 'master_transform(nt_chunk=%d, rms_cut=%f, max_niter=%d)' % (nt_chunk, rms_cut, max_niter) # TODO compressed fdict (maybe)
+        self.test = test
+        self.name = 'master_transform(nt_chunk=%d, *(fdict)=%d, rms_cut=%f, mask_cut=%f, max_niter=%d)'\
+            % (nt_chunk, sum(map(len, fdict.values())), rms_cut, mask_cut, max_niter)
 
     def set_stream(self, stream):
         
@@ -60,31 +73,27 @@ class master_transform(rf_pipelines.py_wi_transform):
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         
         for ix in xrange(self.max_niter):
-            
-            (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, niter=6, sigma_clip=3) # TODO synch with updated cpp
-            print "(mean, rms)=", (mean, rms)
-            
+
+            (mean, rms) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights)
+            unmasked_before = np.count_nonzero(weights) / float(weights.size)
+
             if rms > self.rms_cut:
                 weights[:] = 0.
-                print "master_clipper: weights are set to zero"
                 break
+            
+            elif (ix > 0) and (abs(unmasked_before - unmasked_after) < self.mask_cut):
+                break
+
             else:
-                unmasked_percentage = np.count_nonzero(weights) / float(weights.size) * 100.
-                print unmasked_percentage, "% not masked." # TODO break if constant
-                
-                # TODO fdict.values management
+                for i in self.fdict.items():
+                    key = i[0]
+                    if self.test:
+                        pass # FIXME compare keys.output
+                    else:
+                        if not key:
+                            # FIXME empty value
+                        else:
+                            for fx in self.fdict[key]: # FIXME keys.order
+                                exec(fx)
 
-                # python-based helper functions
-                if 'py' in fdict:
-                    for pyf in fdict['py']:
-                        exec(pyf)
-
-                # python-based cpp-imitated helper functions
-                if 'imitate_cpp' in fdict:
-                    for ipyf in fdict['imitate_cpp']:
-                        exec(ipyf)
-
-                # cpp-based helper functions
-                if 'cpp' in fdict:
-                    for cppf in fdict['cpp']:
-                        exec(cppf)
+            unmasked_after = np.count_nonzero(weights) / float(weights.size)
