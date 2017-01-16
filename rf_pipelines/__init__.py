@@ -412,7 +412,7 @@ from .transforms.std_dev_clipper import std_dev_clipper, filter_stdv
 from .transforms.std_dev_clipper_cpp import std_dev_clipper_cpp
 from .transforms.thermal_noise_weight import thermal_noise_weight
 from .transforms.RC_detrender import RC_detrender
-from .transforms.master_transform import master_transform
+#from .transforms.master_transform import master_transform
 
 # Helper routines for implementing new transforms in python.
 
