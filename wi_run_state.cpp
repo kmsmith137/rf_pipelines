@@ -286,6 +286,8 @@ void wi_run_state::output_substream_json()
 	return;
 	
     Json::Value json_substream;
+    json_substream["t0"] = Json::Value(substream_start_time);
+    json_substream["t1"] = Json::Value(stream_curr_time);
     json_substream["nsamples"] = Json::Value::Int64(stream_ipos);
     // more things will go here!
 
