@@ -47,15 +47,14 @@ class master_transform(rf_pipelines.py_wi_transform):
     def __init__(self, nt_chunk=1024, fdict=None, rms_cut=0., mask_cut=0.05, max_niter=1, test=False):
         
         assert nt_chunk > 0
-        assert (type(fdict) is DictType) and ({for key in fdict.keys()} == {'py', 'imitate_cpp', 'cpp'}),
-            "master_transform: 'fdict' must be a dictionary with the following format:\n
-            fdict = {'py':[], 'imitate_cpp':[], 'cpp':[]}"
+        assert (type(fdict) is DictType) and ({key for key in fdict.keys()} == {'py', 'imitate_cpp', 'cpp'}),\
+            "master_transform: 'fdict' must be a dictionary with the following format:\n fdict = {'py':[], 'imitate_cpp':[], 'cpp':[]}"
         for value in fdict.values():
             assert type(value) is ListType
         assert rms_cut >= 0., "master_transform: rms threshold must be >= 0."
         assert 0.0 < mask_cut < 0.1
         assert max_niter >= 1
-        assert type(test) = bool
+        assert type(test) == bool
 
         self.nt_chunk = nt_chunk
         self.fdict = fdict
@@ -91,7 +90,7 @@ class master_transform(rf_pipelines.py_wi_transform):
                         pass # FIXME compare keys.output
                     else:
                         if not key:
-                            # FIXME empty value
+                            pass # FIXME empty value
                         else:
                             for fx in self.fdict[key]: # FIXME keys.order
                                 exec(fx)
