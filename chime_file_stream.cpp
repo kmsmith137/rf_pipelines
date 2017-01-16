@@ -1,5 +1,6 @@
 #include <algorithm>
 #include "rf_pipelines_internals.hpp"
+#include "chime_file_stream_base.hpp"
 
 #ifdef HAVE_CH_FRB_IO
 #include <ch_frb_io.hpp>
@@ -43,7 +44,7 @@ public:
     virtual ~chime_file_stream() { }
 
 protected:
-    virtual void load_file(std::string);
+    virtual void load_file(const std::string& filename);
     virtual void close_file();
     virtual void set_params_from_file();
     virtual void check_file_consistency();
@@ -58,7 +59,7 @@ chime_file_stream::chime_file_stream(const vector<string> &filename_list_, ssize
 }
 
 //virtual
-void chime_file_stream::load_file(string fn) {
+void chime_file_stream::load_file(const string &fn) {
     this->curr_file = make_shared<ch_frb_io::intensity_hdf5_file>(fn);
 }
 

@@ -118,6 +118,11 @@ extern std::shared_ptr<wi_stream> make_chime_stream_from_acqdir(const std::strin
 extern std::shared_ptr<wi_stream> make_chime_stream_from_filename(const std::string &filename, ssize_t nt_chunk=0, ssize_t noise_source_align=0);
 extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std::vector<std::string> &filename_list, ssize_t nt_chunk=0, ssize_t noise_source_align=0);
 
+// CHIME assembled_chunk file stream, in msgpack format.
+extern std::shared_ptr<wi_stream> make_chime_frb_stream_from_glob(const std::string &glob_pattern, ssize_t nt_chunk=0, ssize_t noise_source_align=0);
+extern std::shared_ptr<wi_stream> make_chime_frb_stream_from_filename(const std::string &filename, ssize_t nt_chunk=0, ssize_t noise_source_align=0);
+extern std::shared_ptr<wi_stream> make_chime_frb_stream_from_filename_list(const std::vector<std::string> &filename_list, ssize_t nt_chunk=0, ssize_t noise_source_align=0);
+
 
 //
 // CHIME network stream.  Receives UDP packets in "CHIME L0-L1 format".

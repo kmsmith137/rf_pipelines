@@ -24,13 +24,19 @@ chime_file_stream_base::chime_file_stream_base(const vector<string> &filename_li
     this->nt_maxwrite = (nt_chunk > 0) ? nt_chunk : 1024;
 }
 
+void chime_file_stream_base::load_file(const string &fn) {}
+
+void chime_file_stream_base::close_file() {}
+
+void chime_file_stream_base::set_params_from_file() {}
+
+void chime_file_stream_base::check_file_consistency() {}
+
+void chime_file_stream_base::read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride) {}
 
 // virtual
 void chime_file_stream_base::stream_start()
 {
-    rf_assert(!curr_file);
-    rf_assert(curr_ifile < 0);
-
     load_file(filename_list[0]);
     this->curr_ifile = 0;
 
@@ -152,7 +158,7 @@ void chime_file_stream_base::stream_body(wi_run_state &run_state)
 	}
 	else {
 	    // Read data from file
-	    ssize_t n = min(nt_logical - it_file, nt_maxwrite - it_chunk);
+	    ssize_t n = min(nt - it_file, nt_maxwrite - it_chunk);
 	    
 	    //
 	    // A note on frequency channel ordering.  In rf_pipelines, frequencies must 

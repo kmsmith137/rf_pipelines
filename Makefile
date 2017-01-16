@@ -17,6 +17,8 @@ INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp
 # Source files for the core C++ library 'librf_pipelines.so'
 OFILES=bonsai_dedisperser.o \
 	chime_file_stream.o \
+	chime_frb_file_stream.o \
+	chime_file_stream_base.o \
 	chime_file_writer.o \
 	chime_network_stream.o \
 	chime_packetizer.o \

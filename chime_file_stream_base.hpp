@@ -36,7 +36,7 @@ public:
     virtual void stream_body(wi_run_state &run_state);
 
 protected:
-    virtual void load_file(std::string);
+    virtual void load_file(const std::string& filename);
     virtual void close_file();
     virtual void set_params_from_file();
     virtual void check_file_consistency();
