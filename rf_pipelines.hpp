@@ -468,7 +468,22 @@ struct wi_transform {
     // This data is always written on a per-substream basis, but it's convenient not to reinitialize it
     // for every substream.  Therefore we define three json objects which differ in when they get cleared.
     //
+    // Example syntax for modifying these (from a member function of wi_transform):
+    //    this->json_persistent["key"] = value;
+    //    this->json_per_stream["key"]["key2"].append(value);
+    //
+    // FIXME should these be Json::Object instead of Json::Value?
+    //
     // FIXME there is currently no way to modify these from python.
+    // One solution would be to python-wrap the Json objects but that sounds a little painful, and I'm not
+    // sure it's really necessary.  Another possibility is just to have parallel json_* members in the
+    // Python class py_wi_substream, and add a (non-pure) virtual functions to wi_transform to retrieve
+    // and clear json.  In the python subclass these could make appropriate calls into the python interpreter.
+    // I think this would work!
+    //
+    // The transforms's per-substream json output is obtained by combining
+    //   - the json_persistent, json_per_stream, and json_per_substream objects
+    //   - data from the plot_groups (see below), which goes into "plots"
     //
     Json::Value json_persistent;       // never cleared
     Json::Value json_per_stream;       // cleared just before start_stream()
@@ -491,6 +506,23 @@ struct wi_transform {
     //
     // add_file(): Call just before writing a non-plot file, to check for filename collisions between transforms.
     //   The return value is the full pathname ('basename' with stream output_dir prepended)
+    //
+    // The "plots" part of the transform's (per-substream) json output consists of
+    //
+    //   - a list with one element per plot_group, consisting of
+    //
+    //   - an object with scalar keys { 'name', 'nt_per_pix', 'ny', 'it0', 'it1', 'files' }.
+    //
+    //       name = name of the plot_group (e.g. 'waterfall')
+    //       nt_per_pix = number of time samples per x-pixel
+    //       ny = number of y-pixels in each image
+    //       [it0:it1] = sample index range covered by plot_group
+    //       files = a list with one element per image file, consisting of
+    //
+    //   - an object with keys { "filename", "it0", "nx" }
+    //
+    //       it0 = first sample index in range covered by plot
+    //       nx = number of x-pixels in image
     //
     int add_plot_group(const std::string &name, int nt_per_pix, int ny);   // returns group id
     std::string add_plot(const std::string &basename, int64_t it0, int nt, int nx, int ny, int group_id=0);

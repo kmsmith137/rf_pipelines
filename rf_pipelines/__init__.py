@@ -113,8 +113,42 @@ class py_wi_transform(wi_transform):
     The 'py_wi_transform' constructor may want to initialize self.name, a "transform name" string
     which ends up in rf_pipelines.json.
 
-    Your subclass of 'py_wi_transform' should override the following methods:
+    Note that py_wi_transform inherits the following methods from the C++ base class 
+    'wi_transform'.  (See method docstrings for more info.)
+
+        add_plot_group(name, nt_per_pix, ny) -> integer group_id
+        add_plot(basename, it0, nt, nx, ny, group_id=0) -> string filename
+        add_file(basename) -> string filename
+
+    The result of a transform is specified through its JSON output.  Currently, it's possible
+    for a python transform to write the "plots" part of the JSON output, but arbitrary JSON
+    output can't be written from python.  This is an arbitrary limitation that would be easy
+    to fix, let me know if it would be useful!
+
+    If your transform creates plots, and you want plot information to end up in the JSON output,
+    see the docstrings for the add_plot_group() and add_plot() methods of class py_wi_transform,
+    or see the plotter_transform class for an example.
+
+    The "plots" part of the transform's (per-substream) json output consists of
+
+         - a list with one element per plot_group, consisting of
+
+         - an object with scalar keys { 'name', 'nt_per_pix', 'ny', 'it0', 'it1', 'files' }.
     
+             name = name of the plot_group (e.g. 'waterfall')
+             nt_per_pix = number of time samples per x-pixel
+             ny = number of y-pixels in each image
+             [it0:it1] = sample index range covered by plot_group
+             files = a list with one element per image file, consisting of
+
+         - an object with keys { "filename", "it0", "nx" }
+
+             it0 = first sample index in range covered by plot
+             nx = number of x-pixels in image
+
+
+    To define a subclass of 'py_wi_transform', you should override the following methods:
+
 
     set_stream(self, stream)
 
@@ -215,13 +249,6 @@ class py_wi_transform(wi_transform):
 
     def __str__(self):
         return self.name if (self.name is not None) else self.__class__.__name__
-
-    # Note that py_wi_transform inherits the following methods from the C++ base class 
-    # 'wi_transform'.  (See method docstrings for more info.)
-    #
-    #   add_plot_group(name, nt_per_pix, ny) -> integer group_id
-    #   add_plot(basename, it0, nt, nx, ny, group_id=0) -> string filename
-    #   add_file(basename) -> string filename
 
 
 
