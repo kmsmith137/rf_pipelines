@@ -37,4 +37,4 @@ addons:
   apt:
     packages:
       - libhdf5-serial-dev
-
+      - libjsoncpp-dev
