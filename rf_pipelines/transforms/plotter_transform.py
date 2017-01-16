@@ -30,9 +30,15 @@ class plotter_transform(rf_pipelines.py_wi_transform):
       By default, the color scheme is assigned by computing the mean and rms after clipping
       3-sigma outliers using three masking iterations.  The 'clip_niter' and 'sigma_clip' 
       arguments can be used to override these defaults.
+
+      The 'nt_chunk' argument is the number of samples of data which are processed in
+      each call to process_chunk().
     """
 
     def __init__(self, img_prefix, img_nfreq, img_nt, downsample_nt=1, nt_chunk=0, clip_niter=3, sigma_clip=3.0):
+        # Call base class constructor
+        rf_pipelines.py_wi_transform('plotter_transform')
+
         assert img_nt > 0
         assert img_nfreq > 0
         assert downsample_nt > 0
@@ -47,8 +53,9 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         if nt_chunk % downsample_nt != 0:
             raise RuntimeError("plotter_transform: current implementation requires 'nt_chunk' to be a multiple of 'downsample_nt'")
 
-        # base class members
-        self.name = 'plotter_transform'
+        # As explained in the rf_pipelines.py_wi_transform docstring, the following members
+        # of the py_wi_transform base class must be initialized in the subclass.  (We also
+        # need to initialize 'nfreq', but that will be done in 'set_stream', see below.)
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
@@ -61,11 +68,16 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         self.clip_niter = clip_niter
         self.sigma_clip = sigma_clip
 
-        # set up plotting
+        # Create plot_group 0.  See docstrings for py_wi_transform, py_wi_transform.add_plot_group(),
+        # and py_wi_transform.add_plot() for more details.
         self.add_plot_group("waterfall", nt_per_pix=downsample_nt, ny=img_nfreq)
 
 
     def set_stream(self, s):
+        # As explained in the rf_pipelines.py_wi_transform docstring, this function is
+        # called once per pipeline run, when the stream (the 's' argument) has been specified.
+
+        # Now that the stream has been specified, we can initialize self.nfreq as required.
         self.nfreq = s.nfreq
 
         if s.nfreq % self.img_nfreq != 0:
@@ -73,6 +85,10 @@ class plotter_transform(rf_pipelines.py_wi_transform):
 
 
     def start_substream(self, isubstream, t0):
+        # Called once per substream (a stream can be split into multiple substreams).
+        # We initialize per-substream state: a buffer for the downsampled data which
+        # will be used to construct the plot.
+
         self.intensity_buf = np.zeros((self.img_nfreq,self.img_nt), dtype=np.float32)
         self.weight_buf = np.zeros((self.img_nfreq,self.img_nt), dtype=np.float32)
         self.isubstream = isubstream
@@ -81,10 +97,24 @@ class plotter_transform(rf_pipelines.py_wi_transform):
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
+        # This is the main computational routine defining the transform, which is called
+        # once per incoming "block" of data.  For documentation on the interface see
+        # rf_pipelines.py_wi_transform docstring.
+
+        # Invariant: When this routine is called, downsampled arrays of intensity and
+        # weights data have been partially accumulated, in self.intensity_buf and self.weight_buf.
+        # When the arrays are complete, an image will be written.  The number of files written
+        # so far is 'self.ifile', and the number of (downsampled) time samples accumulated into
+        # the current file is 'self.ipos'
+
+        # Downsample data block being processed, before accumulating into arrays.
         (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights, self.img_nfreq, self.nt_chunk_ds)
 
+        # Keeps track of how much downsampled data has been moved from input chunk to the plots.
         ichunk = 0
+
         while ichunk < self.nt_chunk_ds:
+            # Move to end of chunk or end of current plot, whichever comes first.
             n = min(self.nt_chunk_ds - ichunk, self.img_nt - self.ipos)
             assert n > 0
             
@@ -114,6 +144,10 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         if self.isubstream > 0:
             basename += str(isubstream+1)
         basename += ('_%s.png' % self.ifile)
+
+        # The add_plot() method adds the plot to the JSON output, and returns the filename that should be written.
+        # Note that a transform which writes multiple plot_groups would need to specify a group_id in add_plot().
+        # (By default the group_id is zero.)
 
         filename = self.add_plot(basename, 
                                  it0 = self.ifile * self.img_nt * self.downsample_nt,
