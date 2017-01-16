@@ -37,7 +37,7 @@ class plotter_transform(rf_pipelines.py_wi_transform):
 
     def __init__(self, img_prefix, img_nfreq, img_nt, downsample_nt=1, nt_chunk=0, clip_niter=3, sigma_clip=3.0):
         # Call base class constructor
-        rf_pipelines.py_wi_transform('plotter_transform')
+        rf_pipelines.py_wi_transform.__init__(self, 'plotter_transform')
 
         assert img_nt > 0
         assert img_nfreq > 0
