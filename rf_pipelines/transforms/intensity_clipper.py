@@ -115,7 +115,7 @@ class intensity_clipper(rf_pipelines.py_wi_transform):
       'test=False' enables a test mode.
     """
     
-    def __init__(self, thr=3., n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False):
+    def __init__(self, thr=3., n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False, imitate_cpp=False):
 
         name = 'intensity_clipper(thr=%f, n_internal=%d, axis=%s, nt_chunk=%d' % (thr, n_internal, axis, nt_chunk)
         if dsample_nfreq is not None:
@@ -134,6 +134,7 @@ class intensity_clipper(rf_pipelines.py_wi_transform):
         self.dsample_nfreq = dsample_nfreq
         self.dsample_nt = dsample_nt
         self.test = test
+        self.imitate_cpp = imitate_cpp
 
     def set_stream(self, stream):
         self.nfreq = stream.nfreq
@@ -146,7 +147,7 @@ class intensity_clipper(rf_pipelines.py_wi_transform):
             weights = np.ones(weights.shape)
 
         # Using clip_fx() mask the 'weights' in place.
-        clip_fx(intensity, weights, self.thr, self.n_internal, self.axis, self.dsample_nfreq, self.dsample_nt)
+        clip_fx(intensity, weights, self.thr, self.n_internal, self.axis, self.dsample_nfreq, self.dsample_nt, imitate_cpp=False)
 
         if self.test: 
             unmasked_percentage = np.count_nonzero(weights_hres) / float(weights_hres.size) * 100.
