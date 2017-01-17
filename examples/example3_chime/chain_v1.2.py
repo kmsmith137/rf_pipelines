@@ -37,8 +37,8 @@ transform_chain = [ rf_pipelines.plotter_transform('raw', img_nfreq=512, img_nt=
                     rf_pipelines.intensity_clipper(thr=3, n_internal=1, axis=1, nt_chunk=clip_nt, dsample_nfreq=1024, dsample_nt=clip_nt, imitate_cpp=True),
                     rf_pipelines.std_dev_clipper(thr=3, axis=1, dsample_nt=clip_nt/16, imitate_cpp=True),
 
-                    rf_pipelines.polynomial_detrender(deg=4, axis=1, nt_chunk=detrend_nt),
-                    rf_pipelines.polynomial_detrender(deg=8, axis=0, nt_chunk=detrend_nt),
+                    rf_pipelines.polynomial_detrender_cpp(polydeg=4, axis=1, nt_chunk=detrend_nt),
+                    rf_pipelines.polynomial_detrender_cpp(polydeg=8, axis=0, nt_chunk=detrend_nt),
                     rf_pipelines.plotter_transform('dc_out%d' % 1, img_nfreq=512, img_nt=1200, downsample_nt=16),
                     
                     rf_pipelines.intensity_clipper(thr=3, n_internal=12, axis=None, nt_chunk=clip_nt, dsample_nfreq=512, dsample_nt=clip_nt/16, imitate_cpp=True),
@@ -56,8 +56,8 @@ transform_chain = [ rf_pipelines.plotter_transform('raw', img_nfreq=512, img_nt=
                     rf_pipelines.intensity_clipper(thr=3, n_internal=1, axis=1, nt_chunk=clip_nt, dsample_nfreq=1024, dsample_nt=clip_nt, imitate_cpp=True),
                     rf_pipelines.std_dev_clipper(thr=3, axis=1, dsample_nt=clip_nt/16, imitate_cpp=True),
                     
-                    rf_pipelines.polynomial_detrender(deg=4, axis=1, nt_chunk=detrend_nt),
-                    rf_pipelines.polynomial_detrender(deg=8, axis=0, nt_chunk=detrend_nt),
+                    rf_pipelines.polynomial_detrender_cpp(polydeg=4, axis=1, nt_chunk=detrend_nt),
+                    rf_pipelines.polynomial_detrender_cpp(polydeg=8, axis=0, nt_chunk=detrend_nt),
                     rf_pipelines.bonsai_dedisperser('bonsai_config.hdf5', 'triggers.hdf5', nt_per_file=16*1200),
                     rf_pipelines.plotter_transform('dc_out%d' % 2, img_nfreq=512, img_nt=1200, downsample_nt=16) ] 
 
