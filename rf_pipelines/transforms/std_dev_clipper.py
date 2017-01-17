@@ -110,9 +110,11 @@ class std_dev_clipper(rf_pipelines.py_wi_transform):
       
       'dsample_nfreq' and 'dsample_nt' are the downsampled
        number of pixles along the freq and time axes, respectively.
+
+      'imitate_cpp=False' enables an imitated (Python) version of C++ algorithms.
     """
     
-    def __init__(self, thr=3., axis=1, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None):
+    def __init__(self, thr=3., axis=1, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, imitate_cpp=False):
         
         self.thr = thr
         self.axis = axis
@@ -121,6 +123,7 @@ class std_dev_clipper(rf_pipelines.py_wi_transform):
         self.nt_postpad = 0
         self.dsample_nfreq = dsample_nfreq
         self.dsample_nt = dsample_nt
+        self.imitate_cpp = imitate_cpp
 
         name = 'std_dev_clipper(thr=%f, axis=%s, nt_chunk=%d' % (thr, axis, nt_chunk)
         if dsample_nfreq is not None:
@@ -134,4 +137,4 @@ class std_dev_clipper(rf_pipelines.py_wi_transform):
         self.nfreq = stream.nfreq
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        filter_stdv(intensity, weights, self.thr, self.axis, self.dsample_nfreq, self.dsample_nt)
+        filter_stdv(intensity, weights, self.thr, self.axis, self.dsample_nfreq, self.dsample_nt, self.imitate_cpp)
