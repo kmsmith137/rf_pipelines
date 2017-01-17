@@ -78,38 +78,41 @@ class master_transform(rf_pipelines.py_wi_transform):
         
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         
-        if test:
+        if self.test:
             self.max_niter = 1
             test_results = {}
 
         for ix in xrange(self.max_niter):
             
-            if not test:
+            if not self.test:
                 (mean, rms) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights)
                 unmasked_before = unmasked(weights)
 
-            if (rms > self.rms_cut) and (test is False):
+            if (rms > self.rms_cut) and (self.test is False):
                 weights[:] = 0.
                 break
             
-            elif (ix > 0) and (abs(unmasked_before - unmasked_after) < self.mask_cut) and (test is False):
+            elif (ix > 0) and (abs(unmasked_before - unmasked_after) < self.mask_cut) and (self.test is False):
                 break
 
             else:
                 for (key, value) in self.fdict.items():
-                    if test:
+                    if self.test:
                         weights = weights.copy()   
                     if not value:
-                        if test:
+                        if self.test:
                             test_results[key] = []
                         pass
                     else:
                         for fx in self.fdict[key]:
                             exec(fx)
-                        if test:
+                        if self.test:
                             test_results[key] = [unmasked(weights), np.mean(weights), np.std(weights)]
-
-            unmasked_after = unmasked(weights)
+            
+            if self.test:
+                print test_results
+            else:
+                unmasked_after = unmasked(weights)
     
     def unmasked(weights):
         return np.count_nonzero(weights) / float(weights.size)
