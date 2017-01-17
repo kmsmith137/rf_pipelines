@@ -4,15 +4,7 @@ import rf_pipelines
 
 def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=None, dsample_nt=None, imitate_cpp=False):
     """
-    Helper function for intensity_clipper. Modifies 'weights' array in place. 
-    
-    Limitations:
-        - 'n_internal=1' is only supported in 2D (axis=None).
-        - In 2D (axis=None), the same threshold value 'thr=3' is 
-        used for the internal and external clipping loops.
-    
-    Note: 
-        + See 'intensity_clipper_cpp.py' for an advanced implementation (in 2D and 1D) where the two 'thr' values need not be the same.
+    Helper function for intensity_clipper. Modifies 'weights' array in place.
     """
     
     (nfreq, nt_chunk) = intensity.shape
@@ -92,13 +84,14 @@ class intensity_clipper(rf_pipelines.py_wi_transform):
     array (i.e., weights[clipped] = 0.) for masking 
     extreme values.
 
-    + Assumes zero mean (i.e., the intensity has already 
-    been detrended along the selected axis).
-    + Currently based on the weighted standard deviation 
-    as explained in "chime_zerodm_notes".
-    + Available in a coarse-grained mode by using 
-    'dsample_nfreq', and 'dsample_nt'.
-   
+    Limitations:
+        - 'n_internal' is only supported in 2D (axis=None) if 'imitate_cpp=False'
+        - In 2D (axis=None), the same threshold value 'thr=3' is used for the internal 
+          and external clipping loops. See 'intensity_clipper_cpp.py' for an advanced 
+          implementation (in 2D and 1D) where the two 'thr' values need not be the same. 
+        - FIXME Assumes zero mean (i.e., the intensity has already been detrended along 
+          the selected axis).
+
     Constructor syntax:
 
       t = intensity_clipper(thr=3, n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False)
@@ -124,7 +117,7 @@ class intensity_clipper(rf_pipelines.py_wi_transform):
     
     def __init__(self, thr=3., n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False):
 
-        name = 'intensity_clipper(thr=%f, axis=%s, nt_chunk=%d' % (thr, axis, nt_chunk)
+        name = 'intensity_clipper(thr=%f, n_internal=%d, axis=%s, nt_chunk=%d' % (thr, n_internal, axis, nt_chunk)
         if dsample_nfreq is not None:
             name += ', dsample_nfreq=%d' % dsample_nfreq
         if dsample_nt is not None:

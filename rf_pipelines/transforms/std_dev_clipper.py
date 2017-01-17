@@ -39,7 +39,7 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
 
     if imitate_cpp:
         (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, axis=axis)
-        sd = rms**2
+        sd = rms**2 # Compute the variance for saving computational cost in C++
         sd_weights = (rms > 0)
 
     else:
@@ -98,7 +98,7 @@ class std_dev_clipper(rf_pipelines.py_wi_transform):
    
     Constructor syntax:
 
-      t = std_dev_clipper(thr=3., axis=1, nt_chunk=1024)
+      t = std_dev_clipper(thr=3., axis=1, nt_chunk=1024, 'dsample_nfreq=None', 'dsample_nt=None')
 
       'thr=3.' is the sigma value to clip. 
 
