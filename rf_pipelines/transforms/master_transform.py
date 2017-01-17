@@ -49,13 +49,20 @@ class master_transform(rf_pipelines.py_wi_transform):
         assert nt_chunk > 0
         assert (type(fdict) is DictType) and ({key for key in fdict.keys()} == {'py', 'imitate_cpp', 'cpp'}),\
             "master_transform: 'fdict' must be a dictionary with the following format:\n fdict = {'py':[], 'imitate_cpp':[], 'cpp':[]}"
+        
+        counter = 0
         for value in fdict.values():
             assert type(value) is ListType
+            if not value:
+                counter += 1
+        if ((counter < 2) or (counter == 3)) and (test is False):
+            raise RuntimeError("master_transform(test=False): Supply a non-empty list for only one of the following keys and leave the rest as empty lists: 'py', 'imitate_cpp', 'cpp'")
+        
         assert rms_cut >= 0., "master_transform: rms threshold must be >= 0."
         assert 0.0 < mask_cut < 0.1
         assert max_niter >= 1
         assert type(test) == bool
-
+        
         self.nt_chunk = nt_chunk
         self.fdict = fdict
         self.rms_cut = rms_cut
@@ -71,28 +78,38 @@ class master_transform(rf_pipelines.py_wi_transform):
         
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         
+        if test:
+            self.max_niter = 1
+            test_results = {}
+
         for ix in xrange(self.max_niter):
+            
+            if not test:
+                (mean, rms) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights)
+                unmasked_before = unmasked(weights)
 
-            (mean, rms) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights)
-            unmasked_before = np.count_nonzero(weights) / float(weights.size)
-
-            if rms > self.rms_cut:
+            if (rms > self.rms_cut) and (test is False):
                 weights[:] = 0.
                 break
             
-            elif (ix > 0) and (abs(unmasked_before - unmasked_after) < self.mask_cut):
+            elif (ix > 0) and (abs(unmasked_before - unmasked_after) < self.mask_cut) and (test is False):
                 break
 
             else:
-                for i in self.fdict.items():
-                    key = i[0]
-                    if self.test:
-                        pass # FIXME compare keys.output
+                for (key, value) in self.fdict.items():
+                    if test:
+                        weights = weights.copy()   
+                    if not value:
+                        if test:
+                            test_results[key] = []
+                        pass
                     else:
-                        if not key:
-                            pass # FIXME empty value
-                        else:
-                            for fx in self.fdict[key]: # FIXME keys.order
-                                exec(fx)
+                        for fx in self.fdict[key]:
+                            exec(fx)
+                        if test:
+                            test_results[key] = [unmasked(weights), np.mean(weights), np.std(weights)]
 
-            unmasked_after = np.count_nonzero(weights) / float(weights.size)
+            unmasked_after = unmasked(weights)
+    
+    def unmasked(weights):
+        return np.count_nonzero(weights) / float(weights.size)
