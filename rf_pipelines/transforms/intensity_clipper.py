@@ -94,7 +94,7 @@ class intensity_clipper(rf_pipelines.py_wi_transform):
 
     Constructor syntax:
 
-      t = intensity_clipper(thr=3, n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False)
+      t = intensity_clipper(thr=3, n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False, imitate_cpp=False)
 
       'thr=3.' is the multiplicative factor of maximum threshold,
        e.g., 3 * standard_deviation, meaning that (the absolute
@@ -113,6 +113,8 @@ class intensity_clipper(rf_pipelines.py_wi_transform):
        number of pixles along the freq and time axes, respectively.
 
       'test=False' enables a test mode.
+
+      'imitate_cpp=False' enables an imitated (Python) version of C++ algorithms.
     """
     
     def __init__(self, thr=3., n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False, imitate_cpp=False):
@@ -147,7 +149,7 @@ class intensity_clipper(rf_pipelines.py_wi_transform):
             weights = np.ones(weights.shape)
 
         # Using clip_fx() mask the 'weights' in place.
-        clip_fx(intensity, weights, self.thr, self.n_internal, self.axis, self.dsample_nfreq, self.dsample_nt, imitate_cpp=False)
+        clip_fx(intensity, weights, self.thr, self.n_internal, self.axis, self.dsample_nfreq, self.dsample_nt, self.imitate_cpp)
 
         if self.test: 
             unmasked_percentage = np.count_nonzero(weights_hres) / float(weights_hres.size) * 100.
