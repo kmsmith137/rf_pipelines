@@ -1,9 +1,3 @@
-// FIXME (low-priority) a nuisance issue when working with this code is that functions
-// which are very similar have different argument orderings, e.g.
-//
-//          make_std_dev_clipper(nt_chunk, axis, sigma, Df, Dt)
-//   calls _make_std_dev_clipper(Df, Dt, axis, nt_chunk, sigma)
-
 // FIXME: currently we need to compile a new kernel for every (Df,Dt) pair, where
 // Df,Dt are the frequency/time downsampling factors.  Eventually I'd like to 
 // improve this by having special kernels to handle the large-Df and large-Dt cases.
