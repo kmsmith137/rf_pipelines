@@ -242,7 +242,7 @@ std::shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, axis_type axis,
 // Standalone functions with the equivalent functionality to the polynomial_detrender,
 // intensity_clipper, and std_dev_clipper transforms.  (See comments above for documentation.)
 
-extern void apply_polynomial_detrender(float *intensity, const float *weights, int nfreq, int nt, 
+extern void apply_polynomial_detrender(float *intensity, float *weights, int nfreq, int nt, 
 				       int stride, axis_type axis, int polydeg, double epsilon);
 
 extern void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, 

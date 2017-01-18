@@ -19,25 +19,18 @@ namespace rf_pipelines {
 
 
 // Usage: kernel(nfreq, nt, intensity, weights, stride, epsilon)
+
 using detrending_kernel_t = void (*)(int, int, float *, float *, int, double);
 
 
-// -------------------------------------------------------------------------------------------------
-//
-// polynomial_detrender_t<T,S,N>, polynomial_detrender_f<T,S,N>:
-//
-// These transform classes (subclasses of wi_transform) perform detrending along either the time
-// or frequency axis.  Note that the template parameter N is (polydeg+1), not (polydeg).
-
-
-struct polynomial_detrender_base : public wi_transform
+struct polynomial_detrender : public wi_transform
 {
     const int axis;
     const int polydeg;
     const double epsilon;
     const detrending_kernel_t kernel;
 
-    polynomial_detrender_base(int axis_, int nt_chunk_, int polydeg_, double epsilon_, detrending_kernel_t kernel_, int S) :
+    polynomial_detrender(int axis_, int nt_chunk_, int polydeg_, double epsilon_, detrending_kernel_t kernel_) :
 	axis(axis_), polydeg(polydeg_), epsilon(epsilon_), kernel(kernel_)
     {
 	stringstream ss;
@@ -47,11 +40,6 @@ struct polynomial_detrender_base : public wi_transform
 	this->nt_chunk = nt_chunk_;
 	this->nt_prepad = 0;
 	this->nt_postpad = 0;
-
-	// No need to make these asserts "verbose", since they should have been checked in make_polynomial_detrender().
-	rf_assert(nt_chunk > 0 && (nt_chunk % S == 0));
-	rf_assert(polydeg >= 0);
-	rf_assert(epsilon > 0.0);
     }
     
     virtual void set_stream(const wi_stream &stream) override
@@ -69,27 +57,50 @@ struct polynomial_detrender_base : public wi_transform
 };
 
 
-template<unsigned int S, unsigned int N>
-struct polynomial_detrender_time_axis : public polynomial_detrender_base
+// -------------------------------------------------------------------------------------------------
+//
+// _fill_detrending_kernel_table<S,N>(): fills shape (N,2) array with kernels.
+// The outer index is a polynomial degree 0 <= polydeg < N, and the inner index is the axis.
+
+
+template<unsigned int S, unsigned int N, typename std::enable_if<(N==0),int>::type = 0>
+inline void fill_detrending_kernel_table(detrending_kernel_t *out) { }
+
+template<unsigned int S, unsigned int N, typename std::enable_if<(N>0),int>::type = 0>
+inline void fill_detrending_kernel_table(detrending_kernel_t *out)
 {
-    polynomial_detrender_time_axis(int nt_chunk_, double epsilon_) :
-	polynomial_detrender_base(AXIS_TIME, nt_chunk_, N-1, epsilon_, _kernel_detrend_t<float,S,N>, S)
-    { }
+    static_assert(AXIS_FREQ == 0, "polynomial_detrenders: current implementation assumes AXIS_FREQ==0");
+    static_assert(AXIS_TIME == 1, "polynomial_detrenders: current implementation assumes AXIS_TIME==1");
+
+    fill_detrending_kernel_table<S,N-1> (out);
+    out[2*(N-1) + AXIS_FREQ] = _kernel_detrend_f<float,S,N>;
+    out[2*(N-1) + AXIS_TIME] = _kernel_detrend_t<float,S,N>;
+}
+
+
+struct detrending_kernel_table {
+    static constexpr int S = constants::single_precision_simd_length;
+    static constexpr int MaxDeg = constants::polynomial_detrender_max_degree;
+
+    std::vector<detrending_kernel_t> entries;
+
+    detrending_kernel_table() : entries(2*MaxDeg+2)
+    {
+	fill_detrending_kernel_table<S,MaxDeg+1> (&entries[0]);
+    }
+
+    // Caller must argument-check by calling check_params()!
+    inline detrending_kernel_t get_kernel(int axis, int polydeg)
+    {
+	return entries[2*polydeg + axis];
+    }
 };
 
 
-template<unsigned int S, unsigned int N>
-struct polynomial_detrender_freq_axis : public polynomial_detrender_base
-{
-    polynomial_detrender_freq_axis(int nt_chunk_, double epsilon_) :
-	polynomial_detrender_base(AXIS_FREQ, nt_chunk_, N-1, epsilon_, _kernel_detrend_f<float,S,N>, S)
-    { }
-};
+static detrending_kernel_table global_detrending_kernel_table;
 
 
 // -------------------------------------------------------------------------------------------------
-//
-// Boilerplate needed to instantiate templates and export factory functions.
 
 
 // Helper function to check parameters passed to a detrending call
@@ -126,47 +137,6 @@ static void check_params(axis_type axis, int nfreq, int nt, int stride, int poly
 }
 
 
-template<unsigned int S, unsigned int N, typename std::enable_if<(N==0),int>::type = 0>
-static shared_ptr<polynomial_detrender_base> _make_polynomial_detrender2(axis_type axis, int nt_chunk, int polydeg, double epsilon)
-{
-    throw runtime_error("rf_pipelines::make_polynomial_detrender: internal error");
-}
-
-template<unsigned int S, unsigned int N, typename std::enable_if<(N>0),int>::type = 0>
-static shared_ptr<polynomial_detrender_base> _make_polynomial_detrender2(axis_type axis, int nt_chunk, int polydeg, double epsilon)
-{
-    if (N != polydeg + 1)
-	return _make_polynomial_detrender2<S,N-1> (axis, nt_chunk, polydeg, epsilon);
-
-    if (axis == AXIS_FREQ)
-	return make_shared<polynomial_detrender_freq_axis<S,N> > (nt_chunk, epsilon);
-    if (axis == AXIS_TIME)
-	return make_shared<polynomial_detrender_time_axis<S,N> > (nt_chunk, epsilon);
-    if (axis == AXIS_NONE)
-	throw runtime_error("rf_pipelines::make_polynomial_detrender(): axis=None is not supported for this transform");
-
-    throw runtime_error("rf_pipelines::make_polynomial_detrender(): axis='" + to_string(axis) + "' is not a valid value");
-}
-
-
-// Shouldn't be declared static, in order to avoid potentially instantiating every template twice.
-shared_ptr<polynomial_detrender_base> _make_polynomial_detrender(axis_type axis, int nt_chunk, int polydeg, double epsilon)
-{
-    static constexpr int MaxDeg = constants::polynomial_detrender_max_degree;
-    static constexpr int S = constants::single_precision_simd_length;
-
-    shared_ptr<polynomial_detrender_base> ret = _make_polynomial_detrender2<S,MaxDeg+1> (axis, nt_chunk, polydeg, epsilon);
-
-    // Sanity check the template instantiation
-    assert(ret->axis == axis);
-    assert(ret->nt_chunk == nt_chunk);
-    assert(ret->polydeg == polydeg);
-    assert(ret->epsilon == epsilon);
-
-    return ret;
-}
-
-
 // Externally callable factory function
 shared_ptr<wi_transform> make_polynomial_detrender(int nt_chunk, axis_type axis, int polydeg, double epsilon)
 {
@@ -174,47 +144,18 @@ shared_ptr<wi_transform> make_polynomial_detrender(int nt_chunk, axis_type axis,
     int dummy_stride = nt_chunk;  // arbitrary
 
     check_params(axis, dummy_nfreq, nt_chunk, dummy_stride, polydeg, epsilon);
-    return _make_polynomial_detrender(axis, nt_chunk, polydeg, epsilon);
+
+    detrending_kernel_t kernel = global_detrending_kernel_table.get_kernel(axis, polydeg);
+    return make_shared<polynomial_detrender> (axis, nt_chunk, polydeg, epsilon, kernel);
 }
 
 
-// -------------------------------------------------------------------------------------------------
-
-
-struct detrending_kernel_table {
-    static constexpr int MaxDeg = constants::polynomial_detrender_max_degree;
-
-    using ktab2_t = std::array<detrending_kernel_t, (MaxDeg+1)>;
-    using ktab_t = std::array<ktab2_t, 2>;
-
-    ktab_t entries;
-
-    detrending_kernel_table()
-    {
-	for (axis_type axis: { AXIS_FREQ, AXIS_TIME }) {
-	    for (int polydeg = 0; polydeg <= MaxDeg; polydeg++) {
-		auto t = _make_polynomial_detrender (axis, 16, polydeg, 1.0e-2);   // (nt_chunk, epsilon) arbitrary here
-		entries.at(axis).at(polydeg) = t->kernel;
-	    }
-	}
-    }
-
-    inline detrending_kernel_t get(axis_type axis, int polydeg)
-    {
-	// Bounds-checked
-	return entries.at(axis).at(polydeg);
-    }
-};
-
-
-void apply_polynomial_detrender(float *intensity, const float *weights, int nfreq, int nt, int stride, axis_type axis, int polydeg, double epsilon)
+void apply_polynomial_detrender(float *intensity, float *weights, int nfreq, int nt, int stride, axis_type axis, int polydeg, double epsilon)
 {
-    static detrending_kernel_table ktab;
-
     check_params(axis, nfreq, nt, stride, polydeg, epsilon);
 
-    detrending_kernel_t k = ktab.get(axis, polydeg);
-    k(nfreq, nt, intensity, const_cast<float *> (weights), stride, epsilon);
+    detrending_kernel_t kernel = global_detrending_kernel_table.get_kernel(axis, polydeg);
+    kernel(nfreq, nt, intensity, weights, stride, epsilon);
 }
 
 
