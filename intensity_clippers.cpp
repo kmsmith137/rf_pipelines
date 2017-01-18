@@ -299,10 +299,8 @@ void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, cons
 	throw runtime_error("weighted_mean_and_rms(): 'weights' argument is a NULL pointer");
 
     simd_t<float,S> mean_x, rms_x;
-
-    // Note: in the case (Df,Dt)=(1,1), the value of the compile-time argument IterFlag doesn't matter,
-    // and it's always OK to take ds_int = ds_wt = NULL.
-    _kernel_iterative_wrms_2d<float,S,1,1,false> (mean_x, rms_x, intensity, weights, nfreq, nt, stride, niter, sigma, NULL, NULL);
+    _kernel_noniterative_wrms_2d<float,S,1,1> (mean_x, rms_x, intensity, weights, nfreq, nt, stride);
+    _kernel_wrms_iterate_2d(mean_x, rms_x, intensity, weights, nfreq, nt, stride, niter, sigma);
 
     mean = mean_x.template extract<0> ();
     rms = rms_x.template extract<0> ();
