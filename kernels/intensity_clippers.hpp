@@ -235,23 +235,10 @@ inline void _kernel_intensity_mask_1d_f(T *weights, const T *ds_intensity, simd_
 //
 // _kernel_clip_2d(): 
 //    This is the "bottom line" routine which is wrapped by intensity_clipper(AXIS_NONE).
-//
-// Note: caller must ensure that the IterFlag compile-time argument is 'true' iff (niter > 0).
 
-
-
-template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
-static void _kernel_nds_2d(int &nds_int, int &nds_wt, int nfreq, int nt)
-{
-    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
-    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
-
-    nds_int = DsiFlag ? ((nfreq/Df) * (nt/Dt)) : 0;
-    nds_wt = DswFlag ? ((nfreq/Df) * (nt/Dt)) : 0;
-}
 
 // Downsampled version: ds_intensity must be non-NULL, ds_weights must be non-NULL if niter > 1.
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag, typename std::enable_if<((Df>1) || (Dt>1)),int>::type = 0>
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, typename std::enable_if<((Df>1) || (Dt>1)),int>::type = 0>
 inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_intensity, T *ds_weights)
 {
     simd_t<T,S> mean, rms;
@@ -268,7 +255,7 @@ inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, i
 }
 
 // Non-downsampled version: ds_intensity, ds_weights can be NULL
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag, typename std::enable_if<((Df==1) && (Dt==1)),int>::type = 0>
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, typename std::enable_if<((Df==1) && (Dt==1)),int>::type = 0>
 inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_intensity, T *ds_weights)
 {
     simd_t<T,S> mean, rms;
@@ -283,18 +270,7 @@ inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, i
 // -------------------------------------------------------------------------------------------------
 
 
-template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
-static void _kernel_nds_1d_t(int &nds_int, int &nds_wt, int nfreq, int nt)
-{
-    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
-    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
-
-    nds_int = DsiFlag ? (nt/Dt) : 0;
-    nds_wt = DswFlag ? (nt/Dt) : 0;
-}
-
-
-template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag, typename std::enable_if<((Df>1) || (Dt>1)),int>::type = 0>
+template<unsigned int S, unsigned int Df, unsigned int Dt, typename std::enable_if<((Df>1) || (Dt>1)),int>::type = 0>
 static void _kernel_clip_1d_t(const float *intensity, float *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, float *ds_int, float *ds_wt)
 {
     simd_t<float,S> mean, rms;
@@ -316,7 +292,7 @@ static void _kernel_clip_1d_t(const float *intensity, float *weights, int nfreq,
 }
 
 
-template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag, typename std::enable_if<((Df==1) && (Dt==1)),int>::type = 0>
+template<unsigned int S, unsigned int Df, unsigned int Dt, typename std::enable_if<((Df==1) && (Dt==1)),int>::type = 0>
 static void _kernel_clip_1d_t(const float *intensity, float *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, float *ds_int, float *ds_wt)
 {
     simd_t<float,S> mean, rms;
@@ -336,18 +312,7 @@ static void _kernel_clip_1d_t(const float *intensity, float *weights, int nfreq,
 // -------------------------------------------------------------------------------------------------
 
 
-template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
-static void _kernel_nds_1d_f(int &nds_int, int &nds_wt, int nfreq, int nt)
-{
-    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
-    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
-
-    nds_int = DsiFlag ? ((nfreq/Df) * S) : 0;
-    nds_wt = DswFlag ? ((nfreq/Df) * S) : 0;
-}
-
-
-template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag, typename std::enable_if<((Df > 1) || (Dt > 1)),int>::type = 0>
+template<unsigned int S, unsigned int Df, unsigned int Dt, typename std::enable_if<((Df > 1) || (Dt > 1)),int>::type = 0>
 static void _kernel_clip_1d_f(const float *intensity, float *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, float *ds_int, float *ds_wt)
 {
     simd_t<float,S> mean, rms;	
@@ -369,7 +334,7 @@ static void _kernel_clip_1d_f(const float *intensity, float *weights, int nfreq,
 }
 
 
-template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag, typename std::enable_if<((Df == 1) && (Dt == 1)),int>::type = 0>
+template<unsigned int S, unsigned int Df, unsigned int Dt, typename std::enable_if<((Df == 1) && (Dt == 1)),int>::type = 0>
 static void _kernel_clip_1d_f(const float *intensity, float *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, float *ds_int, float *ds_wt)
 {
     simd_t<float,S> mean, rms;	

@@ -49,56 +49,39 @@ static void _intensity_clipper_alloc(float*& ds_intensity, float*& ds_weights, i
 // intensity_clipper_kernel_table
 
 
-struct intensity_clipper_kernels {
-    // f_nds(nds_int, nds_wt, nfreq, nt)
-    // f_clip(intensity, weights, nfreq, nt, stride, niter, sigma, iter_sigma, ds_int, ds_wt)
-
-    void (*f_nds)(int &, int &, int, int);
-    void (*f_clip)(const float *, float *, int, int, int, int, double, double, float *, float *);
-};
+using intensity_clipper_kernel_t = void (*)(const float *, float *, int, int, int, int, double, double, float *, float *);
 
 
 // Fills length-3 array indexed by axis
-template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
-inline void fill_1d_intensity_clipper_kernel_table(intensity_clipper_kernels *out)
-{
-    static_assert(AXIS_FREQ == 0, "expected AXIS_FREQ==0");
-    static_assert(AXIS_TIME == 1, "expected AXIS_TIME==1");
-    static_assert(AXIS_NONE == 2, "expected AXIS_NONE==2");
-
-    out[AXIS_FREQ] = { _kernel_nds_1d_f<S,Df,Dt,IterFlag>, _kernel_clip_1d_f<S,Df,Dt,IterFlag> };
-    out[AXIS_TIME] = { _kernel_nds_1d_t<S,Df,Dt,IterFlag>, _kernel_clip_1d_t<S,Df,Dt,IterFlag> };
-    out[AXIS_NONE] = { _kernel_nds_2d<S,Df,Dt,IterFlag>, _kernel_clip_2d<float,S,Df,Dt,IterFlag> };
-}
-
-// Fills shape-(2,3) array indexed by (iterflag, axis)
 template<unsigned int S, unsigned int Df, unsigned int Dt>
-inline void fill_2d_intensity_clipper_table(intensity_clipper_kernels *out)
+inline void fill_1d_intensity_clipper_kernel_table(intensity_clipper_kernel_t *out)
 {
-    fill_1d_intensity_clipper_kernel_table<S,Df,Dt,false> (out);
-    fill_1d_intensity_clipper_kernel_table<S,Df,Dt,true> (out+3);
+    out[AXIS_FREQ] = _kernel_clip_1d_f<S,Df,Dt>;
+    out[AXIS_TIME] = _kernel_clip_1d_t<S,Df,Dt>;
+    out[AXIS_NONE] = _kernel_clip_2d<float,S,Df,Dt>;
 }
 
-// Fills shape-(NDt,2,3) array indexed by (Dt, iterflag, axis)
+
+// Fills shape-(NDt,3) array indexed by (Dt, axis)
 template<unsigned int S, unsigned int Df, unsigned int NDt, typename enable_if<(NDt==0),int>::type = 0>
-inline void fill_3d_intensity_clipper_table(intensity_clipper_kernels *out) { }
+inline void fill_2d_intensity_clipper_kernel_table(intensity_clipper_kernel_t *out) { }
 
 template<unsigned int S, unsigned int Df, unsigned int NDt, typename enable_if<(NDt>0),int>::type = 0>
-inline void fill_3d_intensity_clipper_table(intensity_clipper_kernels *out) 
+inline void fill_2d_intensity_clipper_kernel_table(intensity_clipper_kernel_t *out) 
 { 
-    fill_3d_intensity_clipper_table<S,Df,(NDt-1)> (out);
-    fill_2d_intensity_clipper_table<S,Df,(1<<(NDt-1))> (out + 6*(NDt-1));
+    fill_2d_intensity_clipper_kernel_table<S,Df,(NDt-1)> (out);
+    fill_1d_intensity_clipper_kernel_table<S,Df,(1<<(NDt-1))> (out + 3*(NDt-1));
 }
 
-// Fills shape-(NDf,NDt,2,3) array indexed by (Df, Dt, iterflag, axis)
+// Fills shape-(NDf,NDt,3) array indexed by (Df, Dt, axis)
 template<unsigned int S, unsigned int NDf, unsigned int NDt, typename enable_if<(NDf==0),int>::type = 0>
-inline void fill_4d_intensity_clipper_table(intensity_clipper_kernels *out) { }
+inline void fill_3d_intensity_clipper_kernel_table(intensity_clipper_kernel_t *out) { }
 
 template<unsigned int S, unsigned int NDf, unsigned int NDt, typename enable_if<(NDf>0),int>::type = 0>
-inline void fill_4d_intensity_clipper_table(intensity_clipper_kernels *out)
+inline void fill_3d_intensity_clipper_kernel_table(intensity_clipper_kernel_t *out)
 {
-    fill_4d_intensity_clipper_table<S,(NDf-1),NDt> (out);
-    fill_3d_intensity_clipper_table<S,(1<<(NDf-1)),NDt> (out + 6*(NDf-1)*NDt);
+    fill_3d_intensity_clipper_kernel_table<S,(NDf-1),NDt> (out);
+    fill_2d_intensity_clipper_kernel_table<S,(1<<(NDf-1)),NDt> (out + 3*(NDf-1)*NDt);
 }
 
 
@@ -112,24 +95,24 @@ struct intensity_clipper_kernel_table {
     // Weird: for some reason using std::max() here gives a clang linker (not compiler) error.
     static constexpr int MaxD = (MaxDf > MaxDt) ? MaxDf : MaxDt;
 
-    vector<intensity_clipper_kernels> kernels;
+    vector<intensity_clipper_kernel_t> kernels;
 
     integer_log2_lookup_table ilog2_lookup;
 
     intensity_clipper_kernel_table() :
-	kernels(6*NDf*NDt), ilog2_lookup(MaxD)
+	kernels(3*NDf*NDt, nullptr), 
+	ilog2_lookup(MaxD)
     {
-	fill_4d_intensity_clipper_table<S,NDf,NDt> (&kernels[0]);
+	fill_3d_intensity_clipper_kernel_table<S,NDf,NDt> (&kernels[0]);
     }
 
     // Caller must call check_params()!
-    inline intensity_clipper_kernels get_kernel(axis_type axis, int Df, int Dt, int niter)
+    inline intensity_clipper_kernel_t get_kernel(axis_type axis, int Df, int Dt)
     {
 	int idf = ilog2_lookup(Df);
 	int idt = ilog2_lookup(Dt);
-	int iflag = (niter > 1) ? 1 : 0;
 
-	return kernels[6*(idf*NDt+idt) + 3*iflag + axis];
+	return kernels[3*(idf*NDt+idt) + axis];
     }
 };
 
@@ -159,14 +142,14 @@ struct clipper_transform : public wi_transform
     float *ds_weights = nullptr;
 
     // Kernels
-    intensity_clipper_kernels kernels;
+    intensity_clipper_kernel_t kernel;
 
     // Noncopyable
     clipper_transform(const clipper_transform &) = delete;
     clipper_transform &operator=(const clipper_transform &) = delete;
 
-    clipper_transform(int nds_f_, int nds_t_, axis_type axis_, int nt_chunk_, double sigma_, int niter_, double iter_sigma_, intensity_clipper_kernels kernels_)
-	: nds_f(nds_f_), nds_t(nds_t_), axis(axis_), niter(niter_), sigma(sigma_), iter_sigma(iter_sigma_ ? iter_sigma_ : sigma_), kernels(kernels_)
+    clipper_transform(int nds_f_, int nds_t_, axis_type axis_, int nt_chunk_, double sigma_, int niter_, double iter_sigma_, intensity_clipper_kernel_t kernel_)
+	: nds_f(nds_f_), nds_t(nds_t_), axis(axis_), niter(niter_), sigma(sigma_), iter_sigma(iter_sigma_ ? iter_sigma_ : sigma_), kernel(kernel_)
     {
 	stringstream ss;
         ss << "intensity_clipper_cpp(nt_chunk=" << nt_chunk_ << ", axis=" << axis << ", sigma=" << sigma
@@ -204,7 +187,7 @@ struct clipper_transform : public wi_transform
 
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
     {
-	this->kernels.f_clip(intensity, weights, nfreq, nt_chunk, stride, niter, sigma, iter_sigma, ds_intensity, ds_weights);
+	this->kernel(intensity, weights, nfreq, nt_chunk, stride, niter, sigma, iter_sigma, ds_intensity, ds_weights);
     }
 
     virtual void start_substream(int isubstream, double t0) override { }
@@ -268,8 +251,8 @@ shared_ptr<wi_transform> make_intensity_clipper(int nt_chunk, axis_type axis, do
 
     check_params(Df, Dt, axis, dummy_nfreq, nt_chunk, dummy_stride, sigma, niter, iter_sigma);
     
-    intensity_clipper_kernels kernels = global_intensity_clipper_kernel_table.get_kernel(axis, Df, Dt, niter);
-    return make_shared<clipper_transform> (Df, Dt, axis, nt_chunk, sigma, niter, iter_sigma, kernels);
+    auto kernel = global_intensity_clipper_kernel_table.get_kernel(axis, Df, Dt);
+    return make_shared<clipper_transform> (Df, Dt, axis, nt_chunk, sigma, niter, iter_sigma, kernel);
 }
 
 
@@ -283,9 +266,9 @@ void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, 
 
     _intensity_clipper_alloc(ds_intensity, ds_weights, nfreq, nt, axis, niter, Df, Dt);
 
-    intensity_clipper_kernels kernels = global_intensity_clipper_kernel_table.get_kernel(axis, Df, Dt, niter);
+    auto kernel = global_intensity_clipper_kernel_table.get_kernel(axis, Df, Dt);
 
-    kernels.f_clip(intensity, weights, nfreq, nt, stride, niter, sigma, iter_sigma, ds_intensity, ds_weights);
+    kernel(intensity, weights, nfreq, nt, stride, niter, sigma, iter_sigma, ds_intensity, ds_weights);
 
     free(ds_intensity);
     free(ds_weights);
