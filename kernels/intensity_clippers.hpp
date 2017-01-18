@@ -125,7 +125,16 @@ inline void _kernel_noniterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, co
 }
 
 
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag=false, bool Wflag=false>
+inline void _kernel_noniterative_wrms_1d_t(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nt, int stride, T *ds_intensity = NULL, T *ds_weights = NULL)
+{
+    mean_rms_accumulator<T,S> acc;
+    _kernel_mean_rms_accumulate_1d_t<T,S,Df,Dt,Iflag,Wflag> (acc, intensity, weights, nt, stride, ds_intensity, ds_weights);
+    acc.get_mean_rms(mean, rms);
+}
 
+
+// XXX plan is to move below
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
 inline void _kernel_iterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, 
 				      int nfreq, int nt, int stride, int niter, double sigma, T *ds_int, T *ds_wt)
@@ -168,6 +177,12 @@ inline void _kernel_wrms_iterate_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T
 	// XXX goal: _kernel_clip2d_iterate() should be moved here
 	_kernel_clip2d_iterate(mean, rms, intensity, weights, mean, thresh, nfreq, nt, stride);
     }
+}
+
+template<typename T, unsigned int S>
+inline void _kernel_wrms_iterate_1d_t(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nt, int niter, double iter_sigma)
+{
+    _kernel_wrms_iterate_2d(mean, rms, intensity, weights, 1, nt, 0, niter, iter_sigma);
 }
 
 
@@ -245,7 +260,7 @@ static void _kernel_nds_2d(int &nds_int, int &nds_wt, int nfreq, int nt)
     nds_wt = DswFlag ? ((nfreq/Df) * (nt/Dt)) : 0;
 }
 
-
+// Downsampled version: ds_intensity must be non-NULL, ds_weights must be non-NULL if niter > 1.
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag, typename std::enable_if<((Df>1) || (Dt>1)),int>::type = 0>
 inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_intensity, T *ds_weights)
 {
@@ -289,7 +304,7 @@ static void _kernel_nds_1d_t(int &nds_int, int &nds_wt, int nfreq, int nt)
 }
 
 
-template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
+template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag, typename std::enable_if<((Df>1) || (Dt>1)),int>::type = 0>
 static void _kernel_clip_1d_t(const float *intensity, float *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, float *ds_int, float *ds_wt)
 {
     static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
@@ -315,6 +330,23 @@ static void _kernel_clip_1d_t(const float *intensity, float *weights, int nfreq,
 	// Here we pass nfreq=Df.  Setting both strides to 'stride' is OK but this isn't completely obvious.
 	simd_t<float,S> thresh = simd_t<float,S>(sigma) * rms;
 	_kernel_clip2d_mask<float,S,Df,Dt> (wrow, irow2, mean, thresh, Df, nt, stride, stride);    // (wrow, irow2, sigma)
+    }
+}
+
+template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag, typename std::enable_if<((Df==1) && (Dt==1)),int>::type = 0>
+static void _kernel_clip_1d_t(const float *intensity, float *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, float *ds_int, float *ds_wt)
+{
+    simd_t<float,S> mean, rms;
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	const float *irow = intensity + ifreq * stride;
+	float *wrow = weights + ifreq * stride;
+
+	_kernel_noniterative_wrms_1d_t<float,S,1,1> (mean, rms, irow, wrow, nt, stride);
+	_kernel_wrms_iterate_1d_t(mean, rms, irow, wrow, nt, niter, iter_sigma);
+	
+	simd_t<float,S> thresh = simd_t<float,S>(sigma) * rms;
+	_kernel_clip2d_mask<float,S,1,1> (wrow, irow, mean, thresh, 1, nt, stride, stride);
     }
 }
 
