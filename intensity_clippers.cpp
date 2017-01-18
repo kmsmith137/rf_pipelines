@@ -40,6 +40,10 @@ struct intensity_clipper_kernels {
 template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
 inline void fill_1d_intensity_clipper_kernel_table(intensity_clipper_kernels *out)
 {
+    static_assert(AXIS_FREQ == 0, "expected AXIS_FREQ==0");
+    static_assert(AXIS_TIME == 1, "expected AXIS_TIME==1");
+    static_assert(AXIS_NONE == 2, "expected AXIS_NONE==2");
+
     out[AXIS_FREQ] = { _kernel_nds_1d_f<S,Df,Dt,IterFlag>, _kernel_clip_1d_f<S,Df,Dt,IterFlag> };
     out[AXIS_TIME] = { _kernel_nds_1d_t<S,Df,Dt,IterFlag>, _kernel_clip_1d_t<S,Df,Dt,IterFlag> };
     out[AXIS_NONE] = { _kernel_nds_2d<S,Df,Dt,IterFlag>, _kernel_clip_2d<float,S,Df,Dt,IterFlag> };

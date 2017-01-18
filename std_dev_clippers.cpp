@@ -26,93 +26,10 @@ namespace rf_pipelines {
 
 using mask_t = simd_helpers::smask_t<float>;
 
-// f_ntmp(nfreq, nt)
-// f_clip(intensity, weights, nfreq, nt, stride, sigma, tmp_sd, tmp_valid)
 
-using kernel_ntmp_t = int (*) (int, int);
-using kernel_clip_t = void (*) (float *, float *, int, int, int, double, float *, mask_t *);
-
-
-// -------------------------------------------------------------------------------------------------
-//
-// sd_clipper_transform_base
-
-
-struct sd_clipper_transform_base : public wi_transform 
-{
-    // (Frequency, time) downsampling factors and axis.
-    const int nds_f;
-    const int nds_t;
-    const axis_type axis;
-    
-    // Clipping threshold.
-    const double sigma;
-
-    kernel_ntmp_t f_ntmp;
-    kernel_clip_t f_clip;
-
-    // Allocated in set_stream()
-    float *tmp_sd = nullptr;
-    mask_t *tmp_valid = nullptr;
-
-    // Noncopyable
-    sd_clipper_transform_base(const sd_clipper_transform_base &) = delete;
-    sd_clipper_transform_base &operator=(const sd_clipper_transform_base &) = delete;
-
-    sd_clipper_transform_base(int nds_f_, int nds_t_, axis_type axis_, int nt_chunk_, double sigma_, kernel_ntmp_t f_ntmp_, kernel_clip_t f_clip_)
-	: nds_f(nds_f_), nds_t(nds_t_), axis(axis_), sigma(sigma_), f_ntmp(f_ntmp_), f_clip(f_clip_)
-    {
-	static constexpr int S = constants::single_precision_simd_length;
-
-	stringstream ss;
-        ss << "std_dev_clipper_transform_cpp(nt_chunk=" << nt_chunk_ << ", axis=" << axis
-           << ", sigma=" << sigma << ", Df=" << nds_f << ", Dt=" << nds_t << ")";
-	
-        this->name = ss.str();
-	this->nt_chunk = nt_chunk_;
-	this->nt_prepad = 0;
-	this->nt_postpad = 0;
-
-	// No need to make these asserts "verbose", since they should have been checked in make_intensity_clipper2d().
-	rf_assert(sigma >= 1.0);
-	rf_assert(nt_chunk > 0);
-	rf_assert(nt_chunk % (nds_t*S) == 0);
-    }
-
-    virtual ~sd_clipper_transform_base()
-    {
-	free(tmp_sd);
-	free(tmp_valid);
-
-	tmp_sd = nullptr;
-	tmp_valid = nullptr;
-    }
-
-    virtual void set_stream(const wi_stream &stream) override
-    {
-	rf_assert(stream.nfreq % nds_f == 0);
-
-	int ntmp = f_ntmp(stream.nfreq, nt_chunk);
-
-	this->nfreq = stream.nfreq;
-	this->tmp_sd = aligned_alloc<float> (ntmp);
-	this->tmp_valid = aligned_alloc<mask_t> (ntmp);
-    }
-
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
-    {
-	f_clip(intensity, weights, nfreq, nt_chunk, stride, sigma, tmp_sd, tmp_valid);
-    }
-
-    virtual void start_substream(int isubstream, double t0) override { }
-    virtual void end_substream() override { }
-};
-
-
-// -------------------------------------------------------------------------------------------------
-
-
-static void clip_1d(int n, float *tmp_sd, mask_t *tmp_valid, double sigma)
+// Externally-linkable helper function, declared "extern" in kernels/std_dev_clippers.hpp.
+// If the arguments change here, then declaration should be changed there as well!
+void clip_1d(int n, float *tmp_sd, mask_t *tmp_valid, double sigma)
 {
 #if 0
     cerr << "clip_1d: [";
@@ -157,124 +74,152 @@ static void clip_1d(int n, float *tmp_sd, mask_t *tmp_valid, double sigma)
 }
 
 
-template<unsigned int Df> static int _kernel_ntmp_time_axis(int nfreq, int nt) { return nfreq/Df; }
-template<unsigned int Dt> static int _kernel_ntmp_freq_axis(int nfreq, int nt) { return nt/Dt; }
+// -------------------------------------------------------------------------------------------------
+//
+// std_dev_clipper_kernel_table
 
 
-template<unsigned int S, unsigned int Df, unsigned int Dt>
-static void _kernel_clip_time_axis(float *intensity, float *weights, int nfreq, int nt, int stride, double sigma, float *tmp_sd, mask_t *tmp_valid)
-{
-    _kernel_std_dev_t<float,S,Df,Dt> (tmp_sd, tmp_valid, intensity, weights, nfreq, nt, stride);
+struct std_dev_clipper_kernels {
+    // f_ntmp(nfreq, nt)
+    // f_clip(intensity, weights, nfreq, nt, stride, sigma, tmp_sd, tmp_valid)
 
-    clip_1d(nfreq/Df, tmp_sd, tmp_valid, sigma);
+    int (*f_ntmp)(int, int);
+    void (*f_clip)(float *, float *, int, int, int, double, float *, mask_t *);
+};
 
-    for (int i = 0; i < nfreq/Df; i++) {
-	if (tmp_valid[i])
-	    continue;
-	for (int ifreq = i*Df; ifreq < (i+1)*Df; ifreq++)
-	    memset(weights + ifreq*stride, 0, nt * sizeof(float));
+
+// Fills shape-(NDt,2) array indexed by (Dt,axis)
+template<unsigned int S, unsigned int Df, unsigned int NDt, typename enable_if<(NDt==0),int>::type = 0>
+inline void fill_2d_std_dev_clipper_kernel_table(std_dev_clipper_kernels *out) { }
+
+template<unsigned int S, unsigned int Df, unsigned int NDt, typename enable_if<(NDt>0),int>::type = 0>
+inline void fill_2d_std_dev_clipper_kernel_table(std_dev_clipper_kernels *out) 
+{ 
+    static_assert(AXIS_FREQ == 0, "expected AXIS_FREQ==0");
+    static_assert(AXIS_TIME== 1, "expected AXIS_TIME==1");
+
+    fill_2d_std_dev_clipper_kernel_table<S,Df,NDt-1> (out);
+
+    constexpr unsigned int Dt = 1 << (NDt-1);
+    out[2*(NDt-1) + AXIS_FREQ] = { _kernel_std_dev_ntmp_freq_axis<Df,Dt>, _kernel_std_dev_clip_freq_axis<S,Df,Dt> };
+    out[2*(NDt-1) + AXIS_TIME] = { _kernel_std_dev_ntmp_time_axis<Df,Dt>, _kernel_std_dev_clip_time_axis<S,Df,Dt> };
+}
+
+// Fills shape-(NDf,NDt,3) array indexed by (Df,Dt,axis)
+template<unsigned int S, unsigned int NDf, unsigned int NDt, typename enable_if<(NDf==0),int>::type = 0>
+inline void fill_3d_std_dev_clipper_kernel_table(std_dev_clipper_kernels *out) { }
+
+template<unsigned int S, unsigned int NDf, unsigned int NDt, typename enable_if<(NDf>0),int>::type = 0>
+inline void fill_3d_std_dev_clipper_kernel_table(std_dev_clipper_kernels *out) 
+{ 
+    fill_3d_std_dev_clipper_kernel_table<S,NDf-1,NDt> (out);
+    fill_2d_std_dev_clipper_kernel_table<S,(1<<(NDf-1)),NDt> (out + 2*(NDf-1)*NDt);
+}
+
+
+struct std_dev_clipper_kernel_table {
+    static constexpr int S = constants::single_precision_simd_length;
+    static constexpr int MaxDf = constants::max_frequency_downsampling;
+    static constexpr int MaxDt = constants::max_time_downsampling;
+    static constexpr int NDf = IntegerLog2<MaxDf>() + 1;
+    static constexpr int NDt = IntegerLog2<MaxDt>() + 1;
+
+    // Weird: for some reason using std::max() here gives a clang linker (not compiler) error.
+    static constexpr int MaxD = (MaxDf > MaxDt) ? MaxDf : MaxDt;
+
+    vector<std_dev_clipper_kernels> kernels;
+
+    integer_log2_lookup_table ilog2_lookup;
+
+    std_dev_clipper_kernel_table() :
+	kernels(2*NDf*NDt), ilog2_lookup(MaxD)
+    {
+	fill_3d_std_dev_clipper_kernel_table<S,NDf,NDt> (&kernels[0]);
     }
-}
 
+    // Caller must call check_params()!
+    inline std_dev_clipper_kernels get_kernels(axis_type axis, int Df, int Dt)
+    {
+	int idf = ilog2_lookup(Df);
+	int idt = ilog2_lookup(Dt);
 
-template<unsigned int S, unsigned int Df, unsigned int Dt>
-static void _kernel_clip_freq_axis(float *intensity, float *weights, int nfreq, int nt, int stride, double sigma, float *tmp_sd, mask_t *tmp_valid)
-{
-    _kernel_std_dev_f<float,S,Df,Dt> (tmp_sd, tmp_valid, intensity, weights, nfreq, nt, stride);
-
-    clip_1d(nt/Dt, tmp_sd, tmp_valid, sigma);
-
-    _kernel_mask_columns<float,S,Dt> (weights, tmp_valid, nfreq, nt, stride);
-}
-
-
-template<unsigned int S, unsigned int Df, unsigned int Dt>
-struct sd_clipper_transform_time_axis : public sd_clipper_transform_base
-{
-    sd_clipper_transform_time_axis(int nt_chunk_, double sigma_)
-	: sd_clipper_transform_base(Df, Dt, AXIS_TIME, nt_chunk_, sigma_, _kernel_ntmp_time_axis<Df>, _kernel_clip_time_axis<S,Df,Dt>)
-    { }
+	return kernels[2*(idf*NDt+idt) + axis];
+    }
 };
 
 
-template<unsigned int S, unsigned int Df, unsigned int Dt>
-struct sd_clipper_transform_freq_axis : public sd_clipper_transform_base
-{
-    sd_clipper_transform_freq_axis(int nt_chunk_, double sigma_)
-	: sd_clipper_transform_base(Df, Dt, AXIS_FREQ, nt_chunk_, sigma_, _kernel_ntmp_freq_axis<Dt>, _kernel_clip_freq_axis<S,Df,Dt>)
-    { }
-};
+static std_dev_clipper_kernel_table global_std_dev_clipper_kernel_table;
 
 
 // -------------------------------------------------------------------------------------------------
 //
-// Boilerplate needed to instantiate templates and export factory functions.
+// sd_clipper_transform
 
 
-template<unsigned int S, unsigned int Df, unsigned int Dt>
-inline shared_ptr<sd_clipper_transform_base> _make_std_dev_clipper4(axis_type axis, int nt_chunk, double sigma)
+struct std_dev_clipper_transform : public wi_transform 
 {
-    if (axis == AXIS_FREQ)
-	return make_shared<sd_clipper_transform_freq_axis<S,Df,Dt>> (nt_chunk, sigma);
-    if (axis == AXIS_TIME)
-	return make_shared<sd_clipper_transform_time_axis<S,Df,Dt>> (nt_chunk, sigma);
-    if (axis == AXIS_NONE)
-	throw runtime_error("rf_pipelines::make_std_dev_clipper(): axis=None is not supported for this transform");
-
-    throw runtime_error("rf_pipelines::make_std_dev_clipper(): axis='" + to_string(axis) + "' is not a valid value");
-}
-
-
-template<unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt==0),int>::type = 0>
-inline shared_ptr<sd_clipper_transform_base> _make_std_dev_clipper3(int Dt, axis_type axis, int nt_chunk, double sigma)
-{
-    throw runtime_error("rf_pipelines internal error: Dt=" + to_string(Dt) + " not found in std_dev_clipper template chain");
-}
-
-template<unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt > 0),int>::type = 0>
-inline shared_ptr<sd_clipper_transform_base> _make_std_dev_clipper3(int Dt, axis_type axis, int nt_chunk, double sigma)
-{
-    if (Dt == MaxDt)
-	return _make_std_dev_clipper4<S,Df,MaxDt> (axis, nt_chunk, sigma);
-    else
-	return _make_std_dev_clipper3<S,Df,(MaxDt/2)> (Dt, axis, nt_chunk, sigma);
-}
-
-
-template<unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf==0),int>::type = 0>
-inline shared_ptr<sd_clipper_transform_base> _make_std_dev_clipper2(int Df, int Dt, axis_type axis, int nt_chunk, double sigma)
-{
-    throw runtime_error("rf_pipelines internal error: Df=" + to_string(Df) + " not found in std_dev_clipper template chain");
-}
-
-template<unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf > 0),int>::type = 0>
-inline shared_ptr<sd_clipper_transform_base> _make_std_dev_clipper2(int Df, int Dt, axis_type axis, int nt_chunk, double sigma)
-{
-    if (Df == MaxDf)
-	return _make_std_dev_clipper3<S,MaxDf,MaxDt> (Dt, axis, nt_chunk, sigma);
-    else
-	return _make_std_dev_clipper2<S,(MaxDf/2),MaxDt> (Df, Dt, axis, nt_chunk, sigma);
-}
-
-
-// Non-static
-// Caller must call check_params() first.
-shared_ptr<sd_clipper_transform_base> _make_std_dev_clipper(int Df, int Dt, axis_type axis, int nt_chunk, double sigma)
-{
-    static constexpr int S = constants::single_precision_simd_length;
-    static constexpr int MaxDf = constants::max_frequency_downsampling;
-    static constexpr int MaxDt = constants::max_time_downsampling;
+    // (Frequency, time) downsampling factors and axis.
+    const int nds_f;
+    const int nds_t;
+    const axis_type axis;
     
-    auto ret = _make_std_dev_clipper2<S,MaxDf,MaxDt> (Df, Dt, axis, nt_chunk, sigma);
+    // Clipping threshold.
+    const double sigma;
 
-    // Sanity check the template instantiation
-    assert(ret->nds_f == Df);
-    assert(ret->nds_t == Dt);
-    assert(ret->axis == axis);
-    assert(ret->sigma == sigma);
-    
-    return ret;
-}
+    std_dev_clipper_kernels kernels;
+
+    // Allocated in set_stream()
+    float *tmp_sd = nullptr;
+    mask_t *tmp_valid = nullptr;
+
+    // Noncopyable
+    std_dev_clipper_transform(const std_dev_clipper_transform &) = delete;
+    std_dev_clipper_transform &operator=(const std_dev_clipper_transform &) = delete;
+
+    std_dev_clipper_transform(int nds_f_, int nds_t_, axis_type axis_, int nt_chunk_, double sigma_, std_dev_clipper_kernels(kernels_))
+	: nds_f(nds_f_), nds_t(nds_t_), axis(axis_), sigma(sigma_), kernels(kernels_)
+    {
+	stringstream ss;
+        ss << "std_dev_clipper_transform_cpp(nt_chunk=" << nt_chunk_ << ", axis=" << axis
+           << ", sigma=" << sigma << ", Df=" << nds_f << ", Dt=" << nds_t << ")";
+	
+        this->name = ss.str();
+	this->nt_chunk = nt_chunk_;
+	this->nt_prepad = 0;
+	this->nt_postpad = 0;
+    }
+
+    virtual ~std_dev_clipper_transform()
+    {
+	free(tmp_sd);
+	free(tmp_valid);
+
+	tmp_sd = nullptr;
+	tmp_valid = nullptr;
+    }
+
+    virtual void set_stream(const wi_stream &stream) override
+    {
+	rf_assert(stream.nfreq % nds_f == 0);
+
+	int ntmp = kernels.f_ntmp(stream.nfreq, nt_chunk);
+
+	this->nfreq = stream.nfreq;
+	this->tmp_sd = aligned_alloc<float> (ntmp);
+	this->tmp_valid = aligned_alloc<mask_t> (ntmp);
+    }
+
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
+    {
+	kernels.f_clip(intensity, weights, nfreq, nt_chunk, stride, sigma, tmp_sd, tmp_valid);
+    }
+
+    virtual void start_substream(int isubstream, double t0) override { }
+    virtual void end_substream() override { }
+};
+
+
+// -------------------------------------------------------------------------------------------------
 
 
 static void check_params(int Df, int Dt, axis_type axis, int nfreq, int nt, int stride, double sigma)
@@ -319,86 +264,30 @@ static void check_params(int Df, int Dt, axis_type axis, int nfreq, int nt, int 
 }
 
 
-// Externally callable "bottom line" routine which returns clipper transform with specified downsampling and axis.
-
+// Externally callable
 shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, axis_type axis, double sigma, int Df, int Dt)
 {
     int dummy_nfreq = Df;         // arbitrary
     int dummy_stride = nt_chunk;  // arbitrary
-
     check_params(Df, Dt, axis, dummy_nfreq, nt_chunk, dummy_stride, sigma);
-    return _make_std_dev_clipper(Df, Dt, axis, nt_chunk, sigma);
+
+    auto kernels = global_std_dev_clipper_kernel_table.get_kernels(axis, Df, Dt);
+    return make_shared<std_dev_clipper_transform> (Df, Dt, axis, nt_chunk, sigma, kernels);
 }
 
 
-// -------------------------------------------------------------------------------------------------
-
-
-struct sd_clipper_table {
-    static constexpr int MaxDf = constants::max_frequency_downsampling;
-    static constexpr int MaxDt = constants::max_time_downsampling;
-    static constexpr int NDf = IntegerLog2<MaxDf>() + 1;
-    static constexpr int NDt = IntegerLog2<MaxDt>() + 1;
-
-    // Weird: for some reason using std::max() here gives a clang linker (not compiler) error.
-    static constexpr int MaxD = (MaxDf > MaxDt) ? MaxDf : MaxDt;
-
-    struct kernels {
-	kernel_ntmp_t f_ntmp;
-	kernel_clip_t f_clip;
-    };
-
-    using ktab3_t = std::array<kernels, NDt>;
-    using ktab2_t = std::array<ktab3_t, NDf>;
-    using ktab_t = std::array<ktab2_t, 2>;
-
-    ktab_t entries;
-
-    // Lookup table for integer-valued log_2
-    integer_log2_lookup_table ilog2_lookup;
-
-    sd_clipper_table() :
-	ilog2_lookup(MaxD)
-    {
-	static constexpr int S = constants::single_precision_simd_length;
-
-	for (axis_type axis: { AXIS_FREQ, AXIS_TIME }) {
-	    for (int idf = 0; idf < NDf; idf++) {
-		for (int idt = 0; idt < NDt; idt++) {
-		    int Df = 1 << idf;
-		    int Dt = 1 << idt;
-
-		    auto t = _make_std_dev_clipper(Df, Dt, axis, Dt*S, 2.0);   // nt_chunk, sigma arbitrary
-		    entries.at(axis).at(idf).at(idt) = { t->f_ntmp, t->f_clip };
-		}
-	    }
-	}
-    }
-
-    // Caller must call check_params()!
-    inline kernels get(axis_type axis, int Df, int Dt)
-    {
-	int idf = ilog2_lookup(Df);
-	int idt = ilog2_lookup(Dt);
-	
-	return entries.at(axis).at(idf).at(idt);
-    }
-};
-
-
+// Externally callable
 void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, axis_type axis, double sigma, int Df, int Dt)
 {
-    static sd_clipper_table ktab;
-
     check_params(Df, Dt, axis, nfreq, nt, stride, sigma);
 
-    sd_clipper_table::kernels k = ktab.get(axis, Df, Dt);
+    auto kernels = global_std_dev_clipper_kernel_table.get_kernels(axis, Df, Dt);
 
-    int ntmp = k.f_ntmp(nfreq, nt);
+    int ntmp = kernels.f_ntmp(nfreq, nt);
     float *tmp_sd = aligned_alloc<float> (ntmp);
     mask_t *tmp_valid = aligned_alloc<mask_t> (ntmp);
 
-    k.f_clip(const_cast<float *> (intensity), weights, nfreq, nt, stride, sigma, tmp_sd, tmp_valid);
+    kernels.f_clip(const_cast<float *> (intensity), weights, nfreq, nt, stride, sigma, tmp_sd, tmp_valid);
 
     free(tmp_sd);
     free(tmp_valid);

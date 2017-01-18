@@ -10,6 +10,10 @@ namespace rf_pipelines {
 #endif
 
 
+// Defined in std_dev_clippers.cpp
+extern void clip_1d(int n, float *tmp_sd, smask_t<float,1> *tmp_valid, double sigma);
+
+
 // -------------------------------------------------------------------------------------------------
 //
 // _kernel_std_dev_t()
@@ -48,6 +52,29 @@ inline void _kernel_std_dev_t(T *out_sd, smask_t<T,1> *out_valid, const T *inten
 	T sd = var.template extract<0> ();
 	*out_sd++ = sd;
 	*out_valid++ = (sd > 0.0) ? smask_t<T,1>(-1) : 0;
+    }
+}
+
+
+template<unsigned int Df, unsigned int Dt> 
+inline int _kernel_std_dev_ntmp_time_axis(int nfreq, int nt) 
+{ 
+    return nfreq/Df; 
+}
+
+
+template<unsigned int S, unsigned int Df, unsigned int Dt>
+inline void _kernel_std_dev_clip_time_axis(float *intensity, float *weights, int nfreq, int nt, int stride, double sigma, float *tmp_sd, smask_t<float,1> *tmp_valid)
+{
+    _kernel_std_dev_t<float,S,Df,Dt> (tmp_sd, tmp_valid, intensity, weights, nfreq, nt, stride);
+
+    clip_1d(nfreq/Df, tmp_sd, tmp_valid, sigma);
+
+    for (int i = 0; i < nfreq/Df; i++) {
+	if (tmp_valid[i])
+	    continue;
+	for (int ifreq = i*Df; ifreq < (i+1)*Df; ifreq++)
+	    memset(weights + ifreq*stride, 0, nt * sizeof(float));
     }
 }
 
@@ -92,6 +119,23 @@ inline void _kernel_std_dev_f(T *out_sd, smask_t<T,1> *out_valid, const T *inten
 	out_sd += S;
 	out_valid += S;
     }
+}
+
+
+template<unsigned int Df, unsigned int Dt> 
+inline int _kernel_std_dev_ntmp_freq_axis(int nfreq, int nt) 
+{ 
+    return nt/Dt; 
+}
+
+template<unsigned int S, unsigned int Df, unsigned int Dt>
+inline void _kernel_std_dev_clip_freq_axis(float *intensity, float *weights, int nfreq, int nt, int stride, double sigma, float *tmp_sd, smask_t<float,1> *tmp_valid)
+{
+    _kernel_std_dev_f<float,S,Df,Dt> (tmp_sd, tmp_valid, intensity, weights, nfreq, nt, stride);
+
+    clip_1d(nt/Dt, tmp_sd, tmp_valid, sigma);
+
+    _kernel_mask_columns<float,S,Dt> (weights, tmp_valid, nfreq, nt, stride);
 }
 
 
