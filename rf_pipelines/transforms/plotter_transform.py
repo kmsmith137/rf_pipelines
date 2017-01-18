@@ -2,6 +2,9 @@ import sys
 import numpy as np
 import rf_pipelines
 
+# Bad implementation of zooming
+# Two zoom levels are automatically produced
+
 
 class plotter_transform(rf_pipelines.py_wi_transform):
     """
@@ -58,7 +61,7 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         # need to initialize 'nfreq', but that will be done in 'set_stream', see below.)
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
-        self.nt_postpad = 0
+        self.nt_postpad = 0 ## Maybe use these later??
 
         self.img_prefix = img_prefix
         self.img_nfreq = img_nfreq
@@ -71,7 +74,7 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         # Create plot_group 0.  See docstrings for py_wi_transform, py_wi_transform.add_plot_group(),
         # and py_wi_transform.add_plot() for more details.
         self.add_plot_group("waterfall", nt_per_pix=downsample_nt, ny=img_nfreq)
-
+        self.add_plot_group("not_waterfall", nt_per_pix=downsample_nt*2, ny=img_nfreq)
 
     def set_stream(self, s):
         # As explained in the rf_pipelines.py_wi_transform docstring, this function is
@@ -107,7 +110,6 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         # so far is 'self.ifile', and the number of (downsampled) time samples accumulated into
         # the current file is 'self.ipos'
 
-        # Downsample data block being processed, before accumulating into arrays.
         (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights, self.img_nfreq, self.nt_chunk_ds)
 
         # Keeps track of how much downsampled data has been moved from input chunk to the plots.
@@ -124,10 +126,16 @@ class plotter_transform(rf_pipelines.py_wi_transform):
             ichunk += n
 
             if self.ipos == self.img_nt:
+                if self.ifile % 2 == 0:
+                    self.store_extra_intensity = self.intensity_buf
+                    self.store_extra_weight = self.weight_buf 
+                if self.ifile % 2 == 1:
+                    self._make_extra_zoom()
                 self._write_file()
 
 
     def end_substream(self):
+        self._make_extra_zoom()
         if self.ipos > 0:
             self._write_file()
 
@@ -162,3 +170,25 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         self.weight_buf[:,:] = 0.
         self.ifile += 1
         self.ipos = 0
+
+
+    def _make_extra_zoom(self):
+        big_intensity = np.hstack((self.store_extra_intensity, self.intensity_buf))
+        big_weights = np.hstack((self.store_extra_weight, self.weight_buf))
+        (bintensity, bweights) = rf_pipelines.wi_downsample(big_intensity, big_weights, self.img_nfreq, self.img_nt)
+
+        basename = 'zoom_' + self.img_prefix
+        if self.isubstream > 0:
+            basename += str(isubstream+1)
+        basename += ('_%s.png' % self.ifile)
+
+        filename = self.add_plot(basename, 
+                                 it0 = self.ifile * self.img_nt * self.downsample_nt,
+                                 nt = self.img_nt * self.downsample_nt * 2,
+                                 nx = bintensity.shape[1], 
+                                 ny = bintensity.shape[0],
+                                 group_id=1)
+
+        rf_pipelines.write_png(filename, bintensity, weights=bweights, transpose=True, ytop_to_bottom=True, 
+                               clip_niter=self.clip_niter, sigma_clip=self.sigma_clip)
+
