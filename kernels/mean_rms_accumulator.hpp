@@ -29,6 +29,8 @@ template<typename T, unsigned int S, unsigned int N> using simd_ntuple = simd_he
 // E.g. in the clipper_transform we use T=double and Td=float by default.
 // The only requirement is that the converter simd_t<Td,Sd> -> simd_ntuple<T,S,N>,
 // where N = Sd/S, is defined in simd_helpers/convert.hpp.
+//
+// Warning: the case (Td,Sd) != (T,S) has not actually been tested!!
 
 template<typename T, unsigned int S>
 struct mean_rms_accumulator {
@@ -63,6 +65,7 @@ struct mean_rms_accumulator {
 	return;
     }
 
+    // Warning: the case (Td,Sd) != (T,S) has not actually been tested!!
     template<typename Td, unsigned int Sd>
     inline void accumulate(simd_t<Td,Sd> ival, simd_t<Td,Sd> wval)
     {

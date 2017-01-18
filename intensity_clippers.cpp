@@ -32,7 +32,7 @@ struct intensity_clipper_kernels {
     // f_clip(intensity, weights, nfreq, nt, stride, niter, sigma, iter_sigma, ds_int, ds_wt)
 
     void (*f_nds)(int &, int &, int, int);
-    void (*f_clip)(float *, float *, int, int, int, int, double, double, float *, float *);
+    void (*f_clip)(const float *, float *, int, int, int, int, double, double, float *, float *);
 };
 
 
@@ -265,7 +265,7 @@ void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, 
     float *ds_int = aligned_alloc<float> (nds_int);
     float *ds_wt = aligned_alloc<float> (nds_wt);
 
-    kernels.f_clip(const_cast<float *> (intensity), weights, nfreq, nt, stride, niter, sigma, iter_sigma, ds_int, ds_wt);
+    kernels.f_clip(intensity, weights, nfreq, nt, stride, niter, sigma, iter_sigma, ds_int, ds_wt);
 
     free(ds_int);
     free(ds_wt);

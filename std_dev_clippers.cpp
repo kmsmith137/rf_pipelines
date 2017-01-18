@@ -84,7 +84,7 @@ struct std_dev_clipper_kernels {
     // f_clip(intensity, weights, nfreq, nt, stride, sigma, tmp_sd, tmp_valid)
 
     int (*f_ntmp)(int, int);
-    void (*f_clip)(float *, float *, int, int, int, double, float *, mask_t *);
+    void (*f_clip)(const float *, float *, int, int, int, double, float *, mask_t *);
 };
 
 
@@ -287,7 +287,7 @@ void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, in
     float *tmp_sd = aligned_alloc<float> (ntmp);
     mask_t *tmp_valid = aligned_alloc<mask_t> (ntmp);
 
-    kernels.f_clip(const_cast<float *> (intensity), weights, nfreq, nt, stride, sigma, tmp_sd, tmp_valid);
+    kernels.f_clip(intensity, weights, nfreq, nt, stride, sigma, tmp_sd, tmp_valid);
 
     free(tmp_sd);
     free(tmp_valid);

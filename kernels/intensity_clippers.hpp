@@ -31,13 +31,6 @@ namespace rf_pipelines {
 #endif
 
 template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
-
-// _extract_first<T,S,S2>(x): a general-purpose helper which extracts first "S2" elements from x.
-template<typename T, unsigned int S, unsigned int S2, typename std::enable_if<(S==S2),int>::type = 0>
-inline simd_t<T,S2> _extract_first(simd_t<T,S> x) { return x; }
-
-template<typename T, unsigned int S, unsigned int S2, typename std::enable_if<(S==2*S2),int>::type = 0>
-inline simd_t<T,S2> _extract_first(simd_t<T,S> x) { return x.template extract_half<0>(); }
     
 
 // _write_and_advance_if(): helper which writes data and advances a pointer, 
@@ -55,7 +48,7 @@ inline void _write_and_advance_if(T*& p, simd_t<T,S> x) { return; }
 
 // -------------------------------------------------------------------------------------------------
 //
-// _kernel_noniterative_wrms_2d<T, S, Df, Dt, Iflag, Wflag, Ti, Si>
+// _kernel_noniterative_wrms_2d<T, S, Df, Dt, Iflag, Wflag>
 //    (simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, 
 //     int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
 //
@@ -73,15 +66,11 @@ inline void _write_and_advance_if(T*& p, simd_t<T,S> x) { return; }
 // The Iflag, Wflag template arguments will omit writing the ds_intensity, ds_weights
 // arrays if set to 'false'.  In this case, passing a NULL pointer is OK.
 //
-// The template parameters (Ti,Si) are the type and simd stride of the floating-point
-// type used internally when accumulating samples and computing the mean/rms.  For example,
-// it often makes sense to take (T,S)=(float,8) and (Ti,Si)=(double,4).
-//
 // FIXME a more general version of this kernel is possible, with a template parameter R
 // which controlls the number of rows read in each pass.
 
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag, typename Ti, unsigned int Si>
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag>
 inline void _kernel_noniterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
 {
     // XXX assert -> throw
@@ -90,7 +79,7 @@ inline void _kernel_noniterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, co
     assert(nfreq % Df == 0);
     assert(nt % (Dt*S) == 0);
 
-    mean_rms_accumulator<Ti,Si> acc;
+    mean_rms_accumulator<T,S> acc;
 
     const simd_t<T,S> zero = simd_t<T,S>::zero();
     const simd_t<T,S> one = simd_t<T,S> (1.0);
@@ -113,11 +102,8 @@ inline void _kernel_noniterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, co
 
     acc.horizontal_sum();
 
-    simd_t<Ti,Si> mean_i, rms_i;
-    acc.get_mean_rms(mean_i, rms_i);
-    
-    convert(mean, _extract_first<Ti,Si,S> (mean_i));
-    convert(rms, _extract_first<Ti,Si,S> (rms_i));
+    simd_t<T,S> mean_i, rms_i;
+    acc.get_mean_rms(mean, rms);
 }
 
 
@@ -209,7 +195,7 @@ inline void _kernel_iterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const
     static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
     static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
 
-    _kernel_noniterative_wrms_2d<T,S,Df,Dt,DsiFlag,DswFlag,T,S> (mean, rms, intensity, weights, nfreq, nt, stride, ds_int, ds_wt);
+    _kernel_noniterative_wrms_2d<T,S,Df,Dt,DsiFlag,DswFlag> (mean, rms, intensity, weights, nfreq, nt, stride, ds_int, ds_wt);
 
     const T *s_intensity = DsiFlag ? ds_int : intensity;
     const T *s_weights = DswFlag ? ds_wt : weights;
@@ -234,7 +220,7 @@ static void _kernel_nds_2d(int &nds_int, int &nds_wt, int nfreq, int nt)
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
-inline void _kernel_clip_2d(T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_int, T *ds_wt)
+inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_int, T *ds_wt)
 {
     static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
 
@@ -270,18 +256,18 @@ static void _kernel_nds_1d_t(int &nds_int, int &nds_wt, int nfreq, int nt)
 
 
 template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
-static void _kernel_clip_1d_t(float *intensity, float *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, float *ds_int, float *ds_wt)
+static void _kernel_clip_1d_t(const float *intensity, float *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, float *ds_int, float *ds_wt)
 {
     static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
     static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
 
     for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
-	float *irow = intensity + ifreq * stride;
+	const float *irow = intensity + ifreq * stride;
 	float *wrow = weights + ifreq * stride;
 	
 	// We pass nfreq=Df to _kernel_clip2d_wrms, not the "true" nfreq
 	simd_t<float,S> mean, rms;
-	_kernel_noniterative_wrms_2d<float,S,Df,Dt,DsiFlag,DswFlag,float,S> (mean, rms, irow, wrow, Df, nt, stride, ds_int, ds_wt);
+	_kernel_noniterative_wrms_2d<float,S,Df,Dt,DsiFlag,DswFlag> (mean, rms, irow, wrow, Df, nt, stride, ds_int, ds_wt);
 	
 	const float *irow2 = DsiFlag ? ds_int : irow;
 	const float *wrow2 = DswFlag ? ds_wt : wrow;
@@ -387,13 +373,13 @@ static void _kernel_nds_1d_f(int &nds_int, int &nds_wt, int nfreq, int nt)
 
 
 template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
-static void _kernel_clip_1d_f(float *intensity, float *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, float *ds_int, float *ds_wt)
+static void _kernel_clip_1d_f(const float *intensity, float *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, float *ds_int, float *ds_wt)
 {
     static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
     static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
 
     for (int it = 0; it < nt; it += Dt*S) {
-	float *icol = intensity + it;
+	const float *icol = intensity + it;
 	float *wcol = weights + it;
 	
 	simd_t<float,S> mean, rms;	
