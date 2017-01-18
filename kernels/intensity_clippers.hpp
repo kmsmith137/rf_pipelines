@@ -115,8 +115,8 @@ inline void _kernel_clip1d_f_iterate(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms
 // arrays if set to 'false'.  In this case, passing a NULL pointer is OK.
 
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag>
-inline void _kernel_noniterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag=false, bool Wflag=false>
+inline void _kernel_noniterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity = NULL, T *ds_weights = NULL)
 {
     mean_rms_accumulator<T,S> acc;
     _kernel_mean_rms_accumulate_2d<T,S,Df,Dt,Iflag,Wflag> (acc, intensity, weights, nfreq, nt, stride, ds_intensity, ds_weights);
@@ -233,6 +233,7 @@ template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iter
 inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_intensity, T *ds_weights)
 {
     simd_t<T,S> mean, rms;
+
     _kernel_iterative_wrms_2d<T,S,Df,Dt,IterFlag> (mean, rms, intensity, weights, nfreq, nt, stride, niter, iter_sigma, ds_intensity, ds_weights);
 
     simd_t<T,S> thresh = simd_t<T,S>(sigma) * rms;
@@ -243,7 +244,12 @@ template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iter
 inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_intensity, T *ds_weights)
 {
     simd_t<T,S> mean, rms;
-    _kernel_iterative_wrms_2d<T,S,Df,Dt,IterFlag> (mean, rms, intensity, weights, nfreq, nt, stride, niter, iter_sigma, ds_intensity, ds_weights);
+    _kernel_noniterative_wrms_2d<T,S,Df,Dt> (mean, rms, intensity, weights, nfreq, nt, stride);
+
+    for (int iter = 1; iter < niter; iter++) {
+	simd_t<T,S> thresh = simd_t<T,S>(iter_sigma) * rms;
+	_kernel_clip2d_iterate(mean, rms, intensity, weights, mean, thresh, nfreq, nt, stride);
+    }
 
     simd_t<T,S> thresh = simd_t<T,S>(sigma) * rms;
     _kernel_clip2d_mask<T,S,Df,Dt> (weights, intensity, mean, thresh, nfreq, nt, stride, stride);
