@@ -19,8 +19,6 @@
 #ifndef _RF_PIPELINES_KERNELS_INTENSITY_CLIPPERS_HPP
 #define _RF_PIPELINES_KERNELS_INTENSITY_CLIPPERS_HPP
 
-#include <cassert>  // XXX remove
-
 #include "mean_rms_accumulator.hpp"
 #include "downsample.hpp"
 #include "mask.hpp"
@@ -31,65 +29,6 @@ namespace rf_pipelines {
 #endif
 
 template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
-
-
-// -------------------------------------------------------------------------------------------------
-//
-// iterate kernels (no downsampling here)
-// XXX trying to get rid of these I think
-
-
-template<typename T, unsigned int S>
-inline void _kernel_clip2d_iterate(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms, const T *intensity, const T *weights,
-				   simd_t<T,S> in_mean, simd_t<T,S> in_thresh, int nfreq, int nt, int stride)
-{
-    mean_rms_accumulator<T,S> acc;
-
-    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	const T *irow = intensity + ifreq*stride;
-	const T *wrow = weights + ifreq*stride;
-
-	for (int it = 0; it < nt; it += S) {
-	    simd_t<T,S> ival = simd_t<T,S>::loadu(irow + it);
-	    simd_t<T,S> wval = simd_t<T,S>::loadu(wrow + it);
-
-	    simd_t<T,S> ival_c = (ival - in_mean).abs();
-	    smask_t<T,S> valid = ival_c.compare_lt(in_thresh);
-
-	    wval = wval.apply_mask(valid);
-	    acc.accumulate(ival, wval);
-	}
-    }
-
-    acc.horizontal_sum();
-    acc.get_mean_rms(out_mean, out_rms);
-}
-
-
-// Iterates on a "strip" of shape (nfreq, S).
-// There are no downsampling factors, so in the larger AXIS_FREQ kernel, it will be called with (nfreq/Df) instead of nfreq.
-template<typename T, unsigned int S>
-inline void _kernel_clip1d_f_iterate(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms, const T *intensity, const T *weights,
-				     simd_t<T,S> in_mean, simd_t<T,S> in_thresh, int nfreq, int stride)
-{
-    mean_rms_accumulator<T,S> acc;
-
-    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	const T *irow = intensity + ifreq*stride;
-	const T *wrow = weights + ifreq*stride;
-
-	simd_t<T,S> ival = simd_t<T,S>::loadu(irow);
-	simd_t<T,S> wval = simd_t<T,S>::loadu(wrow);
-
-	simd_t<T,S> ival_c = (ival - in_mean).abs();
-	smask_t<T,S> valid = ival_c.compare_lt(in_thresh);
-
-	wval = wval.apply_mask(valid);
-	acc.accumulate(ival, wval);
-    }
-
-    acc.get_mean_rms(out_mean, out_rms);
-}
 
 
 // -------------------------------------------------------------------------------------------------
@@ -144,17 +83,37 @@ inline void _kernel_noniterative_wrms_1d_f(simd_t<T,S> &mean, simd_t<T,S> &rms, 
 
 
 // -------------------------------------------------------------------------------------------------
-
-
+//
+// iterate kernels - note no downsampling factors here
+//
 // Note: number of iterations is (niter-1)
+
 
 template<typename T, unsigned int S>
 inline void _kernel_wrms_iterate_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, int niter, double iter_sigma)
 {
     for (int iter = 1; iter < niter; iter++) {
+	mean_rms_accumulator<T,S> acc;
 	simd_t<T,S> thresh = simd_t<T,S>(iter_sigma) * rms;
-	// XXX goal: _kernel_clip2d_iterate() should be moved here
-	_kernel_clip2d_iterate(mean, rms, intensity, weights, mean, thresh, nfreq, nt, stride);
+
+	for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	    const T *irow = intensity + ifreq*stride;
+	    const T *wrow = weights + ifreq*stride;
+
+	    for (int it = 0; it < nt; it += S) {
+		simd_t<T,S> ival = simd_t<T,S>::loadu(irow + it);
+		simd_t<T,S> wval = simd_t<T,S>::loadu(wrow + it);
+		
+		simd_t<T,S> ival_c = (ival - mean).abs();
+		smask_t<T,S> valid = ival_c.compare_lt(thresh);
+		
+		wval = wval.apply_mask(valid);
+		acc.accumulate(ival, wval);
+	    }
+	}
+
+	acc.horizontal_sum();
+	acc.get_mean_rms(mean, rms);
     }
 }
 
@@ -168,9 +127,24 @@ template<typename T, unsigned int S>
 inline void _kernel_wrms_iterate_1d_f(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int stride, int niter, double iter_sigma)
 {
     for (int iter = 1; iter < niter; iter++) {
+	mean_rms_accumulator<T,S> acc;
 	simd_t<T,S> thresh = simd_t<T,S>(iter_sigma) * rms;
-	// XXX goal: _kernel_clip1d_f_iterate() should be moved here
-	_kernel_clip1d_f_iterate(mean, rms, intensity, weights, mean, thresh, nfreq, stride);
+
+	for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	    const T *irow = intensity + ifreq*stride;
+	    const T *wrow = weights + ifreq*stride;
+
+	    simd_t<T,S> ival = simd_t<T,S>::loadu(irow);
+	    simd_t<T,S> wval = simd_t<T,S>::loadu(wrow);
+	    
+	    simd_t<T,S> ival_c = (ival - mean).abs();
+	    smask_t<T,S> valid = ival_c.compare_lt(thresh);
+	    
+	    wval = wval.apply_mask(valid);
+	    acc.accumulate(ival, wval);
+	}
+
+	acc.get_mean_rms(mean, rms);
     }
 }
 
