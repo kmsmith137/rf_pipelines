@@ -307,36 +307,30 @@ static void _kernel_nds_1d_t(int &nds_int, int &nds_wt, int nfreq, int nt)
 template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag, typename std::enable_if<((Df>1) || (Dt>1)),int>::type = 0>
 static void _kernel_clip_1d_t(const float *intensity, float *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, float *ds_int, float *ds_wt)
 {
-    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
-    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
+    simd_t<float,S> mean, rms;
+    simd_t<float,S> s = sigma;
 
-    for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
-	const float *irow = intensity + ifreq * stride;
-	float *wrow = weights + ifreq * stride;
-	
-	// We pass nfreq=Df to _kernel_clip2d_wrms, not the "true" nfreq
-	simd_t<float,S> mean, rms;
-	_kernel_noniterative_wrms_2d<float,S,Df,Dt,DsiFlag,DswFlag> (mean, rms, irow, wrow, Df, nt, stride, ds_int, ds_wt);
-	
-	const float *irow2 = DsiFlag ? ds_int : irow;
-	const float *wrow2 = DswFlag ? ds_wt : wrow;
-	
-	for (int iter = 1; iter < niter; iter++) {
-	    // Here we pass nfreq=1 and stride=0
-	    simd_t<float,S> thresh = simd_t<float,S>(iter_sigma) * rms;
-	    _kernel_clip2d_iterate<float,S> (mean, rms, irow2, wrow2, mean, thresh, 1, nt/Dt, 0);    // (irow2, wrow2, iter_sigma)
+    if (niter > 1) {
+	for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
+	    _kernel_noniterative_wrms_1d_t<float,S,Df,Dt,true,true> (mean, rms, intensity + ifreq*stride, weights + ifreq*stride, nt, stride, ds_int, ds_wt);
+	    _kernel_wrms_iterate_1d_t(mean, rms, ds_int, ds_wt, nt/Dt, niter, iter_sigma);
+	    _kernel_clip2d_mask<float,S,Df,Dt> (weights + ifreq*stride, ds_int, mean, s * rms, Df, nt, stride, nt/Dt);
 	}
-
-	// Here we pass nfreq=Df.  Setting both strides to 'stride' is OK but this isn't completely obvious.
-	simd_t<float,S> thresh = simd_t<float,S>(sigma) * rms;
-	_kernel_clip2d_mask<float,S,Df,Dt> (wrow, irow2, mean, thresh, Df, nt, stride, stride);    // (wrow, irow2, sigma)
+    }
+    else {
+	for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
+	    _kernel_noniterative_wrms_1d_t<float,S,Df,Dt,true,false> (mean, rms, intensity + ifreq*stride, weights + ifreq*stride, nt, stride, ds_int);
+	    _kernel_clip2d_mask<float,S,Df,Dt> (weights + ifreq*stride, ds_int, mean, s * rms, Df, nt, stride, nt/Dt);
+	}
     }
 }
+
 
 template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag, typename std::enable_if<((Df==1) && (Dt==1)),int>::type = 0>
 static void _kernel_clip_1d_t(const float *intensity, float *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, float *ds_int, float *ds_wt)
 {
     simd_t<float,S> mean, rms;
+    simd_t<float,S> s = sigma;
 
     for (int ifreq = 0; ifreq < nfreq; ifreq++) {
 	const float *irow = intensity + ifreq * stride;
@@ -344,9 +338,7 @@ static void _kernel_clip_1d_t(const float *intensity, float *weights, int nfreq,
 
 	_kernel_noniterative_wrms_1d_t<float,S,1,1> (mean, rms, irow, wrow, nt, stride);
 	_kernel_wrms_iterate_1d_t(mean, rms, irow, wrow, nt, niter, iter_sigma);
-	
-	simd_t<float,S> thresh = simd_t<float,S>(sigma) * rms;
-	_kernel_clip2d_mask<float,S,1,1> (wrow, irow, mean, thresh, 1, nt, stride, stride);
+	_kernel_clip2d_mask<float,S,1,1> (wrow, irow, mean, s * rms, 1, nt, stride, stride);
     }
 }
 
