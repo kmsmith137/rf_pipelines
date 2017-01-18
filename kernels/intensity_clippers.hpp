@@ -36,6 +36,7 @@ template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
 // -------------------------------------------------------------------------------------------------
 //
 // iterate kernels (no downsampling here)
+// XXX trying to get rid of these I think
 
 
 template<typename T, unsigned int S>
@@ -124,6 +125,7 @@ inline void _kernel_noniterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, co
 }
 
 
+
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
 inline void _kernel_iterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, 
 				      int nfreq, int nt, int stride, int niter, double sigma, T *ds_int, T *ds_wt)
@@ -151,6 +153,21 @@ inline void _kernel_clip1d_f_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *
     _kernel_mean_rms_accumulate_1d_f<T,S,Df,Dt,Iflag,Wflag> (acc, intensity, weights, nfreq, stride, ds_intensity, ds_weights);
 
     acc.get_mean_rms(mean, rms);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+// Note: number of iterations is (niter-1)
+template<typename T, unsigned int S>
+inline void _kernel_wrms_iterate_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, int niter, double iter_sigma)
+{
+    for (int iter = 1; iter < niter; iter++) {
+	simd_t<T,S> thresh = simd_t<T,S>(iter_sigma) * rms;
+	// XXX goal: _kernel_clip2d_iterate() should be moved here
+	_kernel_clip2d_iterate(mean, rms, intensity, weights, mean, thresh, nfreq, nt, stride);
+    }
 }
 
 
@@ -234,22 +251,24 @@ inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, i
 {
     simd_t<T,S> mean, rms;
 
-    _kernel_iterative_wrms_2d<T,S,Df,Dt,IterFlag> (mean, rms, intensity, weights, nfreq, nt, stride, niter, iter_sigma, ds_intensity, ds_weights);
+    if (niter == 1)
+	_kernel_noniterative_wrms_2d<T,S,Df,Dt,true> (mean, rms, intensity, weights, nfreq, nt, stride, ds_intensity);
+    else {
+	_kernel_noniterative_wrms_2d<T,S,Df,Dt,true,true> (mean, rms, intensity, weights, nfreq, nt, stride, ds_intensity, ds_weights);
+	_kernel_wrms_iterate_2d(mean, rms, ds_intensity, ds_weights, nfreq/Df, nt/Dt, nt/Dt, niter, iter_sigma);
+    }
 
     simd_t<T,S> thresh = simd_t<T,S>(sigma) * rms;
     _kernel_clip2d_mask<T,S,Df,Dt> (weights, ds_intensity, mean, thresh, nfreq, nt, stride, nt/Dt);
 }
 
+// Non-downsampled version: ds_intensity, ds_weights can be NULL
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag, typename std::enable_if<((Df==1) && (Dt==1)),int>::type = 0>
 inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_intensity, T *ds_weights)
 {
     simd_t<T,S> mean, rms;
-    _kernel_noniterative_wrms_2d<T,S,Df,Dt> (mean, rms, intensity, weights, nfreq, nt, stride);
-
-    for (int iter = 1; iter < niter; iter++) {
-	simd_t<T,S> thresh = simd_t<T,S>(iter_sigma) * rms;
-	_kernel_clip2d_iterate(mean, rms, intensity, weights, mean, thresh, nfreq, nt, stride);
-    }
+    _kernel_noniterative_wrms_2d<T,S,1,1> (mean, rms, intensity, weights, nfreq, nt, stride);
+    _kernel_wrms_iterate_2d(mean, rms, intensity, weights, nfreq, nt, stride, niter, iter_sigma);
 
     simd_t<T,S> thresh = simd_t<T,S>(sigma) * rms;
     _kernel_clip2d_mask<T,S,Df,Dt> (weights, intensity, mean, thresh, nfreq, nt, stride, stride);
