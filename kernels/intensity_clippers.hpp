@@ -350,27 +350,21 @@ static void _kernel_nds_1d_f(int &nds_int, int &nds_wt, int nfreq, int nt)
 template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag, typename std::enable_if<((Df > 1) || (Dt > 1)),int>::type = 0>
 static void _kernel_clip_1d_f(const float *intensity, float *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, float *ds_int, float *ds_wt)
 {
-    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
-    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
+    simd_t<float,S> mean, rms;	
+    simd_t<float,S> s = sigma;
 
-    for (int it = 0; it < nt; it += Dt*S) {
-	const float *icol = intensity + it;
-	float *wcol = weights + it;
-	
-	simd_t<float,S> mean, rms;	
-	_kernel_noniterative_wrms_1d_f<float,S,Df,Dt,DsiFlag,DswFlag> (mean, rms, icol, wcol, nfreq, stride, ds_int, ds_wt);
-	
-	const float *icol2 = DsiFlag ? ds_int : icol;
-	const float *wcol2 = DswFlag ? ds_wt : wcol;
-	int stride2 = DsiFlag ? S : stride;   // must use DsiFlag here, not DswFlag
-	
-	for (int iter = 1; iter < niter; iter++) {
-	    simd_t<float,S> thresh = simd_t<float,S>(iter_sigma) * rms;
-	    _kernel_clip1d_f_iterate<float,S> (mean, rms, icol2, wcol2, mean, thresh, nfreq/Df, stride2);    // (irow2, wrow2, iter_sigma)
+    if (niter > 1) {
+	for (int it = 0; it < nt; it += Dt*S) {
+	    _kernel_noniterative_wrms_1d_f<float,S,Df,Dt,true,true> (mean, rms, intensity + it, weights + it, nfreq, stride, ds_int, ds_wt);
+	    _kernel_wrms_iterate_1d_f(mean, rms, ds_int, ds_wt, nfreq/Df, S, niter, iter_sigma);
+	    _kernel_intensity_mask_1d_f<float,S,Df,Dt> (weights + it, ds_int, mean, s * rms, nfreq, stride, S);
 	}
-
-	simd_t<float,S> thresh = simd_t<float,S>(sigma) * rms;
-	_kernel_intensity_mask_1d_f<float,S,Df,Dt> (wcol, icol2, mean, thresh, nfreq, stride, stride2);
+    }
+    else {
+	for (int it = 0; it < nt; it += Dt*S) {
+	    _kernel_noniterative_wrms_1d_f<float,S,Df,Dt,true> (mean, rms, intensity + it, weights + it, nfreq, stride, ds_int);
+	    _kernel_intensity_mask_1d_f<float,S,Df,Dt> (weights + it, ds_int, mean, s * rms, nfreq, stride, S);
+	}
     }
 }
 
@@ -381,7 +375,7 @@ static void _kernel_clip_1d_f(const float *intensity, float *weights, int nfreq,
     simd_t<float,S> mean, rms;	
     simd_t<float,S> s = sigma;
 
-    for (int it = 0; it < nt; it += Dt*S) {
+    for (int it = 0; it < nt; it += S) {
 	const float *icol = intensity + it;
 	float *wcol = weights + it;
 	
