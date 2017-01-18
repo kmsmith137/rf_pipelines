@@ -222,6 +222,17 @@ inline void _kernel_iterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const
 }
 
 
+template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
+static void _kernel_nds_2d(int &nds_int, int &nds_wt, int nfreq, int nt)
+{
+    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
+    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
+
+    nds_int = DsiFlag ? ((nfreq/Df) * (nt/Dt)) : 0;
+    nds_wt = DswFlag ? ((nfreq/Df) * (nt/Dt)) : 0;
+}
+
+
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
 inline void _kernel_clip_2d(T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_int, T *ds_wt)
 {
@@ -236,6 +247,55 @@ inline void _kernel_clip_2d(T *intensity, T *weights, int nfreq, int nt, int str
     // (s_intensity, weights, sigma) here
     simd_t<T,S> thresh = simd_t<T,S>(sigma) * rms;
     _kernel_clip2d_mask<T,S,Df,Dt> (weights, s_intensity, mean, thresh, nfreq, nt, stride, s_stride);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// _kernel_clip_1d_t(): This is the "bottom line" routine which is wrapped by intensity_clipper(AXIS_TIME)
+//
+// Currently implemented by calling the 2d kernels many times with nt=1.
+// FIXME there is a little extra overhead here, should improve by writing real 1D kernels.
+
+
+template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
+static void _kernel_nds_1d_t(int &nds_int, int &nds_wt, int nfreq, int nt)
+{
+    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
+    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
+
+    nds_int = DsiFlag ? (nt/Dt) : 0;
+    nds_wt = DswFlag ? (nt/Dt) : 0;
+}
+
+
+template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
+static void _kernel_clip_1d_t(float *intensity, float *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, float *ds_int, float *ds_wt)
+{
+    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
+    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
+	float *irow = intensity + ifreq * stride;
+	float *wrow = weights + ifreq * stride;
+	
+	// We pass nfreq=Df to _kernel_clip2d_wrms, not the "true" nfreq
+	simd_t<float,S> mean, rms;
+	_kernel_noniterative_wrms_2d<float,S,Df,Dt,DsiFlag,DswFlag,float,S> (mean, rms, irow, wrow, Df, nt, stride, ds_int, ds_wt);
+	
+	const float *irow2 = DsiFlag ? ds_int : irow;
+	const float *wrow2 = DswFlag ? ds_wt : wrow;
+	
+	for (int iter = 1; iter < niter; iter++) {
+	    // Here we pass nfreq=1 and stride=0
+	    simd_t<float,S> thresh = simd_t<float,S>(iter_sigma) * rms;
+	    _kernel_clip2d_iterate<float,S> (mean, rms, irow2, wrow2, mean, thresh, 1, nt/Dt, 0);    // (irow2, wrow2, iter_sigma)
+	}
+
+	// Here we pass nfreq=Df.  Setting both strides to 'stride' is OK but this isn't completely obvious.
+	simd_t<float,S> thresh = simd_t<float,S>(sigma) * rms;
+	_kernel_clip2d_mask<float,S,Df,Dt> (wrow, irow2, mean, thresh, Df, nt, stride, stride);    // (wrow, irow2, sigma)
+    }
 }
 
 
@@ -303,6 +363,53 @@ inline void _kernel_clip1d_f_mask(T *weights, const T *ds_intensity, simd_t<T,S>
 	_kernel_mask<T,S,Df,Dt> (weights + ifreq*stride, valid, stride);
 
 	ds_intensity += ds_stride;
+    }
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// _kernel_clip_1d_f(): This is the "bottom line" routine which is wrapped by intensity_clipper(AXIS_FREQ)
+//
+// Currently implemented by calling the 2d kernels many times with nfreq=1.
+// FIXME there is a little extra overhead here, should improve by writing real 1D kernels.
+
+
+template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
+static void _kernel_nds_1d_f(int &nds_int, int &nds_wt, int nfreq, int nt)
+{
+    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
+    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
+
+    nds_int = DsiFlag ? ((nfreq/Df) * S) : 0;
+    nds_wt = DswFlag ? ((nfreq/Df) * S) : 0;
+}
+
+
+template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
+static void _kernel_clip_1d_f(float *intensity, float *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, float *ds_int, float *ds_wt)
+{
+    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
+    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
+
+    for (int it = 0; it < nt; it += Dt*S) {
+	float *icol = intensity + it;
+	float *wcol = weights + it;
+	
+	simd_t<float,S> mean, rms;	
+	_kernel_clip1d_f_wrms<float,S,Df,Dt,DsiFlag,DswFlag> (mean, rms, icol, wcol, nfreq, stride, ds_int, ds_wt);
+	
+	const float *icol2 = DsiFlag ? ds_int : icol;
+	const float *wcol2 = DswFlag ? ds_wt : wcol;
+	int stride2 = DsiFlag ? S : stride;   // must use DsiFlag here, not DswFlag
+	
+	for (int iter = 1; iter < niter; iter++) {
+	    simd_t<float,S> thresh = simd_t<float,S>(iter_sigma) * rms;
+	    _kernel_clip1d_f_iterate<float,S> (mean, rms, icol2, wcol2, mean, thresh, nfreq/Df, stride2);    // (irow2, wrow2, iter_sigma)
+	}
+
+	simd_t<float,S> thresh = simd_t<float,S>(sigma) * rms;
+	_kernel_clip1d_f_mask<float,S,Df,Dt> (wcol, icol2, mean, thresh, nfreq, stride, stride2);
     }
 }
 
