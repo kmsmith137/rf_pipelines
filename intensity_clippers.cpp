@@ -16,6 +16,34 @@ namespace rf_pipelines {
 #endif
 
 
+static void _intensity_clipper_alloc(float*& ds_intensity, float*& ds_weights, int nfreq, int nt, axis_type axis, int niter, int Df, int Dt)
+{
+    static constexpr int S = constants::single_precision_simd_length;
+
+    ds_intensity = nullptr;
+    ds_weights = nullptr;
+
+    if ((Df==1) && (Dt==1))
+	return;
+
+    int nalloc;
+
+    if (axis == AXIS_FREQ)
+	nalloc = (nfreq/Df) * S;
+    else if (axis == AXIS_TIME)
+	nalloc = (nt/Dt);
+    else if (axis == AXIS_NONE)
+	nalloc = (nfreq*nt) / (Df*Dt);
+    else
+	throw std::runtime_error("rf_pipelines internal error: bad axis in _intensity_clipper_alloc()");
+
+    ds_intensity = aligned_alloc<float> (nalloc);
+    
+    if (niter > 1)
+	ds_weights = aligned_alloc<float> (nalloc);
+}
+
+
 // -------------------------------------------------------------------------------------------------
 //
 // intensity_clipper_kernel_table
@@ -165,14 +193,13 @@ struct clipper_transform : public wi_transform
 
     virtual void set_stream(const wi_stream &stream) override
     {
-	rf_assert(stream.nfreq % nds_f == 0);
-
-	int nds_int, nds_wt;
-	this->kernels.f_nds(nds_int, nds_wt, stream.nfreq, nt_chunk);
+	if (stream.nfreq % nds_f)
+	    throw runtime_error("rf_pipelines intensity_clipper: stream nfreq (=" + to_string(stream.nfreq) 
+				+ ") is not divisible by frequency downsampling factor Df=" + to_string(nds_f));
 
 	this->nfreq = stream.nfreq;
-	this->ds_intensity = aligned_alloc<float> (nds_int);
-	this->ds_weights = aligned_alloc<float> (nds_wt);
+
+	_intensity_clipper_alloc(this->ds_intensity, this->ds_weights, nfreq, nt_chunk, axis, niter, nds_f, nds_t);
     }
 
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
@@ -251,18 +278,17 @@ void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, 
 {
     check_params(Df, Dt, axis, nfreq, nt, stride, sigma, niter, iter_sigma);
 
+    float *ds_intensity = nullptr;
+    float *ds_weights = nullptr;
+
+    _intensity_clipper_alloc(ds_intensity, ds_weights, nfreq, nt, axis, niter, Df, Dt);
+
     intensity_clipper_kernels kernels = global_intensity_clipper_kernel_table.get_kernel(axis, Df, Dt, niter);
 
-    int nds_int, nds_wt;
-    kernels.f_nds(nds_int, nds_wt, nfreq, nt);
+    kernels.f_clip(intensity, weights, nfreq, nt, stride, niter, sigma, iter_sigma, ds_intensity, ds_weights);
 
-    float *ds_int = aligned_alloc<float> (nds_int);
-    float *ds_wt = aligned_alloc<float> (nds_wt);
-
-    kernels.f_clip(intensity, weights, nfreq, nt, stride, niter, sigma, iter_sigma, ds_int, ds_wt);
-
-    free(ds_int);
-    free(ds_wt);
+    free(ds_intensity);
+    free(ds_weights);
 }
 
 
