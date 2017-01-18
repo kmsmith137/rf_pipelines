@@ -988,12 +988,12 @@ struct clipper_ops_base3 : public clipper_ops_base2<T,S_>
 
     virtual void apply_fast_mask_kernel_2d(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int nt, int stride, int ds_stride) override
     {
-	_kernel_clip2d_mask<T,S_,Df_,Dt_> (weights, ds_intensity, simd_t<T,S_>(mean), simd_t<T,S_>(thresh), nfreq, nt, stride, ds_stride);
+	_kernel_intensity_mask_2d<T,S_,Df_,Dt_> (weights, ds_intensity, simd_t<T,S_>(mean), simd_t<T,S_>(thresh), nfreq, nt, stride, ds_stride);
     }
 
     virtual void apply_fast_mask_kernel_1d_f(T *weights, const T *ds_intensity, T mean, T thresh, int nfreq, int stride, int ds_stride) override
     {
-	_kernel_clip1d_f_mask<T,S_,Df_,Dt_> (weights, ds_intensity, simd_t<T,S_> (mean), simd_t<T,S_> (thresh), nfreq, stride, ds_stride);
+	_kernel_intensity_mask_1d_f<T,S_,Df_,Dt_> (weights, ds_intensity, simd_t<T,S_> (mean), simd_t<T,S_> (thresh), nfreq, stride, ds_stride);
     }
 };
 

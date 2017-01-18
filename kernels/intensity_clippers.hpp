@@ -6,7 +6,7 @@
 // _kernel_clip2d_iterate(): computes weighted mean/rms of a 2D array, including only elements
 //    in a certain range.  (there is no downsampling option here)
 //
-// _kernel_clip2d_mask(): sets weights to zero when intensity is outside a certain range.
+// _kernel_intensity_mask_2d(): sets weights to zero when intensity is outside a certain range.
 //    Optionally, the intensity array can be downsampled relative to the weights.
 //
 // _kernel_iterative_wrms_2d():
@@ -190,20 +190,14 @@ inline void _kernel_wrms_iterate_1d_t(simd_t<T,S> &mean, simd_t<T,S> &rms, const
 //
 // masking kernels
 //
-// _kernel_clip2d_mask(): Masks all intensity samples which differ from the mean by more than 
+// _kernel_intensity_mask_2d(): Masks all intensity samples which differ from the mean by more than 
 // 'thresh'.  The intensity array can be downsampled relative to the weights array.
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
-inline void _kernel_clip2d_mask(T *weights, const T *ds_intensity, simd_t<T,S> mean, simd_t<T,S> thresh, int nfreq, int nt, int stride, int ds_stride)
+inline void _kernel_intensity_mask_2d(T *weights, const T *ds_intensity, simd_t<T,S> mean, simd_t<T,S> thresh, int nfreq, int nt, int stride, int ds_stride)
 {
     const T *ds_irow = ds_intensity;
-
-    // XXX assert -> throw
-    assert(nfreq > 0);
-    assert(nt > 0);
-    assert(nfreq % Df == 0);
-    assert(nt % (Dt*S) == 0);
 
     for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
 	const T *ds_itmp = ds_irow;
@@ -226,7 +220,14 @@ inline void _kernel_clip2d_mask(T *weights, const T *ds_intensity, simd_t<T,S> m
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
-inline void _kernel_clip1d_f_mask(T *weights, const T *ds_intensity, simd_t<T,S> mean, simd_t<T,S> thresh, int nfreq, int stride, int ds_stride)
+inline void _kernel_intensity_mask_1d_t(T *weights, const T *ds_intensity, simd_t<T,S> mean, simd_t<T,S> thresh, int nt, int stride, int ds_stride)
+{
+    _kernel_intensity_mask_2d<T,S,Df,Dt> (weights, ds_intensity, mean, thresh, Df, nt, stride, ds_stride);
+}
+
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
+inline void _kernel_intensity_mask_1d_f(T *weights, const T *ds_intensity, simd_t<T,S> mean, simd_t<T,S> thresh, int nfreq, int stride, int ds_stride)
 {
     for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
 	simd_t<T,S> ival = simd_t<T,S>::loadu(ds_intensity);
@@ -274,7 +275,7 @@ inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, i
     }
 
     simd_t<T,S> thresh = simd_t<T,S>(sigma) * rms;
-    _kernel_clip2d_mask<T,S,Df,Dt> (weights, ds_intensity, mean, thresh, nfreq, nt, stride, nt/Dt);
+    _kernel_intensity_mask_2d<T,S,Df,Dt> (weights, ds_intensity, mean, thresh, nfreq, nt, stride, nt/Dt);
 }
 
 // Non-downsampled version: ds_intensity, ds_weights can be NULL
@@ -286,7 +287,7 @@ inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, i
     _kernel_wrms_iterate_2d(mean, rms, intensity, weights, nfreq, nt, stride, niter, iter_sigma);
 
     simd_t<T,S> thresh = simd_t<T,S>(sigma) * rms;
-    _kernel_clip2d_mask<T,S,Df,Dt> (weights, intensity, mean, thresh, nfreq, nt, stride, stride);
+    _kernel_intensity_mask_2d<T,S,Df,Dt> (weights, intensity, mean, thresh, nfreq, nt, stride, stride);
 }
 
 
@@ -314,13 +315,13 @@ static void _kernel_clip_1d_t(const float *intensity, float *weights, int nfreq,
 	for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
 	    _kernel_noniterative_wrms_1d_t<float,S,Df,Dt,true,true> (mean, rms, intensity + ifreq*stride, weights + ifreq*stride, nt, stride, ds_int, ds_wt);
 	    _kernel_wrms_iterate_1d_t(mean, rms, ds_int, ds_wt, nt/Dt, niter, iter_sigma);
-	    _kernel_clip2d_mask<float,S,Df,Dt> (weights + ifreq*stride, ds_int, mean, s * rms, Df, nt, stride, nt/Dt);
+	    _kernel_intensity_mask_1d_t<float,S,Df,Dt> (weights + ifreq*stride, ds_int, mean, s * rms, nt, stride, nt/Dt);
 	}
     }
     else {
 	for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
 	    _kernel_noniterative_wrms_1d_t<float,S,Df,Dt,true,false> (mean, rms, intensity + ifreq*stride, weights + ifreq*stride, nt, stride, ds_int);
-	    _kernel_clip2d_mask<float,S,Df,Dt> (weights + ifreq*stride, ds_int, mean, s * rms, Df, nt, stride, nt/Dt);
+	    _kernel_intensity_mask_1d_t<float,S,Df,Dt> (weights + ifreq*stride, ds_int, mean, s * rms, nt, stride, nt/Dt);
 	}
     }
 }
@@ -338,7 +339,7 @@ static void _kernel_clip_1d_t(const float *intensity, float *weights, int nfreq,
 
 	_kernel_noniterative_wrms_1d_t<float,S,1,1> (mean, rms, irow, wrow, nt, stride);
 	_kernel_wrms_iterate_1d_t(mean, rms, irow, wrow, nt, niter, iter_sigma);
-	_kernel_clip2d_mask<float,S,1,1> (wrow, irow, mean, s * rms, 1, nt, stride, stride);
+	_kernel_intensity_mask_1d_t<float,S,1,1> (wrow, irow, mean, s * rms, nt, stride, stride);
     }
 }
 
@@ -380,7 +381,7 @@ static void _kernel_clip_1d_f(const float *intensity, float *weights, int nfreq,
 	}
 
 	simd_t<float,S> thresh = simd_t<float,S>(sigma) * rms;
-	_kernel_clip1d_f_mask<float,S,Df,Dt> (wcol, icol2, mean, thresh, nfreq, stride, stride2);
+	_kernel_intensity_mask_1d_f<float,S,Df,Dt> (wcol, icol2, mean, thresh, nfreq, stride, stride2);
     }
 }
 
