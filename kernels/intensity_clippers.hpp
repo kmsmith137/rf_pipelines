@@ -59,10 +59,6 @@ inline void _kernel_noniterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, co
 {
     mean_rms_accumulator<T,S> acc;
     _kernel_mean_rms_accumulate_2d<T,S,Df,Dt,Iflag,Wflag> (acc, intensity, weights, nfreq, nt, stride, ds_intensity, ds_weights);
-
-    acc.horizontal_sum();
-
-    simd_t<T,S> mean_i, rms_i;
     acc.get_mean_rms(mean, rms);
 }
 

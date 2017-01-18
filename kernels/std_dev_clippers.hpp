@@ -35,7 +35,6 @@ inline void _kernel_std_dev_t(T *out_sd, smask_t<T,1> *out_valid, const T *inten
 	_kernel_mean_rms_accumulate_1d_t<T,S,Df,Dt> (acc, irow, wrow, nt, stride);
 
 	simd_t<T,S> mean, var;
-	acc.horizontal_sum();
 	acc.get_mean_variance(mean, var);
 
 	// scalar instructions should be fine here

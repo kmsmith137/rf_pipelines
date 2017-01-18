@@ -166,8 +166,8 @@ template<typename T, unsigned int S, bool flag, typename std::enable_if<(!flag),
 inline void _write_and_advance_if(T*& p, simd_t<T,S> x) { return; }
 
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag, typename std::enable_if<((Df>1) || (Dt>1)),int>::type = 0>
-inline void _kernel_mean_rms_accumulate_2d(mean_rms_accumulator<T,S> &acc, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag=false, bool Wflag=false, typename std::enable_if<((Df>1) || (Dt>1)),int>::type = 0>
+inline void _kernel_mean_rms_accumulate_2d(mean_rms_accumulator<T,S> &acc, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity = NULL, T *ds_weights = NULL)
 {
     const simd_t<T,S> zero = simd_t<T,S>::zero();
     const simd_t<T,S> one = simd_t<T,S> (1.0);
@@ -187,11 +187,13 @@ inline void _kernel_mean_rms_accumulate_2d(mean_rms_accumulator<T,S> &acc, const
 	    _write_and_advance_if<T,S,Wflag> (ds_weights, wval);
 	}
     }
+
+    acc.horizontal_sum();
 }
 
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag, typename std::enable_if<((Df==1) && (Dt==1)),int>::type = 0>
-inline void _kernel_mean_rms_accumulate_2d(mean_rms_accumulator<T,S> &acc, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag=false, bool Wflag=false, typename std::enable_if<((Df==1) && (Dt==1)),int>::type = 0>
+inline void _kernel_mean_rms_accumulate_2d(mean_rms_accumulator<T,S> &acc, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity = NULL, T *ds_weights = NULL)
 {
     static_assert(!Iflag && !Wflag, "mean_rms_accumulate() with (Df,Dt)=(1,1) and Iflag/Wflag set to true: this is probably a bug");
     
@@ -206,6 +208,8 @@ inline void _kernel_mean_rms_accumulate_2d(mean_rms_accumulator<T,S> &acc, const
 	    acc.accumulate(ival, wval);
 	}
     }
+
+    acc.horizontal_sum();
 }
 
 
