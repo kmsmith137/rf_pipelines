@@ -35,6 +35,67 @@ template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
 
 // -------------------------------------------------------------------------------------------------
 //
+// iterate kernels (no downsampling here)
+
+
+template<typename T, unsigned int S>
+inline void _kernel_clip2d_iterate(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms, const T *intensity, const T *weights,
+				   simd_t<T,S> in_mean, simd_t<T,S> in_thresh, int nfreq, int nt, int stride)
+{
+    mean_rms_accumulator<T,S> acc;
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	const T *irow = intensity + ifreq*stride;
+	const T *wrow = weights + ifreq*stride;
+
+	for (int it = 0; it < nt; it += S) {
+	    simd_t<T,S> ival = simd_t<T,S>::loadu(irow + it);
+	    simd_t<T,S> wval = simd_t<T,S>::loadu(wrow + it);
+
+	    simd_t<T,S> ival_c = (ival - in_mean).abs();
+	    smask_t<T,S> valid = ival_c.compare_lt(in_thresh);
+
+	    wval = wval.apply_mask(valid);
+	    acc.accumulate(ival, wval);
+	}
+    }
+
+    acc.horizontal_sum();
+    acc.get_mean_rms(out_mean, out_rms);
+}
+
+
+// Iterates on a "strip" of shape (nfreq, S).
+// There are no downsampling factors, so in the larger AXIS_FREQ kernel, it will be called with (nfreq/Df) instead of nfreq.
+template<typename T, unsigned int S>
+inline void _kernel_clip1d_f_iterate(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms, const T *intensity, const T *weights,
+				     simd_t<T,S> in_mean, simd_t<T,S> in_thresh, int nfreq, int stride)
+{
+    mean_rms_accumulator<T,S> acc;
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	const T *irow = intensity + ifreq*stride;
+	const T *wrow = weights + ifreq*stride;
+
+	simd_t<T,S> ival = simd_t<T,S>::loadu(irow);
+	simd_t<T,S> wval = simd_t<T,S>::loadu(wrow);
+
+	simd_t<T,S> ival_c = (ival - in_mean).abs();
+	smask_t<T,S> valid = ival_c.compare_lt(in_thresh);
+
+	wval = wval.apply_mask(valid);
+	acc.accumulate(ival, wval);
+    }
+
+    acc.get_mean_rms(out_mean, out_rms);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// wrms kernels
+
+
 // _kernel_noniterative_wrms_2d<T, S, Df, Dt, Iflag, Wflag>
 //    (simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, 
 //     int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
@@ -63,7 +124,39 @@ inline void _kernel_noniterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, co
 }
 
 
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
+inline void _kernel_iterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, 
+				      int nfreq, int nt, int stride, int niter, double sigma, T *ds_int, T *ds_wt)
+{
+    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
+    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
+
+    _kernel_noniterative_wrms_2d<T,S,Df,Dt,DsiFlag,DswFlag> (mean, rms, intensity, weights, nfreq, nt, stride, ds_int, ds_wt);
+
+    const T *s_intensity = DsiFlag ? ds_int : intensity;
+    const T *s_weights = DswFlag ? ds_wt : weights;
+    int s_stride = DsiFlag ? (nt/Dt) : stride;   // must use DsiFlag here, not DswFlag
+	
+    for (int iter = 1; iter < niter; iter++) {
+	simd_t<T,S> thresh = simd_t<T,S>(sigma) * rms;
+	_kernel_clip2d_iterate<T,S> (mean, rms, s_intensity, s_weights, mean, thresh, nfreq/Df, nt/Dt, s_stride);
+    }
+}
+
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag>
+inline void _kernel_clip1d_f_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_intensity, T *ds_weights)
+{
+    mean_rms_accumulator<T,S> acc;
+    _kernel_mean_rms_accumulate_1d_f<T,S,Df,Dt,Iflag,Wflag> (acc, intensity, weights, nfreq, stride, ds_intensity, ds_weights);
+
+    acc.get_mean_rms(mean, rms);
+}
+
+
 // -------------------------------------------------------------------------------------------------
+//
+// masking kernels
 //
 // _kernel_clip2d_mask(): Masks all intensity samples which differ from the mean by more than 
 // 'thresh'.  The intensity array can be downsampled relative to the weights array.
@@ -100,68 +193,29 @@ inline void _kernel_clip2d_mask(T *weights, const T *ds_intensity, simd_t<T,S> m
 }
 
 
-// -------------------------------------------------------------------------------------------------
-//
-// _kernel_clip2d_iterate(): Computes the weighted mean/rms of a 2D array, using only samples
-// which differ by the mean by more than 'thresh'.  No downsampling in this one.
-
-
-template<typename T, unsigned int S>
-inline void _kernel_clip2d_iterate(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms, const T *intensity, const T *weights,
-				   simd_t<T,S> in_mean, simd_t<T,S> in_thresh, int nfreq, int nt, int stride)
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
+inline void _kernel_clip1d_f_mask(T *weights, const T *ds_intensity, simd_t<T,S> mean, simd_t<T,S> thresh, int nfreq, int stride, int ds_stride)
 {
-    mean_rms_accumulator<T,S> acc;
+    for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
+	simd_t<T,S> ival = simd_t<T,S>::loadu(ds_intensity);
+	ival -= mean;
+	ival = ival.abs();
 
-    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	const T *irow = intensity + ifreq*stride;
-	const T *wrow = weights + ifreq*stride;
+	smask_t<T,S> valid = ival.compare_lt(thresh);
+	_kernel_mask<T,S,Df,Dt> (weights + ifreq*stride, valid, stride);
 
-	for (int it = 0; it < nt; it += S) {
-	    simd_t<T,S> ival = simd_t<T,S>::loadu(irow + it);
-	    simd_t<T,S> wval = simd_t<T,S>::loadu(wrow + it);
-
-	    simd_t<T,S> ival_c = (ival - in_mean).abs();
-	    smask_t<T,S> valid = ival_c.compare_lt(in_thresh);
-
-	    wval = wval.apply_mask(valid);
-	    acc.accumulate(ival, wval);
-	}
+	ds_intensity += ds_stride;
     }
-
-    acc.horizontal_sum();
-    acc.get_mean_rms(out_mean, out_rms);
 }
 
 
 // -------------------------------------------------------------------------------------------------
-//
-// _kernel_iterative_wrms_2d():
-//   This is the "bottom line" routine which is wrapped by weighted_mean_and_rms().
 //
 // _kernel_clip_2d(): 
 //    This is the "bottom line" routine which is wrapped by intensity_clipper(AXIS_NONE).
 //
 // Note: caller must ensure that the IterFlag compile-time argument is 'true' iff (niter > 0).
 
-
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
-inline void _kernel_iterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, 
-				      int nfreq, int nt, int stride, int niter, double sigma, T *ds_int, T *ds_wt)
-{
-    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
-    static constexpr bool DswFlag = IterFlag && ((Df > 1) || (Dt > 1));
-
-    _kernel_noniterative_wrms_2d<T,S,Df,Dt,DsiFlag,DswFlag> (mean, rms, intensity, weights, nfreq, nt, stride, ds_int, ds_wt);
-
-    const T *s_intensity = DsiFlag ? ds_int : intensity;
-    const T *s_weights = DswFlag ? ds_wt : weights;
-    int s_stride = DsiFlag ? (nt/Dt) : stride;   // must use DsiFlag here, not DswFlag
-	
-    for (int iter = 1; iter < niter; iter++) {
-	simd_t<T,S> thresh = simd_t<T,S>(sigma) * rms;
-	_kernel_clip2d_iterate<T,S> (mean, rms, s_intensity, s_weights, mean, thresh, nfreq/Df, nt/Dt, s_stride);
-    }
-}
 
 
 template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
@@ -175,29 +229,28 @@ static void _kernel_nds_2d(int &nds_int, int &nds_wt, int nfreq, int nt)
 }
 
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
-inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_int, T *ds_wt)
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag, typename std::enable_if<((Df>1) || (Dt>1)),int>::type = 0>
+inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_intensity, T *ds_weights)
 {
-    static constexpr bool DsiFlag = (Df > 1) || (Dt > 1);
-
     simd_t<T,S> mean, rms;
-    _kernel_iterative_wrms_2d<T,S,Df,Dt,IterFlag> (mean, rms, intensity, weights, nfreq, nt, stride, niter, iter_sigma, ds_int, ds_wt);
+    _kernel_iterative_wrms_2d<T,S,Df,Dt,IterFlag> (mean, rms, intensity, weights, nfreq, nt, stride, niter, iter_sigma, ds_intensity, ds_weights);
 
-    const T *s_intensity = DsiFlag ? ds_int : intensity;
-    int s_stride = DsiFlag ? (nt/Dt) : stride;   // must use DsiFlag here, not DswFlag
-
-    // (s_intensity, weights, sigma) here
     simd_t<T,S> thresh = simd_t<T,S>(sigma) * rms;
-    _kernel_clip2d_mask<T,S,Df,Dt> (weights, s_intensity, mean, thresh, nfreq, nt, stride, s_stride);
+    _kernel_clip2d_mask<T,S,Df,Dt> (weights, ds_intensity, mean, thresh, nfreq, nt, stride, nt/Dt);
+}
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag, typename std::enable_if<((Df==1) && (Dt==1)),int>::type = 0>
+inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_intensity, T *ds_weights)
+{
+    simd_t<T,S> mean, rms;
+    _kernel_iterative_wrms_2d<T,S,Df,Dt,IterFlag> (mean, rms, intensity, weights, nfreq, nt, stride, niter, iter_sigma, ds_intensity, ds_weights);
+
+    simd_t<T,S> thresh = simd_t<T,S>(sigma) * rms;
+    _kernel_clip2d_mask<T,S,Df,Dt> (weights, intensity, mean, thresh, nfreq, nt, stride, stride);
 }
 
 
 // -------------------------------------------------------------------------------------------------
-//
-// _kernel_clip_1d_t(): This is the "bottom line" routine which is wrapped by intensity_clipper(AXIS_TIME)
-//
-// Currently implemented by calling the 2d kernels many times with nt=1.
-// FIXME there is a little extra overhead here, should improve by writing real 1D kernels.
 
 
 template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
@@ -242,66 +295,6 @@ static void _kernel_clip_1d_t(const float *intensity, float *weights, int nfreq,
 
 
 // -------------------------------------------------------------------------------------------------
-
-
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag>
-inline void _kernel_clip1d_f_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_intensity, T *ds_weights)
-{
-    mean_rms_accumulator<T,S> acc;
-    _kernel_mean_rms_accumulate_1d_f<T,S,Df,Dt,Iflag,Wflag> (acc, intensity, weights, nfreq, stride, ds_intensity, ds_weights);
-
-    acc.get_mean_rms(mean, rms);
-}
-
-
-// Iterates on a "strip" of shape (nfreq, S).
-// There are no downsampling factors, so in the larger AXIS_FREQ kernel, it will be called with (nfreq/Df) instead of nfreq.
-template<typename T, unsigned int S>
-inline void _kernel_clip1d_f_iterate(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms, const T *intensity, const T *weights,
-				     simd_t<T,S> in_mean, simd_t<T,S> in_thresh, int nfreq, int stride)
-{
-    mean_rms_accumulator<T,S> acc;
-
-    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	const T *irow = intensity + ifreq*stride;
-	const T *wrow = weights + ifreq*stride;
-
-	simd_t<T,S> ival = simd_t<T,S>::loadu(irow);
-	simd_t<T,S> wval = simd_t<T,S>::loadu(wrow);
-
-	simd_t<T,S> ival_c = (ival - in_mean).abs();
-	smask_t<T,S> valid = ival_c.compare_lt(in_thresh);
-
-	wval = wval.apply_mask(valid);
-	acc.accumulate(ival, wval);
-    }
-
-    acc.get_mean_rms(out_mean, out_rms);
-}
-
-
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
-inline void _kernel_clip1d_f_mask(T *weights, const T *ds_intensity, simd_t<T,S> mean, simd_t<T,S> thresh, int nfreq, int stride, int ds_stride)
-{
-    for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
-	simd_t<T,S> ival = simd_t<T,S>::loadu(ds_intensity);
-	ival -= mean;
-	ival = ival.abs();
-
-	smask_t<T,S> valid = ival.compare_lt(thresh);
-	_kernel_mask<T,S,Df,Dt> (weights + ifreq*stride, valid, stride);
-
-	ds_intensity += ds_stride;
-    }
-}
-
-
-// -------------------------------------------------------------------------------------------------
-//
-// _kernel_clip_1d_f(): This is the "bottom line" routine which is wrapped by intensity_clipper(AXIS_FREQ)
-//
-// Currently implemented by calling the 2d kernels many times with nfreq=1.
-// FIXME there is a little extra overhead here, should improve by writing real 1D kernels.
 
 
 template<unsigned int S, unsigned int Df, unsigned int Dt, bool IterFlag>
