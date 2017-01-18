@@ -2,6 +2,7 @@
 #define _RF_PIPELINES_KERNELS_MEAN_RMS_ACCUMULATOR_HPP
 
 #include <simd_helpers/convert.hpp>
+#include "downsample.hpp"
 
 namespace rf_pipelines {
 #if 0
@@ -51,6 +52,15 @@ struct mean_rms_accumulator {
 	acc0 += wval;
 	acc1 += wi;
 	acc2 += wi * ival;
+    }
+
+    // This version of accumulate() is better if the caller already has values 
+    // of W, (W*I), and (W*I^2).  For example, if a "subaccumulator" is being accumulated.
+    inline void accumulate(simd_t<T,S> wval, simd_t<T,S> wival, simd_t<T,S> wiival)
+    {
+	acc0 += wval;
+	acc1 += wival;
+	acc2 += wiival;
     }
 
     template<unsigned int N, typename std::enable_if<(N>0),int>::type = 0>
@@ -116,6 +126,144 @@ struct mean_rms_accumulator {
 	rms = var.sqrt();
     }
 };
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// _kernel_mean_rms_accumulate_2d<T, S, Df, Dt, Iflag, Wflag>
+//     (mean_rms_accumulator<T,S> &acc, const T *intensity, const T *weights,
+//      int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
+//
+// Computes the weighted mean and rms of a 2D strided array,
+// with downsampling factors (Df,Dt) in the (frequency,time) axes.
+//
+// As the downsampled intensity and weights arrays are computed, they are written to
+// 'ds_intensity' and 'ds_weights'.  These are unstrided arrays, i.e. the row stride
+// is (nt/Dt).
+//
+// The Iflag, Wflag template arguments will omit writing the ds_intensity, ds_weights
+// arrays if set to 'false'.  In this case, passing a NULL pointer is OK.
+//
+// Caller must check that:
+//    - nfreq is divisible by Df
+//    - nt is divisible by (Dt*S)       NOTE (Dt*S) here, not (Dt) !!
+//
+// FIXME a more general version of this kernel is possible, with a template parameter R
+// which controlls the number of rows read in each pass.
+
+
+
+// _write_and_advance_if(): helper which writes data and advances a pointer, 
+// but only if a specified boolean predicate evaluates to true at compile-time.
+template<typename T, unsigned int S, bool flag, typename std::enable_if<flag,int>::type = 0>
+inline void _write_and_advance_if(T*& p, simd_t<T,S> x)
+{
+    x.storeu(p);
+    p += S;
+}
+
+template<typename T, unsigned int S, bool flag, typename std::enable_if<(!flag),int>::type = 0>
+inline void _write_and_advance_if(T*& p, simd_t<T,S> x) { return; }
+
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag, typename std::enable_if<((Df>1) || (Dt>1)),int>::type = 0>
+inline void _kernel_mean_rms_accumulate_2d(mean_rms_accumulator<T,S> &acc, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
+{
+    const simd_t<T,S> zero = simd_t<T,S>::zero();
+    const simd_t<T,S> one = simd_t<T,S> (1.0);
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
+	const T *irow = intensity + ifreq*stride;
+	const T *wrow = weights + ifreq*stride;
+
+	for (int it = 0; it < nt; it += Dt*S) {
+	    simd_t<T,S> wival, wval;
+	    _kernel_downsample<T,S,Df,Dt> (wival, wval, irow + it, wrow + it, stride);
+
+	    simd_t<T,S> ival = wival / blendv(wval.compare_gt(zero), wval, one);
+	    acc.accumulate(wval, wival, wival * ival);
+
+	    _write_and_advance_if<T,S,Iflag> (ds_intensity, ival);
+	    _write_and_advance_if<T,S,Wflag> (ds_weights, wval);
+	}
+    }
+}
+
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag, typename std::enable_if<((Df==1) && (Dt==1)),int>::type = 0>
+inline void _kernel_mean_rms_accumulate_2d(mean_rms_accumulator<T,S> &acc, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
+{
+    static_assert(!Iflag && !Wflag, "mean_rms_accumulate() with (Df,Dt)=(1,1) and Iflag/Wflag set to true: this is probably a bug");
+    
+    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	const T *irow = intensity + ifreq*stride;
+	const T *wrow = weights + ifreq*stride;
+
+	for (int it = 0; it < nt; it += S) {
+	    simd_t<T,S> ival = simd_t<T,S>::loadu(irow + it);
+	    simd_t<T,S> wval = simd_t<T,S>::loadu(wrow + it);
+
+	    acc.accumulate(ival, wval);
+	}
+    }
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// _kernel_mean_rms_accumulate_1d_t<T, S, Df, Dt, Iflag, Wflag>
+//     (mean_rms_accumulator<T,S> &acc, const T *intensity, const T *weights,
+//      int nt, int stride, T *ds_intensity, T *ds_weights)
+//
+// For now, this is just the special case of _kernel_mean_rms_accumulate_2d() with nfreq=Df.
+// It's just here as a placeholder, in case I decide to implement something different some day.
+
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag=false, bool Wflag=false>
+inline void _kernel_mean_rms_accumulate_1d_t(mean_rms_accumulator<T,S> &acc, const T *intensity, const T *weights, int nt, int stride, T *ds_intensity = NULL, T *ds_weights = NULL)
+{
+    _kernel_mean_rms_accumulate_2d<T,S,Df,Dt,Iflag,Wflag> (acc, intensity, weights, Df, nt, stride, ds_intensity, ds_weights);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// _kernel_mean_rms_acumulate_1d_f<T, S, Df, Dt, Iflag, Wflag>
+//    (mean_rms_accumulator<T,S> &acc, const T *intensity, const T *weights,
+//     int nfreq, int stride, T *ds_intensity, T *ds_weights)
+
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag=false, bool Wflag=false, typename std::enable_if<((Df>1) || (Dt>1)),int>::type = 0>
+inline void _kernel_mean_rms_accumulate_1d_f(mean_rms_accumulator<T,S> &acc, const T *intensity, const T *weights, int nfreq, int stride, T *ds_intensity = NULL, T *ds_weights = NULL)
+{
+    const simd_t<T,S> zero = simd_t<T,S>::zero();
+    const simd_t<T,S> one = simd_t<T,S> (1.0);
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
+	simd_t<T,S> wival, wval;
+	_kernel_downsample<T,S,Df,Dt> (wival, wval, intensity + ifreq*stride, weights + ifreq*stride, stride);
+
+	simd_t<T,S> ival = wival / blendv(wval.compare_gt(zero), wval, one);
+	acc.accumulate(ival, wval);
+
+	_write_and_advance_if<T,S,Iflag> (ds_intensity, ival);
+	_write_and_advance_if<T,S,Wflag> (ds_weights, wval);
+    }
+}
+
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag=false, bool Wflag=false, typename std::enable_if<((Df==1) && (Dt==1)),int>::type = 0>
+inline void _kernel_mean_rms_accumulate_1d_f(mean_rms_accumulator<T,S> &acc, const T *intensity, const T *weights, int nfreq, int stride, T *ds_intensity = NULL, T *ds_weights = NULL)
+{
+    static_assert(!Iflag && !Wflag, "mean_rms_accumulate() with (Df,Dt)=(1,1) and Iflag/Wflag set to true: this is probably a bug");
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq++) {    
+	simd_t<T,S> ival = simd_t<T,S>::loadu(intensity + ifreq*stride);
+	simd_t<T,S> wval = simd_t<T,S>::loadu(weights + ifreq*stride);
+
+	acc.accumulate(ival, wval);
+    }
+}
 
 
 }  // namespace rf_pipelines

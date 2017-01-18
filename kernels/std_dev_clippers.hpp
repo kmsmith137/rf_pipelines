@@ -27,24 +27,14 @@ extern void clip_1d(int n, float *tmp_sd, smask_t<float,1> *tmp_valid, double si
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
 inline void _kernel_std_dev_t(T *out_sd, smask_t<T,1> *out_valid, const T *intensity, const T *weights, int nfreq, int nt, int stride)
 {
-    const simd_t<T,S> zero = simd_t<T,S>::zero();
-    const simd_t<T,S> one = simd_t<T,S> (1.0);
-
     for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
 	const T *irow = intensity + ifreq * stride;
 	const T *wrow = weights + ifreq * stride;
 
 	mean_rms_accumulator<T,S> acc;
+	_kernel_mean_rms_accumulate_1d_t<T,S,Df,Dt> (acc, irow, wrow, nt, stride);
+
 	simd_t<T,S> mean, var;
-
-	for (int it = 0; it < nt; it += Dt*S) {
-	    simd_t<T,S> wival, wval;
-	    _kernel_downsample<T,S,Df,Dt> (wival, wval, irow + it, wrow + it, stride);
-
-	    simd_t<T,S> ival = wival / blendv(wval.compare_gt(zero), wval, one);
-	    acc.accumulate(ival, wval);	    
-	}
-
 	acc.horizontal_sum();
 	acc.get_mean_variance(mean, var);
 
@@ -73,6 +63,7 @@ inline void _kernel_std_dev_clip_time_axis(const float *intensity, float *weight
     for (int i = 0; i < nfreq/Df; i++) {
 	if (tmp_valid[i])
 	    continue;
+
 	for (int ifreq = i*Df; ifreq < (i+1)*Df; ifreq++)
 	    memset(weights + ifreq*stride, 0, nt * sizeof(float));
     }
@@ -92,22 +83,12 @@ inline void _kernel_std_dev_clip_time_axis(const float *intensity, float *weight
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
 inline void _kernel_std_dev_f(T *out_sd, smask_t<T,1> *out_valid, const T *intensity, const T *weights, int nfreq, int nt, int stride)
 {
-    const simd_t<T,S> zero = simd_t<T,S>::zero();
-    const simd_t<T,S> one = simd_t<T,S> (1.0);
-
     for (int it = 0; it < nt; it += Dt*S) {
 	const T *icol = intensity + it;
 	const T *wcol = weights + it;
 
 	mean_rms_accumulator<T,S> acc;
-
-	for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
-	    simd_t<T,S> wival, wval;
-	    _kernel_downsample<T,S,Df,Dt> (wival, wval, icol + ifreq*stride, wcol + ifreq*stride, stride);
-
-	    simd_t<T,S> ival = wival / blendv(wval.compare_gt(zero), wval, one);
-	    acc.accumulate(ival, wval);	    
-	}
+	_kernel_mean_rms_accumulate_1d_f<T,S,Df,Dt> (acc, icol, wcol, nfreq, stride);
 
 	simd_t<T,S> mean, var;
 	smask_t<T,S> valid;

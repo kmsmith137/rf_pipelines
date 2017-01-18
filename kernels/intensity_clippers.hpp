@@ -31,19 +31,6 @@ namespace rf_pipelines {
 #endif
 
 template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
-    
-
-// _write_and_advance_if(): helper which writes data and advances a pointer, 
-// but only if a specified boolean predicate evaluates to true at compile-time.
-template<typename T, unsigned int S, bool flag, typename std::enable_if<flag,int>::type = 0>
-inline void _write_and_advance_if(T*& p, simd_t<T,S> x)
-{
-    x.storeu(p);
-    p += S;
-}
-
-template<typename T, unsigned int S, bool flag, typename std::enable_if<(!flag),int>::type = 0>
-inline void _write_and_advance_if(T*& p, simd_t<T,S> x) { return; }
 
 
 // -------------------------------------------------------------------------------------------------
@@ -65,40 +52,13 @@ inline void _write_and_advance_if(T*& p, simd_t<T,S> x) { return; }
 //
 // The Iflag, Wflag template arguments will omit writing the ds_intensity, ds_weights
 // arrays if set to 'false'.  In this case, passing a NULL pointer is OK.
-//
-// FIXME a more general version of this kernel is possible, with a template parameter R
-// which controlls the number of rows read in each pass.
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag>
 inline void _kernel_noniterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
 {
-    // XXX assert -> throw
-    assert(nfreq > 0);
-    assert(nt > 0);
-    assert(nfreq % Df == 0);
-    assert(nt % (Dt*S) == 0);
-
     mean_rms_accumulator<T,S> acc;
-
-    const simd_t<T,S> zero = simd_t<T,S>::zero();
-    const simd_t<T,S> one = simd_t<T,S> (1.0);
-
-    for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
-	const T *irow = intensity + ifreq*stride;
-	const T *wrow = weights + ifreq*stride;
-
-	for (int it = 0; it < nt; it += Dt*S) {
-	    simd_t<T,S> wival, wval;
-	    _kernel_downsample<T,S,Df,Dt> (wival, wval, irow + it, wrow + it, stride);
-
-	    simd_t<T,S> ival = wival / blendv(wval.compare_gt(zero), wval, one);
-	    acc.accumulate(ival, wval);
-
-	    _write_and_advance_if<T,S,Iflag> (ds_intensity, ival);
-	    _write_and_advance_if<T,S,Wflag> (ds_weights, wval);
-	}
-    }
+    _kernel_mean_rms_accumulate_2d<T,S,Df,Dt,Iflag,Wflag> (acc, intensity, weights, nfreq, nt, stride, ds_intensity, ds_weights);
 
     acc.horizontal_sum();
 
@@ -292,20 +252,7 @@ template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Ifla
 inline void _kernel_clip1d_f_wrms(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_intensity, T *ds_weights)
 {
     mean_rms_accumulator<T,S> acc;
-
-    const simd_t<T,S> zero = simd_t<T,S>::zero();
-    const simd_t<T,S> one = simd_t<T,S> (1.0);
-
-    for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
-	simd_t<T,S> wival, wval;
-	_kernel_downsample<T,S,Df,Dt> (wival, wval, intensity + ifreq*stride, weights + ifreq*stride, stride);
-
-	simd_t<T,S> ival = wival / blendv(wval.compare_gt(zero), wval, one);
-	acc.accumulate(ival, wval);
-
-	_write_and_advance_if<T,S,Iflag> (ds_intensity, ival);
-	_write_and_advance_if<T,S,Wflag> (ds_weights, wval);
-    }
+    _kernel_mean_rms_accumulate_1d_f<T,S,Df,Dt,Iflag,Wflag> (acc, intensity, weights, nfreq, stride, ds_intensity, ds_weights);
 
     acc.get_mean_rms(mean, rms);
 }

@@ -1027,6 +1027,21 @@ struct clipper_ops : clipper_ops_base3<T,S_,Df_,Dt_>
 };
 
 
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, typename enable_if<((Df>1) || (Dt>1)),int>::type = 0>
+inline void populate3(vector<shared_ptr<clipper_ops_base<T>>> &testsuite)
+{
+    testsuite.push_back(make_shared<clipper_ops<T,S,Df,Dt,false,false>> ());
+    testsuite.push_back(make_shared<clipper_ops<T,S,Df,Dt,false,true>> ());
+    testsuite.push_back(make_shared<clipper_ops<T,S,Df,Dt,true,false>> ());
+    testsuite.push_back(make_shared<clipper_ops<T,S,Df,Dt,true,true>> ());    
+}
+
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, typename enable_if<((Df==1) && (Dt==1)),int>::type = 0>
+inline void populate3(vector<shared_ptr<clipper_ops_base<T>>> &testsuite)
+{
+    testsuite.push_back(make_shared<clipper_ops<T,S,Df,Dt,false,false>> ());
+}
+
 template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt==0),int>::type = 0>
 inline void populate2(vector<shared_ptr<clipper_ops_base<T>>> &testsuite) { return; }
 
@@ -1034,10 +1049,7 @@ template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typena
 inline void populate2(vector<shared_ptr<clipper_ops_base<T>>> &testsuite)
 {
     populate2<T,S,Df,(MaxDt/2)> (testsuite);
-    testsuite.push_back(make_shared<clipper_ops<T,S,Df,MaxDt,true,true>> ());
-    testsuite.push_back(make_shared<clipper_ops<T,S,Df,MaxDt,true,false>> ());
-    testsuite.push_back(make_shared<clipper_ops<T,S,Df,MaxDt,false,true>> ());
-    testsuite.push_back(make_shared<clipper_ops<T,S,Df,MaxDt,false,false>> ());
+    populate3<T,S,Df,MaxDt> (testsuite);
 }
 
 
