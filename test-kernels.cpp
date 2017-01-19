@@ -971,10 +971,16 @@ struct clipper_ops_base2 : public clipper_ops_base<T>
     clipper_ops_base2(unsigned int Df_, unsigned int Dt_, bool Iflag_, bool Wflag_)
 	: clipper_ops_base<T> (S_, Df_, Dt_, Iflag_, Wflag_) { }
 
+    // FIXME: this test was designed for a different version of the kernel API, and
+    // looks strange when expressed in terms of the new kernels.
+
     virtual void apply_fast_iterate_kernel_2d(T *mean, T *rms, const T *intensity, const T *weights, T in_mean, T in_thresh, int nfreq, int nt, int stride) override
     {
-	simd_t<T,S_> mean_x, rms_x;
-	_kernel_clip2d_iterate(mean_x, rms_x, intensity, weights, simd_t<T,S_> (in_mean), simd_t<T,S_> (in_thresh), nfreq, nt, stride);
+	simd_t<T,S_> mean_x = in_mean;
+	simd_t<T,S_> rms_x = in_thresh;
+
+	_kernel_wrms_iterate_2d(mean_x, rms_x, intensity, weights, nfreq, nt, stride, 2, 1.0);
+
 	mean_x.storeu(mean);
 	rms_x.storeu(rms);
     }
