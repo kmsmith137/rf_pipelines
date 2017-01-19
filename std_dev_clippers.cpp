@@ -68,14 +68,18 @@ void clip_1d(int n, float *tmp_sd, mask_t *tmp_valid, double sigma)
 }
 
 
-inline int _std_dev_clipper_nalloc(int nfreq, int nt, axis_type axis, int Df, int Dt)
+template<typename T>
+inline void allocate_buffers(std_dev_clipper_buffers<T> &buf, int nfreq, int nt, axis_type axis, int Df, int Dt, bool TwoPass)
 {
-    if (axis == AXIS_FREQ)
-	return (nt/Dt);
-    if (axis == AXIS_TIME)
-	return (nfreq/Df);
-    
-    throw runtime_error("rf_pipelines internal error: bad 'axis' value in _std_dev_clipper_nalloc()");
+    int sd_nalloc = (axis == AXIS_FREQ) ? (nt/Dt) : (nfreq/Df);
+
+    buf.sd = aligned_alloc<T> (sd_nalloc);
+    buf.sd_valid = aligned_alloc<smask_t<T,1>> (sd_nalloc);
+
+    if (TwoPass && ((Df > 1) || (Dt > 1))) {
+	buf.ds_int = aligned_alloc<T> ((nfreq*nt) / (Df*Dt));
+	buf.ds_wt = aligned_alloc<T> ((nfreq*nt) / (Df*Dt));
+    }
 }
 
 
@@ -85,7 +89,7 @@ inline int _std_dev_clipper_nalloc(int nfreq, int nt, axis_type axis, int Df, in
 
 
 // kernel(intensity, weights, nfreq, nt, stride, sigma, tmp_sd, tmp_valid)
-using std_dev_clipper_kernel_t = void (*)(const float *, float *, int, int, int, double, float *, mask_t *);
+using std_dev_clipper_kernel_t = void (*)(const std_dev_clipper_buffers<float> &, const float *, float *, int, int, int, double);
 
 
 // Fills shape-(NDt,2) array indexed by (Dt,axis)
@@ -101,8 +105,8 @@ inline void fill_2d_std_dev_clipper_kernel_table(std_dev_clipper_kernel_t *out)
     fill_2d_std_dev_clipper_kernel_table<S,Df,NDt-1> (out);
 
     constexpr unsigned int Dt = 1 << (NDt-1);
-    out[2*(NDt-1) + AXIS_FREQ] = _kernel_std_dev_clip_freq_axis<S,Df,Dt>;
-    out[2*(NDt-1) + AXIS_TIME] = _kernel_std_dev_clip_time_axis<S,Df,Dt>;
+    out[2*(NDt-1) + AXIS_FREQ] = _kernel_std_dev_clip_freq_axis<float,S,Df,Dt>;
+    out[2*(NDt-1) + AXIS_TIME] = _kernel_std_dev_clip_time_axis<float,S,Df,Dt>;
 }
 
 // Fills shape-(NDf,NDt,3) array indexed by (Df,Dt,axis)
@@ -167,10 +171,7 @@ struct std_dev_clipper_transform : public wi_transform
     const double sigma;
 
     std_dev_clipper_kernel_t kernel;
-
-    // Allocated in set_stream()
-    float *tmp_sd = nullptr;
-    mask_t *tmp_valid = nullptr;
+    std_dev_clipper_buffers<float> buf;
 
     // Noncopyable
     std_dev_clipper_transform(const std_dev_clipper_transform &) = delete;
@@ -189,31 +190,20 @@ struct std_dev_clipper_transform : public wi_transform
 	this->nt_postpad = 0;
     }
 
-    virtual ~std_dev_clipper_transform()
-    {
-	free(tmp_sd);
-	free(tmp_valid);
-
-	tmp_sd = nullptr;
-	tmp_valid = nullptr;
-    }
-
     virtual void set_stream(const wi_stream &stream) override
     {
 	if (stream.nfreq % nds_f)
 	    throw runtime_error("rf_pipelines std_dev_clipper: stream nfreq (=" + to_string(stream.nfreq) 
 				+ ") is not divisible by frequency downsampling factor Df=" + to_string(nds_f));
 
-	int nalloc = _std_dev_clipper_nalloc(stream.nfreq, nt_chunk, axis, nds_f, nds_t);
-
 	this->nfreq = stream.nfreq;
-	this->tmp_sd = aligned_alloc<float> (nalloc);
-	this->tmp_valid = aligned_alloc<mask_t> (nalloc);
+	
+	allocate_buffers(this->buf, nfreq, nt_chunk, axis, nds_f, nds_t, false);
     }
 
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
     {
-	this->kernel(intensity, weights, nfreq, nt_chunk, stride, sigma, tmp_sd, tmp_valid);
+	this->kernel(buf, intensity, weights, nfreq, nt_chunk, stride, sigma);
     }
 
     virtual void start_substream(int isubstream, double t0) override { }
@@ -283,16 +273,11 @@ void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, in
 {
     check_params(Df, Dt, axis, nfreq, nt, stride, sigma);
 
-    int nalloc = _std_dev_clipper_nalloc(nfreq, nt, axis, Df, Dt);
-
-    float *tmp_sd = aligned_alloc<float> (nalloc);
-    mask_t *tmp_valid = aligned_alloc<mask_t> (nalloc);
+    std_dev_clipper_buffers<float> buf;
+    allocate_buffers(buf, nfreq, nt, axis, Df, Dt, false);
 
     auto kernel = global_std_dev_clipper_kernel_table.get_kernel(axis, Df, Dt);
-    kernel(intensity, weights, nfreq, nt, stride, sigma, tmp_sd, tmp_valid);
-
-    free(tmp_sd);
-    free(tmp_valid);
+    kernel(buf, intensity, weights, nfreq, nt, stride, sigma);
 }
 
 
