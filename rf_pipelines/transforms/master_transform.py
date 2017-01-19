@@ -99,19 +99,22 @@ class master_transform(rf_pipelines.py_wi_transform):
                     break
                 if (ix > 0) and (abs(unmasked_before - unmasked_after) < self.mask_cut):
                     break
-            else:
-                for (key, value) in self.fdict.items():
+            
+            for (key, value) in self.fdict.items():
+                
+                if self.test:
+                    weights = raw_weights.copy()   
+                
+                if not value:
                     if self.test:
-                        weights = raw_weights.copy()   
-                    if not value:
-                        if self.test:
-                            test_results[key] = []
-                        pass
-                    else:
-                        for fx in self.fdict[key]:
-                            exec(fx)
-                        if self.test:
-                            test_results[key] = [unmasked(weights), np.mean(weights), np.std(weights)]
+                        test_results[key] = []
+                    pass
+                
+                else:
+                    for fx in self.fdict[key]:
+                        exec(fx)
+                    if self.test:
+                        test_results[key] = [unmasked(weights), np.mean(weights), np.std(weights)]
             
             if self.test:
                 p = pprint.PrettyPrinter()

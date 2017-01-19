@@ -22,7 +22,7 @@ clip_nt = 1024
 rms_cut = 1e10
 mask_cut = 0.0
 max_niter = 3
-test = True
+test = False
 # --------------
 
 py_clippers = [ 'rf_pipelines.clip_fx(intensity, weights, thr=3, n_internal=12, axis=None, dsample_nfreq=%d/2, dsample_nt=%d/16)' % (nfreq, clip_nt),
@@ -40,8 +40,8 @@ cpp_clippers = [ 'rf_pipelines_c.apply_intensity_clipper(intensity, weights, sig
                  'rf_pipelines_c.apply_intensity_clipper(intensity, weights, sigma=3, niter=1, iter_sigma=3, axis=1, Df=1, Dt=1)',
                  'rf_pipelines_c.apply_std_dev_clipper(intensity, weights, sigma=3, axis=1, Dt=16)' ]
 
-test_fdict = {'py' : py_clippers,
-              'imitate_cpp' : imitate_cpp_clippers,
+test_fdict = {'py' : [], #py_clippers,
+              'imitate_cpp' : [], #imitate_cpp_clippers,
               'cpp' : cpp_clippers
              }
 
@@ -53,4 +53,6 @@ transform_chain = [ rf_pipelines.badchannel_mask('/data/pathfinder/rfi_masks/rfi
 
 s.run(transform_chain)
 
-print "test_chain.py completed successfully.\n ----->>>> test_results[key] = [unmasked(weights), np.mean(weights), np.std(weights)] <<<<-----"
+print "chain completed successfully."
+if test:
+    print "----->>>> test_results[key] = [unmasked(weights), np.mean(weights), np.std(weights)] <<<<-----"
