@@ -1,7 +1,12 @@
 import numpy as np
 from types import DictType, ListType
+import pprint
 import rf_pipelines
 from rf_pipelines import rf_pipelines_c
+
+def unmasked(weights):
+    """Helper function for master_transform"""
+    return np.count_nonzero(weights) / float(weights.size)
 
 class master_transform(rf_pipelines.py_wi_transform):
     """
@@ -26,9 +31,9 @@ class master_transform(rf_pipelines.py_wi_transform):
         'imitate_cpp': [python-based cpp-imitated helper functions]
         'cpp': [cpp-based helper functions]
        
-       e.g., fdict = {'py' : [ "clip_fx(...)", "filter_stdv(...)" ], 
-                      'imitate_cpp' : [ "filter_stdv(..., imitate_cpp=True)" ], 
-                      'cpp' : [ "rf_pipelines_c.apply_intensity_clipper(...)" ]
+       e.g., fdict = {'py' : [ 'clip_fx(...)', 'filter_stdv(...)' ], 
+                      'imitate_cpp' : [ 'filter_stdv(..., imitate_cpp=True)' ], 
+                      'cpp' : [ 'rf_pipelines_c.apply_intensity_clipper(...)' ]
                      }
       
       'rms_cut=0.' is the rms threshold for the entire chunk.
@@ -59,7 +64,7 @@ class master_transform(rf_pipelines.py_wi_transform):
             raise RuntimeError("master_transform(test=False): Supply a non-empty list for only one of the following keys and leave the rest as empty lists: 'py', 'imitate_cpp', 'cpp'")
         
         assert rms_cut >= 0., "master_transform: rms threshold must be >= 0."
-        assert 0.0 < mask_cut < 0.1
+        assert 0.0 <= mask_cut < 0.1
         assert max_niter >= 1
         assert type(test) == bool
         
@@ -79,26 +84,25 @@ class master_transform(rf_pipelines.py_wi_transform):
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         
         if self.test:
+            raw_weights = weights.copy()
             self.max_niter = 1
             test_results = {}
+            rms = 0
 
         for ix in xrange(self.max_niter):
             
             if not self.test:
                 (mean, rms) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights)
                 unmasked_before = unmasked(weights)
-
-            if (rms > self.rms_cut) and (self.test is False):
-                weights[:] = 0.
-                break
-            
-            elif (ix > 0) and (abs(unmasked_before - unmasked_after) < self.mask_cut) and (self.test is False):
-                break
-
+                if rms > self.rms_cut:
+                    weights[:] = 0.
+                    break
+                if (ix > 0) and (abs(unmasked_before - unmasked_after) < self.mask_cut):
+                    break
             else:
                 for (key, value) in self.fdict.items():
                     if self.test:
-                        weights = weights.copy()   
+                        weights = raw_weights.copy()   
                     if not value:
                         if self.test:
                             test_results[key] = []
@@ -110,9 +114,8 @@ class master_transform(rf_pipelines.py_wi_transform):
                             test_results[key] = [unmasked(weights), np.mean(weights), np.std(weights)]
             
             if self.test:
-                print test_results
+                p = pprint.PrettyPrinter()
+                p.pprint(test_results)
+                print '\n-----------------------\n'
             else:
                 unmasked_after = unmasked(weights)
-    
-    def unmasked(weights):
-        return np.count_nonzero(weights) / float(weights.size)
