@@ -342,10 +342,10 @@ struct _mean_visitor {
 	acc1 = acc1.horizontal_sum();
     }
 
-    inline void get_mean(simd_t<T,S> &mean) const
+    inline simd_t<T,S> get_mean() const
     {
 	smask_t<T,S> valid = acc0.compare_gt(zero);
-	mean = acc1 / blendv(valid, acc0, one);
+	return acc1 / blendv(valid, acc0, one);
     }
 };
 
@@ -386,7 +386,7 @@ struct _variance_visitor {
 	acc2 = acc2.horizontal_sum();
     }
 
-    inline void get_mean_rms(simd_t<T,S> &out_mean, simd_t<T,S> &rms) const
+    inline simd_t<T,S> get_variance() const
     {
 	static constexpr T eps = 1.0e2 * simd_helpers::machine_epsilon<T> ();
 
@@ -394,11 +394,9 @@ struct _variance_visitor {
 	simd_t<T,S> t0 = blendv(valid, acc0, one);
 	simd_t<T,S> var = acc2/t0;
 
-	rms = var.sqrt();
-
 	simd_t<T,S> thresh = simd_t<T,S>(eps) * in_mean;
-	valid = valid.bitwise_and(rms.compare_gt(thresh));
-	rms = rms.apply_mask(valid);
+	valid = valid.bitwise_and(var.compare_gt(thresh * thresh));  // note square here
+	var = var.apply_mask(valid);
     }
 };
 
@@ -471,6 +469,53 @@ struct _mean_variance_iterator_improved {
 	out_rms = var.sqrt();
     }
 };
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+// _kernel_mean_variance_2d() case 1: one-pass version
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag, bool TwoPass, typename std::enable_if<(!TwoPass),int>::type = 0>
+inline void _kernel_mean_variance_2d(simd_t<T,S> &mean, simd_t<T,S> &var, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
+{
+    _mean_variance_visitor<T,S,Iflag,Wflag> v(ds_intensity, ds_weights);
+    _kernel_visit_2d<Df,Dt> (v, intensity, weights, nfreq, nt, stride);
+    v.get_mean_variance(mean, var);
+}
+
+// _kernel_mean_variance_2d() case 2: two-pass version, downsampled
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag, bool TwoPass, typename std::enable_if<(TwoPass && ((Df>1) || (Dt>1))),int>::type = 0>
+inline void _kernel_mean_variance_2d(simd_t<T,S> &mean, simd_t<T,S> &var, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
+{
+    _mean_visitor<T,S,true,true> v(ds_intensity, ds_weights);
+    _kernel_visit_2d<Df,Dt> (v, intensity, weights, nfreq, nt, stride);
+    mean = v.get_mean();
+
+    _variance_visitor<T,S> vv(mean);
+    _kernel_visit_2d<1,1> (vv, ds_intensity, ds_weights, nfreq, nt, stride);
+    var = vv.get_variance();
+}
+
+// _kernel_mean_variance_2d() case 3: two-pass version, non-downsampled
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag, bool TwoPass, typename std::enable_if<(TwoPass && (Df==1) && (Dt==1)),int>::type = 0>
+inline void _kernel_mean_variance_2d(simd_t<T,S> &mean, simd_t<T,S> &var, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
+{
+    _mean_visitor<T,S,Iflag,Wflag> v(ds_intensity, ds_weights);
+    _kernel_visit_2d<1,1> (v, intensity, weights, nfreq, nt, stride);
+    mean = v.get_mean();
+
+    _variance_visitor<T,S> vv(mean);
+    _kernel_visit_2d<1,1> (vv, intensity, weights, nfreq, nt, stride);
+    var = vv.get_variance();
+}
+
+
+// Placeholder for future expansion
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag, bool TwoPass>
+inline void _kernel_mean_variance_1d_t(simd_t<T,S> &mean, simd_t<T,S> &var, const T *intensity, const T *weights, int nt, int stride, T *ds_intensity, T *ds_weights)
+{
+    _kernel_mean_variance_2d<T,S,Df,Dt,Iflag,Wflag,TwoPass> (mean, var, intensity, weights, Df, nt, stride, ds_intensity, ds_weights);
+}
 
 
 }  // namespace rf_pipelines

@@ -31,11 +31,8 @@ inline void _kernel_std_dev_t(T *out_sd, smask_t<T,1> *out_valid, const T *inten
 	const T *irow = intensity + ifreq * stride;
 	const T *wrow = weights + ifreq * stride;
 
-	_mean_variance_visitor<T,S,false,false> v(NULL, NULL);
-	_kernel_visit_2d<Df,Dt> (v, irow, wrow, Df, nt, stride);
-
 	simd_t<T,S> mean, var;
-	v.get_mean_variance(mean, var);
+	_kernel_mean_variance_1d_t<T,S,Df,Dt,false,false,false> (mean, var, irow, wrow, nt, stride, NULL, NULL);
 
 	// scalar instructions should be fine here
 	T sd = var.template extract<0> ();
