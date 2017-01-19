@@ -3,6 +3,7 @@
 
 #include "downsample.hpp"
 #include "mean_rms_accumulator.hpp"
+#include "mean_variance.hpp"
 
 namespace rf_pipelines {
 #if 0
@@ -31,11 +32,11 @@ inline void _kernel_std_dev_t(T *out_sd, smask_t<T,1> *out_valid, const T *inten
 	const T *irow = intensity + ifreq * stride;
 	const T *wrow = weights + ifreq * stride;
 
-	mean_rms_accumulator<T,S> acc;
-	_kernel_mean_rms_accumulate_1d_t<T,S,Df,Dt> (acc, irow, wrow, nt, stride);
+	_mean_variance_visitor<T,S,false,false> v(NULL, NULL);
+	_kernel_visit_2d<Df,Dt> (v, irow, wrow, Df, nt, stride);
 
 	simd_t<T,S> mean, var;
-	acc.get_mean_variance(mean, var);
+	v.get_mean_variance(mean, var);
 
 	// scalar instructions should be fine here
 	T sd = var.template extract<0> ();
@@ -79,12 +80,12 @@ inline void _kernel_std_dev_f(T *out_sd, smask_t<T,1> *out_valid, const T *inten
 	const T *icol = intensity + it;
 	const T *wcol = weights + it;
 
-	mean_rms_accumulator<T,S> acc;
-	_kernel_mean_rms_accumulate_1d_f<T,S,Df,Dt> (acc, icol, wcol, nfreq, stride);
+	_mean_variance_visitor<T,S,false,false> v(NULL, NULL);
+	_kernel_visit_1d_f<Df,Dt> (v, icol, wcol, nfreq, stride);
 
 	simd_t<T,S> mean, var;
 	smask_t<T,S> valid;
-	acc.get_mean_variance(mean, var, valid);
+	v.get_mean_variance(mean, var, valid);
 	
 	var.storeu(out_sd);
 	valid.storeu(out_valid);

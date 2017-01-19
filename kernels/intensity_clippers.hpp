@@ -20,6 +20,7 @@
 #define _RF_PIPELINES_KERNELS_INTENSITY_CLIPPERS_HPP
 
 #include "mean_rms_accumulator.hpp"
+#include "mean_variance.hpp"
 #include "downsample.hpp"
 #include "mask.hpp"
 
@@ -58,27 +59,26 @@ template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag=false, bool Wflag=false>
 inline void _kernel_noniterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity = NULL, T *ds_weights = NULL)
 {
-    mean_rms_accumulator<T,S> acc;
-    _kernel_mean_rms_accumulate_2d<T,S,Df,Dt,Iflag,Wflag> (acc, intensity, weights, nfreq, nt, stride, ds_intensity, ds_weights);
-    acc.get_mean_rms(mean, rms);
+    _mean_variance_visitor<T,S,Iflag,Wflag> v(ds_intensity, ds_weights);
+    _kernel_visit_2d<Df,Dt> (v, intensity, weights, nfreq, nt, stride);
+    v.get_mean_rms(mean, rms);
 }
 
 
+// Placeholder for future expansion
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag=false, bool Wflag=false>
 inline void _kernel_noniterative_wrms_1d_t(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nt, int stride, T *ds_intensity = NULL, T *ds_weights = NULL)
 {
-    mean_rms_accumulator<T,S> acc;
-    _kernel_mean_rms_accumulate_1d_t<T,S,Df,Dt,Iflag,Wflag> (acc, intensity, weights, nt, stride, ds_intensity, ds_weights);
-    acc.get_mean_rms(mean, rms);
+    _kernel_noniterative_wrms_2d<T,S,Df,Dt,Iflag,Wflag> (mean, rms, intensity, weights, Df, nt, stride, ds_intensity, ds_weights);
 }
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag=false, bool Wflag=false>
 inline void _kernel_noniterative_wrms_1d_f(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_intensity = NULL, T *ds_weights = NULL)
 {
-    mean_rms_accumulator<T,S> acc;
-    _kernel_mean_rms_accumulate_1d_f<T,S,Df,Dt,Iflag,Wflag> (acc, intensity, weights, nfreq, stride, ds_intensity, ds_weights);
-    acc.get_mean_rms(mean, rms);
+    _mean_variance_visitor<T,S,Iflag,Wflag> v(ds_intensity, ds_weights);
+    _kernel_visit_1d_f<Df,Dt> (v, intensity, weights, nfreq, stride);
+    v.get_mean_rms(mean, rms);
 }
 
 
@@ -103,7 +103,7 @@ inline void _kernel_wrms_iterate_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T
 	    for (int it = 0; it < nt; it += S) {
 		simd_t<T,S> ival = simd_t<T,S>::loadu(irow + it);
 		simd_t<T,S> wval = simd_t<T,S>::loadu(wrow + it);
-		
+
 		simd_t<T,S> ival_c = (ival - mean).abs();
 		smask_t<T,S> valid = ival_c.compare_lt(thresh);
 		
@@ -117,6 +117,8 @@ inline void _kernel_wrms_iterate_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T
     }
 }
 
+
+// Placeholder for future expansion
 template<typename T, unsigned int S>
 inline void _kernel_wrms_iterate_1d_t(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nt, int niter, double iter_sigma)
 {
@@ -136,7 +138,7 @@ inline void _kernel_wrms_iterate_1d_f(simd_t<T,S> &mean, simd_t<T,S> &rms, const
 
 	    simd_t<T,S> ival = simd_t<T,S>::loadu(irow);
 	    simd_t<T,S> wval = simd_t<T,S>::loadu(wrow);
-	    
+
 	    simd_t<T,S> ival_c = (ival - mean).abs();
 	    smask_t<T,S> valid = ival_c.compare_lt(thresh);
 	    
