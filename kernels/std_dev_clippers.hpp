@@ -76,13 +76,11 @@ inline void _kernel_std_dev_f(T *out_sd, smask_t<T,1> *out_valid, const T *inten
 	const T *icol = intensity + it;
 	const T *wcol = weights + it;
 
-	_mean_variance_visitor<T,S,false,false> v(NULL, NULL);
-	_kernel_visit_1d_f<Df,Dt> (v, icol, wcol, nfreq, stride);
-
 	simd_t<T,S> mean, var;
-	smask_t<T,S> valid;
-	v.get_mean_variance(mean, var, valid);
+	_kernel_mean_variance_1d_f<T,S,Df,Dt,false,false,false> (mean, var, icol, wcol, nfreq, stride, NULL, NULL);
 	
+	smask_t<T,S> valid = var.compare_gt(simd_t<T,S>::zero());
+
 	var.storeu(out_sd);
 	valid.storeu(out_valid);
 
