@@ -45,13 +45,6 @@ inline void _kernel_std_dev_t(T *out_sd, smask_t<T,1> *out_valid, const T *inten
 }
 
 
-template<unsigned int Df, unsigned int Dt> 
-inline int _kernel_std_dev_ntmp_time_axis(int nfreq, int nt) 
-{ 
-    return nfreq/Df; 
-}
-
-
 template<unsigned int S, unsigned int Df, unsigned int Dt>
 inline void _kernel_std_dev_clip_time_axis(const float *intensity, float *weights, int nfreq, int nt, int stride, double sigma, float *tmp_sd, smask_t<float,1> *tmp_valid)
 {
@@ -101,12 +94,6 @@ inline void _kernel_std_dev_f(T *out_sd, smask_t<T,1> *out_valid, const T *inten
     }
 }
 
-
-template<unsigned int Df, unsigned int Dt> 
-inline int _kernel_std_dev_ntmp_freq_axis(int nfreq, int nt) 
-{ 
-    return nt/Dt; 
-}
 
 template<unsigned int S, unsigned int Df, unsigned int Dt>
 inline void _kernel_std_dev_clip_freq_axis(const float *intensity, float *weights, int nfreq, int nt, int stride, double sigma, float *tmp_sd, smask_t<float,1> *tmp_valid)

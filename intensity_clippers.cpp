@@ -49,6 +49,7 @@ static void _intensity_clipper_alloc(float*& ds_intensity, float*& ds_weights, i
 // intensity_clipper_kernel_table
 
 
+// kernel(intensity, weights, nfreq, nt_chunk, stride, niter, sigma, iter_sigma, ds_intensity, ds_weights)
 using intensity_clipper_kernel_t = void (*)(const float *, float *, int, int, int, int, double, double, float *, float *);
 
 
