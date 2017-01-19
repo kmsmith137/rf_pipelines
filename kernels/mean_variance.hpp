@@ -9,8 +9,9 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
+template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
+template<typename T, unsigned int S> using smask_t = simd_helpers::smask_t<T,S>;
 
-#if 0
 // _write_and_advance_if(): helper which writes data and advances a pointer, 
 // but only if a specified boolean predicate evaluates to true at compile-time.
 template<typename T, unsigned int S, bool flag, typename std::enable_if<flag,int>::type = 0>
@@ -22,7 +23,6 @@ inline void _write_and_advance_if(T*& p, simd_t<T,S> x)
 
 template<typename T, unsigned int S, bool flag, typename std::enable_if<(!flag),int>::type = 0>
 inline void _write_and_advance_if(T*& p, simd_t<T,S> x) { return; }
-#endif
 
 
 // -------------------------------------------------------------------------------------------------

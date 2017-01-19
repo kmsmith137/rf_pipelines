@@ -19,7 +19,6 @@
 #ifndef _RF_PIPELINES_KERNELS_INTENSITY_CLIPPERS_HPP
 #define _RF_PIPELINES_KERNELS_INTENSITY_CLIPPERS_HPP
 
-#include "mean_rms_accumulator.hpp"
 #include "mean_variance.hpp"
 #include "downsample.hpp"
 #include "mask.hpp"

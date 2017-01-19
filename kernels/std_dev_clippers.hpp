@@ -2,7 +2,6 @@
 #define _RF_PIPELINES_KERNELS_STD_DEV_CLIPPERS_HPP
 
 #include "downsample.hpp"
-#include "mean_rms_accumulator.hpp"
 #include "mean_variance.hpp"
 
 namespace rf_pipelines {
