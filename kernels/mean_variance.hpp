@@ -91,7 +91,7 @@ struct _mean_variance_visitor {
 
 	valid = acc0.compare_gt(zero);
 
-	simd_t<T,S> t0 = blendv(valid, acc0, simd_t<T,S>(1.0));
+	simd_t<T,S> t0 = blendv(valid, acc0, one);
 	mean = acc1 / t0;
 
 	simd_t<T,S> mean2 = mean * mean;
@@ -100,7 +100,6 @@ struct _mean_variance_visitor {
 	simd_t<T,S> thresh = simd_t<T,S>(eps) * mean2;
 	valid = valid.bitwise_and(var.compare_gt(thresh));
 	var = var.apply_mask(valid);
-
     }
 
     inline void get_mean_variance(simd_t<T,S> &mean, simd_t<T,S> &var) const
@@ -114,6 +113,73 @@ struct _mean_variance_visitor {
 	simd_t<T,S> variance;
 	get_mean_variance(mean, variance);
 	rms = variance.sqrt();
+    }
+};
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+template<typename T_, unsigned int S_>
+struct _mean_variance_iterator {
+    using T = T_;
+    static constexpr unsigned int S = S_;
+
+    simd_t<T,S> in_mean;
+    simd_t<T,S> in_thresh;
+
+    simd_t<T,S> acc0;
+    simd_t<T,S> acc1;
+    simd_t<T,S> acc2;
+
+    _mean_variance_iterator(simd_t<T,S> mean_, simd_t<T,S> thresh_)
+    {
+	in_mean = mean_;
+	in_thresh = thresh_;
+	acc0 = simd_t<T,S>::zero();
+	acc1 = simd_t<T,S>::zero();
+	acc2 = simd_t<T,S>::zero();
+    }
+
+    inline void accumulate_i(simd_t<T,S> ival, simd_t<T,S> wval)
+    {
+	simd_t<T,S> ival_c = (ival - in_mean).abs();
+	smask_t<T,S> valid = ival_c.compare_lt(in_thresh);
+	
+	wval = wval.apply_mask(valid);
+	simd_t<T,S> wival = wval * ival;
+
+	acc0 += wval;
+	acc1 += wival;
+	acc2 += wival * ival;
+    }
+
+    inline void horizontal_sum()
+    {
+	acc0 = acc0.horizontal_sum();
+	acc1 = acc1.horizontal_sum();
+	acc2 = acc2.horizontal_sum();
+    }
+
+    inline void get_mean_rms(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms)
+    {
+	static constexpr T eps = 1.0e3 * simd_helpers::machine_epsilon<T> ();
+	const simd_t<T,S> zero = simd_t<T,S>::zero();
+	const simd_t<T,S> one = 1.0;
+
+	smask_t<T,S> valid = acc0.compare_gt(zero);
+
+	simd_t<T,S> t0 = blendv(valid, acc0, one);
+	out_mean = acc1/t0;
+
+	simd_t<T,S> out_mean2 = out_mean * out_mean;
+	simd_t<T,S> var = acc2/t0 - out_mean2;
+
+	simd_t<T,S> thresh = simd_t<T,S>(eps) * out_mean2;
+	valid = valid.bitwise_and(var.compare_gt(thresh));
+	var = var.apply_mask(valid);
+
+	out_rms = var.sqrt();
     }
 };
 

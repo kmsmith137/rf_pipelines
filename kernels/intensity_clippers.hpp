@@ -93,27 +93,10 @@ template<typename T, unsigned int S>
 inline void _kernel_wrms_iterate_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, int niter, double iter_sigma)
 {
     for (int iter = 1; iter < niter; iter++) {
-	mean_rms_accumulator<T,S> acc;
 	simd_t<T,S> thresh = simd_t<T,S>(iter_sigma) * rms;
-
-	for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	    const T *irow = intensity + ifreq*stride;
-	    const T *wrow = weights + ifreq*stride;
-
-	    for (int it = 0; it < nt; it += S) {
-		simd_t<T,S> ival = simd_t<T,S>::loadu(irow + it);
-		simd_t<T,S> wval = simd_t<T,S>::loadu(wrow + it);
-
-		simd_t<T,S> ival_c = (ival - mean).abs();
-		smask_t<T,S> valid = ival_c.compare_lt(thresh);
-		
-		wval = wval.apply_mask(valid);
-		acc.accumulate(ival, wval);
-	    }
-	}
-
-	acc.horizontal_sum();
-	acc.get_mean_rms(mean, rms);
+	_mean_variance_iterator<T,S> v(mean, thresh);
+	_kernel_visit_2d<1,1> (v, intensity, weights, nfreq, nt, stride);
+	v.get_mean_rms(mean, rms);
     }
 }
 
@@ -129,24 +112,10 @@ template<typename T, unsigned int S>
 inline void _kernel_wrms_iterate_1d_f(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int stride, int niter, double iter_sigma)
 {
     for (int iter = 1; iter < niter; iter++) {
-	mean_rms_accumulator<T,S> acc;
 	simd_t<T,S> thresh = simd_t<T,S>(iter_sigma) * rms;
-
-	for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	    const T *irow = intensity + ifreq*stride;
-	    const T *wrow = weights + ifreq*stride;
-
-	    simd_t<T,S> ival = simd_t<T,S>::loadu(irow);
-	    simd_t<T,S> wval = simd_t<T,S>::loadu(wrow);
-
-	    simd_t<T,S> ival_c = (ival - mean).abs();
-	    smask_t<T,S> valid = ival_c.compare_lt(thresh);
-	    
-	    wval = wval.apply_mask(valid);
-	    acc.accumulate(ival, wval);
-	}
-
-	acc.get_mean_rms(mean, rms);
+	_mean_variance_iterator<T,S> v(mean, thresh);
+	_kernel_visit_1d_f<1,1> (v, intensity, weights, nfreq, stride);	
+	v.get_mean_rms(mean, rms);
     }
 }
 
