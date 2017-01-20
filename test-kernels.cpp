@@ -1014,7 +1014,8 @@ struct clipper_ops : clipper_ops_base3<T,S_,Df_,Dt_>
 	simd_t<T,S_> mean_x;
 	simd_t<T,S_> rms_x;
 
-	_kernel_noniterative_wrms_2d<T,S_,Df_,Dt_,Iflag_,Wflag_> (mean_x, rms_x, intensity, weights, nfreq, nt, stride, ds_int, ds_wt);
+	// FIXME only TwoPass=false tested for now
+	_kernel_noniterative_wrms_2d<T,S_,Df_,Dt_,Iflag_,Wflag_,false> (mean_x, rms_x, intensity, weights, nfreq, nt, stride, ds_int, ds_wt);
 
 	mean_x.storeu(mean);
 	rms_x.storeu(rms);
@@ -1025,7 +1026,8 @@ struct clipper_ops : clipper_ops_base3<T,S_,Df_,Dt_>
 	simd_t<T,S_> mean_x;
 	simd_t<T,S_> rms_x;
 
-	_kernel_noniterative_wrms_1d_f<T,S_,Df_,Dt_,Iflag_,Wflag_> (mean_x, rms_x, intensity, weights, nfreq, stride, ds_int, ds_wt);
+	// FIXME only TwoPass=false tested for now
+	_kernel_noniterative_wrms_1d_f<T,S_,Df_,Dt_,Iflag_,Wflag_,false> (mean_x, rms_x, intensity, weights, nfreq, stride, ds_int, ds_wt);
 
 	mean_x.storeu(mean);
 	rms_x.storeu(rms);
