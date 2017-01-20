@@ -212,7 +212,7 @@ void transform_timing_thread::thread_top()
 {
     if (thread_id == 0) {
 	cout << "nfreq=" << nfreq << ", nt_chunk=" << nt_chunk 
-	     << ", stride=" << stride << ", niter=" << niter << endl;
+	     << ", stride=" << stride << ", num_chunks=" << num_chunks << endl;
     }
 }
 
@@ -244,7 +244,7 @@ void transform_timing_thread::thread_body()
 	if ((transform_list[itr]->nt_prepad != 0) || (transform_list[itr]->nt_postpad != 0))
 	    throw runtime_error("rf_pipelines::transform_timing_thread expects nt_prepad=nt_prepad=0 (this would be easy to fix if needed)");
 	
-	for (int iter = 0; iter < niter; iter++) {
+	for (int ichunk = 0; ichunk < num_chunks; ichunk++) {
 
 	    // We reset buffers between calls to wi_transform::process_chunk().
 	    // This is to avoid unexpected situations, such as a clipper which eventually
@@ -258,7 +258,7 @@ void transform_timing_thread::thread_body()
 	    double tchunk = s.dt_sample * nt_chunk;
 
 	    this->start_timer();
-	    transform_list[itr]->process_chunk(iter*tchunk, (iter+1)*tchunk, intensity, weights, stride, nullptr, nullptr, 0);
+	    transform_list[itr]->process_chunk(ichunk*tchunk, (ichunk+1)*tchunk, intensity, weights, stride, nullptr, nullptr, 0);
 	    total_time += this->stop_timer();
 	}
 
