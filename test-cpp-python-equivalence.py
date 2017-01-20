@@ -91,9 +91,10 @@ def test_utils():
         Dt = 2**rand.randint(0,6)
         nfreq = Df * rand.randint(8,16)
         nt = Dt * 8 * rand.randint(1,8)
+        two_pass = rand.randint(0,2)
 
         sys.stderr.write('.')
-        # print >>sys.stderr, '(Df,Dt,nfreq,nt)=(%d,%d,%d,%d)' % (Df,Dt,nfreq,nt)
+        # print >>sys.stderr, '(Df,Dt,nfreq,nt,two_pass)=(%d,%d,%d,%d,%d)' % (Df,Dt,nfreq,nt,two_pass)
 
         intensity = rand.uniform(size=(nfreq,nt))
         weights = rand.uniform(size=(nfreq,nt))
@@ -116,7 +117,7 @@ def test_utils():
         # with (niter, Df, Dt, axis) = (1, 1, 1, None).
 
         (mean1, rms1) = rf_pipelines.weighted_mean_and_rms(intensity, weights)
-        (mean2, rms2) = rf_pipelines_c.weighted_mean_and_rms(copy_array(intensity), copy_array(weights))
+        (mean2, rms2) = rf_pipelines_c.weighted_mean_and_rms(copy_array(intensity), copy_array(weights), two_pass=two_pass)
 
         epsilon_m = np.abs(mean1-mean2)
         epsilon_r = np.abs(rms1-rms2)
