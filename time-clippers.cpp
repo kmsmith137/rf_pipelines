@@ -17,13 +17,13 @@ struct clipper_timing_thread : public transform_timing_thread
     const int Dt;
     const int niter;
 
-    clipper_timing_thread(const shared_ptr<timing_thread_pool> &pool_, int nfreq_, int nt_chunk_, int stride_, int Df_, int Dt_, int niter_) :
+    clipper_timing_thread(const shared_ptr<timing_thread_pool> &pool_, int nfreq_, int nt_chunk_, int stride_, int Df_, int Dt_, int niter_, bool twopass_) :
 	transform_timing_thread{ pool_, nfreq_, nt_chunk_, stride_,
-	    { make_intensity_clipper(nt_chunk_, AXIS_FREQ, 1.0e10, niter_, 1.0e10, Df_, Dt_),
-	      make_intensity_clipper(nt_chunk_, AXIS_TIME, 1.0e10, niter_, 1.0e10, Df_, Dt_),
-	      make_intensity_clipper(nt_chunk_, AXIS_NONE, 1.0e10, niter_, 1.0e10, Df_, Dt_),
-	      make_std_dev_clipper(nt_chunk_, AXIS_FREQ, 1.0e10, Df_, Dt_),
-	      make_std_dev_clipper(nt_chunk_, AXIS_TIME, 1.0e10, Df_, Dt_)
+	    { make_intensity_clipper(nt_chunk_, AXIS_FREQ, 1.0e10, niter_, 1.0e10, Df_, Dt_, twopass_),
+	      make_intensity_clipper(nt_chunk_, AXIS_TIME, 1.0e10, niter_, 1.0e10, Df_, Dt_, twopass_),
+	      make_intensity_clipper(nt_chunk_, AXIS_NONE, 1.0e10, niter_, 1.0e10, Df_, Dt_, twopass_),
+	      make_std_dev_clipper(nt_chunk_, AXIS_FREQ, 1.0e10, Df_, Dt_, twopass_),
+	      make_std_dev_clipper(nt_chunk_, AXIS_TIME, 1.0e10, Df_, Dt_, twopass_)
 	    }
         },
 	Df(Df_), 
@@ -44,20 +44,38 @@ struct clipper_timing_thread : public transform_timing_thread
 };
 
 
+static void usage()
+{
+    cerr << "usage: time-clippers [-t] <nthreads> <nfreq> <nt_chunk> <stride> <Df> <Dt> <niter>\n"
+	 << "   The -t flag uses \"two-pass\" clippers\n";
+
+    exit(2);
+}
+
+
 int main(int argc, char **argv)
 {
-    if (argc != 8) {
-	cerr << "usage: time-clippers <nthreads> <nfreq> <nt_chunk> <stride> <Df> <Dt> <niter>\n";
-	exit(2);
+    bool two_pass = false;
+
+    std::vector<char *> args;
+
+    for (int i = 1; i < argc; i++) {
+	if (!strcmp(argv[i], "-t"))
+	    two_pass = true;
+	else
+	    args.push_back(argv[i]);
     }
 
-    int nthreads = atoi(argv[1]);
-    int nfreq = atoi(argv[2]);
-    int nt_chunk = atoi(argv[3]);
-    int stride = atoi(argv[4]);
-    int Df = atoi(argv[5]);
-    int Dt = atoi(argv[6]);
-    int niter = atoi(argv[7]);
+    if (args.size() != 7)
+	usage();
+
+    int nthreads = atoi(args[0]);
+    int nfreq = atoi(args[1]);
+    int nt_chunk = atoi(args[2]);
+    int stride = atoi(args[3]);
+    int Df = atoi(args[4]);
+    int Dt = atoi(args[5]);
+    int niter = atoi(args[6]);
 
     assert(nfreq > 0);
     assert((nt_chunk > 0) && (nt_chunk % 8 == 0));
@@ -71,7 +89,7 @@ int main(int argc, char **argv)
 
     vector<std::thread> threads(nthreads);
     for (int i = 0; i < nthreads; i++)
-        threads[i] = spawn_timing_thread<clipper_timing_thread> (pool, nfreq, nt_chunk, stride, Df, Dt, niter);
+        threads[i] = spawn_timing_thread<clipper_timing_thread> (pool, nfreq, nt_chunk, stride, Df, Dt, niter, two_pass);
     for (int i = 0; i < nthreads; i++)
         threads[i].join();
 
