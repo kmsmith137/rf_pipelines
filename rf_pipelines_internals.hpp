@@ -191,7 +191,7 @@ struct transform_timing_thread : public timing_thread
     const int nfreq;
     const int nt_chunk;
     const int stride;
-    const int niter = 16;
+    const int num_chunks = 16;
 
     float *intensity = nullptr;
     float *weights = nullptr;
