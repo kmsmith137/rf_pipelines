@@ -81,9 +81,11 @@ For a high-level overview, here are some slides from CHIME telecons:
   - make all install
 
   - For some quick unit tests, do 
-      ./test-kernels
+```
       ./run-unit-tests
-
+      ./test-kernels
+      ./test-cpp-python-equivalence.py
+```
 
 ### QUICK START
 
