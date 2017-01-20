@@ -310,7 +310,7 @@ def test_clippers():
         two_pass = rand.randint(0,2)
 
         # Debug
-        print >>sys.stderr, '(Df,Dt,axis,nfreq,nt,two_pass,thresh)=(%d,%d,%s,%d,%d,%d,%s)' % (Df,Dt,axis,nfreq,nt,two_pass,thresh)
+        # print >>sys.stderr, '(Df,Dt,axis,nfreq,nt,two_pass,thresh)=(%d,%d,%s,%d,%d,%d,%s)' % (Df,Dt,axis,nfreq,nt,two_pass,thresh)
         
         (intensity, weights0) = make_clipper_test_data(nfreq, nt, axis, Df, Dt)
 
@@ -380,6 +380,7 @@ def test_iterated_intensity_clippers():
         sigma = rand.uniform(1.1, 1.3)
         niter = rand.randint(1, 6)
         iter_sigma = rand.uniform(1.1, 1.3)
+        two_pass = rand.randint(0,2)
         
         sys.stderr.write('.')
         # print 'iteration %d: (Df,Dt,nfreq,nt,sigma,niter,iter_sigma) = %s' % (iter, (Df,Dt,nfreq,nt,sigma,niter,iter_sigma))
@@ -395,13 +396,13 @@ def test_iterated_intensity_clippers():
         weights2 = copy_array(weights0)
 
         # AXIS_TIME
-        rf_pipelines_c.apply_intensity_clipper(intensity, weights1, 1, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
+        rf_pipelines_c.apply_intensity_clipper(intensity, weights1, 1, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt, two_pass=two_pass)
 
         # AXIS_NONE
         for ifreq in xrange(nfreq//Df):
             iblock = intensity[(ifreq*Df):((ifreq+1)*Df),:]
             wblock = weights2[(ifreq*Df):((ifreq+1)*Df),:]
-            rf_pipelines_c.apply_intensity_clipper(iblock, wblock, None, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
+            rf_pipelines_c.apply_intensity_clipper(iblock, wblock, None, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt, two_pass=two_pass)
 
         assert np.array_equal(weights1, weights2)
 
@@ -412,7 +413,7 @@ def test_iterated_intensity_clippers():
         weights2 = copy_array(weights0)
 
         # AXIS_FREQ
-        rf_pipelines_c.apply_intensity_clipper(intensity, weights1, 0, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
+        rf_pipelines_c.apply_intensity_clipper(intensity, weights1, 0, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt, two_pass=two_pass)
 
         for it in xrange(nt//Dt):
             # need a little hacking to satisfy simd-derived rf_pipelines_c divisibility requirements...
@@ -422,7 +423,7 @@ def test_iterated_intensity_clippers():
             iblock[:,:Dt] = intensity[:,(it*Dt):((it+1)*Dt)]
             wblock[:,:Dt] = weights2[:,(it*Dt):((it+1)*Dt)]
         
-            rf_pipelines_c.apply_intensity_clipper(iblock, wblock, None, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
+            rf_pipelines_c.apply_intensity_clipper(iblock, wblock, None, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt, two_pass=two_pass)
 
             weights2[:,(it*Dt):((it+1)*Dt)] = wblock[:,:Dt]
 
@@ -441,10 +442,10 @@ def test_iterated_intensity_clippers():
         weights2 = copy_array(weights0)
 
         # AXIS_NONE
-        rf_pipelines_c.apply_intensity_clipper(intensity, weights1, None, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
+        rf_pipelines_c.apply_intensity_clipper(intensity, weights1, None, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt, two_pass=two_pass)
 
         (ds_int, ds_wt) = rf_pipelines_c.wi_downsample(intensity, weights0, Df, Dt)
-        rf_pipelines_c.apply_intensity_clipper(ds_int, ds_wt, None, sigma, niter=niter, iter_sigma=iter_sigma, Df=1, Dt=1)
+        rf_pipelines_c.apply_intensity_clipper(ds_int, ds_wt, None, sigma, niter=niter, iter_sigma=iter_sigma, Df=1, Dt=1, two_pass=two_pass)
 
         # Apply upsampled mask to weights2
         t = rf_pipelines.upsample(ds_wt, nfreq, nt)
@@ -479,9 +480,9 @@ def test_iterated_intensity_clippers():
         weights1 = copy_array(weights0)
         weights2 = copy_array(weights0)
 
-        rf_pipelines_c.apply_intensity_clipper(intensity, weights1, None, sigma, niter=niter, iter_sigma=iter_sigma)
+        rf_pipelines_c.apply_intensity_clipper(intensity, weights1, None, sigma, niter=niter, iter_sigma=iter_sigma, two_pass=two_pass)
 
-        (mean, rms) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights2, niter, iter_sigma)
+        (mean, rms) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights2, niter, iter_sigma, two_pass=two_pass)
         
         w32 = copy_array(weights0, tame=True)
         z32 = np.array(0.0, dtype=np.float32)
@@ -546,9 +547,10 @@ def make_random_transform():
         niter = rand.randint(1,5)
         iter_sigma = rand.uniform(1.8, 2.0)
         nt_chunk = Dt * 8 * rand.randint(1,8)
+        two_pass = rand.randint(0,2)
 
-        t = rf_pipelines_c.make_intensity_clipper(nt_chunk, axis, sigma, niter, iter_sigma, Df, Dt)
-        f = lambda intensity, weights: rf_pipelines_c.apply_intensity_clipper(intensity, weights, axis, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt)
+        t = rf_pipelines_c.make_intensity_clipper(nt_chunk, axis, sigma, niter, iter_sigma, Df, Dt, two_pass)
+        f = lambda intensity, weights: rf_pipelines_c.apply_intensity_clipper(intensity, weights, axis, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt, two_pass=two_pass)
 
     else:
         # std_dev_clipper
