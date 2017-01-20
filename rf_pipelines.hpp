@@ -220,8 +220,11 @@ inline std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend)
 // with threshold 'iter_sigma'.  If the 'iter_sigma' argument is zero, then it defaults
 // to 'sigma', but the two thresholds need not be the same.
 //
+// If the 'two_pass' flag is set, a more numerically stable but slightly slower algorithm will be used.
+//
 
-extern std::shared_ptr<wi_transform> make_intensity_clipper(int nt_chunk, axis_type axis, double sigma, int niter=1, double iter_sigma=0.0, int Df=1, int Dt=1);
+extern std::shared_ptr<wi_transform> make_intensity_clipper(int nt_chunk, axis_type axis, double sigma, int niter=1, 
+							    double iter_sigma=0.0, int Df=1, int Dt=1, bool two_pass=false);
 
 
 //
@@ -247,8 +250,9 @@ std::shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, axis_type axis,
 extern void apply_polynomial_detrender(float *intensity, float *weights, int nfreq, int nt, 
 				       int stride, axis_type axis, int polydeg, double epsilon);
 
-extern void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, 
-				    axis_type axis, double sigma, int niter=1, double iter_sigma=0.0, int Df=1, int Dt=1);
+extern void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, int nt, 
+				    int stride, axis_type axis, double sigma, int niter=1, 
+				    double iter_sigma=0.0, int Df=1, int Dt=1, bool two_pass=false);
 
 extern void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride,
 				  axis_type axis, double sigma, int Df=1, int Dt=1, bool two_pass=false);
@@ -262,13 +266,14 @@ extern void apply_std_dev_clipper(const float *intensity, float *weights, int nf
 // weighted_mean_and_rms(): computes weighted mean/rms of a 2D intensity array.
 // If the 'niter' argument is >1, then the calculation will be iterated, clipping
 // outlier samples which differ from the mean by the specified number of "sigmas".
+// If the 'two_pass' flag is set, a more numerically stable but slightly slower algorithm will be used.
 
 
 extern void wi_downsample(float *out_intensity, float *out_weights, int out_stride, const float *in_intensity, 
 			  const float *in_weights, int in_nfreq, int in_nt, int in_stride, int Df, int Dt);
 
 extern void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, const float *weights, 
-				  int nfreq, int nt, int stride, int niter=1, double sigma=3.0);
+				  int nfreq, int nt, int stride, int niter=1, double sigma=3.0, bool two_pass=false);
 
 
 //

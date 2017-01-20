@@ -100,7 +100,7 @@ template<unsigned int S, unsigned int Df, unsigned int NDt, typename enable_if<(
 inline void fill_3d_std_dev_clipper_kernel_table(std_dev_clipper_kernel_t *out) 
 { 
     static_assert(AXIS_FREQ == 0, "expected AXIS_FREQ==0");
-    static_assert(AXIS_TIME== 1, "expected AXIS_TIME==1");
+    static_assert(AXIS_TIME == 1, "expected AXIS_TIME==1");
 
     fill_3d_std_dev_clipper_kernel_table<S,Df,NDt-1> (out);
 

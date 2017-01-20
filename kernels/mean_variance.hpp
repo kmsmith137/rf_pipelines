@@ -98,7 +98,6 @@ inline void _kernel_visit_1d_f(V &v, const typename V::T *intensity, const typen
 //   _mean_variance_iterator
 //   _mean_visitor
 //   _variance_visitor
-//   _mean_variance_iterator_improved
 
 
 template<typename T_, unsigned int S_, bool Iflag, bool Wflag>
@@ -202,8 +201,13 @@ struct _mean_variance_visitor {
 // -------------------------------------------------------------------------------------------------
 
 
+template<typename T, unsigned int S, bool TwoPass> 
+struct _mean_variance_iterator;
+
+
+// One-pass iterator
 template<typename T_, unsigned int S_>
-struct _mean_variance_iterator {
+struct _mean_variance_iterator<T_,S_,false> {
     using T = T_;
     static constexpr unsigned int S = S_;
 
@@ -395,8 +399,9 @@ struct _variance_visitor {
 // -------------------------------------------------------------------------------------------------
 
 
-template<typename T_, unsigned int S_, bool Iflag, bool Wflag>
-struct _mean_variance_iterator_improved {
+// Two-pass iterator (really a misnomer!)
+template<typename T_, unsigned int S_>
+struct _mean_variance_iterator<T_,S_,true> {
     using T = T_;
     static constexpr unsigned int S = S_;
 
@@ -410,7 +415,7 @@ struct _mean_variance_iterator_improved {
     simd_t<T,S> acc1;
     simd_t<T,S> acc2;
 
-    _mean_variance_iterator_improved(simd_t<T,S> in_mean_, simd_t<T,S> in_thresh_) :
+    _mean_variance_iterator(simd_t<T,S> in_mean_, simd_t<T,S> in_thresh_) :
 	zero(simd_t<T,S>::zero()), one(simd_t<T,S>(1.0))
     {
 	in_mean = in_mean_;

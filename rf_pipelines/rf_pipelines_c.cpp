@@ -1310,7 +1310,7 @@ static PyObject *make_polynomial_detrender(PyObject *self, PyObject *args, PyObj
 
 static PyObject *make_intensity_clipper(PyObject *self, PyObject *args, PyObject *kwds)
 {
-    static const char *kwlist[] = { "nt_chunk", "axis", "sigma", "niter", "iter_sigma", "Df", "Dt", NULL };    
+    static const char *kwlist[] = { "nt_chunk", "axis", "sigma", "niter", "iter_sigma", "Df", "Dt", "two_pass", NULL }; 
 
     int nt_chunk = 0;
     PyObject *axis_ptr = Py_None;
@@ -1319,14 +1319,15 @@ static PyObject *make_intensity_clipper(PyObject *self, PyObject *args, PyObject
     double iter_sigma = 0.0;   // meaningful default value
     int Df = 1;                // meaningful default value
     int Dt = 1;                // meaningful default value
+    int two_pass = 0;          // meaningful default value
 
     // Note: the object pointers will be borrowed references
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "iOd|idii", (char **)kwlist, &nt_chunk, &axis_ptr, &sigma, &niter, &iter_sigma, &Df, &Dt))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "iOd|idiii", (char **)kwlist, &nt_chunk, &axis_ptr, &sigma, &niter, &iter_sigma, &Df, &Dt, &two_pass))
 	return NULL;
 
     rf_pipelines::axis_type axis = axis_type_from_python("make_intensity_clipper()", axis_ptr);
 
-    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_intensity_clipper(nt_chunk, axis, sigma, niter, iter_sigma, Df, Dt);
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_intensity_clipper(nt_chunk, axis, sigma, niter, iter_sigma, Df, Dt, two_pass);
     return wi_transform_object::make(ret);
 }
 
@@ -1382,7 +1383,7 @@ static PyObject *apply_polynomial_detrender(PyObject *self, PyObject *args, PyOb
 
 static PyObject *apply_intensity_clipper(PyObject *self, PyObject *args, PyObject *kwds)
 {
-    static const char *kwlist[] = { "intensity", "weights", "axis", "sigma", "niter", "iter_sigma", "Df", "Dt", NULL };
+    static const char *kwlist[] = { "intensity", "weights", "axis", "sigma", "niter", "iter_sigma", "Df", "Dt", "two_pass", NULL };
 
     PyObject *intensity_obj = Py_None;
     PyObject *weights_obj = Py_None;
@@ -1392,16 +1393,17 @@ static PyObject *apply_intensity_clipper(PyObject *self, PyObject *args, PyObjec
     double iter_sigma = 0.0;   // meaningful default value
     int Df = 1;                // meaningful default value
     int Dt = 1;                // meaningful default value
+    int two_pass = 0;          // meaningful default value
 
     // Note: the object pointers will be borrowed references
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOd|idii", (char **)kwlist, &intensity_obj, &weights_obj, &axis_ptr, &sigma, &niter, &iter_sigma, &Df, &Dt))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOd|idiii", (char **)kwlist, &intensity_obj, &weights_obj, &axis_ptr, &sigma, &niter, &iter_sigma, &Df, &Dt, &two_pass))
 	return NULL;
 
     arr_wi_helper wi(intensity_obj, weights_obj, false, true);   // (intensity_writeback, weights_writeback) = (false, true)
 
     rf_pipelines::axis_type axis = axis_type_from_python("apply_intensity_clipper", axis_ptr);
 
-    rf_pipelines::apply_intensity_clipper(wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, axis, sigma, niter, iter_sigma, Df, Dt);
+    rf_pipelines::apply_intensity_clipper(wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, axis, sigma, niter, iter_sigma, Df, Dt, two_pass);
 
     Py_INCREF(Py_None);
     return Py_None;    
@@ -1481,21 +1483,22 @@ static PyObject *wi_downsample(PyObject *self, PyObject *args, PyObject *kwds)
 
 static PyObject *weighted_mean_and_rms(PyObject *self, PyObject *args, PyObject *kwds)
 {
-    static const char *kwlist[] = { "intensity", "weights", "niter", "sigma", NULL };
+    static const char *kwlist[] = { "intensity", "weights", "niter", "sigma", "two_pass", NULL };
 
     PyObject *intensity_obj = Py_None;
     PyObject *weights_obj = Py_None;
     int niter = 1;       // meaningful default value
     double sigma = 3.0;  // meaningful default value
+    int two_pass = 0;    // meaningful default value
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OO|id", (char **)kwlist, &intensity_obj, &weights_obj, &niter, &sigma))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OO|idi", (char **)kwlist, &intensity_obj, &weights_obj, &niter, &sigma, &two_pass))
 	return NULL;
 
     // (intensity_writeback, weights_writeback) = (false, false)
     arr_wi_helper wi(intensity_obj, weights_obj, false, false);
 
     float mean, rms;
-    rf_pipelines::weighted_mean_and_rms(mean, rms, wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, niter, sigma);
+    rf_pipelines::weighted_mean_and_rms(mean, rms, wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, niter, sigma, two_pass);
 
     return Py_BuildValue("(dd)", mean, rms);
 }
@@ -1595,7 +1598,9 @@ static constexpr const char *make_intensity_clipper_docstring =
     "\n"
     "If niter > 1, then the mean/rms intensity will be computed using iterated clipping,\n"
     "with threshold 'iter_sigma'.  If the 'iter_sigma' argument is zero, then it defaults\n"
-    "to 'sigma', but the two thresholds need not be the same.\n";
+    "to 'sigma', but the two thresholds need not be the same.\n"
+    "\n"
+    "If the 'two_pass' flag is set, a more numerically stable but slightly slower algorithm will be used.\n";
 
 
 static constexpr const char *make_std_dev_clipper_docstring =
@@ -1678,7 +1683,8 @@ static constexpr const char *weighted_mean_and_rms_docstring =
     "\n"
     "Computes weighted mean/rms of a 2D intensity array.\n"
     "If the 'niter' argument is >1, then the calculation will be iterated, clipping\n"
-    "outlier samples which differ from the mean by the specified number of \"sigmas\".\n";
+    "outlier samples which differ from the mean by the specified number of \"sigmas\".\n"
+    "If the 'two_pass' flag is set, a more numerically stable but slightly slower algorithm will be used.\n";
 
 
 static constexpr const char *make_badchannel_mask_docstring = 
