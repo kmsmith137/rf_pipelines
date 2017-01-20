@@ -310,8 +310,8 @@ def test_clippers():
         two_pass = rand.randint(0,2)
 
         # Debug
-        # print >>sys.stderr, '(Df,Dt,axis,nfreq,nt,two_pass,thresh)=(%d,%d,%s,%d,%d,%d,%s)' % (Df,Dt,axis,nfreq,nt,two_pass,thresh)
-
+        print >>sys.stderr, '(Df,Dt,axis,nfreq,nt,two_pass,thresh)=(%d,%d,%s,%d,%d,%d,%s)' % (Df,Dt,axis,nfreq,nt,two_pass,thresh)
+        
         (intensity, weights0) = make_clipper_test_data(nfreq, nt, axis, Df, Dt)
 
         weights1 = copy_array(weights0, tame=True)
@@ -321,12 +321,12 @@ def test_clippers():
         rf_pipelines.clip_fx(intensity, weights2, thr = 1.001 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt, imitate_cpp=True)
             
         weights3 = copy_array(weights0, allow_float64=True)
-        rf_pipelines_c.apply_intensity_clipper(copy_array(intensity), weights3, axis, thresh, Df=Df, Dt=Dt)
+        rf_pipelines_c.apply_intensity_clipper(copy_array(intensity), weights3, axis, thresh, Df=Df, Dt=Dt, two_pass=two_pass)
 
         ok = np.logical_and(weights1 <= weights3, weights3 <= weights2)
 
         if not np.all(ok):
-            print >>sys.stderr, 'intensity_clipper failed for (Df,Dt,axis,nfreq,nt,thresh)=(%d,%d,%s,%d,%d,%s)' % (Df,Dt,axis,nfreq,nt,thresh)
+            print >>sys.stderr, 'intensity_clipper failed for (Df,Dt,axis,nfreq,nt,two_pass,thresh)=(%d,%d,%s,%d,%d,%d,%s)' % (Df,Dt,axis,nfreq,nt,two_pass,thresh)
 
             t = np.argmax(np.logical_not(ok))
             (ifreq, it) = np.unravel_index(t, ok.shape)

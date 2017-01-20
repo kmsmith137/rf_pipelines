@@ -285,7 +285,7 @@ void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, 
     check_params(Df, Dt, axis, nfreq, nt, stride, sigma, niter, iter_sigma);
 
     float *ds_intensity = alloc_ds_intensity(nfreq, nt, axis, niter, Df, Dt, two_pass);
-    float *ds_weights = alloc_ds_intensity(nfreq, nt, axis, niter, Df, Dt, two_pass);
+    float *ds_weights = alloc_ds_weights(nfreq, nt, axis, niter, Df, Dt, two_pass);
 
     auto kernel = global_intensity_clipper_kernel_table.get_kernel(axis, Df, Dt, two_pass);
 
