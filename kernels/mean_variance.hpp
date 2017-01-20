@@ -72,7 +72,6 @@ inline void _kernel_visit_1d_f(V &v, const typename V::T *intensity, const typen
     for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
 	simd_t<T,S> wival, wval;
 	_kernel_downsample<T,S,Df,Dt> (wival, wval, intensity + ifreq*stride, weights + ifreq*stride, stride);
-
 	v.accumulate_wi(wival, wval);
     }
 }
@@ -87,7 +86,6 @@ inline void _kernel_visit_1d_f(V &v, const typename V::T *intensity, const typen
     for (int ifreq = 0; ifreq < nfreq; ifreq++) {
 	simd_t<T,S> ival = simd_t<T,S>::loadu(intensity + ifreq*stride);
 	simd_t<T,S> wval = simd_t<T,S>::loadu(weights + ifreq*stride);
-
 	v.accumulate_i(ival, wval);
     }
 }
@@ -318,7 +316,7 @@ struct _mean_visitor {
 	acc1 += wival;
 
 	if (Iflag) {
-	    simd_t<T,S> ival = blendv(wval.compare_gt(zero), wval, one);
+	    simd_t<T,S> ival = wival / blendv(wval.compare_gt(zero), wval, one);
 	    ival.storeu(ds_intensity);
 	    ds_intensity += S;
 	}
@@ -389,7 +387,7 @@ struct _variance_visitor {
 
 	simd_t<T,S> thresh = simd_t<T,S>(eps) * in_mean;
 	valid = valid.bitwise_and(var.compare_gt(thresh * thresh));  // note square here
-	var = var.apply_mask(valid);
+	return var.apply_mask(valid);
     }
 };
 
@@ -521,7 +519,7 @@ inline void _kernel_mean_variance_1d_f(simd_t<T,S> &mean, simd_t<T,S> &var, cons
     mean = v.get_mean();
 
     _variance_visitor<T,S> vv(mean);
-    _kernel_visit_1d_f<1,1> (v, ds_intensity, ds_weights, nfreq, stride);    
+    _kernel_visit_1d_f<1,1> (vv, ds_intensity, ds_weights, nfreq/Df, S);
     var = vv.get_variance();
 }
 
@@ -534,7 +532,7 @@ inline void _kernel_mean_variance_1d_f(simd_t<T,S> &mean, simd_t<T,S> &var, cons
     mean = v.get_mean();
 
     _variance_visitor<T,S> vv(mean);
-    _kernel_visit_1d_f<1,1> (v, intensity, weights, nfreq, stride);    
+    _kernel_visit_1d_f<1,1> (vv, intensity, weights, nfreq, stride);    
     var = vv.get_variance();
 }
 

@@ -29,6 +29,7 @@ struct std_dev_clipper_buffers {
 	free(sd_valid);
 	free(ds_int);
 	free(ds_wt);
+
 	sd = ds_int = ds_wt = NULL;
 	sd_valid = NULL;
     }
@@ -45,7 +46,7 @@ struct std_dev_clipper_buffers {
 // There is no requirement that (nfreq % (Df*S)) == 0.
 
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool TwoPass>
 inline void _kernel_std_dev_t(const std_dev_clipper_buffers<T> &buf, const T *intensity, const T *weights, int nfreq, int nt, int stride)
 {
     T *out_sd = buf.sd;
@@ -56,7 +57,7 @@ inline void _kernel_std_dev_t(const std_dev_clipper_buffers<T> &buf, const T *in
 	const T *wrow = weights + ifreq * stride;
 
 	simd_t<T,S> mean, var;
-	_kernel_mean_variance_1d_t<T,S,Df,Dt,false,false,false> (mean, var, irow, wrow, nt, stride, buf.ds_int, buf.ds_wt);
+	_kernel_mean_variance_1d_t<T,S,Df,Dt,false,false,TwoPass> (mean, var, irow, wrow, nt, stride, buf.ds_int, buf.ds_wt);
 
 	// scalar instructions should be fine here
 	T sd = var.template extract<0> ();
@@ -66,10 +67,10 @@ inline void _kernel_std_dev_t(const std_dev_clipper_buffers<T> &buf, const T *in
 }
 
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool TwoPass>
 inline void _kernel_std_dev_clip_time_axis(const std_dev_clipper_buffers<T> &buf, const T *intensity, T *weights, int nfreq, int nt, int stride, double sigma)
 {
-    _kernel_std_dev_t<T,S,Df,Dt> (buf, intensity, weights, nfreq, nt, stride);
+    _kernel_std_dev_t<T,S,Df,Dt,TwoPass> (buf, intensity, weights, nfreq, nt, stride);
 
     clip_1d(nfreq/Df, buf.sd, buf.sd_valid, sigma);
 
@@ -93,7 +94,7 @@ inline void _kernel_std_dev_clip_time_axis(const std_dev_clipper_buffers<T> &buf
 // There is no requirement that (nfreq % (Df*S)) == 0.
 
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool TwoPass>
 inline void _kernel_std_dev_f(const std_dev_clipper_buffers<T> &buf, const T *intensity, const T *weights, int nfreq, int nt, int stride)
 {
     T *out_sd = buf.sd;
@@ -104,7 +105,7 @@ inline void _kernel_std_dev_f(const std_dev_clipper_buffers<T> &buf, const T *in
 	const T *wcol = weights + it;
 
 	simd_t<T,S> mean, var;
-	_kernel_mean_variance_1d_f<T,S,Df,Dt,false,false,false> (mean, var, icol, wcol, nfreq, stride, buf.ds_int, buf.ds_wt);
+	_kernel_mean_variance_1d_f<T,S,Df,Dt,false,false,TwoPass> (mean, var, icol, wcol, nfreq, stride, buf.ds_int, buf.ds_wt);
 	
 	smask_t<T,S> valid = var.compare_gt(simd_t<T,S>::zero());
 
@@ -117,10 +118,10 @@ inline void _kernel_std_dev_f(const std_dev_clipper_buffers<T> &buf, const T *in
 }
 
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
+template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool TwoPass>
 inline void _kernel_std_dev_clip_freq_axis(const std_dev_clipper_buffers<T> &buf, const T *intensity, T *weights, int nfreq, int nt, int stride, double sigma)
 {
-    _kernel_std_dev_f<T,S,Df,Dt> (buf, intensity, weights, nfreq, nt, stride);
+    _kernel_std_dev_f<T,S,Df,Dt,TwoPass> (buf, intensity, weights, nfreq, nt, stride);
 
     clip_1d(nt/Dt, buf.sd, buf.sd_valid, sigma);
 

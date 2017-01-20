@@ -76,6 +76,7 @@ inline void allocate_buffers(std_dev_clipper_buffers<T> &buf, int nfreq, int nt,
     buf.sd = aligned_alloc<T> (sd_nalloc);
     buf.sd_valid = aligned_alloc<smask_t<T,1>> (sd_nalloc);
 
+    TwoPass = true;  // XXX
     if (TwoPass && ((Df > 1) || (Dt > 1))) {
 	buf.ds_int = aligned_alloc<T> ((nfreq*nt) / (Df*Dt));
 	buf.ds_wt = aligned_alloc<T> ((nfreq*nt) / (Df*Dt));
@@ -105,8 +106,8 @@ inline void fill_2d_std_dev_clipper_kernel_table(std_dev_clipper_kernel_t *out)
     fill_2d_std_dev_clipper_kernel_table<S,Df,NDt-1> (out);
 
     constexpr unsigned int Dt = 1 << (NDt-1);
-    out[2*(NDt-1) + AXIS_FREQ] = _kernel_std_dev_clip_freq_axis<float,S,Df,Dt>;
-    out[2*(NDt-1) + AXIS_TIME] = _kernel_std_dev_clip_time_axis<float,S,Df,Dt>;
+    out[2*(NDt-1) + AXIS_FREQ] = _kernel_std_dev_clip_freq_axis<float,S,Df,Dt,false>;
+    out[2*(NDt-1) + AXIS_TIME] = _kernel_std_dev_clip_time_axis<float,S,Df,Dt,false>;
 }
 
 // Fills shape-(NDf,NDt,3) array indexed by (Df,Dt,axis)
