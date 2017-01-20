@@ -236,7 +236,9 @@ extern std::shared_ptr<wi_transform> make_intensity_clipper(int nt_chunk, axis_t
 //
 // The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.
 //
-std::shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, axis_type axis, double sigma, int Df=1, int Dt=1);
+// If the 'two_pass' flag is set, a more numerically stable but slightly slower algorithm will be used.
+//
+std::shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, axis_type axis, double sigma, int Df=1, int Dt=1, bool two_pass=false);
 
 
 // Standalone functions with the equivalent functionality to the polynomial_detrender,
@@ -248,8 +250,8 @@ extern void apply_polynomial_detrender(float *intensity, float *weights, int nfr
 extern void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, 
 				    axis_type axis, double sigma, int niter=1, double iter_sigma=0.0, int Df=1, int Dt=1);
 
-extern void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, int nt, 
-				  int stride, axis_type axis, double sigma, int Df=1, int Dt=1);
+extern void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride,
+				  axis_type axis, double sigma, int Df=1, int Dt=1, bool two_pass=false);
 
 
 // Helper routines for the RFI transforms above, factored out as standalone functions.

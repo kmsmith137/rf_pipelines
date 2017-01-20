@@ -69,15 +69,14 @@ void clip_1d(int n, float *tmp_sd, mask_t *tmp_valid, double sigma)
 
 
 template<typename T>
-inline void allocate_buffers(std_dev_clipper_buffers<T> &buf, int nfreq, int nt, axis_type axis, int Df, int Dt, bool TwoPass)
+inline void allocate_buffers(std_dev_clipper_buffers<T> &buf, int nfreq, int nt, axis_type axis, int Df, int Dt, bool two_pass)
 {
     int sd_nalloc = (axis == AXIS_FREQ) ? (nt/Dt) : (nfreq/Df);
 
     buf.sd = aligned_alloc<T> (sd_nalloc);
     buf.sd_valid = aligned_alloc<smask_t<T,1>> (sd_nalloc);
 
-    TwoPass = true;  // XXX
-    if (TwoPass && ((Df > 1) || (Dt > 1))) {
+    if (two_pass && ((Df > 1) || (Dt > 1))) {
 	buf.ds_int = aligned_alloc<T> ((nfreq*nt) / (Df*Dt));
 	buf.ds_wt = aligned_alloc<T> ((nfreq*nt) / (Df*Dt));
     }
@@ -93,32 +92,34 @@ inline void allocate_buffers(std_dev_clipper_buffers<T> &buf, int nfreq, int nt,
 using std_dev_clipper_kernel_t = void (*)(const std_dev_clipper_buffers<float> &, const float *, float *, int, int, int, double);
 
 
-// Fills shape-(NDt,2) array indexed by (Dt,axis)
+// Fills shape-(NDt,2,2) array indexed by (Dt,axis,two_pass)
 template<unsigned int S, unsigned int Df, unsigned int NDt, typename enable_if<(NDt==0),int>::type = 0>
-inline void fill_2d_std_dev_clipper_kernel_table(std_dev_clipper_kernel_t *out) { }
+inline void fill_3d_std_dev_clipper_kernel_table(std_dev_clipper_kernel_t *out) { }
 
 template<unsigned int S, unsigned int Df, unsigned int NDt, typename enable_if<(NDt>0),int>::type = 0>
-inline void fill_2d_std_dev_clipper_kernel_table(std_dev_clipper_kernel_t *out) 
+inline void fill_3d_std_dev_clipper_kernel_table(std_dev_clipper_kernel_t *out) 
 { 
     static_assert(AXIS_FREQ == 0, "expected AXIS_FREQ==0");
     static_assert(AXIS_TIME== 1, "expected AXIS_TIME==1");
 
-    fill_2d_std_dev_clipper_kernel_table<S,Df,NDt-1> (out);
+    fill_3d_std_dev_clipper_kernel_table<S,Df,NDt-1> (out);
 
     constexpr unsigned int Dt = 1 << (NDt-1);
-    out[2*(NDt-1) + AXIS_FREQ] = _kernel_std_dev_clip_freq_axis<float,S,Df,Dt,false>;
-    out[2*(NDt-1) + AXIS_TIME] = _kernel_std_dev_clip_time_axis<float,S,Df,Dt,false>;
+    out[4*(NDt-1) + 2*AXIS_FREQ] = _kernel_std_dev_clip_freq_axis<float,S,Df,Dt,false>;
+    out[4*(NDt-1) + 2*AXIS_FREQ+1] = _kernel_std_dev_clip_freq_axis<float,S,Df,Dt,true>;
+    out[4*(NDt-1) + 2*AXIS_TIME] = _kernel_std_dev_clip_time_axis<float,S,Df,Dt,false>;
+    out[4*(NDt-1) + 2*AXIS_TIME+1] = _kernel_std_dev_clip_time_axis<float,S,Df,Dt,true>;
 }
 
-// Fills shape-(NDf,NDt,3) array indexed by (Df,Dt,axis)
+// Fills shape-(NDf,NDt,2,2) array indexed by (Df,Dt,axis,two_pass)
 template<unsigned int S, unsigned int NDf, unsigned int NDt, typename enable_if<(NDf==0),int>::type = 0>
-inline void fill_3d_std_dev_clipper_kernel_table(std_dev_clipper_kernel_t *out) { }
+inline void fill_4d_std_dev_clipper_kernel_table(std_dev_clipper_kernel_t *out) { }
 
 template<unsigned int S, unsigned int NDf, unsigned int NDt, typename enable_if<(NDf>0),int>::type = 0>
-inline void fill_3d_std_dev_clipper_kernel_table(std_dev_clipper_kernel_t *out) 
+inline void fill_4d_std_dev_clipper_kernel_table(std_dev_clipper_kernel_t *out) 
 { 
-    fill_3d_std_dev_clipper_kernel_table<S,NDf-1,NDt> (out);
-    fill_2d_std_dev_clipper_kernel_table<S,(1<<(NDf-1)),NDt> (out + 2*(NDf-1)*NDt);
+    fill_4d_std_dev_clipper_kernel_table<S,NDf-1,NDt> (out);
+    fill_3d_std_dev_clipper_kernel_table<S,(1<<(NDf-1)),NDt> (out + 4*(NDf-1)*NDt);
 }
 
 
@@ -137,18 +138,18 @@ struct std_dev_clipper_kernel_table {
     integer_log2_lookup_table ilog2_lookup;
 
     std_dev_clipper_kernel_table() :
-	kernels(2*NDf*NDt), ilog2_lookup(MaxD)
+	kernels(4*NDf*NDt), ilog2_lookup(MaxD)
     {
-	fill_3d_std_dev_clipper_kernel_table<S,NDf,NDt> (&kernels[0]);
+	fill_4d_std_dev_clipper_kernel_table<S,NDf,NDt> (&kernels[0]);
     }
 
     // Caller must call check_params()!
-    inline std_dev_clipper_kernel_t get_kernel(axis_type axis, int Df, int Dt)
+    inline std_dev_clipper_kernel_t get_kernel(axis_type axis, int Df, int Dt, bool two_pass)
     {
 	int idf = ilog2_lookup(Df);
 	int idt = ilog2_lookup(Dt);
 
-	return kernels[2*(idf*NDt+idt) + axis];
+	return kernels[4*(idf*NDt+idt) + 2*axis + (two_pass ? 1 : 0)];
     }
 };
 
@@ -167,6 +168,7 @@ struct std_dev_clipper_transform : public wi_transform
     const int nds_f;
     const int nds_t;
     const axis_type axis;
+    const bool two_pass;
     
     // Clipping threshold.
     const double sigma;
@@ -178,12 +180,12 @@ struct std_dev_clipper_transform : public wi_transform
     std_dev_clipper_transform(const std_dev_clipper_transform &) = delete;
     std_dev_clipper_transform &operator=(const std_dev_clipper_transform &) = delete;
 
-    std_dev_clipper_transform(int nds_f_, int nds_t_, axis_type axis_, int nt_chunk_, double sigma_, std_dev_clipper_kernel_t(kernel_))
-	: nds_f(nds_f_), nds_t(nds_t_), axis(axis_), sigma(sigma_), kernel(kernel_)
+    std_dev_clipper_transform(int nds_f_, int nds_t_, axis_type axis_, int nt_chunk_, double sigma_, bool two_pass_, std_dev_clipper_kernel_t(kernel_))
+	: nds_f(nds_f_), nds_t(nds_t_), axis(axis_), two_pass(two_pass_), sigma(sigma_), kernel(kernel_)
     {
 	stringstream ss;
         ss << "std_dev_clipper_transform_cpp(nt_chunk=" << nt_chunk_ << ", axis=" << axis
-           << ", sigma=" << sigma << ", Df=" << nds_f << ", Dt=" << nds_t << ")";
+           << ", sigma=" << sigma << ", Df=" << nds_f << ", Dt=" << nds_t << ", two_pass=" << two_pass << ")";
 	
         this->name = ss.str();
 	this->nt_chunk = nt_chunk_;
@@ -199,7 +201,7 @@ struct std_dev_clipper_transform : public wi_transform
 
 	this->nfreq = stream.nfreq;
 	
-	allocate_buffers(this->buf, nfreq, nt_chunk, axis, nds_f, nds_t, false);
+	allocate_buffers(this->buf, nfreq, nt_chunk, axis, nds_f, nds_t, two_pass);
     }
 
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
@@ -258,26 +260,26 @@ static void check_params(int Df, int Dt, axis_type axis, int nfreq, int nt, int 
 
 
 // Externally callable
-shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, axis_type axis, double sigma, int Df, int Dt)
+shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, axis_type axis, double sigma, int Df, int Dt, bool two_pass)
 {
     int dummy_nfreq = Df;         // arbitrary
     int dummy_stride = nt_chunk;  // arbitrary
     check_params(Df, Dt, axis, dummy_nfreq, nt_chunk, dummy_stride, sigma);
 
-    auto kernel = global_std_dev_clipper_kernel_table.get_kernel(axis, Df, Dt);
-    return make_shared<std_dev_clipper_transform> (Df, Dt, axis, nt_chunk, sigma, kernel);
+    auto kernel = global_std_dev_clipper_kernel_table.get_kernel(axis, Df, Dt, two_pass);
+    return make_shared<std_dev_clipper_transform> (Df, Dt, axis, nt_chunk, sigma, two_pass, kernel);
 }
 
 
 // Externally callable
-void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, axis_type axis, double sigma, int Df, int Dt)
+void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, axis_type axis, double sigma, int Df, int Dt, bool two_pass)
 {
     check_params(Df, Dt, axis, nfreq, nt, stride, sigma);
 
     std_dev_clipper_buffers<float> buf;
-    allocate_buffers(buf, nfreq, nt, axis, Df, Dt, false);
+    allocate_buffers(buf, nfreq, nt, axis, Df, Dt, two_pass);
 
-    auto kernel = global_std_dev_clipper_kernel_table.get_kernel(axis, Df, Dt);
+    auto kernel = global_std_dev_clipper_kernel_table.get_kernel(axis, Df, Dt, two_pass);
     kernel(buf, intensity, weights, nfreq, nt, stride, sigma);
 }
 

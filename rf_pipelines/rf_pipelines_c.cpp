@@ -1333,21 +1333,22 @@ static PyObject *make_intensity_clipper(PyObject *self, PyObject *args, PyObject
 
 static PyObject *make_std_dev_clipper(PyObject *self, PyObject *args, PyObject *kwds)
 {
-    static const char *kwlist[] = { "nt_chunk", "axis", "sigma", "Df", "Dt", NULL };
+    static const char *kwlist[] = { "nt_chunk", "axis", "sigma", "Df", "Dt", "two_pass", NULL };
 
     int nt_chunk = 0;
     PyObject *axis_ptr = Py_None;
     double sigma = 0.0;
-    int Df = 1;   // meaningful default value
-    int Dt = 1;   // meaningful default value
+    int Df = 1;        // meaningful default value
+    int Dt = 1;        // meaningful default value
+    int two_pass = 0;  // meaningful default value
 
     // Note: the object pointers will be borrowed references
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "iOd|ii", (char **)kwlist, &nt_chunk, &axis_ptr, &sigma, &Df, &Dt))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "iOd|iii", (char **)kwlist, &nt_chunk, &axis_ptr, &sigma, &Df, &Dt, &two_pass))
 	return NULL;
 
     rf_pipelines::axis_type axis = axis_type_from_python("make_std_dev_clipper()", axis_ptr);
 
-    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_std_dev_clipper(nt_chunk, axis, sigma, Df, Dt);
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_std_dev_clipper(nt_chunk, axis, sigma, Df, Dt, two_pass);
     return wi_transform_object::make(ret);
 }
 
@@ -1409,7 +1410,7 @@ static PyObject *apply_intensity_clipper(PyObject *self, PyObject *args, PyObjec
 
 static PyObject *apply_std_dev_clipper(PyObject *self, PyObject *args, PyObject *kwds)
 {
-    static const char *kwlist[] = { "intensity", "weights", "axis", "sigma", "Df", "Dt", NULL };
+    static const char *kwlist[] = { "intensity", "weights", "axis", "sigma", "Df", "Dt", "two_pass", NULL };
 
     PyObject *intensity_obj = Py_None;
     PyObject *weights_obj = Py_None;
@@ -1417,16 +1418,17 @@ static PyObject *apply_std_dev_clipper(PyObject *self, PyObject *args, PyObject 
     double sigma = 0.0;
     int Df = 1;   // meaningful default value
     int Dt = 1;   // meaningful default value
+    int two_pass = 0;  // meaningful default valuex
 
     // Note: the object pointers will be borrowed references
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOd|ii", (char **)kwlist, &intensity_obj, &weights_obj, &axis_ptr, &sigma, &Df, &Dt))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOd|iii", (char **)kwlist, &intensity_obj, &weights_obj, &axis_ptr, &sigma, &Df, &Dt, &two_pass))
 	return NULL;
 
     arr_wi_helper wi(intensity_obj, weights_obj, false, true);   // (intensity_writeback, weights_writeback) = (false, true)
 
     rf_pipelines::axis_type axis = axis_type_from_python("apply_std_dev_clipper", axis_ptr);
 
-    rf_pipelines::apply_std_dev_clipper(wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, axis, sigma, Df, Dt);
+    rf_pipelines::apply_std_dev_clipper(wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, axis, sigma, Df, Dt, two_pass);
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -1597,7 +1599,7 @@ static constexpr const char *make_intensity_clipper_docstring =
 
 
 static constexpr const char *make_std_dev_clipper_docstring =
-    "make_std_dev_clipper(nt_chunk, axis, sigma, Df=1, Dt=1)\n"
+    "make_std_dev_clipper(nt_chunk, axis, sigma, Df=1, Dt=1, two_pass=False)\n"
     "\n"
     "'Clips' an array by masking rows/columns whose standard deviation is an outlier.\n"
     "The masking is performed by setting elements of the weights array to zero.\n"
@@ -1609,7 +1611,8 @@ static constexpr const char *make_std_dev_clipper_docstring =
     "The (Df,Dt) args are downsampling factors on the frequency/time axes.\n"
     "If no downsampling is desired, set Df=Dt=1.\n"
     "\n"
-    "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.\n";
+    "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.\n"
+    "If the 'two_pass' flag is set, then a more numerically stable but slightly slower algorithm will be used.\n";
 
 
 static constexpr const char *apply_polynomial_detrender_docstring =
@@ -1647,7 +1650,7 @@ static constexpr const char *apply_intensity_clipper_docstring =
 
 
 static constexpr const char *apply_std_dev_clipper_docstring =
-    "apply_std_dev_clipper(intensity, weights, axis, sigma, Df=1, Dt=1)\n"
+    "apply_std_dev_clipper(intensity, weights, axis, sigma, Df=1, Dt=1, two_pass=False)\n"
     "\n"
     "'Clips' an array by masking rows/columns whose standard deviation is an outlier.\n"
     "The masking is performed by setting elements of the weights array to zero.\n"
@@ -1659,7 +1662,8 @@ static constexpr const char *apply_std_dev_clipper_docstring =
     "The (Df,Dt) args are downsampling factors on the frequency/time axes.\n"
     "If no downsampling is desired, set Df=Dt=1.\n"
     "\n"
-    "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.\n";
+    "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.\n"
+    "If the 'two_pass' flag is set, then a more numerically stable but slightly slower algorithm will be used.\n";
 
 
 static constexpr const char *wi_downsample_docstring =

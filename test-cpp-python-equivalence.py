@@ -307,9 +307,10 @@ def test_clippers():
         nfreq = Df * rand.randint(8,16)
         nt = Dt * 8 * rand.randint(1,8)
         thresh = rand.uniform(1.1, 1.3)
+        two_pass = rand.randint(0,2)
 
         # Debug
-        # print >>sys.stderr, '(Df,Dt,axis,nfreq,nt,thresh)=(%d,%d,%s,%d,%d,%s)' % (Df,Dt,axis,nfreq,nt,thresh)
+        # print >>sys.stderr, '(Df,Dt,axis,nfreq,nt,two_pass,thresh)=(%d,%d,%s,%d,%d,%d,%s)' % (Df,Dt,axis,nfreq,nt,two_pass,thresh)
 
         (intensity, weights0) = make_clipper_test_data(nfreq, nt, axis, Df, Dt)
 
@@ -344,12 +345,12 @@ def test_clippers():
         rf_pipelines.filter_stdv(intensity, weights2, thr = 1.001 * thresh, axis = axis, dsample_nfreq = nfreq//Df, dsample_nt = nt//Dt, imitate_cpp = True)
         
         weights3 = np.array(weights0, dtype=np.float32)
-        rf_pipelines_c.apply_std_dev_clipper(intensity, weights3, axis, thresh, Df, Dt)
+        rf_pipelines_c.apply_std_dev_clipper(intensity, weights3, axis, thresh, Df, Dt, two_pass)
 
         ok = np.logical_and(weights1 <= weights3, weights3 <= weights2)
         
         if not np.all(ok):
-            print >>sys.stderr, 'std_dev_clipper failed for (Df,Dt,axis,nfreq,nt,thresh)=(%d,%d,%s,%d,%d,%s)' % (Df,Dt,axis,nfreq,nt,thresh)
+            print >>sys.stderr, 'std_dev_clipper failed for (Df,Dt,axis,nfreq,nt,two_pass,thresh)=(%d,%d,%s,%d,%d,%d,%s)' % (Df,Dt,axis,nfreq,nt,two_pass,thresh)
 
             t = np.argmax(np.logical_not(ok))
             (ifreq, it) = np.unravel_index(t, ok.shape)
@@ -357,7 +358,7 @@ def test_clippers():
             print >>sys.stderr, 'intensity:', intensity[ifreq,it]
             print >>sys.stderr, 'weights:', weights1[ifreq,it], weights3[ifreq,it], weights2[ifreq,it]
             sys.exit(1)
-                    
+
     print 'test_clippers: pass'
 
 
@@ -556,9 +557,10 @@ def make_random_transform():
         Dt = 2**rand.randint(0,6)
         sigma = rand.uniform(1.1, 1.3)
         nt_chunk = Dt * 8 * rand.randint(1,8)
+        two_pass = rand.randint(0,2)
 
-        t = rf_pipelines_c.make_std_dev_clipper(nt_chunk, axis, sigma, Df, Dt)
-        f = lambda intensity, weights: rf_pipelines_c.apply_std_dev_clipper(intensity, weights, axis, sigma, Df=Df, Dt=Dt)
+        t = rf_pipelines_c.make_std_dev_clipper(nt_chunk, axis, sigma, Df, Dt, two_pass)
+        f = lambda intensity, weights: rf_pipelines_c.apply_std_dev_clipper(intensity, weights, axis, sigma, Df=Df, Dt=Dt, two_pass=two_pass)
 
     assert t.nt_chunk == nt_chunk
     assert t.nt_prepad == 0
