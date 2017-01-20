@@ -5,7 +5,7 @@
 // and I'll help navigate the mess!
 
 #include "python_extension_helpers.hpp"
-#include "rf_pipelines.hpp"
+#include "rf_pipelines_internals.hpp"
 
 using namespace std;
 
@@ -55,7 +55,7 @@ struct arr_2d_helper {
     
     void set_contiguous(PyObject *obj)
     {
-	// The NPY_ARRAY_FORECAST flag allows conversion double -> float
+	// The NPY_ARRAY_FORCECAST flag allows conversion double -> float
 	int requirements = NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED | NPY_ARRAY_ENSUREARRAY | NPY_ARRAY_FORCECAST;
 
 	if (writeback)
@@ -1504,6 +1504,65 @@ static PyObject *weighted_mean_and_rms(PyObject *self, PyObject *args, PyObject 
 }
 
 
+static PyObject *_wrms_hack_for_testing1(PyObject *self, PyObject *args, PyObject *kwds)
+{
+    static const char *kwlist[] = { "intensity", "weights", "niter", "sigma", "two_pass", NULL };
+
+    PyObject *intensity_obj = Py_None;
+    PyObject *weights_obj = Py_None;
+    int niter = 1;       // meaningful default value
+    double sigma = 3.0;  // meaningful default value
+    int two_pass = 0;    // meaningful default value
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OO|idi", (char **)kwlist, &intensity_obj, &weights_obj, &niter, &sigma, &two_pass))
+	return NULL;
+
+    // (intensity_writeback, weights_writeback) = (false, false)
+    arr_wi_helper wi(intensity_obj, weights_obj, false, false);
+
+    vector<float> mean_hint;
+    rf_pipelines::_wrms_hack_for_testing1(mean_hint, wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, niter, sigma, two_pass);
+
+    npy_intp nelts = mean_hint.size();
+    PyObject *ret = PyArray_SimpleNew(1, &nelts, NPY_FLOAT);
+
+    memcpy((float *) PyArray_DATA((PyArrayObject *) ret), &mean_hint[0], nelts * sizeof(float));
+    return ret;
+}
+
+
+static PyObject *_wrms_hack_for_testing2(PyObject *self, PyObject *args, PyObject *kwds)
+{
+    static const char *kwlist[] = { "intensity", "weights", "mean_hint", NULL };    
+
+    PyObject *intensity_obj = Py_None;
+    PyObject *weights_obj = Py_None;
+    PyObject *mean_hint_obj = Py_None;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOO", (char **)kwlist, &intensity_obj, &weights_obj, &mean_hint_obj))
+	return NULL;
+
+    // (intensity_writeback, weights_writeback) = (false, false)
+    arr_wi_helper wi(intensity_obj, weights_obj, false, false);
+
+    int requirements = NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED | NPY_ARRAY_ENSUREARRAY | NPY_ARRAY_FORCECAST;
+    PyArrayObject *mean_hint_arr = (PyArrayObject *) PyArray_FromAny(mean_hint_obj, PyArray_DescrFromType(NPY_FLOAT), 1, 1, requirements, NULL);
+    
+    assert(PyArray_NDIM(mean_hint_arr) == 1);
+    assert(PyArray_TYPE(mean_hint_arr) == NPY_FLOAT);
+    assert(PyArray_STRIDE(mean_hint_arr,0) == sizeof(float));
+
+    int n = PyArray_DIM(mean_hint_arr, 0);
+    vector<float> mean_hint(n);
+    memcpy(&mean_hint[0], (float *) PyArray_DATA(mean_hint_arr), n * sizeof(float));
+
+    float mean, rms;
+    rf_pipelines::_wrms_hack_for_testing2(mean, rms, wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, mean_hint);
+
+    return Py_BuildValue("(dd)", mean, rms);
+}
+
+
 static PyObject *make_chime_file_writer(PyObject *self, PyObject *args)
 {
     char *filename = nullptr;
@@ -1717,6 +1776,8 @@ static PyMethodDef module_methods[] = {
     { "apply_std_dev_clipper", (PyCFunction) tc_wrap3<apply_std_dev_clipper>, METH_VARARGS | METH_KEYWORDS, apply_std_dev_clipper_docstring },
     { "wi_downsample", (PyCFunction) tc_wrap3<wi_downsample>, METH_VARARGS | METH_KEYWORDS, wi_downsample_docstring },
     { "weighted_mean_and_rms", (PyCFunction) tc_wrap3<weighted_mean_and_rms>, METH_VARARGS | METH_KEYWORDS, weighted_mean_and_rms_docstring },
+    { "_wrms_hack_for_testing1", (PyCFunction) tc_wrap3<_wrms_hack_for_testing1>, METH_VARARGS | METH_KEYWORDS, dummy_module_method_docstring },
+    { "_wrms_hack_for_testing2", (PyCFunction) tc_wrap3<_wrms_hack_for_testing2>, METH_VARARGS | METH_KEYWORDS, dummy_module_method_docstring },
     { NULL, NULL, 0, NULL }
 };
 

@@ -125,6 +125,18 @@ def test_utils():
         assert epsilon_m < 1.0e-4
         assert epsilon_r < 1.0e-4
 
+        # Test 3: similar comparison with rf_pipelines_c._wrms_hack_for_testing2()
+        # XXX comment later
+
+        mean_hint = rand.standard_normal() * np.ones(8)  # FIXME hardcoded simd length
+        (mean3, rms3) = rf_pipelines_c._wrms_hack_for_testing2(copy_array(intensity), copy_array(weights), mean_hint)
+
+        epsilon_m = np.abs(mean1-mean3)
+        epsilon_r = np.abs(rms1-rms3)
+
+        assert epsilon_m < 1.0e-4
+        assert epsilon_r < 1.0e-4
+
     print >>sys.stderr, 'test_utils: pass'
 
 
@@ -384,7 +396,7 @@ def test_iterated_intensity_clippers():
         two_pass = rand.randint(0,2)
         
         sys.stderr.write('.')
-        # print 'iteration %d: (Df,Dt,nfreq,nt,sigma,niter,iter_sigma) = %s' % (iter, (Df,Dt,nfreq,nt,sigma,niter,iter_sigma))
+        # print >>sys.stderr, 'iteration %d: (Df,Dt,nfreq,nt,sigma,niter,iter_sigma,two_pass) = %s' % (iter, (Df,Dt,nfreq,nt,sigma,niter,iter_sigma,two_pass))
 
         (intensity0, weights0) = make_clipper_test_data(nfreq, nt, axis=None, Df=Df, Dt=Dt)
 
@@ -463,10 +475,16 @@ def test_iterated_intensity_clippers():
         weights1 = copy_array(weights0)
 
         # (axis, Df, Dt, iter_sigma) = (None, 1, 1, sigma)
-        rf_pipelines_c.apply_intensity_clipper(intensity, weights1, None, sigma, niter=niter, iter_sigma=sigma)
-        
-        (mean1, rms1) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights1, 1, sigma)
-        (mean2, rms2) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights0, niter+1, sigma)
+        rf_pipelines_c.apply_intensity_clipper(intensity, weights1, None, sigma, niter=niter, iter_sigma=sigma, two_pass=two_pass)
+
+        # XXX comment later
+        if two_pass:
+            mean_hint = rf_pipelines_c._wrms_hack_for_testing1(intensity, weights0, niter, sigma, two_pass)
+            (mean1, rms1) = rf_pipelines_c._wrms_hack_for_testing2(intensity, weights1, mean_hint)
+        else:
+            (mean1, rms1) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights1, 1, sigma)
+
+        (mean2, rms2) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights0, niter+1, sigma, two_pass)
         (epsilon_m, epsilon_r) = (np.abs(mean1-mean2), np.abs(rms1-rms2))
 
         assert epsilon_m < 1.0e-6

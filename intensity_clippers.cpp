@@ -296,11 +296,9 @@ void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, 
 }
 
 
-// Externally visible
-void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, int niter, double sigma, bool two_pass)
+template<typename T, unsigned int S>
+inline void _weighted_mean_and_rms(simd_t<T,S> &mean, simd_t<T,S> &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, int niter, double sigma, bool two_pass)
 {
-    static constexpr int S = constants::single_precision_simd_length;
-
     if (_unlikely((nfreq <= 0) || (nt <= 0)))
 	throw runtime_error("weighted_mean_and_rms(): (nfreq,nt)=(" + to_string(nfreq) + "," + to_string(nt) + ") is invalid");
     
@@ -325,13 +323,52 @@ void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, cons
     simd_t<float,S> mean_x, rms_x;
 
     if (two_pass) {
-	_kernel_noniterative_wrms_2d<float,S,1,1,false,false,true> (mean_x, rms_x, intensity, weights, nfreq, nt, stride, NULL, NULL);
-	_kernel_wrms_iterate_2d<float,S,true> (mean_x, rms_x, intensity, weights, nfreq, nt, stride, niter, sigma);
+	_kernel_noniterative_wrms_2d<T,S,1,1,false,false,true> (mean, rms, intensity, weights, nfreq, nt, stride, NULL, NULL);
+	_kernel_wrms_iterate_2d<T,S,true> (mean, rms, intensity, weights, nfreq, nt, stride, niter, sigma);
     }
     else {
-	_kernel_noniterative_wrms_2d<float,S,1,1,false,false,false> (mean_x, rms_x, intensity, weights, nfreq, nt, stride, NULL, NULL);
-	_kernel_wrms_iterate_2d<float,S,false> (mean_x, rms_x, intensity, weights, nfreq, nt, stride, niter, sigma);
+	_kernel_noniterative_wrms_2d<T,S,1,1,false,false,false> (mean, rms, intensity, weights, nfreq, nt, stride, NULL, NULL);
+	_kernel_wrms_iterate_2d<T,S,false> (mean, rms, intensity, weights, nfreq, nt, stride, niter, sigma);
     }
+}
+
+
+void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, int niter, double sigma, bool two_pass)
+{
+    static constexpr int S = constants::single_precision_simd_length;
+
+    simd_t<float,S> mean_x, rms_x;
+    _weighted_mean_and_rms(mean_x, rms_x, intensity, weights, nfreq, nt, stride, niter, sigma, two_pass);
+
+    mean = mean_x.template extract<0> ();
+    rms = rms_x.template extract<0> ();
+}
+
+
+void _wrms_hack_for_testing1(vector<float> &mean_hint, const float *intensity, const float *weights, int nfreq, int nt, int stride, int niter, double sigma, bool two_pass)
+{
+    static constexpr int S = constants::single_precision_simd_length;
+
+    simd_t<float,S> mean_x, rms_x;
+    _weighted_mean_and_rms(mean_x, rms_x, intensity, weights, nfreq, nt, stride, niter, sigma, two_pass);
+
+    mean_hint.resize(S);
+    mean_x.storeu(&mean_hint[0]);
+}
+
+
+void _wrms_hack_for_testing2(float &mean, float &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, const vector<float> &mean_hint)
+{
+    static constexpr int S = constants::single_precision_simd_length;
+
+    if (mean_hint.size() != S)
+	throw runtime_error("rf_pipelines: wrong mean_hint size in _wrms_hack_for_testing2()");
+
+    _mean_variance_iterator<float,S,true> v(simd_t<float,S>::loadu(&mean_hint[0]), simd_t<float,S>(1.0e10));
+    _kernel_visit_2d<1,1> (v, intensity, weights, nfreq, nt, stride);
+
+    simd_t<float,S> mean_x, rms_x;
+    v.get_mean_rms(mean_x, rms_x);
 
     mean = mean_x.template extract<0> ();
     rms = rms_x.template extract<0> ();
