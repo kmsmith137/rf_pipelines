@@ -483,7 +483,7 @@ inline void _kernel_mean_variance_2d(simd_t<T,S> &mean, simd_t<T,S> &var, const 
     mean = v.get_mean();
 
     _variance_visitor<T,S> vv(mean);
-    _kernel_visit_2d<1,1> (vv, ds_intensity, ds_weights, nfreq, nt, stride);
+    _kernel_visit_2d<1,1> (vv, ds_intensity, ds_weights, nfreq/Df, nt/Dt, nt/Dt);
     var = vv.get_variance();
 }
 
