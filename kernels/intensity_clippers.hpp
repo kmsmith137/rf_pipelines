@@ -124,6 +124,9 @@ inline void _kernel_wrms_iterate_1d_f(simd_t<T,S> &mean, simd_t<T,S> &rms, const
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
 inline void _kernel_intensity_mask_2d(T *weights, const T *ds_intensity, simd_t<T,S> mean, simd_t<T,S> thresh, int nfreq, int nt, int stride, int ds_stride)
 {
+    simd_t<T,S> lo = mean - thresh;
+    simd_t<T,S> hi = mean + thresh;
+
     const T *ds_irow = ds_intensity;
 
     for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
@@ -134,10 +137,10 @@ inline void _kernel_intensity_mask_2d(T *weights, const T *ds_intensity, simd_t<
 	    simd_t<T,S> ival = simd_t<T,S>::loadu(ds_itmp);
 	    ds_itmp += S;
 
-	    ival -= mean;
-	    ival = ival.abs();
+	    smask_t<T,S> valid1 = ival.compare_lt(hi);
+	    smask_t<T,S> valid2 = ival.compare_gt(lo);
+	    smask_t<T,S> valid = valid1.bitwise_and(valid2);
 
-	    smask_t<T,S> valid = ival.compare_lt(thresh);
 	    _kernel_mask<T,S,Df,Dt> (wrow + it, valid, stride);
 	}
 
@@ -156,15 +159,18 @@ inline void _kernel_intensity_mask_1d_t(T *weights, const T *ds_intensity, simd_
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
 inline void _kernel_intensity_mask_1d_f(T *weights, const T *ds_intensity, simd_t<T,S> mean, simd_t<T,S> thresh, int nfreq, int stride, int ds_stride)
 {
+    simd_t<T,S> lo = mean - thresh;
+    simd_t<T,S> hi = mean + thresh;
+
     for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
 	simd_t<T,S> ival = simd_t<T,S>::loadu(ds_intensity);
-	ival -= mean;
-	ival = ival.abs();
-
-	smask_t<T,S> valid = ival.compare_lt(thresh);
-	_kernel_mask<T,S,Df,Dt> (weights + ifreq*stride, valid, stride);
-
 	ds_intensity += ds_stride;
+
+	smask_t<T,S> valid1 = ival.compare_lt(hi);
+	smask_t<T,S> valid2 = ival.compare_gt(lo);
+	smask_t<T,S> valid = valid1.bitwise_and(valid2);
+
+	_kernel_mask<T,S,Df,Dt> (weights + ifreq*stride, valid, stride);
     }
 }
 
