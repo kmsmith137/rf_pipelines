@@ -175,7 +175,7 @@ struct _mean_variance_visitor {
 
     inline void get_mean_variance(simd_t<T,S> &mean, simd_t<T,S> &var) const
     {
-	static constexpr T eps = 1.0e3 * simd_helpers::machine_epsilon<T> ();
+	static constexpr T eps_3 = 1.0e3 * simd_helpers::machine_epsilon<T> ();
 
 	smask_t<T,S> valid = acc0.compare_gt(zero);
 	simd_t<T,S> t0 = blendv(valid, acc0, one);
@@ -184,7 +184,8 @@ struct _mean_variance_visitor {
 	simd_t<T,S> mean2 = mean * mean;
 	var = acc2/t0 - mean2;
 
-	simd_t<T,S> thresh = simd_t<T,S>(eps) * mean2;
+	simd_t<T,S> thresh = simd_t<T,S>(eps_3) * mean2;
+
 	valid = valid.bitwise_and(var.compare_gt(thresh));
 	var = var.apply_mask(valid);
     }
@@ -383,14 +384,16 @@ struct _variance_visitor {
 
     inline simd_t<T,S> get_variance() const
     {
-	static constexpr T eps = 1.0e2 * simd_helpers::machine_epsilon<T> ();
+	static constexpr T eps_2 = 1.0e2 * simd_helpers::machine_epsilon<T> ();
 
 	smask_t<T,S> valid = acc0.compare_gt(zero);
 	simd_t<T,S> t0 = blendv(valid, acc0, one);
 	simd_t<T,S> var = acc2/t0;
 
-	simd_t<T,S> thresh = simd_t<T,S>(eps) * in_mean;
-	valid = valid.bitwise_and(var.compare_gt(thresh * thresh));  // note square here
+	simd_t<T,S> thresh = simd_t<T,S>(eps_2) * in_mean;
+	thresh = thresh * thresh;
+
+	valid = valid.bitwise_and(var.compare_gt(thresh));
 	return var.apply_mask(valid);
     }
 };
@@ -448,7 +451,9 @@ struct _mean_variance_iterator<T_,S_,true> {
 
     inline void get_mean_rms(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms)
     {
-	static constexpr T eps = 1.0e3 * simd_helpers::machine_epsilon<T> ();
+	static constexpr T eps_2 = 1.0e2 * simd_helpers::machine_epsilon<T> ();
+	static constexpr T eps_3 = 1.0e3 * simd_helpers::machine_epsilon<T> ();
+
 	smask_t<T,S> valid = acc0.compare_gt(zero);
 
 	simd_t<T,S> t0 = blendv(valid, acc0, one);
@@ -457,8 +462,11 @@ struct _mean_variance_iterator<T_,S_,true> {
 	simd_t<T,S> dmean2 = dmean * dmean;
 	simd_t<T,S> var = acc2/t0 - dmean2;
 
-	simd_t<T,S> thresh = simd_t<T,S>(eps) * dmean2;
-	valid = valid.bitwise_and(var.compare_gt(thresh));
+	simd_t<T,S> thresh1 = simd_t<T,S>(eps_2) * in_mean;
+	simd_t<T,S> thresh2 = simd_t<T,S>(eps_3) * dmean2;
+	thresh2 = thresh2.max(thresh1 * thresh1);
+
+	valid = valid.bitwise_and(var.compare_gt(thresh2));
 	var = var.apply_mask(valid);
 
 	out_mean = in_mean + dmean;
