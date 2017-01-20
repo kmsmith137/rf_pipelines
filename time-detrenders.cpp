@@ -28,7 +28,7 @@ struct detrender_timing_thread : public transform_timing_thread
     {
 	if (thread_id == 0) {
             cout << "time-detrenders: nfreq=" << nfreq << ", nt_chunk=" << nt_chunk 
-		 << ", stride=" << stride  << ", polydeg=" << (N-1) << ", niter=" << niter << endl;
+		 << ", stride=" << stride  << ", polydeg=" << (N-1) << ", num_chunks=" << num_chunks << endl;
 	}
     }
 
@@ -39,18 +39,18 @@ struct detrender_timing_thread : public transform_timing_thread
 	simd_t<T,S> dummy(0.0);
 
 	this->start_timer();
-        for (int iter = 0; iter < niter; iter++)
+        for (int ichunk = 0; ichunk < num_chunks; ichunk++)
 	    _kernel_detrend_t<T,S,N> (nfreq, nt_chunk, intensity, weights, stride);
         this->stop_timer("kernel_detrend_t");
 
 	this->start_timer();
-        for (int iter = 0; iter < niter; iter++)
+        for (int ichunk = 0; ichunk < num_chunks; ichunk++)
 	    _kernel_detrend_f<T,S,N> (nfreq, nt_chunk, intensity, weights, stride);
         this->stop_timer("kernel_detrend_f");
 
 #if 0
 	this->start_timer();
-        for (int iter = 0; iter < niter; iter++) {
+        for (int ichunk = 0; ichunk < num_chunks; ichunk++) {
 	    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
 		_kernel_detrend_t_pass1<T,S,N> (smat, svec, nt_chunk, intensity + ifreq*stride, weights + ifreq*stride);
 		dummy += smat.vertical_sum();
@@ -62,7 +62,7 @@ struct detrender_timing_thread : public transform_timing_thread
 
 #if 0
 	this->start_timer();
-        for (int iter = 0; iter < niter; iter++) {
+        for (int ichunk = 0; ichunk < num_chunks; ichunk++) {
 	    for (int it = 0; it < nt_chunk; it += S) {
 		_kernel_detrend_f_pass1<T,S,N> (smat, svec, nfreq, intensity + it, weights + it, stride);
 		dummy += smat.vertical_sum();
