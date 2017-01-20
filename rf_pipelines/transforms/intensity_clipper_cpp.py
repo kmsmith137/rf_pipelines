@@ -6,7 +6,7 @@ See intensity_clippers.cpp, and python linkage in rf_pipelines_c.cpp.
 import numpy as np
 from rf_pipelines import rf_pipelines_c
 
-def intensity_clipper_cpp(nt_chunk=1024, axis=None, sigma=3, niter=1, iter_sigma=3, Df=1, Dt=1):
+def intensity_clipper_cpp(nt_chunk=1024, axis=None, sigma=3, niter=1, iter_sigma=3, Df=1, Dt=1, two_pass=False):
     """
     Returns a transform object (wi_transform) which uses the intensity
     array for clipping extreme values. Results are applied to the weights 
@@ -36,4 +36,4 @@ def intensity_clipper_cpp(nt_chunk=1024, axis=None, sigma=3, niter=1, iter_sigma
 
     assert ((np.log2(Df) % 2) in (0., 1.)) and ((np.log2(Dt) % 2) in (0., 1.)), "Downsampling factors must be powers of 2"
     
-    return rf_pipelines_c.make_intensity_clipper(nt_chunk, axis, sigma, niter, iter_sigma, Df, Dt)
+    return rf_pipelines_c.make_intensity_clipper(nt_chunk, axis, sigma, niter, iter_sigma, Df, Dt, two_pass)

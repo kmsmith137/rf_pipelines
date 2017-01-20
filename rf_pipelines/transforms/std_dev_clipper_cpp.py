@@ -5,7 +5,7 @@ See std_dev_clippers.cpp, and python linkage in rf_pipelines_c.cpp.
 
 from rf_pipelines import rf_pipelines_c
 
-def std_dev_clipper_cpp(nt_chunk=1024, axis=1, sigma=3, Df=1, Dt=1):
+def std_dev_clipper_cpp(nt_chunk=1024, axis=1, sigma=3, Df=1, Dt=1, two_pass=False):
     """
     Returns a transform object (wi_transform) which clips an intensity array 
     by masking rows/columns whose standard deviation is an outlier. Results 
@@ -26,4 +26,4 @@ def std_dev_clipper_cpp(nt_chunk=1024, axis=1, sigma=3, Df=1, Dt=1):
       'Df=1' and 'Dt=1' are the frequency and time downsampling factors, respectively.
     """
 
-    return rf_pipelines_c.make_std_dev_clipper(nt_chunk, axis, sigma, Df, Dt)
+    return rf_pipelines_c.make_std_dev_clipper(nt_chunk, axis, sigma, Df, Dt, two_pass)
