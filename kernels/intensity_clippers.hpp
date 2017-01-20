@@ -209,7 +209,7 @@ inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, i
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool TwoPass, typename std::enable_if<((Df>1) || (Dt>1)),int>::type = 0>
-static void _kernel_clip_1d_t(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_int, T *ds_wt)
+inline void _kernel_clip_1d_t(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_int, T *ds_wt)
 {
     simd_t<T,S> mean, rms;
     simd_t<T,S> s = sigma;
@@ -231,7 +231,7 @@ static void _kernel_clip_1d_t(const T *intensity, T *weights, int nfreq, int nt,
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool TwoPass, typename std::enable_if<((Df==1) && (Dt==1)),int>::type = 0>
-static void _kernel_clip_1d_t(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_int, T *ds_wt)
+inline void _kernel_clip_1d_t(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_int, T *ds_wt)
 {
     simd_t<T,S> mean, rms;
     simd_t<T,S> s = sigma;
@@ -251,7 +251,7 @@ static void _kernel_clip_1d_t(const T *intensity, T *weights, int nfreq, int nt,
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool TwoPass, typename std::enable_if<((Df > 1) || (Dt > 1)),int>::type = 0>
-static void _kernel_clip_1d_f(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_int, T *ds_wt)
+inline void _kernel_clip_1d_f(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_int, T *ds_wt)
 {
     simd_t<T,S> mean, rms;	
     simd_t<T,S> s = sigma;
@@ -273,7 +273,7 @@ static void _kernel_clip_1d_f(const T *intensity, T *weights, int nfreq, int nt,
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool TwoPass, typename std::enable_if<((Df == 1) && (Dt == 1)),int>::type = 0>
-static void _kernel_clip_1d_f(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_int, T *ds_wt)
+inline void _kernel_clip_1d_f(const T *intensity, T *weights, int nfreq, int nt, int stride, int niter, double sigma, double iter_sigma, T *ds_int, T *ds_wt)
 {
     simd_t<T,S> mean, rms;	
     simd_t<T,S> s = sigma;

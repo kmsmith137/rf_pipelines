@@ -129,7 +129,7 @@ inline void _kernel_downsample(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T *i
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
-static void _kernel_downsample_2d(T *out_intensity, T *out_weights, int out_stride, const T *in_intensity, const T *in_weights, int in_nfreq, int in_nt, int in_stride)
+inline void _kernel_downsample_2d(T *out_intensity, T *out_weights, int out_stride, const T *in_intensity, const T *in_weights, int in_nfreq, int in_nt, int in_stride)
 {
     const simd_t<T,S> zero = simd_t<T,S>::zero();
     const simd_t<T,S> one = simd_t<T,S> (1.0);

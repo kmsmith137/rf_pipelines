@@ -277,7 +277,7 @@ static void reference_detrend_t_pass1(T *outm, T *outv, int npl, int nt, const T
 
 
 template<typename T, unsigned int S, unsigned int N>
-void test_detrend_t_pass1(std::mt19937 &rng, int nt)
+static void test_detrend_t_pass1(std::mt19937 &rng, int nt)
 {
     constexpr int NN = (N*(N+1))/2;
 
@@ -352,7 +352,7 @@ static void test_detrend_t_pass2(std::mt19937 &rng, int nt)
 
 
 template<typename T, unsigned int S, unsigned int N>
-void test_detrend_t_nulling(std::mt19937 &rng, int nfreq, int nt, int stride)
+static void test_detrend_t_nulling(std::mt19937 &rng, int nfreq, int nt, int stride)
 {
     vector<T> intensity(nfreq * stride, 0.0);
     vector<T> weights = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
@@ -368,7 +368,7 @@ void test_detrend_t_nulling(std::mt19937 &rng, int nfreq, int nt, int stride)
 
 
 template<typename T, unsigned int S, unsigned int N>
-void test_detrend_t_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride)
+static void test_detrend_t_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride)
 {
     vector<T> intensity = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
     vector<T> weights = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
@@ -404,7 +404,7 @@ void test_detrend_t_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride
 
 
 template<typename T, unsigned int S, unsigned int N>
-void test_detrend_f_nulling(std::mt19937 &rng, int nfreq, int nt, int stride)
+static void test_detrend_f_nulling(std::mt19937 &rng, int nfreq, int nt, int stride)
 {
     vector<T> intensity(nfreq * stride, 0.0);
     vector<T> weights = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
@@ -420,7 +420,7 @@ void test_detrend_f_nulling(std::mt19937 &rng, int nfreq, int nt, int stride)
 
 
 template<typename T, unsigned int S, unsigned int N>
-void test_detrend_f_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride)
+static void test_detrend_f_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride)
 {
     vector<T> intensity = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
     vector<T> weights = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
@@ -461,7 +461,7 @@ void test_detrend_f_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride
 
 
 template<typename T, unsigned int S, unsigned int N>
-void test_detrend_transpose(std::mt19937 &rng, int n1, int n2, int stride1, int stride2)
+static void test_detrend_transpose(std::mt19937 &rng, int n1, int n2, int stride1, int stride2)
 {
     vector<T> intensity12(n1 * stride2, 0.0);
     vector<T> intensity21(n2 * stride1, 0.0);
