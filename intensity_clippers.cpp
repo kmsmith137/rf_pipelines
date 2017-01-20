@@ -320,16 +320,12 @@ inline void _weighted_mean_and_rms(simd_t<T,S> &mean, simd_t<T,S> &rms, const fl
     if (_unlikely(!weights))
 	throw runtime_error("weighted_mean_and_rms(): 'weights' argument is a NULL pointer");
 
-    simd_t<float,S> mean_x, rms_x;
-
-    if (two_pass) {
+    if (two_pass)
 	_kernel_noniterative_wrms_2d<T,S,1,1,false,false,true> (mean, rms, intensity, weights, nfreq, nt, stride, NULL, NULL);
-	_kernel_wrms_iterate_2d<T,S,true> (mean, rms, intensity, weights, nfreq, nt, stride, niter, sigma);
-    }
-    else {
+    else
 	_kernel_noniterative_wrms_2d<T,S,1,1,false,false,false> (mean, rms, intensity, weights, nfreq, nt, stride, NULL, NULL);
-	_kernel_wrms_iterate_2d<T,S,false> (mean, rms, intensity, weights, nfreq, nt, stride, niter, sigma);
-    }
+
+    _kernel_wrms_iterate_2d<T,S> (mean, rms, intensity, weights, nfreq, nt, stride, niter, sigma);
 }
 
 
@@ -364,7 +360,7 @@ void _wrms_hack_for_testing2(float &mean, float &rms, const float *intensity, co
     if (mean_hint.size() != S)
 	throw runtime_error("rf_pipelines: wrong mean_hint size in _wrms_hack_for_testing2()");
 
-    _mean_variance_iterator<float,S,true> v(simd_t<float,S>::loadu(&mean_hint[0]), simd_t<float,S>(1.0e10));
+    _mean_variance_iterator<float,S> v(simd_t<float,S>::loadu(&mean_hint[0]), simd_t<float,S>(1.0e10));
     _kernel_visit_2d<1,1> (v, intensity, weights, nfreq, nt, stride);
 
     simd_t<float,S> mean_x, rms_x;

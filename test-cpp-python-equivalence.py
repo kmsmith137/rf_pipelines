@@ -410,7 +410,6 @@ def test_iterated_intensity_clippers():
 
         # AXIS_TIME
         rf_pipelines_c.apply_intensity_clipper(intensity, weights1, 1, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt, two_pass=two_pass)
-
         # AXIS_NONE
         for ifreq in xrange(nfreq//Df):
             iblock = intensity[(ifreq*Df):((ifreq+1)*Df),:]
@@ -478,12 +477,8 @@ def test_iterated_intensity_clippers():
         rf_pipelines_c.apply_intensity_clipper(intensity, weights1, None, sigma, niter=niter, iter_sigma=sigma, two_pass=two_pass)
 
         # XXX comment later
-        if two_pass:
-            mean_hint = rf_pipelines_c._wrms_hack_for_testing1(intensity, weights0, niter, sigma, two_pass)
-            (mean1, rms1) = rf_pipelines_c._wrms_hack_for_testing2(intensity, weights1, mean_hint)
-        else:
-            (mean1, rms1) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights1, 1, sigma)
-
+        mean_hint = rf_pipelines_c._wrms_hack_for_testing1(intensity, weights0, niter, sigma, two_pass)
+        (mean1, rms1) = rf_pipelines_c._wrms_hack_for_testing2(intensity, weights1, mean_hint)
         (mean2, rms2) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights0, niter+1, sigma, two_pass)
         (epsilon_m, epsilon_r) = (np.abs(mean1-mean2), np.abs(rms1-rms2))
 

@@ -95,9 +95,9 @@ inline void _kernel_visit_1d_f(V &v, const typename V::T *intensity, const typen
 //
 // The rest of this file defines "visitor" classes:
 //   _mean_variance_visitor
-//   _mean_variance_iterator
 //   _mean_visitor
 //   _variance_visitor
+//   _mean_variance_iterator
 
 
 template<typename T_, unsigned int S_, bool Iflag, bool Wflag>
@@ -195,79 +195,6 @@ struct _mean_variance_visitor {
 	simd_t<T,S> variance;
 	get_mean_variance(mean, variance);
 	rms = variance.sqrt();
-    }
-};
-
-
-// -------------------------------------------------------------------------------------------------
-
-
-template<typename T, unsigned int S, bool TwoPass> 
-struct _mean_variance_iterator;
-
-
-// One-pass iterator
-template<typename T_, unsigned int S_>
-struct _mean_variance_iterator<T_,S_,false> {
-    using T = T_;
-    static constexpr unsigned int S = S_;
-
-    simd_t<T,S> in_mean;
-    simd_t<T,S> in_thresh;
-
-    simd_t<T,S> acc0;
-    simd_t<T,S> acc1;
-    simd_t<T,S> acc2;
-
-    _mean_variance_iterator(simd_t<T,S> in_mean_, simd_t<T,S> in_thresh_)
-    {
-	in_mean = in_mean_;
-	in_thresh = in_thresh_;
-
-	acc0 = simd_t<T,S>::zero();
-	acc1 = simd_t<T,S>::zero();
-	acc2 = simd_t<T,S>::zero();
-    }
-
-    inline void accumulate_i(simd_t<T,S> ival, simd_t<T,S> wval)
-    {
-	simd_t<T,S> ival_c = (ival - in_mean).abs();
-	smask_t<T,S> valid = ival_c.compare_lt(in_thresh);
-	
-	wval = wval.apply_mask(valid);
-	simd_t<T,S> wival = wval * ival;
-
-	acc0 += wval;
-	acc1 += wival;
-	acc2 += wival * ival;
-    }
-
-    inline void horizontal_sum()
-    {
-	acc0 = acc0.horizontal_sum();
-	acc1 = acc1.horizontal_sum();
-	acc2 = acc2.horizontal_sum();
-    }
-
-    inline void get_mean_rms(simd_t<T,S> &out_mean, simd_t<T,S> &out_rms)
-    {
-	static constexpr T eps = 1.0e3 * simd_helpers::machine_epsilon<T> ();
-	const simd_t<T,S> zero = simd_t<T,S>::zero();
-	const simd_t<T,S> one = 1.0;
-
-	smask_t<T,S> valid = acc0.compare_gt(zero);
-
-	simd_t<T,S> t0 = blendv(valid, acc0, one);
-	out_mean = acc1/t0;
-
-	simd_t<T,S> out_mean2 = out_mean * out_mean;
-	simd_t<T,S> var = acc2/t0 - out_mean2;
-
-	simd_t<T,S> thresh = simd_t<T,S>(eps) * out_mean2;
-	valid = valid.bitwise_and(var.compare_gt(thresh));
-	var = var.apply_mask(valid);
-
-	out_rms = var.sqrt();
     }
 };
 
@@ -402,9 +329,8 @@ struct _variance_visitor {
 // -------------------------------------------------------------------------------------------------
 
 
-// Two-pass iterator (really a misnomer!)
 template<typename T_, unsigned int S_>
-struct _mean_variance_iterator<T_,S_,true> {
+struct _mean_variance_iterator {
     using T = T_;
     static constexpr unsigned int S = S_;
 

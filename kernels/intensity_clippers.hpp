@@ -83,30 +83,30 @@ inline void _kernel_noniterative_wrms_1d_t(simd_t<T,S> &mean, simd_t<T,S> &rms, 
 // Note: number of iterations is (niter-1)
 
 
-template<typename T, unsigned int S, bool TwoPass>
+template<typename T, unsigned int S>
 inline void _kernel_wrms_iterate_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, int niter, double iter_sigma)
 {
     for (int iter = 1; iter < niter; iter++) {
 	simd_t<T,S> thresh = simd_t<T,S>(iter_sigma) * rms;
-	_mean_variance_iterator<T,S,TwoPass> v(mean, thresh);
+	_mean_variance_iterator<T,S> v(mean, thresh);
 	_kernel_visit_2d<1,1> (v, intensity, weights, nfreq, nt, stride);
 	v.get_mean_rms(mean, rms);
     }
 }
 
 // Placeholder for future expansion
-template<typename T, unsigned int S, bool TwoPass>
+template<typename T, unsigned int S>
 inline void _kernel_wrms_iterate_1d_t(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nt, int niter, double iter_sigma)
 {
-    _kernel_wrms_iterate_2d<T,S,TwoPass> (mean, rms, intensity, weights, 1, nt, 0, niter, iter_sigma);
+    _kernel_wrms_iterate_2d<T,S> (mean, rms, intensity, weights, 1, nt, 0, niter, iter_sigma);
 }
 
-template<typename T, unsigned int S, bool TwoPass>
+template<typename T, unsigned int S>
 inline void _kernel_wrms_iterate_1d_f(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int stride, int niter, double iter_sigma)
 {
     for (int iter = 1; iter < niter; iter++) {
 	simd_t<T,S> thresh = simd_t<T,S>(iter_sigma) * rms;
-	_mean_variance_iterator<T,S,TwoPass> v(mean, thresh);
+	_mean_variance_iterator<T,S> v(mean, thresh);
 	_kernel_visit_1d_f<1,1> (v, intensity, weights, nfreq, stride);	
 	v.get_mean_rms(mean, rms);
     }
@@ -185,7 +185,7 @@ inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, i
 	_kernel_noniterative_wrms_2d<T,S,Df,Dt,true,false,TwoPass> (mean, rms, intensity, weights, nfreq, nt, stride, ds_intensity, ds_weights);
     else {
 	_kernel_noniterative_wrms_2d<T,S,Df,Dt,true,true,TwoPass> (mean, rms, intensity, weights, nfreq, nt, stride, ds_intensity, ds_weights);
-	_kernel_wrms_iterate_2d<T,S,TwoPass> (mean, rms, ds_intensity, ds_weights, nfreq/Df, nt/Dt, nt/Dt, niter, iter_sigma);
+	_kernel_wrms_iterate_2d<T,S> (mean, rms, ds_intensity, ds_weights, nfreq/Df, nt/Dt, nt/Dt, niter, iter_sigma);
     }
 
     simd_t<T,S> thresh = simd_t<T,S>(sigma) * rms;
@@ -198,7 +198,7 @@ inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, i
 {
     simd_t<T,S> mean, rms;
     _kernel_noniterative_wrms_2d<T,S,1,1,false,false,TwoPass> (mean, rms, intensity, weights, nfreq, nt, stride, NULL, NULL);
-    _kernel_wrms_iterate_2d<T,S,TwoPass> (mean, rms, intensity, weights, nfreq, nt, stride, niter, iter_sigma);
+    _kernel_wrms_iterate_2d<T,S> (mean, rms, intensity, weights, nfreq, nt, stride, niter, iter_sigma);
 
     simd_t<T,S> thresh = simd_t<T,S>(sigma) * rms;
     _kernel_intensity_mask_2d<T,S,Df,Dt> (weights, intensity, mean, thresh, nfreq, nt, stride, stride);
@@ -217,7 +217,7 @@ inline void _kernel_clip_1d_t(const T *intensity, T *weights, int nfreq, int nt,
     if (niter > 1) {
 	for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
 	    _kernel_noniterative_wrms_1d_t<T,S,Df,Dt,true,true,TwoPass> (mean, rms, intensity + ifreq*stride, weights + ifreq*stride, nt, stride, ds_int, ds_wt);
-	    _kernel_wrms_iterate_1d_t<T,S,TwoPass> (mean, rms, ds_int, ds_wt, nt/Dt, niter, iter_sigma);
+	    _kernel_wrms_iterate_1d_t<T,S> (mean, rms, ds_int, ds_wt, nt/Dt, niter, iter_sigma);
 	    _kernel_intensity_mask_1d_t<T,S,Df,Dt> (weights + ifreq*stride, ds_int, mean, s * rms, nt, stride, nt/Dt);
 	}
     }
@@ -241,7 +241,7 @@ inline void _kernel_clip_1d_t(const T *intensity, T *weights, int nfreq, int nt,
 	T *wrow = weights + ifreq * stride;
 
 	_kernel_noniterative_wrms_1d_t<T,S,1,1,false,false,TwoPass> (mean, rms, irow, wrow, nt, stride, NULL, NULL);
-	_kernel_wrms_iterate_1d_t<T,S,TwoPass> (mean, rms, irow, wrow, nt, niter, iter_sigma);
+	_kernel_wrms_iterate_1d_t<T,S> (mean, rms, irow, wrow, nt, niter, iter_sigma);
 	_kernel_intensity_mask_1d_t<T,S,1,1> (wrow, irow, mean, s * rms, nt, stride, stride);
     }
 }
@@ -259,7 +259,7 @@ inline void _kernel_clip_1d_f(const T *intensity, T *weights, int nfreq, int nt,
     if (niter > 1) {
 	for (int it = 0; it < nt; it += Dt*S) {
 	    _kernel_noniterative_wrms_1d_f<T,S,Df,Dt,true,true,TwoPass> (mean, rms, intensity + it, weights + it, nfreq, stride, ds_int, ds_wt);
-	    _kernel_wrms_iterate_1d_f<T,S,TwoPass> (mean, rms, ds_int, ds_wt, nfreq/Df, S, niter, iter_sigma);
+	    _kernel_wrms_iterate_1d_f<T,S> (mean, rms, ds_int, ds_wt, nfreq/Df, S, niter, iter_sigma);
 	    _kernel_intensity_mask_1d_f<T,S,Df,Dt> (weights + it, ds_int, mean, s * rms, nfreq, stride, S);
 	}
     }
@@ -283,7 +283,7 @@ inline void _kernel_clip_1d_f(const T *intensity, T *weights, int nfreq, int nt,
 	T *wcol = weights + it;
 	
 	_kernel_noniterative_wrms_1d_f<T,S,1,1,false,false,TwoPass> (mean, rms, icol, wcol, nfreq, stride, NULL, NULL);
-	_kernel_wrms_iterate_1d_f<T,S,TwoPass> (mean, rms, icol, wcol, nfreq, stride, niter, iter_sigma);
+	_kernel_wrms_iterate_1d_f<T,S> (mean, rms, icol, wcol, nfreq, stride, niter, iter_sigma);
 	_kernel_intensity_mask_1d_f<T,S,1,1> (wcol, icol, mean, s * rms, nfreq, stride, stride);
     }
 }
