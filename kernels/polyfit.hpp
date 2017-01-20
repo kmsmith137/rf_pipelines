@@ -115,7 +115,7 @@ inline void _kernel_detrend_t_pass1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S
 
 
 template<typename T, unsigned int S, unsigned int N>
-inline void _kernel_detrend_t_pass2(float *ivec, int nt, const simd_ntuple<T,S,N> &coeffs)
+inline void _kernel_detrend_t_pass2(T *ivec, int nt, const simd_ntuple<T,S,N> &coeffs)
 {
     simd_t<T,S> z0 = simd_t<T,S>::range();
     z0 -= simd_t<T,S>(0.5 * (nt-1));
@@ -200,7 +200,7 @@ inline void _kernel_detrend_f_pass1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S
 }
 
 template<typename T, unsigned int S, unsigned int N>
-inline void _kernel_detrend_f_pass2(float *ivec, int nfreq, const simd_ntuple<T,S,N> &coeffs, int stride)
+inline void _kernel_detrend_f_pass2(T *ivec, int nfreq, const simd_ntuple<T,S,N> &coeffs, int stride)
 {
     T z0 = -(nfreq-1) / T(nfreq);
     T dz = 2.0 / T(nfreq);
@@ -221,7 +221,7 @@ inline void _kernel_detrend_f_pass2(float *ivec, int nfreq, const simd_ntuple<T,
 
 // Zeros a complete block of S columns in the 'weights' array.
 template<typename T, unsigned int S>
-inline void _kernel_colzero_full(float *weights, int nfreq, int stride)
+inline void _kernel_colzero_full(T *weights, int nfreq, int stride)
 {
     simd_t<T,S> z = simd_t<T,S>::zero();
 
@@ -233,7 +233,7 @@ inline void _kernel_colzero_full(float *weights, int nfreq, int stride)
 // Zeros a partial block of S columns in the 'weights' array.
 // Each word in the 'mask' array should be either 0 or -1=0xff..
 template<typename T, unsigned int S>
-inline void _kernel_colzero_partial(float *weights, int nfreq, int stride, simd_t<int,S> mask)
+inline void _kernel_colzero_partial(T *weights, int nfreq, int stride, simd_t<int,S> mask)
 {
     for (int i = 0; i < nfreq; i++) {
 	simd_t<T,S> w = simd_t<T,S>::loadu(weights + i*stride);
