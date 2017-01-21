@@ -24,6 +24,10 @@ def std_dev_clipper_cpp(nt_chunk=1024, axis=1, sigma=3, Df=1, Dt=1, two_pass=Fal
       'sigma=3' is the threshold (in sigmas from the mean) for clipping. 
 
       'Df=1' and 'Dt=1' are the frequency and time downsampling factors, respectively.
+
+      If two_pass=True, then a more numerically stable but somewhat slower algorithm will be used.
+      (In CHIME, this should only be needed in a specific case: when analyzing incoherent-beam data, 
+       with axis=1, and before the first detrender in the transform chain.
     """
 
     return rf_pipelines_c.make_std_dev_clipper(nt_chunk, axis, sigma, Df, Dt, two_pass)

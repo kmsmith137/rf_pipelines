@@ -54,3 +54,7 @@
   This may eventually be worth implementing!
 
 - Cleanup: try to share code between AXIS_TIME and AXIS_FREQ detrender kernels?
+
+- Cleanup: could permute ordering of template arguments, so that arguments which the compiler can guess are
+  at the end.  (E.g. <T,S> is always first even though it can almost always be guessed.)
+

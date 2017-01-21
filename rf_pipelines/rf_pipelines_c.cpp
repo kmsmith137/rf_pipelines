@@ -1746,6 +1746,9 @@ static constexpr const char *weighted_mean_and_rms_docstring =
     "If the 'two_pass' flag is set, a more numerically stable but slightly slower algorithm will be used.\n";
 
 
+static constexpr const char *wrms_hack_for_testing_docstring =
+    "The \"wrms_hack_for_testing\" is explained in test-cpp-python-equivalence.py";
+
 static constexpr const char *make_badchannel_mask_docstring = 
     "make_badchannel_mask(maskpath, nt_chunk)\n"
     "\n"
@@ -1776,8 +1779,8 @@ static PyMethodDef module_methods[] = {
     { "apply_std_dev_clipper", (PyCFunction) tc_wrap3<apply_std_dev_clipper>, METH_VARARGS | METH_KEYWORDS, apply_std_dev_clipper_docstring },
     { "wi_downsample", (PyCFunction) tc_wrap3<wi_downsample>, METH_VARARGS | METH_KEYWORDS, wi_downsample_docstring },
     { "weighted_mean_and_rms", (PyCFunction) tc_wrap3<weighted_mean_and_rms>, METH_VARARGS | METH_KEYWORDS, weighted_mean_and_rms_docstring },
-    { "_wrms_hack_for_testing1", (PyCFunction) tc_wrap3<_wrms_hack_for_testing1>, METH_VARARGS | METH_KEYWORDS, dummy_module_method_docstring },
-    { "_wrms_hack_for_testing2", (PyCFunction) tc_wrap3<_wrms_hack_for_testing2>, METH_VARARGS | METH_KEYWORDS, dummy_module_method_docstring },
+    { "_wrms_hack_for_testing1", (PyCFunction) tc_wrap3<_wrms_hack_for_testing1>, METH_VARARGS | METH_KEYWORDS, wrms_hack_for_testing_docstring },
+    { "_wrms_hack_for_testing2", (PyCFunction) tc_wrap3<_wrms_hack_for_testing2>, METH_VARARGS | METH_KEYWORDS, wrms_hack_for_testing_docstring },
     { NULL, NULL, 0, NULL }
 };
 

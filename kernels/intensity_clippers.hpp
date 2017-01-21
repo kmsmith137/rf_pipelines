@@ -1,21 +1,3 @@
-// Kernels defined here:
-//
-// _kernel_noniterative_wrms_2d(): computes weighted mean/rms of a 2D array with optional downsampling 
-//    (there is also an option to write the downsampled intensity/weights to auxiliary arrays)
-//
-// _kernel_clip2d_iterate(): computes weighted mean/rms of a 2D array, including only elements
-//    in a certain range.  (there is no downsampling option here)
-//
-// _kernel_intensity_mask_2d(): sets weights to zero when intensity is outside a certain range.
-//    Optionally, the intensity array can be downsampled relative to the weights.
-//
-// _kernel_iterative_wrms_2d():
-//   This is the "bottom line" routine which is wrapped by weighted_mean_and_rms().
-//
-// _kernel_clip_2d(): 
-//   This is the "bottom line" kernel which is wrapped by the intensity_clipper(AXIS_NONE).
-
-
 #ifndef _RF_PIPELINES_KERNELS_INTENSITY_CLIPPERS_HPP
 #define _RF_PIPELINES_KERNELS_INTENSITY_CLIPPERS_HPP
 
@@ -33,17 +15,11 @@ template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
 
 // -------------------------------------------------------------------------------------------------
 //
-// wrms kernels
-
-
-// _kernel_noniterative_wrms_2d<T, S, Df, Dt, Iflag, Wflag, TwoPass>
-//    (simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, 
-//     int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
+// _kernel_noniterative_wrms()
 //
-// Computes the weighted mean and rms of a 2D strided array,
+// Computes the weighted mean and rms of a 2D or 1D strided array,
 // with downsampling factors (Df,Dt) in the (frequency,time) axes.
 //
-// The 'mean' and 'rms' outputs are simd vectors whose elements are all equal.
 // If the weighted mean and rms cannot be computed (e.g. because all weights are zero), then
 // rms=0 and mean is arbitrary.  (This behavior is inherited from 'struct mean_rms_accumulator'.)
 //
@@ -78,9 +54,16 @@ inline void _kernel_noniterative_wrms_1d_t(simd_t<T,S> &mean, simd_t<T,S> &rms, 
 
 // -------------------------------------------------------------------------------------------------
 //
-// iterate kernels - note no downsampling factors here
+// _kernel_wrms_iterate(): this is called after _kernel_noniterative_wrms(), to 
 //
-// Note: number of iterations is (niter-1)
+// Note that there are no downsampling factors (Df,Dt) here.  In the downsampled case, we
+// first call _kernel_noniterative_wrms() with Iflag=Wflag=true, so that downsampled arrays
+// get written.  These arrays are then used as inputs to _kernel_wrms_iterate(), so from
+// the perspective of _kernel_wrms_iterate(), no downsampling needs to be done.
+//
+// Note: the 'niter' argument to these kernels will be one less than the 'niter' argument
+// to intensity_clipper().  This is because the initial call to _kernel_noniterative_wrms()
+// counts as one iteration.
 
 
 template<typename T, unsigned int S>
@@ -117,8 +100,9 @@ inline void _kernel_wrms_iterate_1d_f(simd_t<T,S> &mean, simd_t<T,S> &rms, const
 //
 // masking kernels
 //
-// _kernel_intensity_mask_2d(): Masks all intensity samples which differ from the mean by more than 
-// 'thresh'.  The intensity array can be downsampled relative to the weights array.
+// If the intensity differs from the mean by more than 'thresh', set weights to zero.
+//
+// The intensity array can be downsampled relative to the weights!
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
@@ -177,8 +161,7 @@ inline void _kernel_intensity_mask_1d_f(T *weights, const T *ds_intensity, simd_
 
 // -------------------------------------------------------------------------------------------------
 //
-// _kernel_clip_2d(): 
-//    This is the "bottom line" routine which is wrapped by intensity_clipper(AXIS_NONE).
+// _kernel_clip_2d(): "Bottom line" routine which is wrapped by intensity_clipper(AXIS_NONE).
 
 
 // Downsampled version: ds_intensity must be non-NULL, ds_weights must be non-NULL if niter > 1.
@@ -212,6 +195,8 @@ inline void _kernel_clip_2d(const T *intensity, T *weights, int nfreq, int nt, i
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// _kernel_clip_1d_t(): "Bottom line" routine which is wrapped by intensity_clipper(AXIS_TIME).
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool TwoPass, typename std::enable_if<((Df>1) || (Dt>1)),int>::type = 0>
@@ -254,6 +239,8 @@ inline void _kernel_clip_1d_t(const T *intensity, T *weights, int nfreq, int nt,
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// _kernel_clip_1d_f(): "Bottom line" routine which is wrapped by intensity_clipper(AXIS_FREQ).
 
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool TwoPass, typename std::enable_if<((Df > 1) || (Dt > 1)),int>::type = 0>

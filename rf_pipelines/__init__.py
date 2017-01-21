@@ -55,9 +55,9 @@ Streams:
 Transforms:
 
    badchannel_mask()          masks list of frequency ranges specified in external file
-   bonsai_dedisperser()       runs data through bonsai dedisperser
-   chime_file_writer()        write stream to a single file in CHIME hdf5 format
-   chime_packetizer()         send stream over network, to a chime_network_stream running on another machine
+   bonsai_dedisperser()       runs data through bonsai dedisperser (also available in C++)
+   chime_file_writer()        write stream to a single file in CHIME hdf5 format (also available in C++)
+   chime_packetizer()         send stream over network, to a chime_network_stream running on another machine (also available in C++)
    clipper_transform()        masks data based on intensity values
    frb_injector_transform()   simulates an FRB (currently S/N calculation only works for toy noise models)
    kurtosis_filter()          masks data based on kurtosis

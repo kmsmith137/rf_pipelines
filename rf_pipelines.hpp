@@ -49,10 +49,12 @@
 //
 // Factory functions which return transforms (std::shared_ptr<wi_transform>):
 //
-//   make_bonsai_dedisperser()               Runs data through bonsai dedisperser
-//   make_chime_file_writer()                Writes stream to a single file in CHIME hdf5 format
-//   make_polynomial_detrender_time_axis()   Detrends along time axis, by subtracting a best-fit polynomial
-//   make_polynomial_detrender_freq_axis()   Detrends along frequency axis, by subtracting a best-fit polynomial
+//   make_bonsai_dedisperser()     Runs data through bonsai dedisperser.
+//   make_chime_file_writer()      Writes stream to a single file in CHIME hdf5 format.
+//   make_chime_packetizer()       Converts a stream to UDP packets, and sends them over the network.
+//   make_intensity_clipper()      "Clips" an array by masking outlier intensities.
+//   make_polynomial_detrender()   Detrends along time or frequenciy axis, by subtracting a best-fit polynomial.
+//   make_std_dev_clipper()        "Clips" an array by masking rows/cols whose standard deviation is an outlier.
 //
 // See below for more info on all these functions!
 
@@ -246,6 +248,11 @@ std::shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, axis_type axis,
 
 // Standalone functions with the equivalent functionality to the polynomial_detrender,
 // intensity_clipper, and std_dev_clipper transforms.  (See comments above for documentation.)
+//
+// Note that we generally assume the intensity/weights arrays have the same stride, but
+// this isn't really necessary in the kernels, and this assumption could be relaxed if
+// necessary.
+
 
 extern void apply_polynomial_detrender(float *intensity, float *weights, int nfreq, int nt, 
 				       int stride, axis_type axis, int polydeg, double epsilon);
@@ -261,7 +268,7 @@ extern void apply_std_dev_clipper(const float *intensity, float *weights, int nf
 // Helper routines for the RFI transforms above, factored out as standalone functions.
 //
 // wi_downsample(): downsamples an (intensity, weights) pair.  The downsampling factors (Df,Dt)
-// must be powers of two.
+// must be powers of two.  
 //
 // weighted_mean_and_rms(): computes weighted mean/rms of a 2D intensity array.
 // If the 'niter' argument is >1, then the calculation will be iterated, clipping
@@ -271,6 +278,7 @@ extern void apply_std_dev_clipper(const float *intensity, float *weights, int nf
 
 extern void wi_downsample(float *out_intensity, float *out_weights, int out_stride, const float *in_intensity, 
 			  const float *in_weights, int in_nfreq, int in_nt, int in_stride, int Df, int Dt);
+
 
 extern void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, const float *weights, 
 				  int nfreq, int nt, int stride, int niter=1, double sigma=3.0, bool two_pass=false);

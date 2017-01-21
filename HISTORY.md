@@ -1,3 +1,16 @@
+- Version 11:
+
+     - Backwards-incompatible: names of three core transforms have been changed
+         - legendre_detrender -> polynomial_detrender
+	 - clipper_transform -> intensity_clipper
+	 - std_dev_filter -> std_dev_clipper
+
+     - The three core transforms above now have fast implementations, written in C++
+       with assembly language kernels in key places.
+
+     - The 'simd_helpers' library (https://github.com/kmsmith137/simd_helpers)
+       is now a prerequisite.
+
 - Version 10:
 
      - Network streams:

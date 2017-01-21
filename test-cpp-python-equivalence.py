@@ -126,7 +126,10 @@ def test_utils():
         assert epsilon_r < 1.0e-4
 
         # Test 3: similar comparison with rf_pipelines_c._wrms_hack_for_testing2()
-        # XXX comment later
+        #
+        # As explained below, _wrms_hack_for_testing2() returns the weighted mean/rms of the intensity
+        # array, but takes a 'mean_hint' which is arbitrary (but numerical precision is higher if the
+        # mean_hint is close to the true weighted mean intensity).
 
         mean_hint = rand.standard_normal() * np.ones(8)  # FIXME hardcoded simd length
         (mean3, rms3) = rf_pipelines_c._wrms_hack_for_testing2(copy_array(intensity), copy_array(weights), mean_hint)
@@ -470,13 +473,43 @@ def test_iterated_intensity_clippers():
         #
         # Test 4: this test shows that correctness of intensity_clipper(niter) implies
         # correctness of weighted_mean_rms(niter+1).
+        #
+        # Implementing this test presented some nuisance issues, which we worked around
+        # by introducing functions _wrms_hack_for_testing1(), _wrms_hack_for_testing2()
+        # which we now explain!
+        #
+        # The idea of test 4 is to compare:
+        #    intensity_clipper(niter) -> weighted_mean_rms(1)    (*)
+        #    weighted_mean_rms(nter+1)                           (**)
+        #
+        # However, there is a complication when implementing this test: the way the kernels
+        # are written, the last iteration of (**) uses its estimate of the mean from the
+        # previous iteration.  We can think of this as a "mean hint" which helps numerical
+        # precision.  Therefore, in order to get strict agreement between (*) and (**), the 
+        # call to weighted_mean_rms(1) in (*) needs to know the value of the mean_hint.
+        #
+        # For this reason, we introduce _wrms_hack_for_testing2(), which is an alternate
+        # version of weighted_mean_and_rms(), where the caller can pass the value of the
+        # mean_hint.  We actually use _wrms_hack_for_testing2() instead of weighted_mean_rms(1)
+        # in (*).
+        #
+        # One more complication.  In the kernel, the mean_hint is a simd_t<float,8>, not a
+        # scalar float!  The 8 elements of the mean_hint will be nearly equal to the mean
+        # reported by weighted_mean_and_rms(niter), but not strictly equal, due to roundoffs.
+        #
+        # Therefore we also introduce _wrms_hack_for_testing1(), which follows the exact
+        # code paths of weighted_mean_and_rms(niter), but returns the mean_hint (represented
+        # in python as a shape-(8,) numpy array), rather than the scalar mean/rms.
+        #
+        # So, in conclusion, what we actually compare in test 4 is:
+        #    _wrms_hack_for_testing1(niter) -> _wrms_hack_for_testing2()   (*)
+        #    weighted_mean_rms(niter+1)                                    (**)
 
         weights1 = copy_array(weights0)
 
         # (axis, Df, Dt, iter_sigma) = (None, 1, 1, sigma)
         rf_pipelines_c.apply_intensity_clipper(intensity, weights1, None, sigma, niter=niter, iter_sigma=sigma, two_pass=two_pass)
 
-        # XXX comment later
         mean_hint = rf_pipelines_c._wrms_hack_for_testing1(intensity, weights0, niter, sigma, two_pass)
         (mean1, rms1) = rf_pipelines_c._wrms_hack_for_testing2(intensity, weights1, mean_hint)
         (mean2, rms2) = rf_pipelines_c.weighted_mean_and_rms(intensity, weights0, niter+1, sigma, two_pass)

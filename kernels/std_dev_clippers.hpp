@@ -14,7 +14,8 @@ namespace rf_pipelines {
 extern void clip_1d(int n, float *tmp_sd, smask_t<float,1> *tmp_valid, double sigma);
 
 
-// A function which allocates these buffers is defined in std_dev_clippers.cpp!
+// Stores temporary buffers which are needed in the std_dev_clipper kernels.
+// Note that the allocation logic is not in this file -- it's in allocate_buffers(), defined in std_dev_clippers.cpp
 template<typename T>
 struct std_dev_clipper_buffers {
     T *sd = NULL;
@@ -40,7 +41,7 @@ struct std_dev_clipper_buffers {
 //
 // _kernel_std_dev_t()
 //
-// The output arrays 'out_sd' and 'out_valid' are 1D arrays of shape (nfreq/Df).
+// This is the "bottom line" routine called by std_dev_clipper(AXIS_TIME).
 //
 // Caller must check (nfreq % Df) == 0 and (nt % (Dt*S)) == 0.
 // There is no requirement that (nfreq % (Df*S)) == 0.
@@ -88,7 +89,7 @@ inline void _kernel_std_dev_clip_time_axis(const std_dev_clipper_buffers<T> &buf
 //
 // _kernel_std_dev_f()
 //
-// The output arrays 'out_sd' and 'out_valid' are 1D arrays of shape (nt/Dt).
+// This is the "bottom line" routine called by std_dev_clipper(AXIS_FREQ).
 //
 // Caller must check (nfreq % Df) == 0 and (nt % (Dt*S)) == 0.
 // There is no requirement that (nfreq % (Df*S)) == 0.

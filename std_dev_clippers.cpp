@@ -21,8 +21,12 @@ namespace rf_pipelines {
 using mask_t = simd_helpers::smask_t<float>;
 
 
+// -------------------------------------------------------------------------------------------------
+//
 // Externally-linkable helper function, declared "extern" in kernels/std_dev_clippers.hpp.
 // If the arguments change here, then declaration should be changed there as well!
+
+
 void clip_1d(int n, float *tmp_sd, mask_t *tmp_valid, double sigma)
 {
 #if 0
@@ -66,6 +70,15 @@ void clip_1d(int n, float *tmp_sd, mask_t *tmp_valid, double sigma)
 	    tmp_valid[i] = 0;
     }
 }
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// The sizes of the temporary buffers needed for the std_dev_clipper depend on its arguments.
+// The function below contains logic which sorts everything out and allocates the properly-sized buffers.
+//
+// FIXME: the details of this logic are opaque and depend on chasing through kernels/*.hpp!
+// It would be nice to have comments in these files which make it more transparent.
 
 
 template<typename T>

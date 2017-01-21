@@ -2,8 +2,6 @@
 // Df,Dt are the frequency/time downsampling factors.  Eventually I'd like to 
 // improve this by having special kernels to handle the large-Df and large-Dt cases.
 
-// #include <simd_helpers/simd_debug.hpp>
-
 #include <array>
 #include "rf_pipelines_internals.hpp"
 #include "kernels/intensity_clippers.hpp"
@@ -14,6 +12,16 @@ namespace rf_pipelines {
 #if 0
 }; // pacify emacs c-mode
 #endif
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// Depending on the arguments to the intensity_clipper, we may or may not need to allocate
+// temporary buffers for downsampled intensity and weights.  The functions below contain
+// logic for deciding whether this allocation is necessary.
+//
+// FIXME: the details of this logic are opaque and depend on chasing through kernels/*.hpp!
+// It would be nice to have comments in these files which make it more transparent.
 
 
 inline int get_nds(int nfreq, int nt, int axis, int Df, int Dt)
@@ -321,6 +329,8 @@ void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, cons
     rms = rms_x.template extract<0> ();
 }
 
+
+// The "wrms_hack_for_testing" is explained in test-cpp-python-equivalence.py
 
 void _wrms_hack_for_testing1(vector<float> &mean_hint, const float *intensity, const float *weights, int nfreq, int nt, int stride, int niter, double sigma, bool two_pass)
 {

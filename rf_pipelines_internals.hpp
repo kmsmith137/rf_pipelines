@@ -232,6 +232,7 @@ extern bool file_exists(const std::string &filename);
 extern void makedirs(const std::string &dirname);
 extern std::vector<std::string> listdir(const std::string &dirname);
 
+// The "wrms_hack_for_testing" is explained in test-cpp-python-equivalence.py
 extern void _wrms_hack_for_testing1(std::vector<float> &mean_hint, const float *intensity, const float *weights, int nfreq, int nt, int stride, int niter, double sigma, bool two_pass);
 extern void _wrms_hack_for_testing2(float &mean, float &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, const std::vector<float> &mean_hint);
 

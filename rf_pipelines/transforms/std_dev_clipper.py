@@ -2,7 +2,13 @@ import numpy as np
 import rf_pipelines
 
 def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_nt=None, imitate_cpp=False):
-    """Helper function for std_dev_clipper. Modifies 'weights' array in place."""
+    """
+    Helper function for std_dev_clipper. Modifies 'weights' array in place.
+
+    The 'imitiate_cpp' flag may be phased out in the future (by removing the False branch).
+      - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
+      - if False, then the old v10 logic will be used.
+    """
     
     (nfreq, nt_chunk) = intensity.shape
     
@@ -111,7 +117,9 @@ class std_dev_clipper(rf_pipelines.py_wi_transform):
       'dsample_nfreq' and 'dsample_nt' are the downsampled
        number of pixles along the freq and time axes, respectively.
 
-      'imitate_cpp=False' enables an imitated (Python) version of C++ algorithms.
+       The 'imitiate_cpp' flag may be phased out in the future (by removing the False branch).
+         - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
+         - if False, then the old v10 logic will be used.
     """
     
     def __init__(self, thr=3., axis=1, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, imitate_cpp=False):

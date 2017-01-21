@@ -5,6 +5,10 @@ import rf_pipelines
 def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=None, dsample_nt=None, imitate_cpp=False):
     """
     Helper function for intensity_clipper. Modifies 'weights' array in place.
+
+    The 'imitiate_cpp' flag may be phased out in the future (by removing the False branch).
+      - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
+      - if False, then the old v10 logic will be used.
     """
     
     (nfreq, nt_chunk) = intensity.shape
@@ -114,7 +118,9 @@ class intensity_clipper(rf_pipelines.py_wi_transform):
 
       'test=False' enables a test mode.
 
-      'imitate_cpp=False' enables an imitated (Python) version of C++ algorithms.
+      The 'imitiate_cpp' flag may be phased out in the future (by removing the False branch).
+         - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
+         - if False, then the old v10 logic will be used.
     """
     
     def __init__(self, thr=3., n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False, imitate_cpp=False):

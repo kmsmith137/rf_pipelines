@@ -16,7 +16,20 @@ template<typename T, unsigned int S> using smask_t = simd_helpers::smask_t<T,S>;
 
 // -------------------------------------------------------------------------------------------------
 //
-// "Visit" kernels: the V arugment is an inline "visitor" class which will be defined next in this file.
+// "Visit" kernels: these loop over a 2D or 1D array with on-the-fly downsampling, 
+// applying a "visitor" class V.
+//
+// Note that either 
+//    - V::accumulate_i() will be called with an (intensity,weights) pair (I,W), or
+//    - V::accumulate_wi() will be called with (W*I,W)
+//
+// The former happens if the array is not downsampled, i.e. (Df,Dt)=(1,1).
+//
+// Some possibilities for V are defined later in this file:
+//    _mean_variance_visitor
+//    _mean_visitor
+//    _variance_visitor
+//    _mean_variance_iterator
 
 
 template<unsigned int Df, unsigned int Dt, typename V, typename std::enable_if<((Df>1) || (Dt>1)),int>::type = 0>
@@ -93,11 +106,10 @@ inline void _kernel_visit_1d_f(V &v, const typename V::T *intensity, const typen
 
 // -------------------------------------------------------------------------------------------------
 //
-// The rest of this file defines "visitor" classes:
-//   _mean_variance_visitor
-//   _mean_visitor
-//   _variance_visitor
-//   _mean_variance_iterator
+// _mean_variance_visitor
+//
+// In this and other visitors, the (Iflag,Wflag) compile-time args control whether the downsampled
+// intensity and weights arrays (computed on-the-fly) are also written out to auxiliary arrays.
 
 
 template<typename T_, unsigned int S_, bool Iflag, bool Wflag>
@@ -200,6 +212,8 @@ struct _mean_variance_visitor {
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// _mean_visitor
 
 
 template<typename T_, unsigned int S_, bool Iflag, bool Wflag>
@@ -274,6 +288,8 @@ struct _mean_visitor {
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// _variance_visitor (assumes mean is known beforehand)
 
 
 template<typename T_, unsigned int S_>
@@ -327,6 +343,12 @@ struct _variance_visitor {
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// _mean_variance_iterator: this visitor is used when the weighted mean/rms is computed iteratively 
+// with clipping.
+//
+// The visitor class is constructed using the mean from the previous iteration, and the clip threshold.
+// After _kernel_visit() completes, an updated mean/variance is available.
 
 
 template<typename T_, unsigned int S_>
@@ -402,6 +424,9 @@ struct _mean_variance_iterator {
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// _kernel_mean_variance(): computes the mean and variance of an array (noniteratively) 
+//  using an appropriate visitor.
 
 
 // _kernel_mean_variance_2d() case 1: one-pass version
