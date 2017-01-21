@@ -370,7 +370,11 @@ static void test_detrend_t_idempotency(std::mt19937 &rng, int nfreq, int nt, int
     _kernel_detrend_t<T,S,N> (nfreq, nt, &intensity2[0], &weights[0], stride);
     
     double epsilon = simd_helpers::maxdiff(intensity, intensity2);
-    assert(epsilon < 1.0e-3);
+
+    if (epsilon > 1.0e-3) {
+	cerr << "test_detrend_t_idempotency failed (N=" << N << "): epsilon=" << epsilon << endl;
+	exit(1);
+    }
 
     for (int ifreq = 0; ifreq < nfreq; ifreq++)
 	assert(check_masking(&weights[ifreq*stride], nt, 1, well_conditioned[ifreq]));
@@ -432,7 +436,11 @@ static void test_detrend_f_idempotency(std::mt19937 &rng, int nfreq, int nt, int
     _kernel_detrend_f<T,S,N> (nfreq, nt, &intensity2[0], &weights[0], stride);
     
     double epsilon = simd_helpers::maxdiff(intensity, intensity2);
-    assert(epsilon < 1.0e-3);
+
+    if (epsilon > 1.0e-3) {
+	cerr << "test_detrend_f_idempotency failed (N=" << N << "): epsilon=" << epsilon << endl;
+	exit(1);
+    }
 
     for (int it = 0; it < nt; it++)
 	assert(check_masking(&weights[it], nfreq, stride, well_conditioned[it]));
@@ -775,7 +783,7 @@ void clipper_ops_base<T>::test_wrms_kernel_1d_f(std::mt19937 &rng, int nfreq, in
 	T delta_mean = simd_helpers::compare(mean, ref_mean);
 	T delta_rms = simd_helpers::compare(rms, ref_rms);
 	
-	if ((std::abs(delta_mean) > 1.0e-3 * Df*Dt) || (std::abs(delta_rms) > 1.0e-3 * sqrt(Df*Dt))) {
+	if ((std::abs(delta_mean) > 1.0e-3 * Df*Dt) || (std::abs(delta_rms) > 2.0e-3 * sqrt(Df*Dt))) {
 	    cerr << "kernel_clip1d_f_wrms mean/rms mismatch:"
 		 << " T=" << simd_helpers::type_name<T>() << ", S=" << S << ", Df=" << Df << ", Dt=" << Dt << ", Iflag=" << Iflag 
 		 << ", Wflag=" << Wflag << ", nfreq=" << nfreq << ", nt=" << nt << ", stride=" << stride << "\n"
