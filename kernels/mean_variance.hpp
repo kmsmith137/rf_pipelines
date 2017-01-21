@@ -30,6 +30,12 @@ template<typename T, unsigned int S> using smask_t = simd_helpers::smask_t<T,S>;
 //    _mean_visitor
 //    _variance_visitor
 //    _mean_variance_iterator
+//
+// Note: here and elsewhere in kernels/*.hpp, we define three kernel versions
+// (with suffixes _2d, _1d_t, _1d_f).  This seemed unnecessary and I wanted to clean
+// up by only using the 2d version (with a boolean flag to enable the horizontal_sum()).
+// Unfortunately testing showed that this slowed down the kernels, even if compiled
+// with -funroll-loops!  (See 'abandoned_kernel_refactoring' github branch.)
 
 
 template<unsigned int Df, unsigned int Dt, typename V, typename std::enable_if<((Df>1) || (Dt>1)),int>::type = 0>
