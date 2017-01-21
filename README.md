@@ -10,6 +10,7 @@ For a high-level overview, here are some slides from CHIME telecons:
       [ docs/16-07-05-rf_pipelines_update.pdf ] 
       ( docs/16-07-05-rf_pipelines_update.pdf ) 
 
+This code is under construction!  A current to do list is in [TODO.md](./TODO.md).
 
 ### DEPENDENCIES
 
