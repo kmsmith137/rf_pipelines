@@ -154,6 +154,11 @@ void apply_polynomial_detrender(float *intensity, float *weights, int nfreq, int
 {
     check_params(axis, nfreq, nt, stride, polydeg, epsilon);
 
+    if (_unlikely(!intensity))
+	throw runtime_error("rf_pipelines: apply_polynomial_detrender(): NULL intensity pointer");
+    if (_unlikely(!weights))
+	throw runtime_error("rf_pipelines: apply_polynomial_detrender(): NULL weights pointer");
+
     detrending_kernel_t kernel = global_detrending_kernel_table.get_kernel(axis, polydeg);
     kernel(nfreq, nt, intensity, weights, stride, epsilon);
 }

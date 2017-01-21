@@ -1,11 +1,10 @@
-// Note: this file should only include kernel headers (kernels/*.hpp), not toplevel headers (./*.hpp)
-// (This is because it has a Makefile dependency on the former but not the latter.)
-
 #include <memory>
 #include <cassert>
 #include <stdexcept>
 
-#include "simd_helpers/simd_debug.hpp"
+#include <simd_helpers/simd_debug.hpp>
+#include "rf_pipelines_internals.hpp"
+
 #include "kernels/polyfit.hpp"
 #include "kernels/intensity_clippers.hpp"
 
@@ -16,23 +15,6 @@ using namespace rf_pipelines;
 // -------------------------------------------------------------------------------------------------
 //
 // General-purpose helpers
-
-
-// Cut-and-pasted from rf_pipelines_internals.hpp, since we don't want to #include it.
-template<typename T>
-inline T *aligned_alloc(size_t nelts)
-{
-    if (nelts == 0)
-	return NULL;
-
-    // align to 64-byte cache lines
-    void *p = NULL;
-    if (posix_memalign(&p, 64, nelts * sizeof(T)) != 0)
-	throw std::runtime_error("couldn't allocate memory");
-
-    memset(p, 0, nelts * sizeof(T));
-    return reinterpret_cast<T *> (p);
-}
 
 
 // Generates a random number in the range [-2,2], but not too close to (+/- 1).

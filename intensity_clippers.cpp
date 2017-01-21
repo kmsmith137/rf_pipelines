@@ -292,6 +292,11 @@ void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, 
 {
     check_params("rf_pipeliens: apply_intensity_clipper()", Df, Dt, axis, nfreq, nt, stride, sigma, niter, iter_sigma);
 
+    if (_unlikely(!intensity))
+	throw runtime_error("rf_pipelines: apply_intensity_clipper(): NULL intensity pointer");
+    if (_unlikely(!weights))
+	throw runtime_error("rf_pipelines: apply_intensity_clipper(): NULL weights pointer");
+
     float *ds_intensity = alloc_ds_intensity(nfreq, nt, axis, niter, Df, Dt, two_pass);
     float *ds_weights = alloc_ds_weights(nfreq, nt, axis, niter, Df, Dt, two_pass);
 
@@ -321,6 +326,11 @@ inline void _weighted_mean_and_rms(simd_t<T,S> &mean, simd_t<T,S> &rms, const fl
 void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, int niter, double sigma, bool two_pass)
 {
     static constexpr int S = constants::single_precision_simd_length;
+
+    if (_unlikely(!intensity))
+	throw runtime_error("rf_pipelines: weighted_mean_and_rms(): NULL intensity pointer");
+    if (_unlikely(!weights))
+	throw runtime_error("rf_pipelines: weighted_mean_and_rms(): NULL weights pointer");
 
     simd_t<float,S> mean_x, rms_x;
     _weighted_mean_and_rms(mean_x, rms_x, intensity, weights, nfreq, nt, stride, niter, sigma, two_pass);

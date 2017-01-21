@@ -21,17 +21,17 @@ struct std_dev_clipper_buffers {
     T *sd = NULL;
     smask_t<T,1> *sd_valid = NULL;
 
-    T *ds_int = NULL;
-    T *ds_wt = NULL;
+    T *ds_intensity = NULL;
+    T *ds_weights = NULL;
 
     ~std_dev_clipper_buffers()
     {
 	free(sd);
 	free(sd_valid);
-	free(ds_int);
-	free(ds_wt);
+	free(ds_intensity);
+	free(ds_weights);
 
-	sd = ds_int = ds_wt = NULL;
+	sd = ds_intensity = ds_weights = NULL;
 	sd_valid = NULL;
     }
 };
@@ -58,7 +58,7 @@ inline void _kernel_std_dev_t(const std_dev_clipper_buffers<T> &buf, const T *in
 	const T *wrow = weights + ifreq * stride;
 
 	simd_t<T,S> mean, var;
-	_kernel_mean_variance_1d_t<T,S,Df,Dt,false,false,TwoPass> (mean, var, irow, wrow, nt, stride, buf.ds_int, buf.ds_wt);
+	_kernel_mean_variance_1d_t<T,S,Df,Dt,false,false,TwoPass> (mean, var, irow, wrow, nt, stride, buf.ds_intensity, buf.ds_weights);
 
 	// scalar instructions should be fine here
 	T sd = var.template extract<0> ();
@@ -106,7 +106,7 @@ inline void _kernel_std_dev_f(const std_dev_clipper_buffers<T> &buf, const T *in
 	const T *wcol = weights + it;
 
 	simd_t<T,S> mean, var;
-	_kernel_mean_variance_1d_f<T,S,Df,Dt,false,false,TwoPass> (mean, var, icol, wcol, nfreq, stride, buf.ds_int, buf.ds_wt);
+	_kernel_mean_variance_1d_f<T,S,Df,Dt,false,false,TwoPass> (mean, var, icol, wcol, nfreq, stride, buf.ds_intensity, buf.ds_weights);
 	
 	smask_t<T,S> valid = var.compare_gt(simd_t<T,S>::zero());
 

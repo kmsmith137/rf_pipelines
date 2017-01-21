@@ -57,4 +57,3 @@
 
 - Cleanup: could permute ordering of template arguments, so that arguments which the compiler can guess are
   at the end.  (E.g. <T,S> is always first even though it can almost always be guessed.)
-

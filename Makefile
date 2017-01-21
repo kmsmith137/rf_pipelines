@@ -150,8 +150,7 @@ rf_pipelines/rf_pipelines_c.so: rf_pipelines/rf_pipelines_c.cpp $(INCFILES) rf_p
 run-unit-tests: run-unit-tests.o librf_pipelines.so
 	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines $(LIBS)
 
-# test-kernels does not depend on $(INCFILES)
-test-kernels: test-kernels.cpp $(KERNEL_INCFILES)
+test-kernels: test-kernels.cpp $(INCFILES) $(KERNEL_INCFILES)
 	$(CPP) -o $@ $<
 
 time-clippers: time-clippers.cpp $(INCFILES) $(KERNEL_INCFILES) librf_pipelines.so

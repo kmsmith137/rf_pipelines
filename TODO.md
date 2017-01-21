@@ -4,6 +4,8 @@
 
 - Some of the examples in the examples/ directory are currently broken.
 
+- Allowing 'axis' arugments to be strings { 'freq', 'time' } in python would be a nice cleanup.
+
 ### Performance
 
 - There are still some optimizations/improvements which could be made to the assembly

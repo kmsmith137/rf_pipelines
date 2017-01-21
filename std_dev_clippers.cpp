@@ -90,8 +90,8 @@ inline void allocate_buffers(std_dev_clipper_buffers<T> &buf, int nfreq, int nt,
     buf.sd_valid = aligned_alloc<smask_t<T,1>> (sd_nalloc);
 
     if (two_pass && ((Df > 1) || (Dt > 1))) {
-	buf.ds_int = aligned_alloc<T> ((nfreq*nt) / (Df*Dt));
-	buf.ds_wt = aligned_alloc<T> ((nfreq*nt) / (Df*Dt));
+	buf.ds_intensity = aligned_alloc<T> ((nfreq*nt) / (Df*Dt));
+	buf.ds_weights = aligned_alloc<T> ((nfreq*nt) / (Df*Dt));
     }
 }
 
@@ -288,6 +288,11 @@ shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, axis_type axis, doub
 void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, axis_type axis, double sigma, int Df, int Dt, bool two_pass)
 {
     check_params(Df, Dt, axis, nfreq, nt, stride, sigma);
+
+    if (_unlikely(!intensity))
+	throw runtime_error("rf_pipelines: apply_std_dev_clipper(): NULL intensity pointer");
+    if (_unlikely(!weights))
+	throw runtime_error("rf_pipelines: apply_std_dev_clipper(): NULL weights pointer");
 
     std_dev_clipper_buffers<float> buf;
     allocate_buffers(buf, nfreq, nt, axis, Df, Dt, two_pass);
