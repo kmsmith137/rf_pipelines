@@ -521,6 +521,9 @@ def test_iterated_intensity_clippers():
         # Test 5: this test shows that correctness of weighted_mean_rms(niter) implies
         # correctness of intensity_clipper(niter).
         #
+        # We also test that _wrms_hack_for_testing1(niter), described in a comment above,
+        # is consistent with weighted_mean_and_rms(niter).
+        #
         # Taken together with test 4, this gives an inductive proof of correctness for
         # all niter > 1, which completes the test!
 
@@ -539,6 +542,10 @@ def test_iterated_intensity_clippers():
         
         assert np.all(weights_lo <= weights1)
         assert np.all(weights1 <= weights_hi)
+
+        mean_hint = rf_pipelines_c._wrms_hack_for_testing1(intensity, weights2, niter, iter_sigma, two_pass=two_pass)
+        epsilon = np.max(np.abs(mean_hint - mean))
+        assert epsilon < 1.0e-6
 
 
     print >>sys.stderr, 'test_iterated_intensity_clippers: pass'
