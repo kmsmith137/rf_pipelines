@@ -27,6 +27,8 @@
 
 - Low-level pipeline logic for multithreading the pipeline
 
+- Can we find a systematic way of looking for memory/refcount leaks?
+
 ### Cleanups
 
 - The pipeline needs a lot more documentation!!
