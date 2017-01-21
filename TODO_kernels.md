@@ -1,5 +1,20 @@
 ### Higher-priority loose ends:
 
+- In the polynomial detrender, the checking for a poorly conditioned Cholesky factorization
+  doesn't seem to be working perfectly.  One symptom is that the detrender tests in test-kernels
+  sometimes fail for polynomial degree > 8.
+
+  One thing that should be fairly easy to implement: double-precision polynomial fitting
+  (with a double_precision flag added to the polyomial_detrender).  This could also be extended
+  to add a "monitor" flag to the single-precision polynomial_detrender, which compares the
+  result to the double-precision detrender on-the-fly, and increments a counter if it
+  detects an inconsistency.
+
+  Maybe the real solution is to change the criterion by which the Cholesky factorization
+  detects numerical instability?  Currently, we check each value of L_{ii} / A_{ii}^{1/2}
+  independently.  Maybe it would be help to also include a check on prod_i (L_{ii} / A_{ii}^{1/2})?
+  What does lapack do?
+
 - Remove hardcoded max downsampling, by writing kernels for the "large-Df" and "large-Dt" cases.
   (Related to "R-kernels" below.)
 
