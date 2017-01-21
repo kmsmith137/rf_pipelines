@@ -1734,7 +1734,10 @@ static constexpr const char *wi_downsample_docstring =
     "wi_downsample(intensity, weights, Df, Dt)\n"
     "\n"
     "Downsamples a weighted intensity array, and returns a new pair (intensity, weights).\n"
-    "The downsampling factors (Df,Dt) must be powers of two.\n";
+    "The downsampling factors (Df,Dt) must be powers of two.\n"
+    "\n"
+    "Note that the normalization of the downsampled 'weights' array differs\n"
+    "(by a factor of Df*Dt) from the python version of wi_downsample().\n";
 
 
 static constexpr const char *weighted_mean_and_rms_docstring =

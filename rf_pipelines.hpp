@@ -268,7 +268,8 @@ extern void apply_std_dev_clipper(const float *intensity, float *weights, int nf
 // Helper routines for the RFI transforms above, factored out as standalone functions.
 //
 // wi_downsample(): downsamples an (intensity, weights) pair.  The downsampling factors (Df,Dt)
-// must be powers of two.  
+// must be powers of two.  Note that the normalization of the downsampled weights array differs
+// (by a factor of Df*Dt) from the python version of wi_downsample().
 //
 // weighted_mean_and_rms(): computes weighted mean/rms of a 2D intensity array.
 // If the 'niter' argument is >1, then the calculation will be iterated, clipping

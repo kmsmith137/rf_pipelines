@@ -102,6 +102,12 @@ static downsampling_kernel_table global_downsampling_kernel_table;
 
 
 // Externally visible downsampling routine declared in rf_pipelines.hpp
+//
+// Note that the normalization of the downsampled weights array differs (by a factor of Df*Dt) 
+// from the python version of wi_downsample().  This is actually nontrivial to change, since
+// the unit tests currently assume strict equivalence with the downsampling logic in the
+// intensity_clipper, which we don't want to slow down by including an extra multiplication.
+//
 void wi_downsample(float *out_intensity, float *out_weights, int out_stride, const float *in_intensity, const float *in_weights, int in_nfreq, int in_nt, int in_stride, int Df, int Dt)
 {
     static constexpr int S = constants::single_precision_simd_length;
