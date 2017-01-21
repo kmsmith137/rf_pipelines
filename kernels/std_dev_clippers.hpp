@@ -98,6 +98,8 @@ inline void _kernel_std_dev_clip_time_axis(const std_dev_clipper_buffers<T> &buf
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool TwoPass>
 inline void _kernel_std_dev_f(const std_dev_clipper_buffers<T> &buf, const T *intensity, const T *weights, int nfreq, int nt, int stride)
 {
+    const simd_t<T,S> zero = simd_t<T,S>::zero();
+
     T *out_sd = buf.sd;
     smask_t<T,1> *out_valid = buf.sd_valid;
 
@@ -108,7 +110,7 @@ inline void _kernel_std_dev_f(const std_dev_clipper_buffers<T> &buf, const T *in
 	simd_t<T,S> mean, var;
 	_kernel_mean_variance_1d_f<T,S,Df,Dt,false,false,TwoPass> (mean, var, icol, wcol, nfreq, stride, buf.ds_intensity, buf.ds_weights);
 	
-	smask_t<T,S> valid = var.compare_gt(simd_t<T,S>::zero());
+	smask_t<T,S> valid = var.compare_gt(zero);
 
 	var.storeu(out_sd);
 	valid.storeu(out_valid);
