@@ -33,7 +33,7 @@ def intensity_clipper_cpp(nt_chunk=1024, axis=None, sigma=3, niter=1, iter_sigma
 
       'Df=1' and 'Dt=1' are the frequency and time downsampling factors, respectively.
 
-      If two_pass=True, then a more numerically stable but somewhat slower algorithm will be used.
+      If 'two_pass=True', then a more numerically stable but somewhat slower algorithm will be used.
       (In CHIME, this should only be needed in a specific case: when analyzing incoherent-beam data, 
        with axis=1, and before the first detrender in the transform chain.
     """

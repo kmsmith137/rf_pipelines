@@ -1,11 +1,11 @@
 import numpy as np
 import rf_pipelines
 
-def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_nt=None, imitate_cpp=False):
+def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_nt=None, imitate_cpp=True):
     """
     Helper function for std_dev_clipper. Modifies 'weights' array in place.
 
-    The 'imitiate_cpp' flag may be phased out in the future (by removing the False branch).
+    The 'imitate_cpp' flag may be phased out in the future (by removing the False branch).
       - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
       - if False, then the old v10 logic will be used.
     """
@@ -18,6 +18,7 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
     assert nt_chunk > 0
     assert (dsample_nt is None or dsample_nt > 0), "Invalid downsampling number along the time axis!"
     assert (dsample_nfreq is None or dsample_nfreq > 0), "Invalid downsampling number along the freq axis!"
+    assert type(imitate_cpp) == bool
 
     # ------ Helper 'set_stream' calls ------
     coarse_grained = (dsample_nfreq < nfreq) or (dsample_nt < nt_chunk)
@@ -104,7 +105,7 @@ class std_dev_clipper(rf_pipelines.py_wi_transform):
    
     Constructor syntax:
 
-      t = std_dev_clipper(thr=3., axis=1, nt_chunk=1024, 'dsample_nfreq=None', 'dsample_nt=None')
+      t = std_dev_clipper(thr=3., axis=1, nt_chunk=1024, 'dsample_nfreq=None', 'dsample_nt=None', imitate_cpp=True)
 
       'thr=3.' is the sigma value to clip. 
 
@@ -117,12 +118,12 @@ class std_dev_clipper(rf_pipelines.py_wi_transform):
       'dsample_nfreq' and 'dsample_nt' are the downsampled
        number of pixles along the freq and time axes, respectively.
 
-       The 'imitiate_cpp' flag may be phased out in the future (by removing the False branch).
-         - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
-         - if False, then the old v10 logic will be used.
+      The 'imitate_cpp' flag may be phased out in the future (by removing the False branch).
+        - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
+        - if False, then the old v10 logic will be used.
     """
     
-    def __init__(self, thr=3., axis=1, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, imitate_cpp=False):
+    def __init__(self, thr=3., axis=1, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, imitate_cpp=True):
         
         self.thr = thr
         self.axis = axis

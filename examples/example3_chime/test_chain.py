@@ -22,34 +22,45 @@ clip_nt = 1024
 rms_cut = 1e10
 mask_cut = 0.0
 max_niter = 3
-test = False
+test = True
 # --------------
 
-py_clippers = [ 'rf_pipelines.clip_fx(intensity, weights, thr=3, n_internal=12, axis=None, dsample_nfreq=%d/2, dsample_nt=%d/16)' % (nfreq, clip_nt),
-                'rf_pipelines.clip_fx(intensity, weights, thr=3, n_internal=1, axis=0)',
-                'rf_pipelines.clip_fx(intensity, weights, thr=3, n_internal=1, axis=1)',
-                'rf_pipelines.filter_stdv(intensity, weights, thr=3, axis=1, dsample_nt=%d/16)' % clip_nt ]
+py_clippers = [ 'rf_pipelines.clip_fx(intensity, weights, thr=3, n_internal=12, axis=None, dsample_nfreq=%d/2, dsample_nt=%d/16, imitate_cpp=False)' % (nfreq, clip_nt),
+                'rf_pipelines.clip_fx(intensity, weights, thr=3, n_internal=1, axis=0, imitate_cpp=False)',
+                'rf_pipelines.clip_fx(intensity, weights, thr=3, n_internal=1, axis=1, imitate_cpp=False)',
+                'rf_pipelines.filter_stdv(intensity, weights, thr=3, axis=1, dsample_nt=%d/16, imitate_cpp=False)' % clip_nt
+              ]
 
 imitate_cpp_clippers = [ 'rf_pipelines.clip_fx(intensity, weights, thr=3, n_internal=12, axis=None, dsample_nfreq=%d/2, dsample_nt=%d/16, imitate_cpp=True)' % (nfreq, clip_nt),
                          'rf_pipelines.clip_fx(intensity, weights, thr=3, n_internal=1, axis=0, imitate_cpp=True)',
                          'rf_pipelines.clip_fx(intensity, weights, thr=3, n_internal=1, axis=1, imitate_cpp=True)',
-                         'rf_pipelines.filter_stdv(intensity, weights, thr=3, axis=1, dsample_nt=%d/16, imitate_cpp=True)' % clip_nt ]
+                         'rf_pipelines.filter_stdv(intensity, weights, thr=3, axis=1, dsample_nt=%d/16, imitate_cpp=True)' % clip_nt
+                       ]
 
 cpp_clippers = [ 'rf_pipelines_c.apply_intensity_clipper(intensity, weights, sigma=3, niter=12, iter_sigma=3, axis=None, Df=2, Dt=16)',
                  'rf_pipelines_c.apply_intensity_clipper(intensity, weights, sigma=3, niter=1, iter_sigma=3, axis=0, Df=1, Dt=1)',
                  'rf_pipelines_c.apply_intensity_clipper(intensity, weights, sigma=3, niter=1, iter_sigma=3, axis=1, Df=1, Dt=1)',
-                 'rf_pipelines_c.apply_std_dev_clipper(intensity, weights, sigma=3, axis=1, Dt=16)' ]
+                 'rf_pipelines_c.apply_std_dev_clipper(intensity, weights, sigma=3, axis=1, Dt=16)'
+               ]
 
-test_fdict = {'py' : [], #py_clippers,
+if test:
+    fdict = { 'py' : py_clippers,
+              'imitate_cpp' : imitate_cpp_clippers,
+              'cpp' : cpp_clippers
+            }
+else:
+    fdict = { 'py' : [], #py_clippers,
               'imitate_cpp' : [], #imitate_cpp_clippers,
               'cpp' : cpp_clippers
-             }
+            }
 
 s = rf_pipelines.chime_stream_from_filename_list(filename_list, nt_chunk=nt_chunk, noise_source_align=detrend_nt)
 
+# NOTE in this test, we ignore the two_pass flag; instead, we include a detrender before the clippers.
 transform_chain = [ rf_pipelines.badchannel_mask('/data/pathfinder/rfi_masks/rfi_20160705.dat', nt_chunk=clip_nt),
                     rf_pipelines.polynomial_detrender_cpp(polydeg=0, axis=1, nt_chunk=detrend_nt),
-                    rf_pipelines.master_transform(nt_chunk=nt_chunk, fdict=test_fdict, rms_cut=rms_cut, mask_cut=mask_cut, max_niter=max_niter, test=test) ]
+                    rf_pipelines.master_transform(nt_chunk=nt_chunk, fdict=fdict, rms_cut=rms_cut, mask_cut=mask_cut, max_niter=max_niter, test=test)
+                  ]
 
 s.run(transform_chain)
 

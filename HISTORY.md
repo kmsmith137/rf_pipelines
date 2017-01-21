@@ -2,8 +2,8 @@
 
      - Backwards-incompatible: names of three core transforms have been changed
          - legendre_detrender -> polynomial_detrender
-	 - clipper_transform -> intensity_clipper
-	 - std_dev_filter -> std_dev_clipper
+         - clipper_transform -> intensity_clipper
+         - std_dev_filter -> std_dev_clipper
 
      - The three core transforms above now have fast implementations, written in C++
        with assembly language kernels in key places.

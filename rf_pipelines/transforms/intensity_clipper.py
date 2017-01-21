@@ -2,11 +2,11 @@ import sys
 import numpy as np
 import rf_pipelines
 
-def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=None, dsample_nt=None, imitate_cpp=False):
+def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=None, dsample_nt=None, imitate_cpp=True):
     """
     Helper function for intensity_clipper. Modifies 'weights' array in place.
 
-    The 'imitiate_cpp' flag may be phased out in the future (by removing the False branch).
+    The 'imitate_cpp' flag may be phased out in the future (by removing the False branch).
       - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
       - if False, then the old v10 logic will be used.
     """
@@ -19,6 +19,7 @@ def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=No
     assert nt_chunk > 0
     assert (dsample_nt is None or dsample_nt > 0), "Invalid downsampling number along the time axis!"
     assert (dsample_nfreq is None or dsample_nfreq > 0), "Invalid downsampling number along the freq axis!"
+    assert type(imitate_cpp) == bool
 
     # ------ Helper 'set_stream' calls ------
     coarse_grained = (dsample_nfreq < nfreq) or (dsample_nt < nt_chunk)
@@ -98,7 +99,7 @@ class intensity_clipper(rf_pipelines.py_wi_transform):
 
     Constructor syntax:
 
-      t = intensity_clipper(thr=3, n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False, imitate_cpp=False)
+      t = intensity_clipper(thr=3, n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False, imitate_cpp=True)
 
       'thr=3.' is the multiplicative factor of maximum threshold,
        e.g., 3 * standard_deviation, meaning that (the absolute
@@ -118,12 +119,12 @@ class intensity_clipper(rf_pipelines.py_wi_transform):
 
       'test=False' enables a test mode.
 
-      The 'imitiate_cpp' flag may be phased out in the future (by removing the False branch).
-         - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
-         - if False, then the old v10 logic will be used.
+      The 'imitate_cpp' flag may be phased out in the future (by removing the False branch).
+        - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
+        - if False, then the old v10 logic will be used.
     """
     
-    def __init__(self, thr=3., n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False, imitate_cpp=False):
+    def __init__(self, thr=3., n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False, imitate_cpp=True):
 
         name = 'intensity_clipper(thr=%f, n_internal=%d, axis=%s, nt_chunk=%d' % (thr, n_internal, axis, nt_chunk)
         if dsample_nfreq is not None:
