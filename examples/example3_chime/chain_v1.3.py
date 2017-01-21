@@ -30,7 +30,7 @@ def detrender_chain(ix):
 
 def clipper_chain(jx, ix, two_pass=True):
     
-    if (jx == ix == 0) and (two_pass is True):
+    if (ix == 0) and (two_pass is True):
         pass
     else:
         two_pass = False
