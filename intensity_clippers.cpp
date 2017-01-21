@@ -352,7 +352,7 @@ void _wrms_hack_for_testing2(float &mean, float &rms, const float *intensity, co
 	throw runtime_error("rf_pipelines: wrong mean_hint size in _wrms_hack_for_testing2()");
 
     _mean_variance_iterator<float,S> v(simd_t<float,S>::loadu(&mean_hint[0]), simd_t<float,S>(1.0e10));
-    _kernel_visit_2d<1,1> (v, intensity, weights, nfreq, nt, stride);
+    _kernel_visit<1,1,true> (v, intensity, weights, nfreq, nt, stride);
 
     simd_t<float,S> mean_x, rms_x;
     v.get_mean_rms(mean_x, rms_x);

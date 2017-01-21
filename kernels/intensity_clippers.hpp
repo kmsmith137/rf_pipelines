@@ -34,23 +34,24 @@ template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag, bool TwoPass>
 inline void _kernel_noniterative_wrms_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int nt, int stride, T *ds_intensity, T *ds_weights)
 {
-    _kernel_mean_variance_2d<T,S,Df,Dt,Iflag,Wflag,TwoPass> (mean, rms, intensity, weights, nfreq, nt, stride, ds_intensity, ds_weights);
+    _kernel_mean_variance<Df,Dt,Iflag,Wflag,TwoPass,true> (mean, rms, intensity, weights, nfreq, nt, stride, ds_intensity, ds_weights);
     rms = rms.sqrt();
 }
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag, bool TwoPass>
 inline void _kernel_noniterative_wrms_1d_f(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_intensity, T *ds_weights)
 {
-    _kernel_mean_variance_1d_f<T,S,Df,Dt,Iflag,Wflag,TwoPass> (mean, rms, intensity, weights, nfreq, stride, ds_intensity, ds_weights);
+    _kernel_mean_variance<Df,Dt,Iflag,Wflag,TwoPass,false> (mean, rms, intensity, weights, nfreq, Dt*S, stride, ds_intensity, ds_weights);
     rms = rms.sqrt();
 }
 
 template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool Iflag, bool Wflag, bool TwoPass>
 inline void _kernel_noniterative_wrms_1d_t(simd_t<T,S> &mean, simd_t<T,S> &rms, const T *intensity, const T *weights, int nt, int stride, T *ds_intensity, T *ds_weights)
 {
-    _kernel_mean_variance_1d_t<T,S,Df,Dt,Iflag,Wflag,TwoPass> (mean, rms, intensity, weights, nt, stride, ds_intensity, ds_weights);
+    _kernel_mean_variance<Df,Dt,Iflag,Wflag,TwoPass,true> (mean, rms, intensity, weights, Df, nt, stride, ds_intensity, ds_weights);
     rms = rms.sqrt();
 }
+
 
 // -------------------------------------------------------------------------------------------------
 //
@@ -72,7 +73,7 @@ inline void _kernel_wrms_iterate_2d(simd_t<T,S> &mean, simd_t<T,S> &rms, const T
     for (int iter = 1; iter < niter; iter++) {
 	simd_t<T,S> thresh = simd_t<T,S>(iter_sigma) * rms;
 	_mean_variance_iterator<T,S> v(mean, thresh);
-	_kernel_visit_2d<1,1> (v, intensity, weights, nfreq, nt, stride);
+	_kernel_visit<1,1,true> (v, intensity, weights, nfreq, nt, stride);
 	v.get_mean_rms(mean, rms);
     }
 }
@@ -90,7 +91,7 @@ inline void _kernel_wrms_iterate_1d_f(simd_t<T,S> &mean, simd_t<T,S> &rms, const
     for (int iter = 1; iter < niter; iter++) {
 	simd_t<T,S> thresh = simd_t<T,S>(iter_sigma) * rms;
 	_mean_variance_iterator<T,S> v(mean, thresh);
-	_kernel_visit_1d_f<1,1> (v, intensity, weights, nfreq, stride);	
+	_kernel_visit<1,1,false> (v, intensity, weights, nfreq, S, stride);
 	v.get_mean_rms(mean, rms);
     }
 }

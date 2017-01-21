@@ -58,7 +58,7 @@ inline void _kernel_std_dev_t(const std_dev_clipper_buffers<T> &buf, const T *in
 	const T *wrow = weights + ifreq * stride;
 
 	simd_t<T,S> mean, var;
-	_kernel_mean_variance_1d_t<T,S,Df,Dt,false,false,TwoPass> (mean, var, irow, wrow, nt, stride, buf.ds_int, buf.ds_wt);
+	_kernel_mean_variance<Df,Dt,false,false,TwoPass,true> (mean, var, irow, wrow, Df, nt, stride, buf.ds_int, buf.ds_wt);
 
 	// scalar instructions should be fine here
 	T sd = var.template extract<0> ();
@@ -106,7 +106,7 @@ inline void _kernel_std_dev_f(const std_dev_clipper_buffers<T> &buf, const T *in
 	const T *wcol = weights + it;
 
 	simd_t<T,S> mean, var;
-	_kernel_mean_variance_1d_f<T,S,Df,Dt,false,false,TwoPass> (mean, var, icol, wcol, nfreq, stride, buf.ds_int, buf.ds_wt);
+	_kernel_mean_variance<Df,Dt,false,false,TwoPass,false> (mean, var, icol, wcol, nfreq, Dt*S, stride, buf.ds_int, buf.ds_wt);
 	
 	smask_t<T,S> valid = var.compare_gt(simd_t<T,S>::zero());
 
