@@ -49,8 +49,10 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         assert sigma_clip >= 2.0    # following assert in rf_pipelines.utils.write_png()
         assert n_zoom > 0
         
+        max_downsample = downsample_nt * 2**(n_zoom-1)
+
         if nt_chunk == 0:
-            nt_chunk = min(img_nt, 1024//downsample_nt+1) * downsample_nt    # default value
+            nt_chunk = min(img_nt, 1024//max_downsample+1) * max_downsample    # default value
 
         assert nt_chunk > 0
 
@@ -81,11 +83,7 @@ class plotter_transform(rf_pipelines.py_wi_transform):
                 self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[zoom_level + 1], ny=img_nfreq)
                 self.img_prefix += [img_prefix + "_zoom" + str(zoom_level+1)]
 
-        print self.nt_chunk_ds
-        print
-        print
-        print
-
+ 
     def set_stream(self, s):
         # As explained in the rf_pipelines.py_wi_transform docstring, this function is
         # called once per pipeline run, when the stream (the 's' argument) has been specified.
@@ -123,11 +121,16 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         # the current file is 'self.ipos'
 
         # Add current chunk to the zoom arrays one at a time
+
+        #### PRESERVE COPIES OF INTENSITY AND WEIGHT CHUNKS!!!
+        preserved_intensity = intensity.copy()
+        preserved_weights = weights.copy()
+
         for zoom_level in xrange(self.n_zoom):
-            print self.nt_chunk_ds[zoom_level], intensity.shape[1]
-            print
-            print 
-            print
+            # Fresh copy of preserved arrays
+            intensity = preserved_intensity.copy()
+            weights = preserved_weights.copy()
+
             (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights, self.img_nfreq, self.nt_chunk_ds[zoom_level])
             
             # Keeps track of how much downsampled data has been moved from input chunk to the plots.
@@ -150,7 +153,7 @@ class plotter_transform(rf_pipelines.py_wi_transform):
     def end_substream(self):
         for zoom_level in xrange(self.n_zoom):
             if self.ipos[zoom_level] > 0:
-                self._write_file()
+                self._write_file(zoom_level)
 
 
     def _write_file(self, zoom_level):
@@ -158,8 +161,8 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         # In this case, the plotting convention which I like best cosmetically is to truncate the image if there
         # is only one file in the output (i.e. self.ifile==0), otherwise pad with black.
 
-        intensity = self.intensity_buf[zoom_level] if (self.ifile[zoom_level] > 0) else self.intensity_buf[:,:self.ipos]
-        weights = self.weight_buf[zoom_level] if (self.ifile[zoom_level] > 0) else self.weight_buf[:,:self.ipos]
+        intensity = self.intensity_buf[zoom_level, :, :] if (self.ifile[zoom_level] > 0) else self.intensity_buf[zoom_level, :, :self.ipos[zoom_level]]
+        weights = self.weight_buf[zoom_level, :, :] if (self.ifile[zoom_level] > 0) else self.weight_buf[zoom_level, :, :self.ipos[zoom_level]]
 
         basename = self.img_prefix[zoom_level]
         if self.isubstream > 0:
@@ -170,11 +173,12 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         # Note that a transform which writes multiple plot_groups would need to specify a group_id in add_plot().
         # (By default the group_id is zero.)
         filename = self.add_plot(basename, 
-                                 it0 = self.ifile[zoom_level] * self.img_nt * self.downsample_nt[zoom_level],
+                                 it0 = int(self.ifile[zoom_level] * self.img_nt * self.downsample_nt[zoom_level]),
                                  nt = self.img_nt * self.downsample_nt[zoom_level],
                                  nx = intensity.shape[1], 
-                                 ny = intensity.shape[0],
+                                 ny = intensity.shape[0], 
                                  group_id = zoom_level)
+
 
         rf_pipelines.write_png(filename, intensity, weights=weights, transpose=True, ytop_to_bottom=True, 
                                clip_niter=self.clip_niter, sigma_clip=self.sigma_clip)
