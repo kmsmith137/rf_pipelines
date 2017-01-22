@@ -2,8 +2,8 @@ import sys
 import numpy as np
 import rf_pipelines
 
-# Bad implementation of zooming
-# Two zoom levels are automatically produced
+# Now that I get how it works, time for a good implementation :)
+# Very poorly documented at present - will fix soon
 
 
 class plotter_transform(rf_pipelines.py_wi_transform):
@@ -38,7 +38,7 @@ class plotter_transform(rf_pipelines.py_wi_transform):
       each call to process_chunk().
     """
 
-    def __init__(self, img_prefix, img_nfreq, img_nt, downsample_nt=1, nt_chunk=0, clip_niter=3, sigma_clip=3.0):
+    def __init__(self, img_prefix, img_nfreq, img_nt, downsample_nt=1, n_zoom = 4, nt_chunk=0, clip_niter=3, sigma_clip=3.0):
         # Call base class constructor
         rf_pipelines.py_wi_transform.__init__(self, 'plotter_transform')
 
@@ -47,7 +47,8 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         assert downsample_nt > 0
         assert clip_niter >= 1
         assert sigma_clip >= 2.0    # following assert in rf_pipelines.utils.write_png()
-
+        assert n_zoom > 0
+        
         if nt_chunk == 0:
             nt_chunk = min(img_nt, 1024//downsample_nt+1) * downsample_nt    # default value
 
@@ -56,25 +57,34 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         if nt_chunk % downsample_nt != 0:
             raise RuntimeError("plotter_transform: current implementation requires 'nt_chunk' to be a multiple of 'downsample_nt'")
 
-        # As explained in the rf_pipelines.py_wi_transform docstring, the following members
-        # of the py_wi_transform base class must be initialized in the subclass.  (We also
-        # need to initialize 'nfreq', but that will be done in 'set_stream', see below.)
+        self.name = 'plotter_transform'
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
-        self.nt_postpad = 0 ## Maybe use these later??
-
-        self.img_prefix = img_prefix
+        self.nt_postpad = 0
         self.img_nfreq = img_nfreq
         self.img_nt = img_nt
         self.downsample_nt = downsample_nt
-        self.nt_chunk_ds = nt_chunk // downsample_nt
         self.clip_niter = clip_niter
         self.sigma_clip = sigma_clip
-
-        # Create plot_group 0.  See docstrings for py_wi_transform, py_wi_transform.add_plot_group(),
-        # and py_wi_transform.add_plot() for more details.
+        self.n_zoom = n_zoom
+        
+        # Parameters implemented as lists that change for each zoom level
+        self.downsample_nt = [downsample_nt]
+        self.nt_chunk_ds = [nt_chunk // downsample_nt] # number of times/chunk divided by number of times per pixel -> pixels/chunk
         self.add_plot_group("waterfall", nt_per_pix=downsample_nt, ny=img_nfreq)
-        self.add_plot_group("not_waterfall", nt_per_pix=downsample_nt*2, ny=img_nfreq)
+        self.img_prefix = [img_prefix + "_zoom0"]
+
+        if self.n_zoom > 1:
+            for zoom_level in xrange(self.n_zoom - 1):
+                self.downsample_nt += [self.downsample_nt[zoom_level] * 2]   # zoom_level = previous element's index because of the original value added
+                self.nt_chunk_ds += [nt_chunk // self.downsample_nt[zoom_level + 1]]
+                self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[zoom_level + 1], ny=img_nfreq)
+                self.img_prefix += [img_prefix + "_zoom" + str(zoom_level+1)]
+
+        print self.nt_chunk_ds
+        print
+        print
+        print
 
     def set_stream(self, s):
         # As explained in the rf_pipelines.py_wi_transform docstring, this function is
@@ -92,11 +102,13 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         # We initialize per-substream state: a buffer for the downsampled data which
         # will be used to construct the plot.
 
-        self.intensity_buf = np.zeros((self.img_nfreq,self.img_nt), dtype=np.float32)
-        self.weight_buf = np.zeros((self.img_nfreq,self.img_nt), dtype=np.float32)
+        # The buffers store intensity/weights data until a plot can be written out
+        # This means that the buffers will have dimensions n_zoom x n_xpix x n_ypix
+        self.intensity_buf = np.zeros((self.n_zoom, self.img_nfreq, self.img_nt), dtype=np.float32)
+        self.weight_buf = np.zeros((self.n_zoom, self.img_nfreq, self.img_nt), dtype=np.float32)
         self.isubstream = isubstream
-        self.ifile = 0    # keeps track of which png file we're accumulating
-        self.ipos = 0     # keeps track of how many (downsampled) time samples have been accumulated into file so far
+        self.ifile = np.zeros((self.n_zoom))    # keeps track of which png file we're accumulating
+        self.ipos = np.zeros((self.n_zoom))     # keeps track of how many (downsampled) time samples have been accumulated into file so far
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
@@ -110,85 +122,64 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         # so far is 'self.ifile', and the number of (downsampled) time samples accumulated into
         # the current file is 'self.ipos'
 
-        (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights, self.img_nfreq, self.nt_chunk_ds)
-
-        # Keeps track of how much downsampled data has been moved from input chunk to the plots.
-        ichunk = 0
-
-        while ichunk < self.nt_chunk_ds:
-            # Move to end of chunk or end of current plot, whichever comes first.
-            n = min(self.nt_chunk_ds - ichunk, self.img_nt - self.ipos)
-            assert n > 0
+        # Add current chunk to the zoom arrays one at a time
+        for zoom_level in xrange(self.n_zoom):
+            print self.nt_chunk_ds[zoom_level], intensity.shape[1]
+            print
+            print 
+            print
+            (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights, self.img_nfreq, self.nt_chunk_ds[zoom_level])
             
-            self.intensity_buf[:,self.ipos:(self.ipos+n)] = intensity[:,ichunk:(ichunk+n)]
-            self.weight_buf[:,self.ipos:(self.ipos+n)] = weights[:,ichunk:(ichunk+n)]
-            self.ipos += n
-            ichunk += n
+            # Keeps track of how much downsampled data has been moved from input chunk to the plots.
+            ichunk = 0
 
-            if self.ipos == self.img_nt:
-                if self.ifile % 2 == 0:
-                    self.store_extra_intensity = self.intensity_buf
-                    self.store_extra_weight = self.weight_buf 
-                if self.ifile % 2 == 1:
-                    self._make_extra_zoom()
-                self._write_file()
+            while ichunk < self.nt_chunk_ds[zoom_level]:
+                # Move to end of chunk or end of current plot, whichever comes first.
+                n = min(self.nt_chunk_ds[zoom_level] - ichunk, self.img_nt - self.ipos[zoom_level])
+                assert n > 0
+            
+                self.intensity_buf[zoom_level, :, self.ipos[zoom_level]:(self.ipos[zoom_level]+n)] = intensity[:,ichunk:(ichunk+n)]
+                self.weight_buf[zoom_level, :, self.ipos[zoom_level]:(self.ipos[zoom_level]+n)] = weights[:,ichunk:(ichunk+n)]
+                self.ipos[zoom_level] += n
+                ichunk += n
+
+                if self.ipos[zoom_level] == self.img_nt:
+                    self._write_file(zoom_level)
 
 
     def end_substream(self):
-        self._make_extra_zoom()
-        if self.ipos > 0:
-            self._write_file()
+        for zoom_level in xrange(self.n_zoom):
+            if self.ipos[zoom_level] > 0:
+                self._write_file()
 
 
-    def _write_file(self):
+    def _write_file(self, zoom_level):
         # When we reach end-of-stream, the buffer might be partially full (i.e. self.ipos < self.img_nt).
         # In this case, the plotting convention which I like best cosmetically is to truncate the image if there
         # is only one file in the output (i.e. self.ifile==0), otherwise pad with black.
 
-        intensity = self.intensity_buf if (self.ifile > 0) else self.intensity_buf[:,:self.ipos]
-        weights = self.weight_buf if (self.ifile > 0) else self.weight_buf[:,:self.ipos]
+        intensity = self.intensity_buf[zoom_level] if (self.ifile[zoom_level] > 0) else self.intensity_buf[:,:self.ipos]
+        weights = self.weight_buf[zoom_level] if (self.ifile[zoom_level] > 0) else self.weight_buf[:,:self.ipos]
 
-        basename = self.img_prefix
+        basename = self.img_prefix[zoom_level]
         if self.isubstream > 0:
             basename += str(isubstream+1)
-        basename += ('_%s.png' % self.ifile)
+        basename += ('_%s.png' % self.ifile[zoom_level])
 
         # The add_plot() method adds the plot to the JSON output, and returns the filename that should be written.
         # Note that a transform which writes multiple plot_groups would need to specify a group_id in add_plot().
         # (By default the group_id is zero.)
-
         filename = self.add_plot(basename, 
-                                 it0 = self.ifile * self.img_nt * self.downsample_nt,
-                                 nt = self.img_nt * self.downsample_nt,
+                                 it0 = self.ifile[zoom_level] * self.img_nt * self.downsample_nt[zoom_level],
+                                 nt = self.img_nt * self.downsample_nt[zoom_level],
                                  nx = intensity.shape[1], 
-                                 ny = intensity.shape[0])
+                                 ny = intensity.shape[0],
+                                 group_id = zoom_level)
 
         rf_pipelines.write_png(filename, intensity, weights=weights, transpose=True, ytop_to_bottom=True, 
                                clip_niter=self.clip_niter, sigma_clip=self.sigma_clip)
 
-        self.intensity_buf[:,:] = 0.
-        self.weight_buf[:,:] = 0.
-        self.ifile += 1
-        self.ipos = 0
-
-
-    def _make_extra_zoom(self):
-        big_intensity = np.hstack((self.store_extra_intensity, self.intensity_buf))
-        big_weights = np.hstack((self.store_extra_weight, self.weight_buf))
-        (bintensity, bweights) = rf_pipelines.wi_downsample(big_intensity, big_weights, self.img_nfreq, self.img_nt)
-
-        basename = 'zoom_' + self.img_prefix
-        if self.isubstream > 0:
-            basename += str(isubstream+1)
-        basename += ('_%s.png' % self.ifile)
-
-        filename = self.add_plot(basename, 
-                                 it0 = self.ifile * self.img_nt * self.downsample_nt,
-                                 nt = self.img_nt * self.downsample_nt * 2,
-                                 nx = bintensity.shape[1], 
-                                 ny = bintensity.shape[0],
-                                 group_id=1)
-
-        rf_pipelines.write_png(filename, bintensity, weights=bweights, transpose=True, ytop_to_bottom=True, 
-                               clip_niter=self.clip_niter, sigma_clip=self.sigma_clip)
-
+        self.intensity_buf[zoom_level, :, :] = 0.
+        self.weight_buf[zoom_level, :, :] = 0.
+        self.ifile[zoom_level] += 1
+        self.ipos[zoom_level] = 0
