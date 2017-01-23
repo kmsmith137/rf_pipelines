@@ -23,7 +23,7 @@ class polynomial_detrender_python(rf_pipelines.py_wi_transform):
 
     Constructor syntax:
 
-      t = polynomial_detrender(nt_chunk=1024, deg=0, axis=0, test=False)
+      t = polynomial_detrender_python(nt_chunk=1024, deg=0, axis=0, test=False)
       
       'nt_chunk=1024' is the buffer size.
 
@@ -44,7 +44,7 @@ class polynomial_detrender_python(rf_pipelines.py_wi_transform):
         self.nt_chunk = nt_chunk
         self.deg = deg
         self.axis = axis
-        self.name = 'polynomial_detrender(nt_chunk=%d, deg=%d, axis=%d)' % (nt_chunk, deg, axis)
+        self.name = 'polynomial_detrender_python(nt_chunk=%d, deg=%d, axis=%d)' % (nt_chunk, deg, axis)
         self.nt_prepad = 0
         self.nt_postpad = 0
         self.test = test
@@ -74,7 +74,7 @@ class polynomial_detrender_python(rf_pipelines.py_wi_transform):
         # The test mode replaces the weights and intensity with
         # simulated chunks (see __test below).
         if self.test:
-            weights, intensity = self._polynomial_detrender__test(weights, intensity)
+            weights, intensity = self._polynomial_detrender_python__test(weights, intensity)
 
         # Checking whether the coefficients array matches
         # (in dimension) with the weights and intensity 
@@ -108,9 +108,6 @@ class polynomial_detrender_python(rf_pipelines.py_wi_transform):
         assert w.shape == i.shape == (self.N,)
         
         # Ill-conditioned Matrix M:
-        # Unlike this python implementation,
-        # 'polynomial_detrender_cpp.py' 
-        # handles this part properly. 
         if np.sum(w) < 20:
             return np.zeros(self.N)
 

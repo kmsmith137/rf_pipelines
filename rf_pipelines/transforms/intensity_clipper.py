@@ -1,10 +1,20 @@
 import sys
 import numpy as np
+
 import rf_pipelines
+from rf_pipelines import rf_pipelines_c
+
+
+def intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=1, dsample_nfreq=None, dsample_nt=None, Df=1, Dt=1, imitate_cpp=True, two_pass=True, cpp=True, test=False):
+    if cpp:
+        return rf_pipelines_c.make_intensity_clipper(nt_chunk, axis, sigma, niter, iter_sigma, Df, Dt, two_pass)
+    else:
+        return intensity_clipper_python(sigma, niter, axis, nt_chunk, dsample_nfreq, dsample_nt, test, imitate_cpp)
+
 
 def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=None, dsample_nt=None, imitate_cpp=True):
     """
-    Helper function for intensity_clipper. Modifies 'weights' array in place.
+    Helper function for intensity_clipper_python. Modifies 'weights' array in place.
 
     The 'imitate_cpp' flag may be phased out in the future (by removing the False branch).
       - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
@@ -81,7 +91,8 @@ def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=No
     # intensity value beyond the threshold limit.
     np.putmask(weights_hres, mask, 0.)
 
-class intensity_clipper(rf_pipelines.py_wi_transform):
+
+class intensity_clipper_python(rf_pipelines.py_wi_transform):
     """
     This transform clips the intensity along a selected 
     axis -- also works in planar (2D) mode -- and above 
@@ -92,14 +103,14 @@ class intensity_clipper(rf_pipelines.py_wi_transform):
     Limitations:
         - 'n_internal' is only supported in 2D (axis=None) if 'imitate_cpp=False'
         - In 2D (axis=None), the same threshold value 'thr=3' is used for the internal 
-          and external clipping loops. See 'intensity_clipper_cpp.py' for an advanced 
+          and external clipping loops. See 'intensity_clippers.cpp' for an advanced 
           implementation (in 2D and 1D) where the two 'thr' values need not be the same. 
         - FIXME Assumes zero mean (i.e., the intensity has already been detrended along 
           the selected axis).
 
     Constructor syntax:
 
-      t = intensity_clipper(thr=3, n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False, imitate_cpp=True)
+      t = intensity_clipper_python(thr=3, n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False, imitate_cpp=True)
 
       'thr=3.' is the multiplicative factor of maximum threshold,
        e.g., 3 * standard_deviation, meaning that (the absolute
@@ -126,7 +137,7 @@ class intensity_clipper(rf_pipelines.py_wi_transform):
     
     def __init__(self, thr=3., n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False, imitate_cpp=True):
 
-        name = 'intensity_clipper(thr=%f, n_internal=%d, axis=%s, nt_chunk=%d' % (thr, n_internal, axis, nt_chunk)
+        name = 'intensity_clipper_python(thr=%f, n_internal=%d, axis=%s, nt_chunk=%d' % (thr, n_internal, axis, nt_chunk)
         if dsample_nfreq is not None:
             name += ', dsample_nfreq=%d' % dsample_nfreq
         if dsample_nt is not None:
