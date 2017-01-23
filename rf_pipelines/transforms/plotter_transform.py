@@ -2,9 +2,6 @@ import sys
 import numpy as np
 import rf_pipelines
 
-# Now that I get how it works, time for a good implementation :)
-# Very poorly documented at present - will fix soon
-
 
 class plotter_transform(rf_pipelines.py_wi_transform):
     """
@@ -16,7 +13,7 @@ class plotter_transform(rf_pipelines.py_wi_transform):
 
     Constructor syntax:
     
-      t = plotter_transform(img_prefix, img_nfreq, img_nt, downsample_nt=1, nt_chunk=0)
+      t = plotter_transform(img_prefix, img_nfreq, img_nt, downsample_nt=1, n_zoom=4,  nt_chunk=0)
       
       The 'img_prefix' arg determines the output filenames: ${img_prefix}_0.png,
       ${img_prefix}_1.png ...
@@ -29,6 +26,8 @@ class plotter_transform(rf_pipelines.py_wi_transform):
 
       The 'img_nt' arg determines the number of x-pixels before a waterfall plot gets
       written, and a new waterfall plot is started.
+
+      The n_zoom arg determines how many zoom levels will be produced.
       
       By default, the color scheme is assigned by computing the mean and rms after clipping
       3-sigma outliers using three masking iterations.  The 'clip_niter' and 'sigma_clip' 
@@ -50,12 +49,9 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         assert n_zoom > 0
         
         max_downsample = downsample_nt * 2**(n_zoom-1)
-
         if nt_chunk == 0:
             nt_chunk = min(img_nt, 1024//max_downsample+1) * max_downsample    # default value
-
         assert nt_chunk > 0
-
         if nt_chunk % downsample_nt != 0:
             raise RuntimeError("plotter_transform: current implementation requires 'nt_chunk' to be a multiple of 'downsample_nt'")
 
@@ -87,8 +83,6 @@ class plotter_transform(rf_pipelines.py_wi_transform):
     def set_stream(self, s):
         # As explained in the rf_pipelines.py_wi_transform docstring, this function is
         # called once per pipeline run, when the stream (the 's' argument) has been specified.
-
-        # Now that the stream has been specified, we can initialize self.nfreq as required.
         self.nfreq = s.nfreq
 
         if s.nfreq % self.img_nfreq != 0:
@@ -120,14 +114,10 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         # so far is 'self.ifile', and the number of (downsampled) time samples accumulated into
         # the current file is 'self.ipos'
 
-        # Add current chunk to the zoom arrays one at a time
-
-        #### PRESERVE COPIES OF INTENSITY AND WEIGHT CHUNKS!!!
-        preserved_intensity = intensity.copy()
-        preserved_weights = weights.copy()
+        preserved_intensity = intensity
+        preserved_weights = weights
 
         for zoom_level in xrange(self.n_zoom):
-            # Fresh copy of preserved arrays
             intensity = preserved_intensity.copy()
             weights = preserved_weights.copy()
 
@@ -165,8 +155,8 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         weights = self.weight_buf[zoom_level, :, :] if (self.ifile[zoom_level] > 0) else self.weight_buf[zoom_level, :, :self.ipos[zoom_level]]
 
         basename = self.img_prefix[zoom_level]
-        #if self.isubstream > 0:
-        #    basename += str(isubstream+1)
+        if self.isubstream > 0:
+            basename += str(isubstream+1)
         basename += ('_%s.png' % self.ifile[zoom_level])
 
         # The add_plot() method adds the plot to the JSON output, and returns the filename that should be written.
