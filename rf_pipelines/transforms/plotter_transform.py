@@ -21,20 +21,20 @@ class plotter_transform(rf_pipelines.py_wi_transform):
       The 'img_nfreq' arg determines the number of y-pixels in the plot.
       If the number of instrumental frequency channels is larger it will be downsampled.
     
-      If the 'downsample_nt' optional arg is specfied, then each x-pixel in the plot will
-      correspond to multiple time samples.
-
       The 'img_nt' arg determines the number of x-pixels before a waterfall plot gets
       written, and a new waterfall plot is started.
 
+      If the 'downsample_nt' optional arg is specfied, then each x-pixel in the plot will
+      correspond to multiple time samples.
+
       The n_zoom arg determines how many zoom levels will be produced.
-      
-      By default, the color scheme is assigned by computing the mean and rms after clipping
-      3-sigma outliers using three masking iterations.  The 'clip_niter' and 'sigma_clip' 
-      arguments can be used to override these defaults.
 
       The 'nt_chunk' argument is the number of samples of data which are processed in
       each call to process_chunk().
+
+      By default, the color scheme is assigned by computing the mean and rms after clipping
+      3-sigma outliers using three masking iterations.  The 'clip_niter' and 'sigma_clip' 
+      arguments can be used to override these defaults.
     """
 
     def __init__(self, img_prefix, img_nfreq, img_nt, downsample_nt=1, n_zoom = 4, nt_chunk=0, clip_niter=3, sigma_clip=3.0):
@@ -48,6 +48,7 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         assert sigma_clip >= 2.0    # following assert in rf_pipelines.utils.write_png()
         assert n_zoom > 0
         
+        self.nt_chunk = nt_chunk
         max_downsample = downsample_nt * 2**(n_zoom-1)
         if nt_chunk == 0:
             nt_chunk = min(img_nt, 1024//max_downsample+1) * max_downsample    # default value
@@ -61,14 +62,13 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         self.nt_postpad = 0
         self.img_nfreq = img_nfreq
         self.img_nt = img_nt
-        self.downsample_nt = downsample_nt
         self.clip_niter = clip_niter
         self.sigma_clip = sigma_clip
         self.n_zoom = n_zoom
         
         # Parameters implemented as lists that change for each zoom level
         self.downsample_nt = [downsample_nt]
-        self.nt_chunk_ds = [nt_chunk // downsample_nt] # number of times/chunk divided by number of times per pixel -> pixels/chunk
+        self.nt_chunk_ds = [nt_chunk // downsample_nt]     # number of times/chunk divided by number of times per pixel -> pixels/chunk
         self.add_plot_group("waterfall", nt_per_pix=downsample_nt, ny=img_nfreq)
         self.img_prefix = [img_prefix + "_zoom0"]
 
