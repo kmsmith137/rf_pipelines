@@ -48,13 +48,13 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         assert sigma_clip >= 2.0    # following assert in rf_pipelines.utils.write_png()
         assert n_zoom > 0
         
-        self.nt_chunk = nt_chunk
         max_downsample = downsample_nt * 2**(n_zoom-1)
+
         if nt_chunk == 0:
-            nt_chunk = min(img_nt, 1024//max_downsample+1) * max_downsample    # default value
-        assert nt_chunk > 0
-        if nt_chunk % downsample_nt != 0:
-            raise RuntimeError("plotter_transform: current implementation requires 'nt_chunk' to be a multiple of 'downsample_nt'")
+            # Choose default nt_chunk to be close to 1024, with added constraint of being evenly divisible by max_downsample.
+            nt_chunk = (1024//max_downsample + 1) * max_downsample
+        elif nt_chunk % max_downsample != 0:
+            raise RuntimeError("plotter_transform: specified nt_chunk(=%d) must be a multiple of downsampling factor at max zoom level (=%d)" % (nt_chunk,max_downsample))
 
         self.name = 'plotter_transform'
         self.nt_chunk = nt_chunk
@@ -160,8 +160,7 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         basename += ('_%s.png' % self.ifile[zoom_level])
 
         # The add_plot() method adds the plot to the JSON output, and returns the filename that should be written.
-        # Note that a transform which writes multiple plot_groups would need to specify a group_id in add_plot().
-        # (By default the group_id is zero.)
+
         filename = self.add_plot(basename, 
                                  it0 = int(self.ifile[zoom_level] * self.img_nt * self.downsample_nt[zoom_level]),
                                  nt = self.img_nt * self.downsample_nt[zoom_level],
