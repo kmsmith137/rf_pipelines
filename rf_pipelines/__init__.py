@@ -405,7 +405,6 @@ from .transforms.badchannel_mask import badchannel_mask
 from .transforms.intensity_clipper import intensity_clipper, clip_fx
 from .transforms.intensity_clipper_cpp import intensity_clipper_cpp
 from .transforms.polynomial_detrender import polynomial_detrender
-from .transforms.polynomial_detrender_cpp import polynomial_detrender_cpp
 from .transforms.mask_expander import mask_expander
 from .transforms.kurtosis_filter import kurtosis_filter
 from .transforms.std_dev_clipper import std_dev_clipper, filter_stdv

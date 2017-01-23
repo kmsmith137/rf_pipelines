@@ -1,7 +1,17 @@
 import numpy as np
-import rf_pipelines
 
-class polynomial_detrender(rf_pipelines.py_wi_transform):
+import rf_pipelines
+from rf_pipelines import rf_pipelines_c
+
+
+def polynomial_detrender(nt_chunk=1024, deg=0, axis=0, cpp=True, epsilon=0.01, test=False):
+    if cpp:
+        return rf_pipelines_c.make_polynomial_detrender(nt_chunk, axis, deg, epsilon)
+    else:
+        return polynomial_detrender_python(nt_chunk, deg, axis, test)
+
+
+class polynomial_detrender_python(rf_pipelines.py_wi_transform):
     """
     This transform removes a degree-d weighted-fit legendre 
     polynomial from the intensity along a specified axis. 

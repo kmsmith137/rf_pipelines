@@ -60,7 +60,6 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/plotter_transform.py \
 	rf_pipelines/transforms/badchannel_mask.py \
 	rf_pipelines/transforms/polynomial_detrender.py \
-	rf_pipelines/transforms/polynomial_detrender_cpp.py \
 	rf_pipelines/transforms/mask_expander.py \
 	rf_pipelines/transforms/kurtosis_filter.py \
 	rf_pipelines/transforms/std_dev_clipper.py \
