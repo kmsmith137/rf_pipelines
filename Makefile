@@ -63,12 +63,9 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/mask_expander.py \
 	rf_pipelines/transforms/kurtosis_filter.py \
 	rf_pipelines/transforms/std_dev_clipper.py \
-	rf_pipelines/transforms/std_dev_clipper_cpp.py \
 	rf_pipelines/transforms/thermal_noise_weight.py \
 	rf_pipelines/transforms/RC_detrender.py \
-	rf_pipelines/transforms/master_transform.py \
 	rf_pipelines/transforms/intensity_clipper.py \
-	rf_pipelines/transforms/intensity_clipper_cpp.py
 
 TESTBINFILES=run-unit-tests \
 	test-kernels \
