@@ -165,8 +165,8 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         weights = self.weight_buf[zoom_level, :, :] if (self.ifile[zoom_level] > 0) else self.weight_buf[zoom_level, :, :self.ipos[zoom_level]]
 
         basename = self.img_prefix[zoom_level]
-        if self.isubstream > 0:
-            basename += str(isubstream+1)
+        #if self.isubstream > 0:
+        #    basename += str(isubstream+1)
         basename += ('_%s.png' % self.ifile[zoom_level])
 
         # The add_plot() method adds the plot to the JSON output, and returns the filename that should be written.
