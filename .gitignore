@@ -7,7 +7,6 @@ run-unit-tests
 Makefile.local
 TODO
 
-examples/example3_chime/test/
 time-kernels
 time-clippers
 time-detrenders
