@@ -8,7 +8,10 @@ import numpy as np
 import numpy.random as rand
 
 import rf_pipelines
+
 from rf_pipelines import rf_pipelines_c
+from rf_pipelines.transforms.intensity_clipper import clip_fx
+from rf_pipelines.transforms.std_dev_clipper import filter_stdv
 
 # It's useful for debugging to have the same random data realizations every time.
 rand.seed(1)
@@ -162,7 +165,7 @@ def apply_reference_detrender(intensity, weights, axis, polydeg):
         def __init__(self, nfreq):
             self.nfreq = nfreq
 
-    t = rf_pipelines.polynomial_detrender(deg=polydeg, axis=axis, nt_chunk=nt)
+    t = rf_pipelines.polynomial_detrender(deg=polydeg, axis=axis, nt_chunk=nt, cpp=False)
     t.set_stream(fake_stream(nfreq))
     t.process_chunk(0, 0, intensity, weights, None, None)
 
@@ -331,10 +334,10 @@ def test_clippers():
         (intensity, weights0) = make_clipper_test_data(nfreq, nt, axis, Df, Dt)
 
         weights1 = copy_array(weights0, tame=True)
-        rf_pipelines.clip_fx(intensity, weights1, thr = 0.999 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt, imitate_cpp=True)
+        clip_fx(intensity, weights1, thr = 0.999 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt, imitate_cpp=True)
 
         weights2 = copy_array(weights0, tame=True)
-        rf_pipelines.clip_fx(intensity, weights2, thr = 1.001 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt, imitate_cpp=True)
+        clip_fx(intensity, weights2, thr = 1.001 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt, imitate_cpp=True)
             
         weights3 = copy_array(weights0, allow_float64=True)
         rf_pipelines_c.apply_intensity_clipper(copy_array(intensity), weights3, axis, thresh, Df=Df, Dt=Dt, two_pass=two_pass)
@@ -355,10 +358,10 @@ def test_clippers():
             continue   # std_dev clipper is not defined for axis=None
 
         weights1 = np.array(weights0, dtype=np.float32)
-        rf_pipelines.filter_stdv(intensity, weights1, thr = 0.999 * thresh, axis = axis, dsample_nfreq = nfreq//Df, dsample_nt = nt//Dt, imitate_cpp = True)
+        filter_stdv(intensity, weights1, thr = 0.999 * thresh, axis = axis, dsample_nfreq = nfreq//Df, dsample_nt = nt//Dt, imitate_cpp = True)
 
         weights2 = np.array(weights0, dtype=np.float32)
-        rf_pipelines.filter_stdv(intensity, weights2, thr = 1.001 * thresh, axis = axis, dsample_nfreq = nfreq//Df, dsample_nt = nt//Dt, imitate_cpp = True)
+        filter_stdv(intensity, weights2, thr = 1.001 * thresh, axis = axis, dsample_nfreq = nfreq//Df, dsample_nt = nt//Dt, imitate_cpp = True)
         
         weights3 = np.array(weights0, dtype=np.float32)
         rf_pipelines_c.apply_std_dev_clipper(intensity, weights3, axis, thresh, Df, Dt, two_pass)
