@@ -5,11 +5,11 @@ import rf_pipelines
 from rf_pipelines import rf_pipelines_c
 
 
-def std_dev_clipper(nt_chunk=1024, sigma=3, axis=1, dsample_nfreq=None, dsample_nt=None, Df=1, Dt=1, imitate_cpp=True, two_pass=False, cpp=True):
+def std_dev_clipper(nt_chunk=1024, sigma=3, axis=1, Df=1, Dt=1, imitate_cpp=True, two_pass=False, cpp=True):
     if cpp:
         return rf_pipelines_c.make_std_dev_clipper(nt_chunk, axis, sigma, Df, Dt, two_pass)
     else:
-        return std_dev_clipper_python(sigma, axis, nt_chunk, dsample_nfreq, dsample_nt, imitate_cpp)
+        return std_dev_clipper_python(sigma, axis, nt_chunk, Df, Dt, imitate_cpp)
 
 
 def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_nt=None, imitate_cpp=True):
@@ -109,6 +109,7 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
     # Apply mask to original hi-res weights array
     np.putmask(weights_hres, mask, 0.)
 
+
 class std_dev_clipper_python(rf_pipelines.py_wi_transform):
     """
     Masks weights array based on the weighted (intensity) 
@@ -134,27 +135,30 @@ class std_dev_clipper_python(rf_pipelines.py_wi_transform):
         - if False, then the old v10 logic will be used.
     """
     
-    def __init__(self, thr=3., axis=1, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, imitate_cpp=True):
+    def __init__(self, thr=3., axis=1, nt_chunk=1024, Df=1, Dt=1, imitate_cpp=True):
+        name = 'std_dev_clipper_python(thr=%f, axis=%s, nt_chunk=%d, Df=%d, Dt=%d)' % (thr, axis, nt_chunk, Df, Dt)
+        rf_pipelines.py_wi_transform.__init__(self, name)
         
         self.thr = thr
         self.axis = axis
         self.nt_chunk  = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
-        self.dsample_nfreq = dsample_nfreq
-        self.dsample_nt = dsample_nt
+        self.Df = Df
+        self.Dt = Dt
         self.imitate_cpp = imitate_cpp
 
-        name = 'std_dev_clipper_python(thr=%f, axis=%s, nt_chunk=%d' % (thr, axis, nt_chunk)
-        if dsample_nfreq is not None:
-            name += ', dsample_nfreq=%d' % dsample_nfreq
-        if dsample_nt is not None:
-            name += ', dsample_nt=%d' % dsample_nt
-        name += ')'
-        self.name = name
+        # self.dsample_nt can be initialized here
+        # self.dsample_nfreq will be initialized in set_stream()
+        self.dsample_nt = nt_chunk // Dt
+
 
     def set_stream(self, stream):
+        assert stream.nfreq % Df == 0
+
         self.nfreq = stream.nfreq
+        self.dsample_nfreq = stream.nfreq // Df
+
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         filter_stdv(intensity, weights, self.thr, self.axis, self.dsample_nfreq, self.dsample_nt, self.imitate_cpp)
