@@ -1,15 +1,22 @@
 - Version 11:
 
+     - Backwards-incompatible: The 'simd_helpers' library (https://github.com/kmsmith137/simd_helpers)
+       is now a prerequisite.
+
      - Backwards-incompatible: names of three core transforms have been changed
          - legendre_detrender -> polynomial_detrender
          - clipper_transform -> intensity_clipper
          - std_dev_filter -> std_dev_clipper
 
-     - The three core transforms above now have fast implementations, written in C++
-       with assembly language kernels in key places.
+     - Assembly language kernels!  The three core transforms above now have fast implementations, 
+       written in C++ with assembly language kernel "cores".  The CHIME RFI removal is now faster
+       by a factor 30!
 
-     - The 'simd_helpers' library (https://github.com/kmsmith137/simd_helpers)
-       is now a prerequisite.
+     - From Masoud: lots of tweaks to RFI removal scheme.
+       Most of the CHIME RFI code has now been moved to a new repository 'ch_frb_rfi':
+           https://github.com/mrafieir/ch_frb_rfi
+
+     - From Maya: plotter_transform now has zoom levels, for use in zoomable web viewer.
 
 - Version 10:
 
