@@ -38,8 +38,18 @@ class plotter_transform(rf_pipelines.py_wi_transform):
     """
 
     def __init__(self, img_prefix, img_nfreq, img_nt, downsample_nt=1, n_zoom = 1, nt_chunk=0, clip_niter=3, sigma_clip=3.0):
+        # Build up name string, showing arguments which differ from non-default values
+        name = "plotter_transform('%s', img_nfreq=%d, img_nt=%d, downsample_nt=%d" % (img_prefix, img_nfreq, img_nt, downsample_nt)
+        if nt_chunk > 0:
+            name += ", nt_chunk=%d" % nt_chunk
+        if clip_niter != 3:
+            name += ", clip_niter=%d" % clip_niter
+        if sigma_clip != 3.0:
+            name += ", sigma_clip=%s" % sigma_clip
+        name += ')'
+
         # Call base class constructor
-        rf_pipelines.py_wi_transform.__init__(self, 'plotter_transform')
+        rf_pipelines.py_wi_transform.__init__(self, name)
 
         assert img_nt > 0
         assert img_nfreq > 0
