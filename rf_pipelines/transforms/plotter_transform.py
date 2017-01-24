@@ -37,7 +37,7 @@ class plotter_transform(rf_pipelines.py_wi_transform):
       arguments can be used to override these defaults.
     """
 
-    def __init__(self, img_prefix, img_nfreq, img_nt, downsample_nt=1, n_zoom = 4, nt_chunk=0, clip_niter=3, sigma_clip=3.0):
+    def __init__(self, img_prefix, img_nfreq, img_nt, downsample_nt=1, n_zoom = 1, nt_chunk=0, clip_niter=3, sigma_clip=3.0):
         # Call base class constructor
         rf_pipelines.py_wi_transform.__init__(self, 'plotter_transform')
 
