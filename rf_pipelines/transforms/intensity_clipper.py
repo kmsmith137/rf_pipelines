@@ -5,7 +5,7 @@ import rf_pipelines
 from rf_pipelines import rf_pipelines_c
 
 
-def intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0., Df=1, Dt=1, imitate_cpp=True, two_pass=True, cpp=True, test=False):
+def intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0., Df=1, Dt=1, imitate_cpp=True, two_pass=False, cpp=True, test=False):
     """
     This transform clips the intensity along a selected 
     axis -- also works in planar (2D) mode -- and above 
@@ -15,7 +15,7 @@ def intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0.
 
     Constructor syntax:
 
-      t = intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0., Df=1, Dt=1, imitate_cpp=True, two_pass=True, cpp=True, test=False)
+      t = intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0., Df=1, Dt=1, imitate_cpp=True, two_pass=False, cpp=True, test=False)
 
       'nt_chunk=1024' is the buffer size.
 
