@@ -165,10 +165,10 @@ class intensity_clipper_python(rf_pipelines.py_wi_transform):
 
 
     def set_stream(self, stream):
-        assert stream.nfreq % Df == 0
+        assert stream.nfreq % self.Df == 0
 
         self.nfreq = stream.nfreq
-        self.dsample_nfreq = stream.nfreq // Df
+        self.dsample_nfreq = stream.nfreq // self.Df
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
