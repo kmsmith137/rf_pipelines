@@ -6,6 +6,35 @@ from rf_pipelines import rf_pipelines_c
 
 
 def std_dev_clipper(nt_chunk=1024, sigma=3, axis=1, Df=1, Dt=1, imitate_cpp=True, two_pass=False, cpp=True):
+    """
+    Masks weights array based on the weighted (intensity) 
+    standard deviation deviating by some sigma. 
+   
+    Constructor syntax:
+
+      t = std_dev_clipper(nt_chunk=1024, sigma=3, axis=1, Df=1, Dt=1, imitate_cpp=True, two_pass=False, cpp=True)
+
+      'nt_chunk=1024' is the buffer size.
+      
+      'sigma=3.' is the sigma value to clip. 
+
+      'axis=1' is the axis convention:
+        0: along freq; constant time.
+        1: along time; constant freq.
+
+      (Df,Dt)=(1,1) are the downsampling factors in frequency, time.
+
+      'cpp=True' will use fast C++ transforms
+      'cpp=False' will use reference python transforms
+
+      If 'two_pass=True' then a more numerically stable but slightly slower clipping algorithm
+      will be used (only meaningful if cpp=True).
+
+      The 'imitate_cpp' flag may be phased out in the future (by removing the False branch).
+        - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
+        - if False, then the old v10 logic will be used.
+    """
+    
     if cpp:
         return rf_pipelines_c.make_std_dev_clipper(nt_chunk, axis, sigma, Df, Dt, two_pass)
     else:
@@ -111,30 +140,6 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
 
 
 class std_dev_clipper_python(rf_pipelines.py_wi_transform):
-    """
-    Masks weights array based on the weighted (intensity) 
-    standard deviation deviating by some sigma. 
-   
-    Constructor syntax:
-
-      t = std_dev_clipper_python(thr=3., axis=1, nt_chunk=1024, 'dsample_nfreq=None', 'dsample_nt=None', imitate_cpp=True)
-
-      'thr=3.' is the sigma value to clip. 
-
-      'axis=1' is the axis convention:
-        0: along freq; constant time.
-        1: along time; constant freq.
-
-      'nt_chunk=1024' is the buffer size.
-      
-      'dsample_nfreq' and 'dsample_nt' are the downsampled
-       number of pixles along the freq and time axes, respectively.
-
-      The 'imitate_cpp' flag may be phased out in the future (by removing the False branch).
-        - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
-        - if False, then the old v10 logic will be used.
-    """
-    
     def __init__(self, thr=3., axis=1, nt_chunk=1024, Df=1, Dt=1, imitate_cpp=True):
         name = 'std_dev_clipper_python(thr=%f, axis=%s, nt_chunk=%d, Df=%d, Dt=%d)' % (thr, axis, nt_chunk, Df, Dt)
         rf_pipelines.py_wi_transform.__init__(self, name)

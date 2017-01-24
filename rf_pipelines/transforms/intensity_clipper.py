@@ -6,6 +6,48 @@ from rf_pipelines import rf_pipelines_c
 
 
 def intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0., Df=1, Dt=1, imitate_cpp=True, two_pass=True, cpp=True, test=False):
+    """
+    This transform clips the intensity along a selected 
+    axis -- also works in planar (2D) mode -- and above 
+    a given threshold. Results are applied to the weights 
+    array (i.e., weights[clipped] = 0.) for masking 
+    extreme values.
+
+    Constructor syntax:
+
+      t = intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0., Df=1, Dt=1, imitate_cpp=True, two_pass=True, cpp=True, test=False)
+
+      'nt_chunk=1024' is the buffer size.
+
+      'sigma=3.' is the multiplicative factor of maximum threshold,
+       e.g., 3 * standard_deviation, meaning that (the absolute
+       value of) any sample above this limit is clipped.
+
+      'axis=None' is the axis convention:
+        None: planar; freq and time. 
+        0: along freq; constant time.
+        1: along time; constant freq.
+
+      'niter=1' is the number of iterations used when calculating the weighted mean/rms before the final clip.
+
+      'iter_sigma=0' is the internal threshold used when iterating to the final weight mean/rms.
+         If iter_sigma=0 is specified, then it defaults to 'sigma'
+    
+      (Df,Dt)=(1,1) are the downsampling factors in frequency, time.
+
+      'cpp=True' will use fast C++ transforms
+      'cpp=False' will use reference python transforms
+
+      The 'imitate_cpp' flag may be phased out in the future (only meaningful if cpp=False)
+        - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
+        - if False, then the old v10 logic will be used.
+
+      If 'two_pass=True' then a more numerically stable but slightly slower clipping algorithm
+      will be used (only meaningful if cpp=True).
+
+      'test=False' enables a test mode (only meaningful if cpp=False)
+    """
+
     if cpp:
         return rf_pipelines_c.make_intensity_clipper(nt_chunk, axis, sigma, niter, iter_sigma, Df, Dt, two_pass)
 
@@ -97,12 +139,6 @@ def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=No
 
 class intensity_clipper_python(rf_pipelines.py_wi_transform):
     """
-    This transform clips the intensity along a selected 
-    axis -- also works in planar (2D) mode -- and above 
-    a given threshold. Results are applied to the weights 
-    array (i.e., weights[clipped] = 0.) for masking 
-    extreme values.
-
     Limitations:
         - 'n_internal' is only supported in 2D (axis=None) if 'imitate_cpp=False'
         - In 2D (axis=None), the same threshold value 'thr=3' is used for the internal 
@@ -110,28 +146,6 @@ class intensity_clipper_python(rf_pipelines.py_wi_transform):
           implementation (in 2D and 1D) where the two 'thr' values need not be the same. 
         - FIXME Assumes zero mean (i.e., the intensity has already been detrended along 
           the selected axis).
-
-    Constructor syntax:
-
-      t = intensity_clipper_python(thr=3, n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False, imitate_cpp=True)
-
-      'thr=3.' is the multiplicative factor of maximum threshold,
-       e.g., 3 * standard_deviation, meaning that (the absolute
-       value of) any sample above this limit is clipped.
-
-      'n_internal=1' is the number of iterations used when calculating the weighted mean/rms before the final clip.
-
-      'axis=None' is the axis convention:
-        None: planar; freq and time. 
-        0: along freq; constant time.
-        1: along time; constant freq.
-
-      'nt_chunk=1024' is the buffer size.
-
-      'dsample_nfreq' and 'dsample_nt' are the downsampled 
-       number of pixles along the freq and time axes, respectively.
-
-      'test=False' enables a test mode.
 
       The 'imitate_cpp' flag may be phased out in the future (by removing the False branch).
         - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
