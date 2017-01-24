@@ -5,11 +5,14 @@ import rf_pipelines
 from rf_pipelines import rf_pipelines_c
 
 
-def intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=1, dsample_nfreq=None, dsample_nt=None, Df=1, Dt=1, imitate_cpp=True, two_pass=True, cpp=True, test=False):
+def intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0., Df=1, Dt=1, imitate_cpp=True, two_pass=True, cpp=True, test=False):
     if cpp:
         return rf_pipelines_c.make_intensity_clipper(nt_chunk, axis, sigma, niter, iter_sigma, Df, Dt, two_pass)
-    else:
-        return intensity_clipper_python(sigma, niter, axis, nt_chunk, dsample_nfreq, dsample_nt, test, imitate_cpp)
+
+    if (iter_sigma != 0) and (iter_sigma != sigma):
+        print >>sys.stderr, 'rf_pipelines intensity_clipper(): warning: iter_sigma argument is currently ignored by python transform'
+
+    return intensity_clipper_python(sigma, niter, axis, nt_chunk, Df, Dt, test, imitate_cpp)
 
 
 def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=None, dsample_nt=None, imitate_cpp=True):
@@ -135,14 +138,9 @@ class intensity_clipper_python(rf_pipelines.py_wi_transform):
         - if False, then the old v10 logic will be used.
     """
     
-    def __init__(self, thr=3., n_internal=1, axis=None, nt_chunk=1024, dsample_nfreq=None, dsample_nt=None, test=False, imitate_cpp=True):
-
-        name = 'intensity_clipper_python(thr=%f, n_internal=%d, axis=%s, nt_chunk=%d' % (thr, n_internal, axis, nt_chunk)
-        if dsample_nfreq is not None:
-            name += ', dsample_nfreq=%d' % dsample_nfreq
-        if dsample_nt is not None:
-            name += ', dsample_nt=%d' % dsample_nt
-        name += ')'
+    def __init__(self, thr=3., n_internal=1, axis=None, nt_chunk=1024, Df=1, Dt=1, test=False, imitate_cpp=True):
+        name = 'intensity_clipper_python(thr=%f, n_internal=%d, axis=%s, nt_chunk=%d, Df=%d, Dt=%d)' % (thr, n_internal, axis, nt_chunk, Df, Dt)
+        rf_pipelines.py_wi_transform.__init__(self, name)
 
         self.thr = thr
         self.n_internal = n_internal
@@ -151,13 +149,27 @@ class intensity_clipper_python(rf_pipelines.py_wi_transform):
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
-        self.dsample_nfreq = dsample_nfreq
-        self.dsample_nt = dsample_nt
+        self.Df = Df
+        self.Dt = Dt
         self.test = test
         self.imitate_cpp = imitate_cpp
+        
+        assert Df > 0
+        assert Dt > 0
+        assert nt_chunk > 0
+        assert nt_chunk % Dt == 0
+
+        # self.dsample_nt can be initialized here
+        # self.dsample_nfreq will be initialized in set_stream()
+        self.dsample_nt = nt_chunk // Dt
+
 
     def set_stream(self, stream):
+        assert stream.nfreq % Df == 0
+
         self.nfreq = stream.nfreq
+        self.dsample_nfreq = stream.nfreq // Df
+
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         # If 'test' is specified, this will be a pseudo-transform which doesn't modify data
