@@ -46,7 +46,7 @@ t2 = rf_pipelines.badchannel_mask('/data/pathfinder/rfi_masks/rfi_20160705.dat',
 # Polynomial detrender.  The 'axis=1' arg means that the fit will be performed along the time axis.
 # The chunk size 'nt_chunk' should be equal to the value of 'noise_source_align' specified in the
 # stream constructor (in order to remove the noise source).
-t3 = rf_pipelines.polynomial_detrender_cpp(polydeg=4, axis=1, nt_chunk=1024)
+t3 = rf_pipelines.polynomial_detrender(deg=4, axis=1, nt_chunk=1024, cpp=True)
 
 # This plotter_transform is after the detrender, so it generates detrended plots.
 t4 = rf_pipelines.plotter_transform('detrended_chime', img_nfreq=512, img_nt=1200, downsample_nt=16)
