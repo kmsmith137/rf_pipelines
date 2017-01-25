@@ -56,7 +56,8 @@ struct my_dedisperser_subclass : public bonsai::dedisperser {
     {
 	string filename = transform->add_file(basename);
 	transform->json_per_substream["trigger_files"].append(filename);
-	bonsai::dedisperser::_open_trigger_file(filename, datetime0_str, datetime_str);
+	// bonsai::dedisperser::_open_trigger_file(filename, datetime0_str, datetime_str);
+	throw runtime_error("XXX bonsai::dedisperser::_open_trigger_file() temporarily broken");
     }
 
     virtual string _make_trigger_plot_filename(int itree, int ifile)
@@ -71,10 +72,10 @@ struct my_dedisperser_subclass : public bonsai::dedisperser {
 	ssize_t it0 = ssize_t(ifile) * ssize_t(nt_coarse_max) * ssize_t(nt_per_trigger);
 	ssize_t nt = ssize_t(nt_coarse_curr) * ssize_t(nt_per_trigger);
 
-	string basename = dedisperser::_make_trigger_plot_filename(itree, ifile);
-	string filename = transform->add_plot(basename, it0, nt, nt_coarse_curr, ndm, itree);
-
-	return filename;
+	throw runtime_error("XXX bonsai::dedisperser::_open_trigger_file() temporarily broken");
+	// string basename = dedisperser::_make_trigger_plot_filename(itree, ifile);
+	// string filename = transform->add_plot(basename, it0, nt, nt_coarse_curr, ndm, itree);
+	// return filename;
     }
 };
 
@@ -142,10 +143,12 @@ void bonsai_dedisperser::start_substream(int isubstream, double t0)
     this->dedisperser = make_shared<my_dedisperser_subclass> (this);
     
     if (trigger_hdf5_filename.size())
-	dedisperser->start_trigger_file(this->trigger_hdf5_filename, this->nt_per_file);
+	// dedisperser->start_trigger_file(this->trigger_hdf5_filename, this->nt_per_file);
+	throw runtime_error("XXX bonsai trigger files currently broken");
     if (trigger_plot_stem.size())
-	dedisperser->start_trigger_plots(this->trigger_plot_stem, this->nt_per_file);
-    
+	// dedisperser->start_trigger_plots(this->trigger_plot_stem, this->nt_per_file);
+	throw runtime_error("XXX bonsai trigger plots currently broken");    
+
     dedisperser->global_max_trigger_active = true;
     dedisperser->global_max_trigger = 0.0;
     dedisperser->global_max_trigger_dm = 0.0;
@@ -164,10 +167,11 @@ void bonsai_dedisperser::process_chunk(double t0, double t1, float *intensity, f
 
 void bonsai_dedisperser::end_substream()
 {
-    if (trigger_hdf5_filename.size())
-	dedisperser->end_trigger_file();
-    if (trigger_plot_stem.size())
-	dedisperser->end_trigger_plots();
+    // XXX
+    // if (trigger_hdf5_filename.size())
+    //   dedisperser->end_trigger_file();
+    // if (trigger_plot_stem.size())
+    //   dedisperser->end_trigger_plots();
 
     this->json_per_substream["frb_global_max_trigger"] = dedisperser->global_max_trigger;
     this->json_per_substream["frb_global_max_trigger_dm"] = dedisperser->global_max_trigger_dm;
