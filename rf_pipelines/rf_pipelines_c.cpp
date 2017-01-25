@@ -878,17 +878,17 @@ struct wi_stream_object {
     
     static PyObject *run(PyObject *self, PyObject *args, PyObject *kwds)
     {
-	static const char *kwlist[] = { "transforms", "outdir", "noisy", "clobber", "return_json", NULL };
+	static const char *kwlist[] = { "transforms", "outdir", "verbosity", "clobber", "return_json", NULL };
 	object default_outdir(Py_BuildValue("s","."), false);
 
 	rf_pipelines::wi_stream *stream = get_pbare(self);
 	PyObject *transforms_obj = Py_None;
 	PyObject *outdir_obj = default_outdir.ptr;
-	int noisy = 1;
+	int verbosity = 2;
 	int clobber = 1;
 	int return_json = 0;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|Oiii", (char **)kwlist, &transforms_obj, &outdir_obj, &noisy, &clobber, &return_json))
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|Oiii", (char **)kwlist, &transforms_obj, &outdir_obj, &verbosity, &clobber, &return_json))
 	    return NULL;
 
 	string outdir;
@@ -923,7 +923,7 @@ struct wi_stream_object {
 
 	Json::Value json_out;
 	Json::Value *json_outp = return_json ? &json_out : nullptr;
-	stream->run(transform_list, outdir, json_outp, noisy, clobber);
+	stream->run(transform_list, outdir, json_outp, verbosity, clobber);
 
 	if (!return_json) {
 	    Py_INCREF(Py_None);
@@ -936,7 +936,7 @@ struct wi_stream_object {
     }
 
     static constexpr const char *run_docstring =
-	"run(self, transform_list, outdir='.', noisy=True, clobber=True, return_json=False)\n"
+	"run(self, transform_list, outdir='.', verbosity=2, clobber=True, return_json=False)\n"
 	"\n"
 	"This function is called to run an rf_pipeline.  Arguments:\n"
         "\n"
@@ -946,9 +946,15 @@ struct wi_stream_object {
 	"  - 'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will\n"
 	"     be written, in addition to other transform-specific output files such as plots\n"
 	"\n"
-	"  -  If 'outdir' is None or an empty string, then the json file will not be written,\n"
+	"     If 'outdir' is None or an empty string, then the json file will not be written,\n"
 	"     and any transform which tries to write an output file (such as a plotter_transform)\n"
 	"     will throw an exception.\n"
+	"\n"
+	"  -  The meaning of the 'verbosity' argument is:\n"
+	"         0 = no output\n"
+	"         1 = high-level summary output (names of transforms, number of samples processed etc.)\n"
+	"         2 = show all output files\n"
+	"         3 = debug trace through pipeline\n"
 	"\n"
 	"  -  If 'clobber' is False, then an exception will be thrown if the pipeline tries to\n"
 	"     overwrite an old rf_pipelines.json file.\n"

@@ -457,10 +457,16 @@ struct wi_stream {
     // If 'clobber' is false, then an exception will be thrown if the pipeline tries to
     // overwrite an old rf_pipelines.json file.
     //
+    // The meaning of the 'verbosity' argument is:
+    //   0 = no output
+    //   1 = high-level summary output (names of transforms, number of samples processed etc.)
+    //   2 = show all output files
+    //   3 = debug trace through pipeline
+    //
     void run(const std::vector<std::shared_ptr<wi_transform> > &transforms, 
 	     const std::string &outdir = ".", 
 	     Json::Value *json_output = nullptr,
-	     bool noisy=true, bool clobber=true);
+	     int verbosity=2, bool clobber=true);
 };
 
 
@@ -698,7 +704,7 @@ public:
     wi_run_state(const wi_stream &stream, 
 		 const std::vector<std::shared_ptr<wi_transform> > &transforms, 
 		 const std::shared_ptr<outdir_manager> &manager, 
-		 Json::Value *json_output, bool noisy);
+		 Json::Value *json_output, int verbosity);
 
     // stream params
     const ssize_t nfreq;
@@ -748,7 +754,8 @@ public:
 
 protected:
     friend void wi_stream::run(const std::vector<std::shared_ptr<wi_transform> > &transforms, 
-			       const std::string &outdir, Json::Value *json_outputs, bool noisy, bool clobber);
+			       const std::string &outdir, Json::Value *json_outputs, 
+			       int verbosity, bool clobber);
 
     // make noncopyable
     wi_run_state(const wi_run_state &) = delete;
@@ -779,7 +786,7 @@ protected:
     int state;
     int isubstream;
     ssize_t nt_pending;  // only valid in state 2
-    bool noisy;
+    int verbosity;
 
     // buffers
     wraparound_buf main_buffer;

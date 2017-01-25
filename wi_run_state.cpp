@@ -27,7 +27,7 @@ static void merge_json(Json::Value &dst, const Json::Value &src)
 }
 
 
-wi_run_state::wi_run_state(const wi_stream &stream, const vector<shared_ptr<wi_transform> > &transforms_, const shared_ptr<outdir_manager> &manager_, Json::Value *json_output_, bool noisy_) :
+wi_run_state::wi_run_state(const wi_stream &stream, const vector<shared_ptr<wi_transform> > &transforms_, const shared_ptr<outdir_manager> &manager_, Json::Value *json_output_, int verbosity_) :
     nfreq(stream.nfreq),
     nt_stream_maxwrite(stream.nt_maxwrite),
     manager(manager_),
@@ -42,7 +42,7 @@ wi_run_state::wi_run_state(const wi_stream &stream, const vector<shared_ptr<wi_t
     state(0),
     isubstream(0),
     nt_pending(0),
-    noisy(noisy_),
+    verbosity(verbosity_),
     prepad_buffers(transforms_.size())
 {
     if (!nfreq)
@@ -59,6 +59,9 @@ wi_run_state::wi_run_state(const wi_stream &stream, const vector<shared_ptr<wi_t
 
 void wi_run_state::start_substream(double t0)
 {
+    if (verbosity >= 3)
+	cerr << "rf_pipelines: run_state->start_substream() called by stream, t0=" << t0 << ".  Calls to transform->start_substream() will follow..." << endl;
+
     if ((this->state > 0) && (this->state < 4))
 	throw runtime_error("rf_transforms: logic error in stream: double call to start_substream() (maybe a call to end_substream() is missing somewhere?)");
 
@@ -66,8 +69,15 @@ void wi_run_state::start_substream(double t0)
     this->substream_start_time = t0;
     this->stream_curr_time = t0;
 
-    for (int it = 0; it < ntransforms; it++)
+    for (int it = 0; it < ntransforms; it++) {
+	if (verbosity >= 3)
+	    cerr << "rf_pipelines: calling transform->start_substream() [" << transforms[it]->name << "]" << endl;
+
 	transforms[it]->start_substream(this->isubstream, t0);
+
+	if (verbosity >= 3)
+	    cerr << "rf_pipelines: transform->start_substream() returned" << endl;
+    }
 
     // Allocate main buffer
 
@@ -111,11 +121,17 @@ void wi_run_state::start_substream(double t0)
     }
 
     this->state = 1;
+
+    if (verbosity >= 3)
+	cerr << "rf_pipelines: run_state->start_substream() returning to stream" << endl;
 }
 
 
 void wi_run_state::setup_write(ssize_t nt, float* &intensityp, float* &weightp, ssize_t &stride, bool zero_flag, double t0)
 {
+    if (verbosity >= 3)
+	cerr << "rf_pipelines: run_state->setup_write() was called by stream, t0=" << t0 << ", nt=" << nt << endl;
+
     // states 1,3 are OK
     if ((this->state == 0) || (this->state == 4))
 	throw runtime_error("rf_transforms: logic error in stream: setup_write() was called without prior call to start_substream()");
@@ -134,6 +150,9 @@ void wi_run_state::setup_write(ssize_t nt, float* &intensityp, float* &weightp, 
     this->stream_curr_time = t0;
     this->state = 2;
     this->nt_pending = nt;
+
+    if (verbosity >= 3)
+	cerr << "rf_pipelines: run_state->setup_write() returning to stream" << endl;
 }
 
 
@@ -146,6 +165,9 @@ void wi_run_state::setup_write(ssize_t nt, float* &intensityp, float* &weightp, 
 
 void wi_run_state::finalize_write(ssize_t nt)
 {
+    if (verbosity >= 3)
+	cerr << "rf_pipelines: run_state->finalize_write() was called by stream, nt=" << nt << ".  Calls to process_chunk() may follow..." << endl;
+
     if (this->state == 3)
 	throw runtime_error("rf_transforms: logic error in stream: double call to finalize_write()");
     if (this->state != 2)
@@ -201,9 +223,15 @@ void wi_run_state::finalize_write(ssize_t nt)
 	    double t0 = this->stream_curr_time + dt_sample * (transform_ipos[it] - stream_ipos);
 	    double t1 = this->stream_curr_time + dt_sample * (transform_ipos[it] - stream_ipos + n1);
 
+	    if (verbosity >= 3)
+		cerr << "rf_pipelines: calling transform->process_chunk() [" << transforms[it]->name << "]" << endl;
+
 	    struct timeval tv0 = get_time();
 	    transforms[it]->process_chunk(t0, t1, intensity, weights, stride, pp_intensity, pp_weights, pp_stride);
 	    transforms[it]->time_spent_in_transform += time_diff(tv0, get_time());
+
+	    if (verbosity >= 3)
+		cerr << "rf_pipelines: calling transform->process_chunk() returned" << endl;
 
 	    // Note (n1) here, versus (n1+n2) in call to finalize_write() below.
 	    main_buffer.finalize_write(transform_ipos[it], n1);
@@ -217,11 +245,17 @@ void wi_run_state::finalize_write(ssize_t nt)
     this->stream_ipos += nt;
     this->state = 3;
     this->nt_pending = 0;
+
+    if (verbosity >= 3)
+	cerr << "rf_pipelines: run_state->finalize_write() returning to stream" << endl;
 }
 
 
 void wi_run_state::end_substream()
 {
+    if (verbosity >= 3)
+	cerr << "rf_pipelines: run_state->end_substream() called by stream.  A bunch of \"flushing\" calls to setup_write() and finalize_write() may follow..." << endl;
+
     if (this->state == 4)
 	throw runtime_error("rf_transforms: logic error in stream: double call to end_substream()");
     if (this->state != 3)
@@ -256,14 +290,24 @@ void wi_run_state::end_substream()
     // Check on padding calculation
     rf_assert(transform_ipos[ntransforms-1] >= save_ipos);
 
-    for (int it = 0; it < ntransforms; it++)
+    if (verbosity >= 3)
+	cerr << "rf_pipelines: run_state->end_substream() at midpoint.  Calls to transform->end_substream() will follow..." << endl;
+
+    for (int it = 0; it < ntransforms; it++) {
+	if (verbosity >= 3)
+	    cerr << "rf_pipelines: calling transform->end_substream() [" << transforms[it]->name << "]" << endl;
+	    
 	transforms[it]->end_substream();
 
+	if (verbosity >= 3)
+	    cerr << "rf_pipelines: transform->end_substream() returned" << endl;
+    }
+
     // Write outputs
-    if (noisy) {
+    if (verbosity >= 1) {
 	cerr << ("rf_pipelines: processed " + to_string(save_ipos) + " samples\n");
 	for (int it = 0; it < ntransforms; it++)
-	    cerr << "    Transform " << it << ": " << transforms[it]->time_spent_in_transform << " sec  [" << transforms[it]->name << "]\n";
+	    cerr << "    Transform " << it << ": " << transforms[it]->time_spent_in_transform << " sec  [" << transforms[it]->name << "]" << endl;
     }
 
     this->output_substream_json();
@@ -276,6 +320,9 @@ void wi_run_state::end_substream()
 
     this->state = 4;
     this->isubstream++;
+
+    if (verbosity >= 3)
+	cerr << "rf_pipelines: run_state->end_substream() returning to stream." << endl;
 }
 
 
@@ -320,7 +367,7 @@ void wi_run_state::output_substream_json()
     }
 
     if (manager->outdir.size() > 0)
-	manager->write_per_substream_json_file(isubstream, json_substream, noisy);
+	manager->write_per_substream_json_file(isubstream, json_substream, verbosity);
 
     if (this->json_output != nullptr)
 	this->json_output->append(json_substream);

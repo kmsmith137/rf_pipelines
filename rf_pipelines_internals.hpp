@@ -59,7 +59,7 @@ struct outdir_manager {
     // Returns the full pathname, throws exception if filename has already been written in this pipeline run.
     std::string add_file(const std::string &basename);
 
-    void write_per_substream_json_file(int isubstream, const Json::Value &data, bool noisy);
+    void write_per_substream_json_file(int isubstream, const Json::Value &data, int verbosity);
 
     static bool is_json_basename(const std::string &basename);
 };

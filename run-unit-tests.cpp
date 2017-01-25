@@ -242,8 +242,8 @@ static void run_pipeline_unit_tests()
 	for (int itr = 0; itr < ntransforms; itr++)
 	    transforms[itr] = prev = make_shared<test_wi_transform> (stream, prev);
 
-	bool noisy=false;
-	stream.run(transforms, ".", nullptr, noisy);
+	int verbosity=0;
+	stream.run(transforms, ".", nullptr, verbosity);
     }
 
     cerr << "done\n";

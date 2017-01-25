@@ -49,7 +49,7 @@ string outdir_manager::add_file(const string &basename)
 }
 
 
-void outdir_manager::write_per_substream_json_file(int isubstream, const Json::Value &data, bool noisy)
+void outdir_manager::write_per_substream_json_file(int isubstream, const Json::Value &data, int verbosity)
 {
     if (isubstream < 0)
 	throw runtime_error("outdir_manager::write_json_file(): 'isubstream' arg was negative");
@@ -66,8 +66,8 @@ void outdir_manager::write_per_substream_json_file(int isubstream, const Json::V
     Json::StyledWriter w;
     f << w.write(data);
 
-    if (noisy)
-	cerr << ("wrote " + filename + "\n");
+    if (verbosity >= 2)
+	cerr << ("wrote " + filename + "\n") << endl;
 }
 
 

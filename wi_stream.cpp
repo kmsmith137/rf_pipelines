@@ -51,16 +51,22 @@ struct outdir_janitor {
 };
 
 
-void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const string &outdir, Json::Value *json_output, bool noisy, bool clobber)
+void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const string &outdir, Json::Value *json_output, int verbosity, bool clobber)
 {
     int ntransforms = transforms.size();
 
-    // Call stream_start().  When it returns, all stream parameters should be initialized.
-
-    this->stream_start();
-
     if (ntransforms == 0)
 	throw runtime_error("wi_stream::run() called on empty transform list");
+
+    if (verbosity >= 3)
+	cerr << "rf_pipelines: calling stream->stream_start()" << endl;
+
+    // Call stream_start().  When it returns, all stream parameters should be initialized.
+    this->stream_start();
+
+    if (verbosity >= 3)
+	cerr << "rf_pipelines: stream->stream_start() returned" << endl;
+
     if (nfreq <= 0)
 	throw runtime_error("wi_stream::nfreq is non-positive or uninitialized");
     if (freq_lo_MHz <= 0.0)
@@ -71,8 +77,6 @@ void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const s
 	throw runtime_error("wi_stream::dt_sample is non-positive or uninitialized");	
     if (nt_maxwrite <= 0)
 	throw runtime_error("wi_stream::nt_maxwrite is non-positive or uninitialized");
-    if (ntransforms == 0)
-	throw runtime_error("wi_stream::run() called on empty transform list");
 
     outdir_janitor janitor(outdir, clobber);
 
@@ -86,7 +90,14 @@ void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const s
 
 	janitor.set_outdir_manager(transform);
 	transform->json_per_stream.clear();
+
+	if (verbosity >= 3)
+	    cerr << "rf_pipelines: calling transform->set_stream() [" << transform->name << "]" << endl;
+
 	transform->set_stream(*this);
+
+	if (verbosity >= 3)
+	    cerr << "rf_pipelines: transform->set_stream() returned" << endl;
 	
 	if (transform->nfreq != this->nfreq)
 	    throw runtime_error("rf_pipelines: transform's value of 'nfreq' does not match stream's value of 'nfreq' (name=" + transform->name + ")");
@@ -98,9 +109,16 @@ void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const s
 	    throw runtime_error("rf_pipelines: wi_transform::nt_postpad is negative (name=" + transform->name + ")");
     }
 
+    wi_run_state run_state(*this, transforms, janitor.manager, json_output, verbosity);
+
+    if (verbosity >= 3)
+	cerr << "rf_pipelines: entering stream->stream_body(), pipeline starts here!" << endl;
+
     // Delegate to stream_body() method implemented in subclass
-    wi_run_state run_state(*this, transforms, janitor.manager, json_output, noisy);
     this->stream_body(run_state);
+
+    if (verbosity >= 3)
+	cerr << "rf_pipelines: stream->stream_body() returned, this is the end of the pipeline" << endl;
 
     // Only state=4 is OK, otherwise we complain!
     if (run_state.state == 0)

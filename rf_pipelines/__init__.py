@@ -105,10 +105,10 @@ class py_wi_transform(wi_transform):
 
     To write a transform in Python, I recommend subclassing the python class 'py_wi_transform' 
     instead of the C++ class 'wi_transform'.  An object of type 'py_wi_transform' can be inserted
-    into a pipeline using the usual run() syntax:
+    into a pipeline using the usual run() syntax (see py_wi_stream docstring for details):
 
        # Here, 's' is an object of type wi_stream, and each t_i is an object of type wi_transform
-       s.run([t1,t2,...,tN], outdir='.', noisy=True, clobber=True)
+       s.run([t1,t2,...,tN], outdir='.', verbosity=2, clobber=True)
 
     The 'py_wi_transform' constructor may want to initialize self.name, a "transform name" string
     which ends up in rf_pipelines.json.
@@ -265,7 +265,7 @@ class py_wi_stream(wi_stream):
 
     The wi_stream class defines a method
 
-        run(self, transform_list, outdir='.', noisy=True, clobber=True, return_json=False)
+        run(self, transform_list, outdir='.', verbosity=2, clobber=True, return_json=False)
 
     which is called to run a pipeline.  Here, 
 
@@ -278,6 +278,12 @@ class py_wi_stream(wi_stream):
          If 'outdir' is None or an empty string, then the json file will not be written,
          and any transform which tries to write an output file (such as a plotter_transform)
          will throw an exception.
+
+	 The meaning of the 'verbosity' argument is:
+            0 = no output
+            1 = high-level summary output (names of transforms, number of samples processed etc.)
+            2 = show all output files
+            3 = debug trace through pipeline
     
        - If 'clobber' is False, then an exception will be thrown if the pipeline tries to
          overwrite an old rf_pipelines.json file.
