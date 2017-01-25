@@ -349,9 +349,6 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 // In this case, the nt_per_file arg must be positive.  Filenames are of the form
 //   ${trigger_plot_stem}_${plot_number}_tree${tree_index}.png.
 //
-// The 'ibeam' argument determines the assignment of threads to cores and can probably
-// be zero except in special situations.
-//
 // FIXME: Currently the dedisperser must be initialized from a config hdf5 file (rather than
 // the simpler config text file) since we use analytic weights to normalize the triggers.
 // Since the analytic weights are only correct for unit-variance noise, the trigger normalization
@@ -360,7 +357,7 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 // is implemented in bonsai.
 //
 extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_filename, const std::string &trigger_hdf5_filename, 
-							     const std::string &trigger_plot_stem, int nt_per_file=0, int ibeam=0);
+							     const std::string &trigger_plot_stem, int nt_per_file=0);
 
 
 // Some day, this factory function will return a C++ implementation of the 'badchannel_mask' class.

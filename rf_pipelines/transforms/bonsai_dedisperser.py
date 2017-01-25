@@ -5,7 +5,7 @@ See bonsai_dedisperser.cpp, and python linkage in rf_pipelines_c.cpp.
 
 from rf_pipelines import rf_pipelines_c
 
-def bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename=None, trigger_plot_stem=None, nt_per_file=0, ibeam=0):
+def bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename=None, trigger_plot_stem=None, nt_per_file=0):
     """
     Returns a "transform" which doesn't actually modify the data, it just runs the bonsai dedisperser.  
     The dedisperser must be initialized from a config hdf5 file produced with the program 
@@ -21,9 +21,6 @@ def bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename=None, trigger
     In this case, the nt_per_file arg must be positive.  Filenames are of the form
        ${trigger_plot_stem}_${plot_number}_tree${tree_index}.png.
 
-    The 'ibeam' argument determines the assignment of threads to cores and can probably
-    be zero except in special situations.
-
     FIXME: Currently the dedisperser must be initialized from a config hdf5 file (rather than
     the simpler config text file) since we use analytic weights to normalize the triggers.
     Since the analytic weights are only correct for unit-variance noise, the trigger normalization
@@ -38,4 +35,4 @@ def bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename=None, trigger
     if trigger_plot_stem is None:
         trigger_plot_stem = ''
 
-    return rf_pipelines_c.make_bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename, trigger_plot_stem, nt_per_file, ibeam)
+    return rf_pipelines_c.make_bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename, trigger_plot_stem, nt_per_file)

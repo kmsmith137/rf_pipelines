@@ -27,12 +27,11 @@ struct bonsai_dedisperser : public wi_transform {
     string trigger_hdf5_filename;
     string trigger_plot_stem;
     int nt_per_file;
-    int ibeam;
 
     shared_ptr<bonsai::config_params> config;
     shared_ptr<bonsai::dedisperser> dedisperser;
 
-    bonsai_dedisperser(const string &config_hdf5_filename, const string &trigger_hdf5_filename, const string &trigger_plot_stem, int nt_per_file, int ibeam);
+    bonsai_dedisperser(const string &config_hdf5_filename, const string &trigger_hdf5_filename, const string &trigger_plot_stem, int nt_per_file);
 
     virtual void set_stream(const wi_stream &stream) override;
     virtual void start_substream(int isubstream, double t0) override;
@@ -48,20 +47,24 @@ struct my_dedisperser_subclass : public bonsai::dedisperser {
     bonsai_dedisperser *transform;
 
     my_dedisperser_subclass(bonsai_dedisperser *transform_)
-	: bonsai::dedisperser(*transform_->config, transform_->ibeam, true),  // init_weights=true
+	: bonsai::dedisperser(*transform_->config, true),  // init_weights=true
 	  transform(transform_)
     { }
 
     virtual void _open_trigger_file(const string &basename, const string &datetime0_str, const string &datetime_str)
     {
+	throw runtime_error("XXX bonsai::dedisperser::_open_trigger_file() temporarily broken");
+#if 0
 	string filename = transform->add_file(basename);
 	transform->json_per_substream["trigger_files"].append(filename);
-	// bonsai::dedisperser::_open_trigger_file(filename, datetime0_str, datetime_str);
-	throw runtime_error("XXX bonsai::dedisperser::_open_trigger_file() temporarily broken");
+	bonsai::dedisperser::_open_trigger_file(filename, datetime0_str, datetime_str);
+#endif
     }
 
     virtual string _make_trigger_plot_filename(int itree, int ifile)
     {
+	throw runtime_error("XXX bonsai::dedisperser::_make_trigger_plot_filename() temporarily broken");
+#if 0
 	auto config = transform->config;
 
 	int ndm = this->trigger_plot_ndm[itree];
@@ -72,20 +75,19 @@ struct my_dedisperser_subclass : public bonsai::dedisperser {
 	ssize_t it0 = ssize_t(ifile) * ssize_t(nt_coarse_max) * ssize_t(nt_per_trigger);
 	ssize_t nt = ssize_t(nt_coarse_curr) * ssize_t(nt_per_trigger);
 
-	throw runtime_error("XXX bonsai::dedisperser::_open_trigger_file() temporarily broken");
-	// string basename = dedisperser::_make_trigger_plot_filename(itree, ifile);
-	// string filename = transform->add_plot(basename, it0, nt, nt_coarse_curr, ndm, itree);
-	// return filename;
+	string basename = dedisperser::_make_trigger_plot_filename(itree, ifile);
+	string filename = transform->add_plot(basename, it0, nt, nt_coarse_curr, ndm, itree);
+	return filename;
+#endif
     }
 };
 
 
-bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const string &trigger_hdf5_filename_, const string &trigger_plot_stem_, int nt_per_file_, int ibeam_) :
+bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const string &trigger_hdf5_filename_, const string &trigger_plot_stem_, int nt_per_file_) :
     config_filename(config_hdf5_filename),
     trigger_hdf5_filename(trigger_hdf5_filename_),
     trigger_plot_stem(trigger_plot_stem_),
-    nt_per_file(nt_per_file_),
-    ibeam(ibeam_)
+    nt_per_file(nt_per_file_)
 {
     if (!endswith(config_filename,".hdf5") && !endswith(config_filename,".h5"))
 	cerr << "rf_pipelines: warning: bonsai config filename doesn't end with .h5 or .hdf5, note that the bonsai_dedisperser requires an hdf5 file created with bonsai-mkweight\n";
@@ -153,8 +155,6 @@ void bonsai_dedisperser::start_substream(int isubstream, double t0)
     dedisperser->global_max_trigger = 0.0;
     dedisperser->global_max_trigger_dm = 0.0;
     dedisperser->global_max_trigger_arrival_time = 0.0;
-    
-    dedisperser->spawn_slave_threads();
 }
 
 
@@ -176,14 +176,12 @@ void bonsai_dedisperser::end_substream()
     this->json_per_substream["frb_global_max_trigger"] = dedisperser->global_max_trigger;
     this->json_per_substream["frb_global_max_trigger_dm"] = dedisperser->global_max_trigger_dm;
     this->json_per_substream["frb_global_max_trigger_tfinal"] = dedisperser->global_max_trigger_arrival_time;
-
-    dedisperser->terminate();
 }
 
 
-shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_filename, const std::string &trigger_hdf5_filename, const std::string &trigger_plot_stem, int nt_per_file, int ibeam)
+shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_filename, const std::string &trigger_hdf5_filename, const std::string &trigger_plot_stem, int nt_per_file)
 {
-    return make_shared<bonsai_dedisperser> (config_hdf5_filename, trigger_hdf5_filename, trigger_plot_stem, nt_per_file, ibeam);
+    return make_shared<bonsai_dedisperser> (config_hdf5_filename, trigger_hdf5_filename, trigger_plot_stem, nt_per_file);
 }
 
 #endif  // HAVE_BONSAI

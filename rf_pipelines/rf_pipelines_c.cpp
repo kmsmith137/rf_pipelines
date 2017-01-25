@@ -1590,12 +1590,11 @@ static PyObject *make_bonsai_dedisperser(PyObject *self, PyObject *args)
     const char *trigger_hdf5_filename = nullptr;
     const char *trigger_plot_stem = nullptr;
     int nt_per_file = 0;
-    int ibeam = 0;
     
-    if (!PyArg_ParseTuple(args, "sssii", &config_hdf5_filename, &trigger_hdf5_filename, &trigger_plot_stem, &nt_per_file, &ibeam))
+    if (!PyArg_ParseTuple(args, "sssi", &config_hdf5_filename, &trigger_hdf5_filename, &trigger_plot_stem, &nt_per_file))
 	return NULL;
 
-    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename, trigger_plot_stem, nt_per_file, ibeam);
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename, trigger_plot_stem, nt_per_file);
     return wi_transform_object::make(ret);
 }
 
