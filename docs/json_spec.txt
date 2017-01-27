@@ -1,8 +1,8 @@
 pipeline_output = {
-    "nsamples": number of time samples processed
+    "nsamples": number of time samples emitted by stream
     "ringbuf_stride": number of time samples internally allocated in ring buffer (determines memory footprint of pipeline)
-    "t0": timestamp (in seconds) of first sample processed
-    "t1": timestamp (in seconds) of first sample processed
+    "t0": timestamp (in seconds) of first sample emitted by stream
+    "t1": timestamp (in seconds) of last sample emitted by stream
     "transforms": [ list of transform_outputs ]
 }
 
@@ -23,8 +23,8 @@ transform_output = {
 
 
 plot_groups = { 
-    "it0": first time sample index (not timestamp in seconds) plotted
-    "it1": last time sample index (not timestamp in seconds) plotted
+    "it0": first time sample index (not timestamp in seconds) appearing in plot
+    "it1": last time sample index (not timestamp in seconds) appearing in plot
     "name": currently either "waterfall" or "bonsai_tree"
     "nt_per_pix": gives the number of time samples (not seconds) per x-pixel in the plots
     "ny": gives the number of y-pixels in the plots (assumed to be the same for all plots in the group)
