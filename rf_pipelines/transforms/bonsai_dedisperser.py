@@ -1,11 +1,9 @@
-"""
-Bonsai dedisperser.  This is a thin wrapper around a C++ implementation.
-See bonsai_dedisperser.cpp, and python linkage in rf_pipelines_c.cpp.
-"""
+import sys
+import numpy as np
+import rf_pipelines
 
-from rf_pipelines import rf_pipelines_c
 
-def bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename=None, trigger_plot_stem=None, nt_per_file=0):
+class bonsai_dedisperser(rf_pipelines.py_wi_transform):
     """
     Returns a "transform" which doesn't actually modify the data, it just runs the bonsai dedisperser.  
     The dedisperser must be initialized from a config hdf5 file produced with the program 
@@ -29,10 +27,44 @@ def bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename=None, trigger
     is implemented in bonsai.
     """
 
-    if trigger_hdf5_filename is None:
-        trigger_hdf5_filename = ''
+    def __init__(self, config_hdf5_filename, trigger_hdf5_filename=None, trigger_plot_stem=None, nt_per_file=0):
+        try:
+            import bonsai
+        except ImportError:
+            raise RuntimeError("rf_pipelines: couldn't import the 'bonsai' module.  You may need to clone https://github.com/CHIMEFRB/bonsai and install.")
 
-    if trigger_plot_stem is None:
-        trigger_plot_stem = ''
+        name = "bonsai_dedisperser('%s')" % config_hdf5_filename
+        rf_pipelines.py_wi_transform.__init__(self, name)
 
-    return rf_pipelines_c.make_bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename, trigger_plot_stem, nt_per_file)
+        if (trigger_hdf5_filename is not None) or (trigger_plot_stem is not None) or (nt_per_file > 0):
+            print >>sys.stderr, 'XXX bonsai_dedisperser warning: trigger_hdf5_filename, trigger_plot_stem, nt_per_file currently ignored'
+
+        config_params = bonsai.ConfigParams(config_hdf5_filename, True)
+
+        self.config_hdf5_filename = config_hdf5_filename
+        self.dedisperser = bonsai.Dedisperser(config_params, True)
+        self.dedisperser.global_max_trigger_active = True
+
+        self.nfreq = self.dedisperser.nfreq
+        self.nt_chunk = self.dedisperser.nt_data
+        self.nt_prepad = 0
+        self.nt_postpad = 0
+
+
+    def set_stream(self, stream):
+        if stream.nfreq != self.nfreq:
+            raise RuntimeError("rf_pipelines: number of frequencies in stream (nfreq=%d) does not match bonsai config file '%s' (nfreq=%d)" % (stream.nfreq, self.config_hdf5_filename, self.nfreq))
+
+
+    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
+        # FIXME remove this extra copy required by current cython implementation
+        intensity = np.array(intensity, dtype=np.float32, order='C')
+        weights = np.array(intensity, dtype=np.float32, order='C')
+
+        self.dedisperser.run(intensity, weights)
+
+        
+    def end_substream(self):
+        print 'XXX', self.dedisperser.global_max_trigger
+        print 'XXX', self.dedisperser.global_max_trigger_dm
+        print 'XXX', self.dedisperser.global_max_trigger_arrival_time
