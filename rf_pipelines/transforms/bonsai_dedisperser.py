@@ -62,9 +62,14 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         weights = np.array(intensity, dtype=np.float32, order='C')
 
         self.dedisperser.run(intensity, weights)
+        self.process_triggers(t0, t1, self.dedisperser.get_triggers())
+
+
+    # Subclass may wish to override this.
+    def process_triggers(self, t0, t1, triggers):
+        pass
 
         
+    # Subclass may wish to override this.
     def end_substream(self):
-        print 'XXX', self.dedisperser.global_max_trigger
-        print 'XXX', self.dedisperser.global_max_trigger_dm
-        print 'XXX', self.dedisperser.global_max_trigger_arrival_time
+        pass
