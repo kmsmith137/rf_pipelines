@@ -62,7 +62,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         # FIXME remove this extra copy required by current cython implementation
         intensity = np.array(intensity, dtype=np.float32, order='C')
-        weights = np.array(intensity, dtype=np.float32, order='C')
+        weights = np.array(weights, dtype=np.float32, order='C')
 
         self.dedisperser.run(intensity, weights)
         self.process_triggers(t0, t1, self.dedisperser.get_triggers())
@@ -71,7 +71,6 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
     # Subclass may wish to override this.
     def process_triggers(self, t0, t1, triggers):
         pass
-
         
     # Subclass may wish to override this.
     def end_substream(self):
