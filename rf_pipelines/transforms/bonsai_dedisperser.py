@@ -36,14 +36,17 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         name = "bonsai_dedisperser('%s')" % config_hdf5_filename
         rf_pipelines.py_wi_transform.__init__(self, name)
 
-        if (trigger_hdf5_filename is not None) or (trigger_plot_stem is not None) or (nt_per_file > 0):
-            print >>sys.stderr, 'XXX bonsai_dedisperser warning: trigger_hdf5_filename, trigger_plot_stem, nt_per_file currently ignored'
+        if trigger_plot_stem is not None:
+            print >>sys.stderr, 'XXX bonsai_dedisperser warning: trigger_plot_stem'
 
         config_params = bonsai.ConfigParams(config_hdf5_filename, True)
 
         self.config_hdf5_filename = config_hdf5_filename
         self.dedisperser = bonsai.Dedisperser(config_params, True)
         self.dedisperser.global_max_trigger_active = True
+
+        if trigger_hdf5_filename is not None:
+            self.dedisperser.start_trigger_file(trigger_hdf5_filename, nt_per_file)
 
         self.nfreq = self.dedisperser.nfreq
         self.nt_chunk = self.dedisperser.nt_data
@@ -72,4 +75,4 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         
     # Subclass may wish to override this.
     def end_substream(self):
-        pass
+        self.dedisperser.end_dedispersion()

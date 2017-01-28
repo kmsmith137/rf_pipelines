@@ -173,6 +173,8 @@ void bonsai_dedisperser::end_substream()
     // if (trigger_plot_stem.size())
     //   dedisperser->end_trigger_plots();
 
+    dedisperser->end_dedispersion();
+
     this->json_per_substream["frb_global_max_trigger"] = dedisperser->global_max_trigger;
     this->json_per_substream["frb_global_max_trigger_dm"] = dedisperser->global_max_trigger_dm;
     this->json_per_substream["frb_global_max_trigger_tfinal"] = dedisperser->global_max_trigger_arrival_time;
