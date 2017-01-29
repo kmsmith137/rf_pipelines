@@ -6,6 +6,9 @@ and exported to Python via rf_pipelines_c.cpp.
 """
 
 from rf_pipelines import rf_pipelines_c
+from os import listdir
+from h5py import File
+from sys import stderr
 
 
 def chime_stream_from_filename(filename, nt_chunk=0, noise_source_align=0):
@@ -81,3 +84,40 @@ def chime_network_stream(udp_port=0, beam_id=0):
     """
 
     return rf_pipelines_c.make_chime_network_stream(udp_port, beam_id)
+
+
+def get_start_time(file):
+    f = File(file, 'r')
+    timestamp_array = f['index_map']['time'][:]
+    return timestamp_array[0]
+
+
+def chime_stream_from_times(dirname, t0, t1, nt_chunk=0, noise_source_align=0):
+    files = listdir(dirname)
+
+    # Make sure all the files are actually data files
+    filter(lambda x: x[-3:] == '.h5', files)
+
+    # The files _should_ be ordered, but check just in case
+    for i in range(len(files) - 1):
+        assert int(files[i+1][:-3]) > int(files[i][:-3])
+
+    # Search for the first file that has a timestamp that is greater than t0. Take the previous one.
+    # Then, search for the first file with a timestamp greater than t1 and take that file.
+    start, end = -1, -1
+
+    for i in range(len(files)):
+        if get_start_time(files[i]) > t0:
+            start = i - i
+            break
+
+    for i in range(start, len(files)):
+        if get_start_time(files[i]) > t1:
+            end = i + 1   # i + 1 since indexing excludes final index
+            break
+
+    if start == -1 or end == -1:
+        print >> stderr, 'The indices specified were not found.'
+        return
+
+    return chime_stream_from_filename_list(files[start:end], nt_chunk=ntchunk, noise_source_align=noise_source_align)
