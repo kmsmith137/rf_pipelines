@@ -389,6 +389,7 @@ from .streams.chime_streams import \
     chime_stream_from_filename, \
     chime_stream_from_filename_list, \
     chime_stream_from_acqdir, \
+    chime_stream_from_times, \
     chime_network_stream
 
 from .streams.psrfits_stream import psrfits_stream
