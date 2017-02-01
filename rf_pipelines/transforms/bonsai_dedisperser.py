@@ -8,8 +8,8 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
     Returns a "transform" which doesn't actually modify the data, it just runs the bonsai dedisperser.
 
 
-    Arguments
-    ---------
+    Constructor arguments
+    ---------------------
 
        - config_hdf5_filename:  The configuration file used to initialize the dedisperser.  
            This must be produced with the program 'bonsai-mkweight' in the bonsai github repo.
@@ -27,6 +27,8 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
        - n_zoom: Number of zoom levels in plots.
 
+       - trigger_hdf5_filename: If specified, coarse-grained triggers will be written to an HDF5 file.
+
 
     FIXME: Currently the dedisperser must be initialized from a config hdf5 file (rather than
     the simpler config text file) since we use analytic weights to normalize the triggers.
@@ -36,7 +38,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
     is implemented in bonsai.
     """
 
-    def __init__(self, config_hdf5_filename, img_prefix=None, img_ndm=None, img_nt=None, downsample_nt=1, n_zoom=1):
+    def __init__(self, config_hdf5_filename, img_prefix=None, img_ndm=None, img_nt=None, downsample_nt=1, n_zoom=1, trigger_hdf5_filename=None):
         # We import the bonsai module here, rather than at the top of the file, so that bonsai isn't
         # required to import rf_pipelines (but is required when you try to construct a bonsai_dedisperser).
         try:
@@ -51,9 +53,6 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
         self.config_hdf5_filename = config_hdf5_filename
         self.dedisperser = bonsai.Dedisperser(config_params, True)
-
-        # Activates some fields in self.dedisperser which are used in the frb_olympics.
-        self.dedisperser.global_max_trigger_active = True
         
         # Note that 'nfreq' is determined by the config file.  If the stream's 'nfreq' differs,
         # then an exception will be thrown.  The 'nt_chunk' parameter is also determined by the
@@ -63,6 +62,12 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         self.nt_chunk = self.dedisperser.nt_data
         self.nt_prepad = 0
         self.nt_postpad = 0
+
+        if trigger_hdf5_filename is not None:
+            self.dedisperser.start_trigger_file(trigger_hdf5_filename, nt_per_file=0)
+
+        # Activates some fields in self.dedisperser which are used in the frb_olympics.
+        self.dedisperser.global_max_trigger_active = True
 
 
     def set_stream(self, stream):
