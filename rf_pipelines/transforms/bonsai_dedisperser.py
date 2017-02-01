@@ -110,11 +110,14 @@ def old_bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename=None, tri
     This is the old C++ bonsai_dedisperser, which we're trying to phase out, in favor of the
     python implementation which has been partially implemented above!
 
-    The plotting behavior of the C++ dedisperser is different: 
+    The plotting behavior of the C++ dedisperser is not what we want:
 
        - one plot_group per tree
        - number of y-pixels in plots is determined by bonsai config file (not selectable)
        - time downsampling factor in plots is determined by bonasi config file (not selectable)
+    
+    When the new plotting behavior is implemented in the python bonsai_dedisperser, then the
+    old_bonsai_dedisperser can be removed.
     """
 
     if trigger_hdf5_filename is None:
