@@ -89,38 +89,50 @@ def chime_network_stream(udp_port=0, beam_id=0):
     return rf_pipelines_c.make_chime_network_stream(udp_port, beam_id)
 
 
-def get_start_time(file):
-    """Returns the start time index from an .h5 file."""
+def get_times(file):
+    """Returns [start_time, end_time] for an .h5 file."""
     print 'Examining', file
     f = File(file, 'r')
     timestamp_array = f['index_map']['time'][:]
-    return timestamp_array[0]
+    return timestamp_array[0], timestamp_array[-1]
 
 
 def chime_stream_from_times(dirname, t0, t1, nt_chunk=0, noise_source_align=0):
     """Calls chime_stream_from_filename_list for a specific time range from a directory.
     Helpful for re-running small subsections of acquisitions as seen on the web viewer
     (which displays the starting timestamp of each plot)."""
+
+    # Get, filter, and sort the files
     files = listdir(dirname)
     files.sort()
-    filter(lambda x: x[-3:] == '.h5', files)    # just to be sure
+    filter(lambda x: x[-3:] == '.h5', files)
     files_with_paths = [join(dirname, file) for file in files]
+
+    assert t0 < t1, 'First time index must be less than second time index.'
+    assert t0 < get_times(files_with_paths[-1])[1], \
+        'First time index must be less than final time index for acquisition'
+    assert t1 > get_times(files_with_paths[0])[0], \
+        'Second time index must be greater than the first time index for the acquisition'
+
+    # Search for start index
     start, end = -1, -1
-
-    for i in range(len(files_with_paths)):
-        if get_start_time(files_with_paths[i]) > t0:
-            start = i - 1
+    for i in range(len(files_with_paths) - 1):
+        if t0 < get_times(files_with_paths[i + 1])[0]:
+            start = i
             break
-    print 'Found the file containing the start time at index', start
+    if start == -1:
+        # Handles case in which start is in the final data file
+        start = len(files_with_paths) - 1
 
+    # Search for end index
     for i in range(start, len(files_with_paths)):
-        if get_start_time(files_with_paths[i]) > t1:
-            end = i + 1   # i + 1 since indexing excludes final index
+        if t1 < get_times(files_with_paths[i])[1]:
+            end = i + 1
             break
-    print 'Found the file containing the end time at index', end-1
+    if end == -1:
+        # Handles case in which t1 exceeds the range of the files (or is equal to final timestamp)
+        end = len(files_with_paths)
 
-    if start == -1 or end == -1:
-        print >> stderr, 'The indices specified were not found.'
-        return
+    print 'Indexing the files in', dirname, 'for file indices', start, 'to', end - 1, 'inclusive.'
 
     return chime_stream_from_filename_list(files_with_paths[start:end], nt_chunk=nt_chunk, noise_source_align=noise_source_align)
