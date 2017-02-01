@@ -63,7 +63,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         self.nt_prepad = 0
         self.nt_postpad = 0
 
-        if trigger_hdf5_filename is not None:
+        if trigger_hdf5_filename:
             self.dedisperser.start_trigger_file(trigger_hdf5_filename, nt_per_file=0)
 
         # Activates some fields in self.dedisperser which are used in the frb_olympics.
@@ -100,3 +100,28 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
     def end_substream(self):
         self.dedisperser.end_dedispersion()
+
+
+####################################################################################################
+
+
+def old_bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename=None, trigger_plot_stem=None, nt_per_file=0, ibeam=0):
+    """
+    This is the old C++ bonsai_dedisperser, which we're trying to phase out, in favor of the
+    python implementation which has been partially implemented above!
+
+    The plotting behavior of the C++ dedisperser is different: 
+
+       - one plot_group per tree
+       - number of y-pixels in plots is determined by bonsai config file (not selectable)
+       - time downsampling factor in plots is determined by bonasi config file (not selectable)
+    """
+
+    if trigger_hdf5_filename is None:
+        trigger_hdf5_filename = ''
+
+    if trigger_plot_stem is None:
+        trigger_plot_stem = ''
+
+    # Note: 'ibeam' argument ignored, as of bonsai v7_devel.
+    return rf_pipelines_c.make_bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename, trigger_plot_stem, nt_per_file)
