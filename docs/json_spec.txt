@@ -1,0 +1,40 @@
+pipeline_output = {
+    "nsamples": number of time samples emitted by stream
+    "ringbuf_stride": number of time samples internally allocated in ring buffer (determines memory footprint of pipeline)
+    "t0": timestamp (in seconds) of first sample emitted by stream
+    "t1": timestamp (in seconds) of last sample emitted by stream
+    "transforms": [ list of transform_outputs ]
+}
+
+transform_output = {
+    "name": name of transform
+    "time": cpu time used by transform (FIXME rename to "cpu_time" to avoid confusion with timestamp fields)
+    "plots": [ list of plot_substreams ]
+}
+
+
+# Some notes on plotter json output:
+#
+#   - Each transform which outputs plots can emit one or more "plot groups"
+#   - The meaning of a plot group is transform-dependent, e.g. for the plotter_transform each group represents a zoom level
+#   - The files in each plot_group are divided into "substreams", although we currently don't use this feature,
+#     so the substream list always has length-1.  (but this may change in the future)
+#   - Each substream within a plot_group consists of a list of files
+
+
+plot_groups = { 
+    "it0": first time sample index (not timestamp in seconds) appearing in plot
+    "it1": last time sample index (not timestamp in seconds) appearing in plot
+    "name": currently either "waterfall" or "bonsai_tree"
+    "nt_per_pix": gives the number of time samples (not seconds) per x-pixel in the plots
+    "ny": gives the number of y-pixels in the plots (assumed to be the same for all plots in the group)
+    "files" : [ list of plot_substreams ]
+}
+
+plot_substreams = [ list of plot_files ]
+
+plot_file = {
+    "filename": plot filename relative to directory containing the json file
+    "it0": sample index (not timestamp in seconds) of first plotted sample
+    "nx": number of x-pixels in plot
+}

@@ -158,11 +158,9 @@ class plotter_transform(rf_pipelines.py_wi_transform):
 
     def _write_file(self, zoom_level):
         # When we reach end-of-stream, the buffer might be partially full (i.e. self.ipos < self.img_nt).
-        # In this case, the plotting convention which I like best cosmetically is to truncate the image if there
-        # is only one file in the output (i.e. self.ifile==0), otherwise pad with black.
-
-        intensity = self.intensity_buf[zoom_level, :, :] if (self.ifile[zoom_level] > 0) else self.intensity_buf[zoom_level, :, :self.ipos[zoom_level]]
-        weights = self.weight_buf[zoom_level, :, :] if (self.ifile[zoom_level] > 0) else self.weight_buf[zoom_level, :, :self.ipos[zoom_level]]
+        # In this case, pad with black
+        intensity = self.intensity_buf[zoom_level, :, :]
+        weights = self.weight_buf[zoom_level, :, :]
 
         basename = self.img_prefix[zoom_level]
         if self.isubstream > 0:
@@ -170,7 +168,6 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         basename += ('_%s.png' % self.ifile[zoom_level])
 
         # The add_plot() method adds the plot to the JSON output, and returns the filename that should be written.
-
         filename = self.add_plot(basename, 
                                  it0 = int(self.ifile[zoom_level] * self.img_nt * self.downsample_nt[zoom_level]),
                                  nt = self.img_nt * self.downsample_nt[zoom_level],

@@ -115,3 +115,5 @@ This code is under construction!  A current to do list is in [TODO.md](./TODO.md
 
   - If you want to write a new stream in C++, I recommend reading comments in rf_pipelines.hpp, especially the
     comments in 'class wi_stream' and 'class wi_run_state'.
+
+  - For a specification of the pipeline json output, see [./docs/json_spec.txt](docs/json_spec.txt).
