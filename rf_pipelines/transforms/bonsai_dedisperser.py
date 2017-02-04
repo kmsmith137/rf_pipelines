@@ -49,10 +49,9 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         name = "bonsai_dedisperser('%s')" % config_hdf5_filename
         rf_pipelines.py_wi_transform.__init__(self, name)
 
-        config_params = bonsai.ConfigParams(config_hdf5_filename, True)
-
         self.config_hdf5_filename = config_hdf5_filename
-        self.dedisperser = bonsai.Dedisperser(config_params, True)
+        self.dedisperser = bonsai.Dedisperser(config_hdf5_filename, 'hdf5')
+        self.dedisperser.read_analytic_variance(config_hdf5_filename)
         
         # Note that 'nfreq' is determined by the config file.  If the stream's 'nfreq' differs,
         # then an exception will be thrown.  The 'nt_chunk' parameter is also determined by the

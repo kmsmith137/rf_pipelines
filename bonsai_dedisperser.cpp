@@ -28,9 +28,7 @@ struct bonsai_dedisperser : public wi_transform {
     string trigger_plot_stem;
     int nt_per_file;
 
-    unique_ptr<bonsai::config_params> config;
-    unique_ptr<bonsai::hdf5_file> config_hdf5_file;
-    unique_ptr<bonsai::hdf5_group> config_hdf5_group;
+    bonsai::config_params config;
     unique_ptr<bonsai::dedisperser> dedisperser;
 
     bonsai_dedisperser(const string &config_hdf5_filename, const string &trigger_hdf5_filename, const string &trigger_plot_stem, int nt_per_file);
@@ -49,10 +47,10 @@ struct my_dedisperser_subclass : public bonsai::dedisperser {
     bonsai_dedisperser *transform;
 
     my_dedisperser_subclass(bonsai_dedisperser *transform_)
-	: bonsai::dedisperser(*transform_->config),
+	: bonsai::dedisperser(transform_->config),
 	  transform(transform_)
     { 
-	this->read_analytic_variance(*transform->config_hdf5_group);
+	this->read_analytic_variance(transform->config_hdf5_filename);
     }
 
     virtual void _open_trigger_file(const string &basename, const string &datetime0_str, const string &datetime_str)
@@ -83,36 +81,32 @@ bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename_, cons
     config_hdf5_filename(config_hdf5_filename_),
     trigger_hdf5_filename(trigger_hdf5_filename_),
     trigger_plot_stem(trigger_plot_stem_),
-    nt_per_file(nt_per_file_)
+    nt_per_file(nt_per_file_),
+    config(config_hdf5_filename, "hdf5")
 {
-    if (!endswith(config_hdf5_filename,".hdf5") && !endswith(config_hdf5_filename,".h5"))
-	cerr << "rf_pipelines: warning: bonsai config filename doesn't end with .h5 or .hdf5, note that the bonsai_dedisperser requires an hdf5 file created with bonsai-mkweight\n";
     if (trigger_hdf5_filename.size() &&  !endswith(trigger_hdf5_filename,".hdf5") && !endswith(trigger_hdf5_filename,".h5"))
 	cerr << "rf_pipelines: warning: bonsai output filename doesn't end with .h5 or .hdf5\n";
 
-    this->config_hdf5_file = make_unique<bonsai::hdf5_file> (config_hdf5_filename);
-    this->config_hdf5_group = make_unique<bonsai::hdf5_group> (*config_hdf5_file, ".");
-    this->config = make_unique<bonsai::config_params> (*config_hdf5_group);
-    // Note: this->dedisperser will be initialized in start_substream()
+    this->dedisperser = make_unique<my_dedisperser_subclass> (this);
 
     // initialize members of wi_transform base class
     this->name = "bonsai_dedisperser(" + config_hdf5_filename + ")";
-    this->nfreq = config->nchan;
-    this->nt_chunk = config->nt_data;
+    this->nfreq = config.nchan;
+    this->nt_chunk = config.nt_data;
     this->nt_postpad = 0;
     this->nt_prepad = 0;
 
     // FIXME: write more config info?
-    for (int itree = 0; itree < config->ntrees; itree++)
-	this->json_persistent["max_dm"].append(config->max_dm[itree]);
+    for (int itree = 0; itree < config.ntrees; itree++)
+	this->json_persistent["max_dm"].append(config.max_dm[itree]);
 
     if (trigger_plot_stem.size() > 0) {
 	if (nt_per_file <= 0)
 	    throw runtime_error("rf_pipelines::bonsai_dedisperser: if the 'trigger_plot_stem' arg is specified, then 'nt_per_file' must also be specified and > 0");
 
-	for (int itree = 0; itree < config->ntrees; itree++) {
-	    int ndm_coarse = config->tree_size[itree] / config->ndm_per_trigger[itree];
-	    int nt_per_trigger = (config->nds[itree] * config->nt_per_trigger[itree]) / config->nups[itree];
+	for (int itree = 0; itree < config.ntrees; itree++) {
+	    int ndm_coarse = config.tree_size[itree] / config.ndm_per_trigger[itree];
+	    int nt_per_trigger = (config.nds[itree] * config.nt_per_trigger[itree]) / config.nups[itree];
 	    this->add_plot_group("bonsai_tree" + to_string(itree), nt_per_trigger, ndm_coarse);
 	}
     }
@@ -123,13 +117,13 @@ void bonsai_dedisperser::set_stream(const wi_stream &stream)
 {
     // Check that stream params match bonsai config
 
-    if (stream.nfreq != config->nchan)
+    if (stream.nfreq != config.nchan)
 	throw runtime_error("rf_transforms: value of 'nfreq' in stream doesn't match value in bonsai config");
-    if (reldist(stream.freq_lo_MHz, config->freq_lo_MHz) > 1.0e-4)
+    if (reldist(stream.freq_lo_MHz, config.freq_lo_MHz) > 1.0e-4)
 	throw runtime_error("rf_transforms: value of 'freq_lo_MHz' in stream doesn't match value in bonsai config");
-    if (reldist(stream.freq_hi_MHz, config->freq_hi_MHz) > 1.0e-4)
+    if (reldist(stream.freq_hi_MHz, config.freq_hi_MHz) > 1.0e-4)
 	throw runtime_error("rf_transforms: value of 'freq_hi_MHz' in stream doesn't match value in bonsai config");
-    if (reldist(stream.dt_sample, config->dt_sample) > 1.0e-3)
+    if (reldist(stream.dt_sample, config.dt_sample) > 1.0e-3)
 	throw runtime_error("rf_transforms: value of 'dt_sample' in stream doesn't match value in bonsai config");
 }
 
@@ -140,8 +134,6 @@ void bonsai_dedisperser::start_substream(int isubstream, double t0)
     // but we currently can't handle the case of a run which defines multiple substreams.
     if (isubstream > 0)
 	throw runtime_error("bonsai_dedisperser: currently can't process a stream which defines multiple substreams");
-
-    this->dedisperser = make_unique<my_dedisperser_subclass> (this);
     
     if (trigger_hdf5_filename.size())
 	dedisperser->start_trigger_file(this->trigger_hdf5_filename, this->nt_per_file);
@@ -164,12 +156,12 @@ void bonsai_dedisperser::process_chunk(double t0, double t1, float *intensity, f
 
 void bonsai_dedisperser::end_substream()
 {
-    // Calls end_trigger_file() and end_trigger_plots() if needed.
-    dedisperser->end_dedispersion();
-
     this->json_per_substream["frb_global_max_trigger"] = dedisperser->global_max_trigger;
     this->json_per_substream["frb_global_max_trigger_dm"] = dedisperser->global_max_trigger_dm;
     this->json_per_substream["frb_global_max_trigger_tfinal"] = dedisperser->global_max_trigger_arrival_time;
+
+    // Calls end_trigger_file() and end_trigger_plots() if needed.
+    dedisperser->end_dedispersion();
 }
 
 
