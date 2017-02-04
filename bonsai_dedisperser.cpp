@@ -23,13 +23,15 @@ shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_
 
 
 struct bonsai_dedisperser : public wi_transform {
-    string config_filename;
+    string config_hdf5_filename;
     string trigger_hdf5_filename;
     string trigger_plot_stem;
     int nt_per_file;
 
-    shared_ptr<bonsai::config_params> config;
-    shared_ptr<bonsai::dedisperser> dedisperser;
+    unique_ptr<bonsai::config_params> config;
+    unique_ptr<bonsai::hdf5_file> config_hdf5_file;
+    unique_ptr<bonsai::hdf5_group> config_hdf5_group;
+    unique_ptr<bonsai::dedisperser> dedisperser;
 
     bonsai_dedisperser(const string &config_hdf5_filename, const string &trigger_hdf5_filename, const string &trigger_plot_stem, int nt_per_file);
 
@@ -47,9 +49,11 @@ struct my_dedisperser_subclass : public bonsai::dedisperser {
     bonsai_dedisperser *transform;
 
     my_dedisperser_subclass(bonsai_dedisperser *transform_)
-	: bonsai::dedisperser(*transform_->config, true),  // init_weights=true
+	: bonsai::dedisperser(*transform_->config),
 	  transform(transform_)
-    { }
+    { 
+	this->read_analytic_variance(*transform->config_hdf5_group);
+    }
 
     virtual void _open_trigger_file(const string &basename, const string &datetime0_str, const string &datetime_str)
     {
@@ -60,12 +64,10 @@ struct my_dedisperser_subclass : public bonsai::dedisperser {
 
     virtual string _make_trigger_plot_filename(int itree, int ifile)
     {
-	auto config = transform->config;
-
 	int ndm = this->trigger_plot_ndm[itree];
 	int nt_coarse_curr = this->trigger_plot_nt_curr[itree];
 	int nt_coarse_max = this->trigger_plot_nt_max[itree];
-	int nt_per_trigger = (config->nds[itree] * config->nt_per_trigger[itree]) / config->nups[itree];
+	int nt_per_trigger = (config.nds[itree] * config.nt_per_trigger[itree]) / config.nups[itree];
 
 	ssize_t it0 = ssize_t(ifile) * ssize_t(nt_coarse_max) * ssize_t(nt_per_trigger);
 	ssize_t nt = ssize_t(nt_coarse_curr) * ssize_t(nt_per_trigger);
@@ -77,21 +79,24 @@ struct my_dedisperser_subclass : public bonsai::dedisperser {
 };
 
 
-bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename, const string &trigger_hdf5_filename_, const string &trigger_plot_stem_, int nt_per_file_) :
-    config_filename(config_hdf5_filename),
+bonsai_dedisperser::bonsai_dedisperser(const string &config_hdf5_filename_, const string &trigger_hdf5_filename_, const string &trigger_plot_stem_, int nt_per_file_) :
+    config_hdf5_filename(config_hdf5_filename_),
     trigger_hdf5_filename(trigger_hdf5_filename_),
     trigger_plot_stem(trigger_plot_stem_),
     nt_per_file(nt_per_file_)
 {
-    if (!endswith(config_filename,".hdf5") && !endswith(config_filename,".h5"))
+    if (!endswith(config_hdf5_filename,".hdf5") && !endswith(config_hdf5_filename,".h5"))
 	cerr << "rf_pipelines: warning: bonsai config filename doesn't end with .h5 or .hdf5, note that the bonsai_dedisperser requires an hdf5 file created with bonsai-mkweight\n";
     if (trigger_hdf5_filename.size() &&  !endswith(trigger_hdf5_filename,".hdf5") && !endswith(trigger_hdf5_filename,".h5"))
 	cerr << "rf_pipelines: warning: bonsai output filename doesn't end with .h5 or .hdf5\n";
 
-    this->config = make_shared<bonsai::config_params> (config_hdf5_filename, true);   // init_weights=true
+    this->config_hdf5_file = make_unique<bonsai::hdf5_file> (config_hdf5_filename);
+    this->config_hdf5_group = make_unique<bonsai::hdf5_group> (*config_hdf5_file, ".");
+    this->config = make_unique<bonsai::config_params> (*config_hdf5_group);
+    // Note: this->dedisperser will be initialized in start_substream()
 
     // initialize members of wi_transform base class
-    this->name = "bonsai_dedisperser(" + config_filename + ")";
+    this->name = "bonsai_dedisperser(" + config_hdf5_filename + ")";
     this->nfreq = config->nchan;
     this->nt_chunk = config->nt_data;
     this->nt_postpad = 0;
@@ -136,7 +141,7 @@ void bonsai_dedisperser::start_substream(int isubstream, double t0)
     if (isubstream > 0)
 	throw runtime_error("bonsai_dedisperser: currently can't process a stream which defines multiple substreams");
 
-    this->dedisperser = make_shared<my_dedisperser_subclass> (this);
+    this->dedisperser = make_unique<my_dedisperser_subclass> (this);
     
     if (trigger_hdf5_filename.size())
 	dedisperser->start_trigger_file(this->trigger_hdf5_filename, this->nt_per_file);
