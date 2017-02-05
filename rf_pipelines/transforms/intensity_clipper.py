@@ -5,7 +5,7 @@ import rf_pipelines
 from rf_pipelines import rf_pipelines_c
 
 
-def intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0., Df=1, Dt=1, two_pass=False, cpp=True, test=False):
+def intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0., Df=1, Dt=1, two_pass=False, cpp=True):
     """
     This transform clips the intensity along a selected 
     axis -- also works in planar (2D) mode -- and above 
@@ -15,7 +15,7 @@ def intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0.
 
     Constructor syntax:
 
-      t = intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0., Df=1, Dt=1, two_pass=False, cpp=True, test=False)
+      t = intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0., Df=1, Dt=1, two_pass=False, cpp=True)
 
       'nt_chunk=1024' is the buffer size.
 
@@ -40,8 +40,6 @@ def intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0.
 
       If 'two_pass=True' then a more numerically stable but slightly slower clipping algorithm
       will be used (only meaningful if cpp=True).
-
-      'test=False' enables a test mode (only meaningful if cpp=False)
     """
 
     if cpp:
@@ -50,7 +48,7 @@ def intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0.
     if (iter_sigma != 0) and (iter_sigma != sigma):
         print >>sys.stderr, 'rf_pipelines intensity_clipper(): warning: iter_sigma argument is currently ignored by python transform'
 
-    return intensity_clipper_python(sigma, niter, axis, nt_chunk, Df, Dt, test)
+    return intensity_clipper_python(sigma, niter, axis, nt_chunk, Df, Dt)
 
 
 def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=None, dsample_nt=None):
@@ -58,14 +56,13 @@ def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=No
     
     (nfreq, nt_chunk) = intensity.shape
 
-    # ------ Helper '__init__' calls ------
     assert axis in (None, 0, 1), "axis must be None (planar; freq and time), 0 (along freq; constant time), or 1 (along time; constant freq)."
     assert thr >= 1., "threshold must be >= 1."
     assert nt_chunk > 0
     assert (dsample_nt is None or dsample_nt > 0), "Invalid downsampling number along the time axis!"
     assert (dsample_nfreq is None or dsample_nfreq > 0), "Invalid downsampling number along the freq axis!"
 
-    # ------ Helper 'set_stream' calls ------
+
     coarse_grained = (dsample_nfreq < nfreq) or (dsample_nt < nt_chunk)
 
     if dsample_nfreq is None:
@@ -77,8 +74,8 @@ def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=No
         raise RuntimeError("clip_fx: current implementation requires 'dsample_nfreq' to be a divisor of stream nfreq.")
     if nt_chunk % dsample_nt != 0:
         raise RuntimeError("clip_fx: current implementation requires 'dsample_nt' to be a divisor of 'nt_chunk'.")
-    
-    # ------ Helper 'process_chunk' calls ------
+
+
     # Let's make a ref to the original high-resolution weights.
     weights_hres = weights
     
@@ -86,23 +83,14 @@ def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=No
         # Downsample the weights and intensity.
         (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights, dsample_nfreq, dsample_nt)
 
-    if axis == None: 
-        # 2D case: Compute (mean,rms) values after 'n_internal' iterations while clipping at the level of 'thr'
-        (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, n_internal, thr)
-        clip = rf_pipelines.tile_arr(np.asarray(rms), axis, dsample_nfreq, dsample_nt)
-        
-        # Boolean array which is True for masked values
-        mask = np.abs(intensity-mean) >= (thr * clip)
+    # Compute (mean, rms) values after 'n_internal' iterations while clipping at the level of 'thr'
+    (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, n_internal, thr, axis)
+    
+    mean = rf_pipelines.tile_arr(np.asarray(mean), axis, dsample_nfreq, dsample_nt)
+    clip = rf_pipelines.tile_arr(np.asarray(rms), axis, dsample_nfreq, dsample_nt)
 
-    else:
-        # 1D case
-        (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, n_internal, thr, axis)
-
-        mean = rf_pipelines.tile_arr(mean, axis, dsample_nfreq, dsample_nt)
-        clip = rf_pipelines.tile_arr(rms, axis, dsample_nfreq, dsample_nt)
-
-        # Boolean array which is True for masked values
-        mask = np.abs(intensity-mean) >= (thr * clip)
+    # Boolean array which is True for masked values
+    mask = np.abs(intensity-mean) >= (thr * clip)
 
     if coarse_grained:
         mask = rf_pipelines.upsample(mask, nfreq, nt_chunk)
@@ -119,7 +107,7 @@ class intensity_clipper_python(rf_pipelines.py_wi_transform):
                 implementation (in 2D and 1D) where the two 'thr' values need not be the same. 
     """
     
-    def __init__(self, thr=3., n_internal=1, axis=None, nt_chunk=1024, Df=1, Dt=1, test=False):
+    def __init__(self, thr=3., n_internal=1, axis=None, nt_chunk=1024, Df=1, Dt=1):
         name = 'intensity_clipper_python(thr=%f, n_internal=%d, axis=%s, nt_chunk=%d, Df=%d, Dt=%d)' % (thr, n_internal, axis, nt_chunk, Df, Dt)
         rf_pipelines.py_wi_transform.__init__(self, name)
 
@@ -132,7 +120,6 @@ class intensity_clipper_python(rf_pipelines.py_wi_transform):
         self.nt_postpad = 0
         self.Df = Df
         self.Dt = Dt
-        self.test = test
         
         assert Df > 0
         assert Dt > 0
@@ -152,15 +139,6 @@ class intensity_clipper_python(rf_pipelines.py_wi_transform):
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        # If 'test' is specified, this will be a pseudo-transform which doesn't modify data
-        # in the pipeline, but simulates some fake Gaussian data and reports the clipped fraction
-        if self.test:
-            intensity = np.random.normal(0, 1, size=intensity.shape)
-            weights = np.ones(weights.shape)
 
         # Using clip_fx() mask the 'weights' in place.
         clip_fx(intensity, weights, self.thr, self.n_internal, self.axis, self.dsample_nfreq, self.dsample_nt)
-
-        if self.test: 
-            unmasked_percentage = np.count_nonzero(weights_hres) / float(weights_hres.size) * 100.
-            print unmasked_percentage, "% not masked."
