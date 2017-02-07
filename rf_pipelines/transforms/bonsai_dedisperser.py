@@ -38,7 +38,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
     is implemented in bonsai.
     """
 
-    def __init__(self, config_hdf5_filename, img_prefix=None, img_ndm=None, img_nt=None, downsample_nt=1, n_zoom=1, trigger_hdf5_filename=None):
+    def __init__(self, config_hdf5_filename, img_ndm, img_nt, img_prefix=None, downsample_nt=1, n_zoom=1, trigger_hdf5_filename=None):
         # We import the bonsai module here, rather than at the top of the file, so that bonsai isn't
         # required to import rf_pipelines (but is required when you try to construct a bonsai_dedisperser).
         try:
@@ -68,6 +68,13 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         # Activates some fields in self.dedisperser which are used in the frb_olympics.
         self.dedisperser.global_max_trigger_active = True
 
+        # Set plotting parameters (ignoring zooming for now!!!)
+        self.img_ndm = img_ndm
+        self.img_nt = img_nt
+        self.downsample_nt = downsample_nt
+        self.samples_per_x = self.img_nt * self.downsample_nt   # time samples per x pixel
+        self.dimensions_init = False  # temporary! 
+
 
     def set_stream(self, stream):
         if stream.nfreq != self.nfreq:
@@ -91,14 +98,53 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         # of the (DM, pulse_width) parameter space.)
         #
         # Each 4D array is indexed by (DM_index, SM_index, beta_index, time_index).
-
         triggers = self.dedisperser.get_triggers()
 
-        # Plotter logic can go here!
+        # First, let's flatten the SM_index and beta_index axes by taking max values to get an array indexed only by dm and time
+        dm_t = np.amax(np.amax(triggers[0], axis=1), axis=1)
+    
+        # Here we check that some parameters are okay - temp. until trigger dimensions can be accessed from __init__! 
+        if self.dimensions_init == False:
+            self.trigger_dim = dm_t.shape
+            assert self.trigger_dim[0] % self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0]   # downsample or upsample dm
+            assert self.trigger_dim[1] % (self.nt_chunk / self.downsample_nt) == 0 or self.nt_chunk / self.downsample_nt % self.trigger_dim[1] == 0   # downsample or upsample t
+            self.dimensions_init = True
 
+        # With current implementation, array is iterated over twice - once to resize x axis and once to resize y axis
+        # If this is too much of a performance hit, I could write dedicated functions so the array must only be iterated over once, but I doubt this would help too much
+
+        # In the x (time) axis, we need to transform self.trigger_dim[1] to self.nt_chunk / self.downsample_nt - may need to downsample or upsample
+        if self.trigger_dim[1] > (self.nt_chunk / self.downsample_nt):
+            dm_t = self._max_downsample(dm_t, dm_t.shape[0], self.nt_chunk / self.downsample_nt)
+        elif self.trigger_dim[1] < (self.nt_chunk / self.downsample_nt):
+            dm_t = rf_pipelines.upsample(dm_t, dm_t.shape[0], self.nt_chunk / self.downsample_nt)
+
+        # In the y (dm) axis, we need to transform self.trigger_dim[0] to self.img_ndm - may need to downsample or upsample
+        if self.trigger_dim[0] > self.img_ndm:
+            dm_t = self._max_downsample(dm_t, self.img_ndm, dm_t.shape[1])
+        elif self.trigger_dim[0] < self.img_ndm:
+            dm_t = rf_pipelines.upsample(dm_t, self.img_ndm, dm_t.shape[1])
+
+        # Now the array will be scaled properly to stick into the plot accumulator array
+        # Do more things...
 
     def end_substream(self):
         self.dedisperser.end_dedispersion()
+
+
+    def _max_downsample(self, arr, new_dm, new_t):
+        """Takes maxima along axes"""
+        assert arr.ndim == 2
+        assert new_dm > 0
+        assert new_t > 0
+        (ndm, nt) = arr.shape
+        assert ndm % new_dm == 0
+        assert nt % new_t == 0
+        arr = np.reshape(arr, (new_dm, ndm//new_dm, new_t, nt//new_t))
+        arr = np.amax(arr, axis=3)
+        arr = np.amax(arr, axis=1)
+        return arr
+
 
 
 ####################################################################################################
