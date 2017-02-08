@@ -72,13 +72,23 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         self.img_ndm = img_ndm
         self.img_nt = img_nt
         self.downsample_nt = downsample_nt
-        self.samples_per_x = self.img_nt * self.downsample_nt   # time samples per x pixel
+        assert self.nt_chunk % self.downsample_nt == 0
+        self.nt_chunk_ds = self.nt_chunk // self.downsample_nt
         self.dimensions_init = False  # temporary! 
+        self.img_prefix = img_prefix
+        self.add_plot_group("waterfall", nt_per_pix=downsample_nt, ny=img_ndm)
 
 
     def set_stream(self, stream):
         if stream.nfreq != self.nfreq:
             raise RuntimeError("rf_pipelines: number of frequencies in stream (nfreq=%d) does not match bonsai config file '%s' (nfreq=%d)" % (stream.nfreq, self.config_hdf5_filename, self.nfreq))
+
+
+    def start_substream(self, isubstream, t0):
+        self.buf = np.zeros((self.img_ndm, self.img_nt), dtype=np.float32)
+        self.isubstream = isubstream
+        self.ifile = 0    # keeps track of which png file we're accumulating                                                                                                         
+        self.ipos = 0     # keeps track of how many (downsampled) time samples have been accumulated into file so far                                                                 
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
@@ -107,17 +117,16 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         if self.dimensions_init == False:
             self.trigger_dim = dm_t.shape
             assert self.trigger_dim[0] % self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0]   # downsample or upsample dm
-            assert self.trigger_dim[1] % (self.nt_chunk / self.downsample_nt) == 0 or self.nt_chunk / self.downsample_nt % self.trigger_dim[1] == 0   # downsample or upsample t
+            assert self.trigger_dim[1] % (self.nt_chunk_ds) == 0 or self.nt_chunk_ds % self.trigger_dim[1] == 0   # downsample or upsample t
             self.dimensions_init = True
 
         # With current implementation, array is iterated over twice - once to resize x axis and once to resize y axis
         # If this is too much of a performance hit, I could write dedicated functions so the array must only be iterated over once, but I doubt this would help too much
-
         # In the x (time) axis, we need to transform self.trigger_dim[1] to self.nt_chunk / self.downsample_nt - may need to downsample or upsample
-        if self.trigger_dim[1] > (self.nt_chunk / self.downsample_nt):
-            dm_t = self._max_downsample(dm_t, dm_t.shape[0], self.nt_chunk / self.downsample_nt)
-        elif self.trigger_dim[1] < (self.nt_chunk / self.downsample_nt):
-            dm_t = rf_pipelines.upsample(dm_t, dm_t.shape[0], self.nt_chunk / self.downsample_nt)
+        if self.trigger_dim[1] > self.nt_chunk_ds:
+            dm_t = self._max_downsample(dm_t, dm_t.shape[0], self.nt_chunk_ds)
+        elif self.trigger_dim[1] < self.nt_chunk_ds:
+            dm_t = rf_pipelines.upsample(dm_t, dm_t.shape[0], self.nt_chunk_ds)
 
         # In the y (dm) axis, we need to transform self.trigger_dim[0] to self.img_ndm - may need to downsample or upsample
         if self.trigger_dim[0] > self.img_ndm:
@@ -126,9 +135,24 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             dm_t = rf_pipelines.upsample(dm_t, self.img_ndm, dm_t.shape[1])
 
         # Now the array will be scaled properly to stick into the plot accumulator array
-        # Do more things...
+        ichunk = 0
+        while ichunk < self.nt_chunk_ds:
+            # Move to end of chunk or end of current plot, whichever comes first.                                                                                                                       
+            n = min(self.nt_chunk_ds - ichunk, self.img_nt - self.ipos)
+            assert n > 0
+            print self.buf.shape
+            print dm_t.shape
+            self.buf[:, self.ipos:(self.ipos+n)] = dm_t[:, ichunk:(ichunk+n)]
+            self.ipos += n
+            ichunk += n
+            
+            if self.ipos == self.img_nt:
+                self._write_file()
+
 
     def end_substream(self):
+        if self.ipos > 0:
+            self._write_file()
         self.dedisperser.end_dedispersion()
 
 
@@ -145,6 +169,26 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         arr = np.amax(arr, axis=1)
         return arr
 
+    def _write_file(self):
+        # When we reach end-of-stream, the buffer might be partially full (i.e. self.ipos < self.img_nt).                                                                                                  
+        # In this case, pad with black                                                                                                                                                                     
+        basename = self.img_prefix
+        if self.isubstream > 0:
+            basename += str(isubstream+1)
+        basename += ('_%s.png' % self.ifile)
+
+        # The add_plot() method adds the plot to the JSON output, and returns the filename that should be written.                                                                                         
+        filename = self.add_plot(basename,
+                                 it0 = int(self.ifile * self.img_nt * self.downsample_nt),
+                                 nt = self.img_nt * self.downsample_nt,
+                                 nx = self.buf.shape[1],
+                                 ny = self.buf.shape[0])
+
+        rf_pipelines.write_png(filename, self.buf, transpose=True)
+
+        self.buf[:, :] = 0.
+        self.ifile += 1
+        self.ipos = 0
 
 
 ####################################################################################################
