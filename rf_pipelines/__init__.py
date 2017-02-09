@@ -48,6 +48,7 @@ Streams:
    chime_stream_from_acqdir()
    chime_stream_from_filename()
    chime_stream_from_filename_list()
+   chime_stream_from_times()
    chime_network_stream()
    gaussian_noise_stream()
    psrfits_stream()
