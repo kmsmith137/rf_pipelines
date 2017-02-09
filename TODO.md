@@ -33,8 +33,6 @@
 
 - The pipeline needs a lot more documentation!!
 
-- Eventually we'll get rid of the 'imitate_cpp' optional argument on some transforms.
-
 - Some of the examples in the examples/ directory are currently broken.
 
 - Allowing 'axis' arugments to be strings { 'freq', 'time' } in python would be a nice cleanup.

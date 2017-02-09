@@ -7,25 +7,34 @@ class badchannel_mask(rf_pipelines.py_wi_transform):
 
     Constructor syntax:
 
-      t = badchannel_mask(maskpath, nt_chunk=1024)
+      t = badchannel_mask(maskpath=None, nt_chunk=1024, mask=None)
 
-      'maskpath' is the full path to a mask file that contains affected freq 
+      'maskpath=None' is the full path to a mask file that contains affected freq 
        intervals, written in rows with the following format: e.g., 420.02,423.03
 
       'nt_chunk=1024' is the buffer size, which is allowed to have a different 
        value in a chain of transforms.
+
+      'mask=None' is a list of user-supplied freq pairs for (additional) masking.
     """
 
-    def __init__(self, maskpath, nt_chunk=1024):
+    def __init__(self, maskpath=None, nt_chunk=1024, mask=None):
         
         self.maskpath = maskpath 
-        self.name = 'badchannel_mask(%s)' % maskpath
+        self.name = 'badchannel_mask(%s, %s)' % (maskpath, mask)
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
         
-        # Read the frequency mask into a numpy array.
-        self.freq_mask = np.genfromtxt(self.maskpath, delimiter=',')
+        # Read and stack the frequency masks into a numpy array.
+        if maskpath != None:
+            self.freq_mask = np.genfromtxt(self.maskpath, delimiter=',')
+            if mask != None:
+                self.freq_mask = np.vstack((self.freq_mask, mask))  
+        elif mask != None:
+            self.freq_mask = mask
+        else:
+            raise RuntimeError("badchannel_mask: all masks are None!")
 
     def set_stream(self, stream):
 
