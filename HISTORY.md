@@ -1,3 +1,11 @@
+- Version 12:
+
+     - Backwards-incompatible: the boolean 'noisy' argument to stream.run() has been replaced
+       with an integer-valued 'verbosity' argument (see docstring or comments for details).
+
+     - From Masoud: remove 'imitate_cpp=False' option from python RFI transforms, now that
+       C++ transform logic has been validated
+
 - Version 11:
 
      - Backwards-incompatible: The 'simd_helpers' library (https://github.com/kmsmith137/simd_helpers)
