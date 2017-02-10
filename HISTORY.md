@@ -3,8 +3,12 @@
      - Backwards-incompatible: the boolean 'noisy' argument to stream.run() has been replaced
        with an integer-valued 'verbosity' argument (see docstring or comments for details).
 
+     - From Maya: new python bonsai_dedisperser which makes zoomable plots for the web viewer.
+
      - From Masoud: remove 'imitate_cpp=False' option from python RFI transforms, now that
        C++ transform logic has been validated
+
+     - Minor internal changes reflecting API changes in bonsai v7.
 
 - Version 11:
 
