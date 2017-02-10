@@ -102,7 +102,7 @@ namespace constants {
     //   - you will need to recompile rf_pipelines after the change
 
     static constexpr int polynomial_detrender_max_degree = 20;
-    static constexpr int max_frequency_downsampling = 32;
+    static constexpr int max_frequency_downsampling = 256;
     static constexpr int max_time_downsampling = 32;
 
     // Number of single-precision floats which fit into a SIMD word on this machine.
