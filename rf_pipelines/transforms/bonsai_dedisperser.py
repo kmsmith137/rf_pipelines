@@ -38,14 +38,14 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
     is implemented in bonsai.
     """
 
-    def __init__(self, config_hdf5_filename, img_prefix="triggers", img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, trigger_hdf5_filename=None):
+    def __init__(self, config_hdf5_filename, img_prefix, img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, trigger_hdf5_filename=None):
         # We import the bonsai module here, rather than at the top of the file, so that bonsai isn't
         # required to import rf_pipelines (but is required when you try to construct a bonsai_dedisperser).
         try:
             import bonsai
         except ImportError:
             raise RuntimeError("rf_pipelines: couldn't import the 'bonsai' module.  You may need to clone https://github.com/CHIMEFRB/bonsai and install.")
-
+            
         name = "bonsai_dedisperser('%s')" % config_hdf5_filename
         rf_pipelines.py_wi_transform.__init__(self, name)
 
