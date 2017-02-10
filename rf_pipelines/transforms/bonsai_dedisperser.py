@@ -130,9 +130,9 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         # Because "zooming" only happens in the time axis, we can reshape the dm axis outside of the loop
         # In the y (dm) axis, we need to transform self.trigger_dim[0] to self.img_ndm - may need to downsample or upsample
         if self.trigger_dim[0] > self.img_ndm:
-            preserved_dm_t = self._max_downsample(dm_t, self.img_ndm, dm_t.shape[1])
+            preserved_dm_t = self._max_downsample(preserved_dm_t, self.img_ndm, preserved_dm_t.shape[1])
         elif self.trigger_dim[0] < self.img_ndm:
-            preserved_dm_t = rf_pipelines.upsample(dm_t, self.img_ndm, dm_t.shape[1])
+            preserved_dm_t = rf_pipelines.upsample(preserved_dm_t, self.img_ndm, preserved_dm_t.shape[1])
             
         for zoom_level in xrange(self.n_zoom): 
             dm_t = preserved_dm_t.copy()
