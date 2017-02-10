@@ -66,7 +66,6 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         elif nt_chunk % max_downsample != 0:
             raise RuntimeError("plotter_transform: specified nt_chunk(=%d) must be a multiple of downsampling factor at max zoom level (=%d)" % (nt_chunk,max_downsample))
 
-        self.name = 'plotter_transform'
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
