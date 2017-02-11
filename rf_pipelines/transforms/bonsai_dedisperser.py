@@ -133,7 +133,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             # Here we check that some parameters are okay - temp. until trigger dimensions can be accessed from __init__! 
             if self.dimensions_init == False:
                 self.trigger_dim = preserved_dm_t.shape
-                assert self.trigger_dim[0] % self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0]   # downsample or upsample dm
+                assert self.trigger_dim[0] % self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0] == 0   # downsample or upsample dm
                 assert self.trigger_dim[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % self.trigger_dim[1] == 0   # downsample or upsample t
                 self.dimensions_init = True
 
