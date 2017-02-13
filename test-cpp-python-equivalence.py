@@ -334,10 +334,10 @@ def test_clippers():
         (intensity, weights0) = make_clipper_test_data(nfreq, nt, axis, Df, Dt)
 
         weights1 = copy_array(weights0, tame=True)
-        clip_fx(intensity, weights1, thr = 0.999 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt, imitate_cpp=True)
+        clip_fx(intensity, weights1, thr = 0.999 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt)
 
         weights2 = copy_array(weights0, tame=True)
-        clip_fx(intensity, weights2, thr = 1.001 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt, imitate_cpp=True)
+        clip_fx(intensity, weights2, thr = 1.001 * thresh, n_internal=1, axis=axis, dsample_nfreq=nfreq//Df, dsample_nt=nt//Dt)
             
         weights3 = copy_array(weights0, allow_float64=True)
         rf_pipelines_c.apply_intensity_clipper(copy_array(intensity), weights3, axis, thresh, Df=Df, Dt=Dt, two_pass=two_pass)
@@ -358,10 +358,10 @@ def test_clippers():
             continue   # std_dev clipper is not defined for axis=None
 
         weights1 = np.array(weights0, dtype=np.float32)
-        filter_stdv(intensity, weights1, thr = 0.999 * thresh, axis = axis, dsample_nfreq = nfreq//Df, dsample_nt = nt//Dt, imitate_cpp = True)
+        filter_stdv(intensity, weights1, thr = 0.999 * thresh, axis = axis, dsample_nfreq = nfreq//Df, dsample_nt = nt//Dt)
 
         weights2 = np.array(weights0, dtype=np.float32)
-        filter_stdv(intensity, weights2, thr = 1.001 * thresh, axis = axis, dsample_nfreq = nfreq//Df, dsample_nt = nt//Dt, imitate_cpp = True)
+        filter_stdv(intensity, weights2, thr = 1.001 * thresh, axis = axis, dsample_nfreq = nfreq//Df, dsample_nt = nt//Dt)
         
         weights3 = np.array(weights0, dtype=np.float32)
         rf_pipelines_c.apply_std_dev_clipper(intensity, weights3, axis, thresh, Df, Dt, two_pass)
@@ -703,7 +703,7 @@ def test_transforms():
         dt_sample = 1.0e-3
         stream = rf_pipelines.gaussian_noise_stream(nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample)
 
-        stream.run(transform_chain, outdir=None, noisy=False)
+        stream.run(transform_chain, outdir=None, verbosity=0)
 
     print >>sys.stderr, 'test_transforms: pass'
 

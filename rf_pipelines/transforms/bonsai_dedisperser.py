@@ -45,6 +45,11 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             import bonsai
         except ImportError:
             raise RuntimeError("rf_pipelines: couldn't import the 'bonsai' module.  You may need to clone https://github.com/CHIMEFRB/bonsai and install.")
+        
+        if img_prefix is None:
+            self.make_plot = False
+        else:
+            self.make_plot = True
 
         name = "bonsai_dedisperser('%s')" % config_hdf5_filename
         rf_pipelines.py_wi_transform.__init__(self, name)
@@ -68,23 +73,25 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         self.dedisperser.global_max_trigger_active = True
 
         # Set plotting parameters
-        self.n_zoom = n_zoom
-        self.img_ndm = img_ndm
-        self.img_nt = img_nt
-        self.downsample_nt = [downsample_nt]
-        self.nt_chunk_ds = [self.nt_chunk // self.downsample_nt[0]]
-        self.img_prefix = [str(img_prefix) + "_zoom0"]
-        self.add_plot_group("waterfall", nt_per_pix=downsample_nt, ny=img_ndm)
-        if self.n_zoom > 1:
-            for zoom_level in xrange(self.n_zoom - 1):
-                self.downsample_nt += [self.downsample_nt[zoom_level] * 2]   # zoom_level = previous element's index because of the original value added                                                   
-                self.nt_chunk_ds += [self.nt_chunk // self.downsample_nt[zoom_level + 1]]
-                self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[zoom_level + 1], ny=img_ndm)
-                self.img_prefix += [img_prefix + "_zoom" + str(zoom_level+1)]
-        self.dimensions_init = False  # temporary! 
+        if self.make_plot:
+            self.n_zoom = n_zoom
+            self.img_ndm = img_ndm
+            self.img_nt = img_nt
+            self.downsample_nt = [downsample_nt]
+            self.nt_chunk_ds = [self.nt_chunk // self.downsample_nt[0]]
+            self.img_prefix = [str(img_prefix) + "_zoom0"]
+            self.add_plot_group("waterfall", nt_per_pix=downsample_nt, ny=img_ndm)
+            if self.n_zoom > 1:
+                for zoom_level in xrange(self.n_zoom - 1):
+                    self.downsample_nt += [self.downsample_nt[zoom_level] * 2]   # zoom_level = previous element's index because of the original value added
+                    self.nt_chunk_ds += [self.nt_chunk // self.downsample_nt[zoom_level + 1]]
+                    self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[zoom_level + 1], ny=img_ndm)
+                    self.img_prefix += [img_prefix + "_zoom" + str(zoom_level+1)] 
+            self.dimensions_init = False  # temporary! 
 
-        if self.nt_chunk % self.downsample_nt[-1] != 0:
-            raise RuntimeError("bonsai plotter transform: specified nt_chunk(=%d) must be a multiple of downsampling factor at max zoom level (=%d)" % (self.nt_chunk, self.downsample_nt[-1]))
+            if self.nt_chunk % self.downsample_nt[-1] != 0:
+                raise RuntimeError("bonsai plotter transform: specified nt_chunk(=%d) must be a multiple of downsampling factor at max zoom level (=%d)" 
+                                   % (self.nt_chunk, self.downsample_nt[-1]))
         
 
     def set_stream(self, stream):
@@ -93,10 +100,12 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
 
     def start_substream(self, isubstream, t0):
-        self.buf = np.zeros((self.n_zoom, self.img_ndm, self.img_nt), dtype=np.float32)
-        self.isubstream = isubstream
-        self.ifile = np.zeros((self.n_zoom))    # keeps track of which png file we're accumulating                                                                                                         
-        self.ipos = np.zeros((self.n_zoom))     # keeps track of how many (downsampled) time samples have been accumulated into file so far                                                                 
+        if self.make_plot:
+            self.buf = np.zeros((self.n_zoom, self.img_ndm, self.img_nt), dtype=np.float32)
+            self.isubstream = isubstream
+            self.ifile = np.zeros((self.n_zoom))    # keeps track of which png file we're accumulating 
+            self.ipos = np.zeros((self.n_zoom))     # keeps track of how many (downsampled) time samples have been accumulated into file so far
+
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         # FIXME some day I'd like to remove this extra copy required by current cython implementation
@@ -115,53 +124,54 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         # of the (DM, pulse_width) parameter space.)
         #
         # Each 4D array is indexed by (DM_index, SM_index, beta_index, time_index).
-        triggers = self.dedisperser.get_triggers()
+        if self.make_plot:
+            triggers = self.dedisperser.get_triggers()
 
-        # First, let's flatten the SM_index and beta_index axes by taking max values to get an array indexed only by dm and time
-        preserved_dm_t = np.amax(np.amax(triggers[0], axis=1), axis=1)
+            # First, let's flatten the SM_index and beta_index axes by taking max values to get an array indexed only by dm and time
+            preserved_dm_t = np.amax(np.amax(triggers[0], axis=1), axis=1)
     
-        # Here we check that some parameters are okay - temp. until trigger dimensions can be accessed from __init__! 
-        if self.dimensions_init == False:
-            self.trigger_dim = preserved_dm_t.shape
-            assert self.trigger_dim[0] % self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0]   # downsample or upsample dm
-            assert self.trigger_dim[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % self.trigger_dim[1] == 0   # downsample or upsample t
-            self.dimensions_init = True
+            # Here we check that some parameters are okay - temp. until trigger dimensions can be accessed from __init__! 
+            if self.dimensions_init == False:
+                self.trigger_dim = preserved_dm_t.shape
+                assert self.trigger_dim[0] % self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0] == 0   # downsample or upsample dm
+                assert self.trigger_dim[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % self.trigger_dim[1] == 0   # downsample or upsample t
+                self.dimensions_init = True
 
-        # Because "zooming" only happens in the time axis, we can reshape the dm axis outside of the loop
-        # In the y (dm) axis, we need to transform self.trigger_dim[0] to self.img_ndm - may need to downsample or upsample
-        if self.trigger_dim[0] > self.img_ndm:
-            preserved_dm_t = self._max_downsample(dm_t, self.img_ndm, dm_t.shape[1])
-        elif self.trigger_dim[0] < self.img_ndm:
-            preserved_dm_t = rf_pipelines.upsample(dm_t, self.img_ndm, dm_t.shape[1])
-            
-        for zoom_level in xrange(self.n_zoom): 
-            dm_t = preserved_dm_t.copy()
+            # Because "zooming" only happens in the time axis, we can reshape the dm axis outside of the loop
+            # In the y (dm) axis, we need to transform self.trigger_dim[0] to self.img_ndm - may need to downsample or upsample
+            if self.trigger_dim[0] > self.img_ndm:
+                preserved_dm_t = self._max_downsample(preserved_dm_t, self.img_ndm, preserved_dm_t.shape[1])
+            elif self.trigger_dim[0] < self.img_ndm:
+                preserved_dm_t = rf_pipelines.upsample(preserved_dm_t, self.img_ndm, preserved_dm_t.shape[1])
+                    
+            for zoom_level in xrange(self.n_zoom): 
+                dm_t = preserved_dm_t.copy()
 
-            # In the x (time) axis, we need to transform self.trigger_dim[1] to self.nt_chunk / self.downsample_nt - may need to downsample or upsample
-            if dm_t.shape[1] > self.nt_chunk_ds[zoom_level]:
-                dm_t = self._max_downsample(dm_t, dm_t.shape[0], self.nt_chunk_ds[zoom_level])
-            elif dm_t.shape[1] < self.nt_chunk_ds[zoom_level]:
-                print dm_t.shape[1], self.nt_chunk_ds[zoom_level]
-                dm_t = rf_pipelines.upsample(dm_t, dm_t.shape[0], self.nt_chunk_ds[zoom_level])
+                # In the x (time) axis, we need to transform self.trigger_dim[1] to self.nt_chunk / self.downsample_nt - may need to downsample or upsample
+                if dm_t.shape[1] > self.nt_chunk_ds[zoom_level]:
+                    dm_t = self._max_downsample(dm_t, dm_t.shape[0], self.nt_chunk_ds[zoom_level])
+                elif dm_t.shape[1] < self.nt_chunk_ds[zoom_level]:
+                    dm_t = rf_pipelines.upsample(dm_t, dm_t.shape[0], self.nt_chunk_ds[zoom_level])
  
-            # Now the array will be scaled properly to stick into the plot accumulator array
-            ichunk = 0
-            while ichunk < self.nt_chunk_ds[zoom_level]:
-                # Move to end of chunk or end of current plot, whichever comes first.                                                                                                                      
-                n = min(self.nt_chunk_ds[zoom_level] - ichunk, self.img_nt - self.ipos[zoom_level])
-                assert n > 0
-                self.buf[zoom_level, :, self.ipos[zoom_level]:(self.ipos[zoom_level]+n)] = dm_t[:, ichunk:(ichunk+n)]
-                self.ipos[zoom_level] += n
-                ichunk += n
+                # Now the array will be scaled properly to stick into the plot accumulator array
+                ichunk = 0
+                while ichunk < self.nt_chunk_ds[zoom_level]:
+                    # Move to end of chunk or end of current plot, whichever comes first.                                                                                        
+                    n = min(self.nt_chunk_ds[zoom_level] - ichunk, self.img_nt - self.ipos[zoom_level])
+                    assert n > 0
+                    self.buf[zoom_level, :, self.ipos[zoom_level]:(self.ipos[zoom_level]+n)] = dm_t[:, ichunk:(ichunk+n)]
+                    self.ipos[zoom_level] += n
+                    ichunk += n
             
-                if self.ipos[zoom_level] == self.img_nt:
-                    self._write_file(zoom_level)
-
+                    if self.ipos[zoom_level] >= self.img_nt:
+                        self._write_file(zoom_level)
+ 
 
     def end_substream(self):
-        for zoom_level in xrange(self.n_zoom):
-            if self.ipos[zoom_level] > 0:
-                self._write_file(zoom_level)
+        if self.make_plot:
+            for zoom_level in xrange(self.n_zoom):
+                if self.ipos[zoom_level] > 0:
+                    self._write_file(zoom_level)
         self.dedisperser.end_dedispersion()
 
 

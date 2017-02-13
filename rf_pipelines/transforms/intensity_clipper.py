@@ -5,7 +5,7 @@ import rf_pipelines
 from rf_pipelines import rf_pipelines_c
 
 
-def intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0., Df=1, Dt=1, imitate_cpp=True, two_pass=False, cpp=True, test=False):
+def intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0., Df=1, Dt=1, two_pass=False, cpp=True):
     """
     This transform clips the intensity along a selected 
     axis -- also works in planar (2D) mode -- and above 
@@ -15,7 +15,7 @@ def intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0.
 
     Constructor syntax:
 
-      t = intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0., Df=1, Dt=1, imitate_cpp=True, two_pass=False, cpp=True, test=False)
+      t = intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0., Df=1, Dt=1, two_pass=False, cpp=True)
 
       'nt_chunk=1024' is the buffer size.
 
@@ -38,14 +38,8 @@ def intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0.
       'cpp=True' will use fast C++ transforms
       'cpp=False' will use reference python transforms
 
-      The 'imitate_cpp' flag may be phased out in the future (only meaningful if cpp=False)
-        - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
-        - if False, then the old v10 logic will be used.
-
       If 'two_pass=True' then a more numerically stable but slightly slower clipping algorithm
       will be used (only meaningful if cpp=True).
-
-      'test=False' enables a test mode (only meaningful if cpp=False)
     """
 
     if cpp:
@@ -54,29 +48,21 @@ def intensity_clipper(nt_chunk=1024, sigma=3., axis=None, niter=1, iter_sigma=0.
     if (iter_sigma != 0) and (iter_sigma != sigma):
         print >>sys.stderr, 'rf_pipelines intensity_clipper(): warning: iter_sigma argument is currently ignored by python transform'
 
-    return intensity_clipper_python(sigma, niter, axis, nt_chunk, Df, Dt, test, imitate_cpp)
+    return intensity_clipper_python(sigma, niter, axis, nt_chunk, Df, Dt)
 
 
-def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=None, dsample_nt=None, imitate_cpp=True):
-    """
-    Helper function for intensity_clipper_python. Modifies 'weights' array in place.
-
-    The 'imitate_cpp' flag may be phased out in the future (by removing the False branch).
-      - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
-      - if False, then the old v10 logic will be used.
-    """
+def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=None, dsample_nt=None):
+    """Helper function for intensity_clipper_python. Modifies 'weights' array in place."""
     
     (nfreq, nt_chunk) = intensity.shape
 
-    # ------ Helper '__init__' calls ------
     assert axis in (None, 0, 1), "axis must be None (planar; freq and time), 0 (along freq; constant time), or 1 (along time; constant freq)."
     assert thr >= 1., "threshold must be >= 1."
     assert nt_chunk > 0
     assert (dsample_nt is None or dsample_nt > 0), "Invalid downsampling number along the time axis!"
     assert (dsample_nfreq is None or dsample_nfreq > 0), "Invalid downsampling number along the freq axis!"
-    assert type(imitate_cpp) == bool
 
-    # ------ Helper 'set_stream' calls ------
+
     coarse_grained = (dsample_nfreq < nfreq) or (dsample_nt < nt_chunk)
 
     if dsample_nfreq is None:
@@ -88,8 +74,8 @@ def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=No
         raise RuntimeError("clip_fx: current implementation requires 'dsample_nfreq' to be a divisor of stream nfreq.")
     if nt_chunk % dsample_nt != 0:
         raise RuntimeError("clip_fx: current implementation requires 'dsample_nt' to be a divisor of 'nt_chunk'.")
-    
-    # ------ Helper 'process_chunk' calls ------
+
+
     # Let's make a ref to the original high-resolution weights.
     weights_hres = weights
     
@@ -97,37 +83,14 @@ def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=No
         # Downsample the weights and intensity.
         (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights, dsample_nfreq, dsample_nt)
 
-    if axis == None: 
-        # In the 2D case, the behavior with and without imitate_cpp is the same.
-        # Compute (mean,rms) values after 'n_internal' iterations while clipping at the level of 'thr'
-        (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, n_internal, thr)
-        clip = rf_pipelines.tile_arr(np.asarray(rms), axis, dsample_nfreq, dsample_nt)
-        
-        # Boolean array which is True for masked values
-        mask = np.abs(intensity-mean) >= (thr * clip)
+    # Compute (mean, rms) values after 'n_internal' iterations while clipping at the level of 'thr'
+    (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, n_internal, thr, axis)
+    
+    mean = rf_pipelines.tile_arr(np.asarray(mean), axis, dsample_nfreq, dsample_nt)
+    clip = rf_pipelines.tile_arr(np.asarray(rms), axis, dsample_nfreq, dsample_nt)
 
-    elif imitate_cpp:
-        # 1D case, with imitate_cpp=True
-        (mean, rms) = rf_pipelines.weighted_mean_and_rms(intensity, weights, n_internal, thr, axis)
-
-        mean = rf_pipelines.tile_arr(mean, axis, dsample_nfreq, dsample_nt)
-        clip = rf_pipelines.tile_arr(rms, axis, dsample_nfreq, dsample_nt)
-
-        # Boolean array which is True for masked values
-        mask = np.abs(intensity-mean) >= (thr * clip)
-
-    else:
-        # 1D case, with imitate_cpp=False
-        # Compute (sum_i W_i I_i^2) and (sum_i W_i)
-        num = np.asarray(np.sum(weights*(intensity)**2, axis=axis))
-        den = np.asarray(np.sum(weights, axis=axis))
-
-        np.putmask(den, den==0., 1.0)     # replace 0.0 by 1.0 to avoid divide-by-zero
-
-        clip = np.sqrt(num/den)
-        clip = rf_pipelines.tile_arr(clip, axis, dsample_nfreq, dsample_nt)
-
-        mask = np.abs(intensity) > (thr * clip)
+    # Boolean array which is True for masked values
+    mask = np.abs(intensity-mean) >= (thr * clip)
 
     if coarse_grained:
         mask = rf_pipelines.upsample(mask, nfreq, nt_chunk)
@@ -139,20 +102,12 @@ def clip_fx(intensity, weights, thr=3, n_internal=1, axis=None, dsample_nfreq=No
 
 class intensity_clipper_python(rf_pipelines.py_wi_transform):
     """
-    Limitations:
-        - 'n_internal' is only supported in 2D (axis=None) if 'imitate_cpp=False'
-        - In 2D (axis=None), the same threshold value 'thr=3' is used for the internal 
-          and external clipping loops. See 'intensity_clippers.cpp' for an advanced 
-          implementation (in 2D and 1D) where the two 'thr' values need not be the same. 
-        - FIXME Assumes zero mean (i.e., the intensity has already been detrended along 
-          the selected axis).
-
-      The 'imitate_cpp' flag may be phased out in the future (by removing the False branch).
-        - if True, then the python transform will imitate the fast C++ transform (introduced in v11).
-        - if False, then the old v10 logic will be used.
+    Limitation: In 2D (axis=None), the same threshold value 'thr=3' is used for the internal 
+                and external clipping loops. See 'intensity_clippers.cpp' for an advanced 
+                implementation (in 2D and 1D) where the two 'thr' values need not be the same. 
     """
     
-    def __init__(self, thr=3., n_internal=1, axis=None, nt_chunk=1024, Df=1, Dt=1, test=False, imitate_cpp=True):
+    def __init__(self, thr=3., n_internal=1, axis=None, nt_chunk=1024, Df=1, Dt=1):
         name = 'intensity_clipper_python(thr=%f, n_internal=%d, axis=%s, nt_chunk=%d, Df=%d, Dt=%d)' % (thr, n_internal, axis, nt_chunk, Df, Dt)
         rf_pipelines.py_wi_transform.__init__(self, name)
 
@@ -165,8 +120,6 @@ class intensity_clipper_python(rf_pipelines.py_wi_transform):
         self.nt_postpad = 0
         self.Df = Df
         self.Dt = Dt
-        self.test = test
-        self.imitate_cpp = imitate_cpp
         
         assert Df > 0
         assert Dt > 0
@@ -186,15 +139,6 @@ class intensity_clipper_python(rf_pipelines.py_wi_transform):
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        # If 'test' is specified, this will be a pseudo-transform which doesn't modify data
-        # in the pipeline, but simulates some fake Gaussian data and reports the clipped fraction
-        if self.test:
-            intensity = np.random.normal(0, 1, size=intensity.shape)
-            weights = np.ones(weights.shape)
 
         # Using clip_fx() mask the 'weights' in place.
-        clip_fx(intensity, weights, self.thr, self.n_internal, self.axis, self.dsample_nfreq, self.dsample_nt, self.imitate_cpp)
-
-        if self.test: 
-            unmasked_percentage = np.count_nonzero(weights_hres) / float(weights_hres.size) * 100.
-            print unmasked_percentage, "% not masked."
+        clip_fx(intensity, weights, self.thr, self.n_internal, self.axis, self.dsample_nfreq, self.dsample_nt)
