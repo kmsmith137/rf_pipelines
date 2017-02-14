@@ -24,7 +24,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
 
         assert nt_chunk % v1_chunk == 0, \
             'For now, nt_chunk(=%d) must be a multiple of v1_chunk(=%d)' % (nt_chunk, v1_chunk)
-                self.v1_chunk = v1_chunk
+        self.v1_chunk = v1_chunk
         
         self.v2_chunk = v2_chunk
         self.nt_chunk = nt_chunk
