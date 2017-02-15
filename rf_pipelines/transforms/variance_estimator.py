@@ -8,7 +8,8 @@ class variance_estimator(rf_pipelines.py_wi_transform):
     
     This estimates the variance of the intensity/weights arrays passed to it. First, 
     it computes the variance across v1_chunk number of timesamples. Then, it takes the 
-    median of v2_chunk number of v1 estimates. 
+    median of v2_chunk number of v1 estimates. Note that in the case of the majority of 
+    a channel being masked, the variance will be 0.
 
     Thus, the final variance array produced is of dimensions
         (nfreq, total number of time samples / v1_chunk / v1_chunk)
@@ -24,8 +25,8 @@ class variance_estimator(rf_pipelines.py_wi_transform):
 
         assert nt_chunk % v1_chunk == 0, \
             'For now, nt_chunk(=%d) must be a multiple of v1_chunk(=%d)' % (nt_chunk, v1_chunk)
-        self.v1_chunk = v1_chunk
-        
+
+        self.v1_chunk = v1_chunk        
         self.v2_chunk = v2_chunk
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0  
@@ -43,7 +44,6 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         self.v1 = np.zeros((self.nfreq, self.v1_chunk))
         self.iv1 = np.zeros((self.nfreq), dtype=np.int32) # keeps track of which positon we are adding v1 to 
         self.v2 = []
-
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         # This is the main computational routine defining the transform, which is called
@@ -68,15 +68,16 @@ class variance_estimator(rf_pipelines.py_wi_transform):
     def end_substream(self):
         # Reshape self.v2
         out = np.array(self.v2).reshape((self.nfreq, -1))
-        print out.shape
-        print out
 
-        # Interpolate nans 
+        # Interpolate nans
+        indices = np.arange(len(out[0]))
         for frequency in xrange(self.nfreq):
-            a = out[frequency]
-            nans, x = self._nan_helper(a)
-            a[nans]= np.interp(x(nans), x(~nans), a[~nans])
-        
+            not_nan = np.logical_not(np.isnan(out[frequency]))
+            if True not in not_nan:
+                out[frequency] = np.zeros((len(out[0])))
+            else:
+                out[frequency] = np.interp(indices, indices[not_nan], out[frequency, not_nan])
+
         # Write data to script directory
         np.save('var-%s.npy' % (time.strftime('%y-%m-%d-%X')), out)
 
