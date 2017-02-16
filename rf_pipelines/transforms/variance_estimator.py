@@ -2,6 +2,7 @@ import rf_pipelines
 import numpy as np
 import time
 
+
 class variance_estimator(rf_pipelines.py_wi_transform):
     """
     This is a pseudo-transform (meaning that it does not actually modify its input). 
@@ -47,6 +48,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         self.iv1 = np.zeros((self.nfreq), dtype=np.int32)  # keeps track of which positon we are adding v1 to 
         self.v2 = []
 
+
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         # This is the main computational routine defining the transform, which is called
         # once per incoming "block" of data.  For documentation on the interface see
@@ -77,7 +79,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         indices = np.arange(len(out[0]))
         for frequency in xrange(self.nfreq):
             nonzero = np.nonzero(out[frequency])[0]
-            if len(nonzero) == 0:
+            if len(nonzero) < 0.25 * len(indices):
                 out[frequency] = np.zeros((len(out[0])))
             else:
                 out[frequency] = np.interp(indices, nonzero, out[frequency, nonzero])
