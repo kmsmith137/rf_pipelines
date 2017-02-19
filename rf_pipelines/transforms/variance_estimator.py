@@ -86,7 +86,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
     
         # Write data to script directory
         if self.fname is None:
-            np.save('var-%s.npy' % (time.strftime('%y-%m-%d-%X')), out)
+            np.save('var-v1%d-v2%d-%s.npy' % (self.v1_chunk, self.v2_chunk, time.strftime('%y-%m-%d-%X')), out)
         else:
             np.save('%s-%s.npy' % (self.fname, time.strftime('%y-%m-%d-%X')), out)
 
