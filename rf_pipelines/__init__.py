@@ -419,6 +419,7 @@ from .transforms.std_dev_clipper import std_dev_clipper
 from .transforms.thermal_noise_weight import thermal_noise_weight
 from .transforms.RC_detrender import RC_detrender
 from .transforms.variance_estimator import variance_estimator
+from .transforms.mask_filler import mask_filler
 
 # Helper routines for implementing new transforms in python.
 
