@@ -20,7 +20,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
     """
 
     def __init__(self, v1_chunk=128, v2_chunk=64, nt_chunk=1024, fname=None):
-        name = "variance_estimator('v1_chunk=%d, v2_chunk=%d, nt_chunk=%d')" % (v1_chunk, v2_chunk, nt_chunk)
+        name = "variance_estimator(v1_chunk=%d, v2_chunk=%d, nt_chunk=%d)" % (v1_chunk, v2_chunk, nt_chunk)
 
         # Call base class constructor
         rf_pipelines.py_wi_transform.__init__(self, name)
