@@ -44,7 +44,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
 
     def start_substream(self, isubstream, t0):
         # Called once per substream (a stream can be split into multiple substreams).
-        self.v1 = np.zeros((self.nfreq, self.v1_chunk))
+        self.v1 = np.zeros((self.nfreq, self.v2_chunk))
         self.iv1 = np.zeros((self.nfreq), dtype=np.int32)  # keeps track of which positon we are adding v1 to 
         self.v2 = []
 
@@ -86,7 +86,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
     
         # Write data to script directory
         if self.fname is None:
-            np.save('var-v1%d-v2%d-%s.npy' % (self.v1_chunk, self.v2_chunk, time.strftime('%y-%m-%d-%X')), out)
+            np.save('var-v1-%d-v2-%d-%s.npy' % (self.v1_chunk, self.v2_chunk, time.strftime('%y-%m-%d-%X')), out)
         else:
             np.save('%s-%s.npy' % (self.fname, time.strftime('%y-%m-%d-%X')), out)
 
