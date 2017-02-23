@@ -43,9 +43,16 @@ int main() {
                                        fpga_counts_per_sample, ichunk);
 
     vector<string> fns;
+    fns.push_back("00000040.h5");
+    fns.push_back("00000041.h5");
     fns.push_back("00000042.h5");
     fns.push_back("00000043.h5");
     fns.push_back("00000044.h5");
+    fns.push_back("00000045.h5");
+    fns.push_back("00000046.h5");
+    fns.push_back("00000047.h5");
+    fns.push_back("00000048.h5");
+    fns.push_back("00000049.h5");
     auto stream = make_chime_stream_from_filename_list(fns);
 
     string dest = "127.0.0.1:10252";
@@ -55,7 +62,8 @@ int main() {
     int nfreq_coarse_per_packet = 4;
     int nt_per_chunk = ch_frb_io::constants::nt_per_assembled_chunk;
     //nt_per_packet = 16;
-    nt_per_packet = 4;
+    //nt_per_packet = 4;
+    nt_per_packet = 2;
     float wt_cutoff = 1e6;
     float target_gbps = 0.;
     
