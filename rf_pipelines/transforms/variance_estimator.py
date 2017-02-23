@@ -17,6 +17,9 @@ class variance_estimator(rf_pipelines.py_wi_transform):
 
     The variance array is written out as a .npy file in the directory of the test script.
     The prefix for this outputted file can be determined by the fname argument. 
+    Variance arrays are outputted after the v2 array accumulated 32 x pixels so that v2 
+    does not become too large and too much data is not lost if something causes the
+    pipeline run to terminate. 
     """
 
     def __init__(self, v1_chunk=128, v2_chunk=64, nt_chunk=1024, fname=None):
@@ -65,13 +68,30 @@ class variance_estimator(rf_pipelines.py_wi_transform):
                         self.v2.append(0)
                     else:
                         # Here, we want to ignore elements with value 0
-                        # print np.median(self.v1[frequency][np.nonzero(self.v1[frequency])])
                         self.v2.append(np.median(self.v1[frequency][np.nonzero(self.v1[frequency])]))
                     self.v1[frequency] = []
                     self.iv1[frequency] = 0
+                    # Write a file every now and then (for now, after 32 x-pixels are produced)
+                    if len(self.v2) >= 1024*32:
+                        self._write()
 
 
     def end_substream(self):
+        """Write any remaining data"""
+        if len(self.v2) >= 1024:
+            self._write()
+
+
+    def _v1(self, i, w):
+        """Calculate weighted variance"""
+        w_sum = w.sum()
+        if np.count_nonzero(w) < self.v1_chunk * 0.25:
+            return 0
+        return np.average(i**2, weights=w) 
+    
+
+    def _write(self):
+        """Writes a .npy file"""
         # Reshape self.v2
         out = np.array(self.v2).reshape((self.nfreq, -1))
 
@@ -83,20 +103,14 @@ class variance_estimator(rf_pipelines.py_wi_transform):
                 out[frequency] = np.zeros((len(out[0])))
             else:
                 out[frequency] = np.interp(indices, nonzero, out[frequency, nonzero])
-    
+
         # Write data to script directory
         if self.fname is None:
-            np.save('var-v1-%d-v2-%d-%s.npy' % (self.v1_chunk, self.v2_chunk, time.strftime('%y-%m-%d-%X')), out)
+            name = 'var-v1-%d-v2-%d-%s.npy' % (self.v1_chunk, self.v2_chunk, time.strftime('%y-%m-%d-%X'))
         else:
-            np.save('%s-%s.npy' % (self.fname, time.strftime('%y-%m-%d-%X')), out)
-
-
-    def _v1(self, i, w):
-        """Calculate weighted variance"""
-        w_sum = w.sum()
-        if np.count_nonzero(w) < self.v1_chunk * 0.25:
-            return 0
-        average = np.average(i, weights=w)
-        variance = np.average((i-average)**2, weights=w) 
-        return variance
-    
+            name = '%s-%s.npy' % (self.fname, time.strftime('%y-%m-%d-%X'))
+        np.save(name, out)
+        print "Variance Estimator: wrote ", name
+        
+        # Clear self.v2
+        self.v2 = []
