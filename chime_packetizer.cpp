@@ -15,7 +15,8 @@ namespace rf_pipelines {
 
 #ifndef HAVE_CH_FRB_IO
 
-shared_ptr<wi_transform> make_chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff)
+shared_ptr<wi_transform> make_chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff,
+					       int beam_id)
 {
     throw runtime_error("rf_pipelines::make_chime_packetizer() was called, but rf_pipelines was compiled without ch_frb_io");
 }
@@ -31,7 +32,7 @@ struct chime_packetizer : public wi_transform {
 
     shared_ptr<ch_frb_io::intensity_network_ostream> ostream;
 
-    chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps);
+    chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps, int beam_id=0);
 
     virtual void set_stream(const wi_stream &stream);
     virtual void start_substream(int isubstream, double t0);
@@ -130,9 +131,9 @@ void chime_packetizer::end_substream()
 }
 
 
-shared_ptr<wi_transform> make_chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps)
+shared_ptr<wi_transform> make_chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps, int beam_id)
 {
-    return make_shared<chime_packetizer> (dstname, nfreq_per_packet, nt_per_chunk, nt_per_packet, wt_cutoff, target_gbps);
+    return make_shared<chime_packetizer> (dstname, nfreq_per_packet, nt_per_chunk, nt_per_packet, wt_cutoff, target_gbps, beam_id);
 }
 
 
