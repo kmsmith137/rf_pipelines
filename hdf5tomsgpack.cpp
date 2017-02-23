@@ -54,7 +54,8 @@ int main() {
 
     int nfreq_coarse_per_packet = 4;
     int nt_per_chunk = ch_frb_io::constants::nt_per_assembled_chunk;
-    nt_per_packet = 16;
+    //nt_per_packet = 16;
+    nt_per_packet = 4;
     float wt_cutoff = 1e6;
     float target_gbps = 0.;
     
