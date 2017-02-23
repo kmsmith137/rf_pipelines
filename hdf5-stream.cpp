@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
     int nfreq_coarse_per_packet = 4;
     int nt_per_chunk = ch_frb_io::constants::nt_per_assembled_chunk;
     int nt_per_packet = 2;
-    float wt_cutoff = 1e6;
+    float wt_cutoff = 1.;
     
     auto packetizer = make_chime_packetizer(dest, nfreq_coarse_per_packet,
                                             nt_per_chunk, nt_per_packet,
