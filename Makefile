@@ -12,7 +12,7 @@
 
 include Makefile.local
 
-INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp chime_file_stream_base.hpp 
+INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp chime_packetizer.hpp chime_file_stream_base.hpp
 
 KERNEL_INCFILES=kernels/downsample.hpp \
 	kernels/intensity_clippers.hpp \

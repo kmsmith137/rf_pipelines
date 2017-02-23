@@ -5,6 +5,8 @@
 #include <ch_frb_io.hpp>
 #endif
 
+#include "chime_packetizer.hpp"
+
 using namespace std;
 
 namespace rf_pipelines {
@@ -22,25 +24,6 @@ shared_ptr<wi_transform> make_chime_packetizer(const string &dstname, int nfreq_
 }
 
 #else  // HAVE_CH_FRB_IO
-
-
-struct chime_packetizer : public wi_transform {
-    // Note: inherits { nfreq, nt_chunk, nt_prepad, nt_postpad } from base class wi_transform
-
-    ch_frb_io::intensity_network_ostream::initializer ini_params;
-    uint64_t current_fpga_count = 0;
-
-    shared_ptr<ch_frb_io::intensity_network_ostream> ostream;
-
-    chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps, int beam_id=0);
-
-    virtual void set_stream(const wi_stream &stream);
-    virtual void start_substream(int isubstream, double t0);
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride);
-    virtual void end_substream();
-    virtual std::string get_name() const { return "chime_packetizer"; }
-};
-
 
 chime_packetizer::chime_packetizer(const string &dstname, int nfreq_coarse_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps,
 int beam_id)
