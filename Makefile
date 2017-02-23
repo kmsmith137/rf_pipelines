@@ -124,7 +124,7 @@ endif
 ####################################################################################################
 
 
-all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so $(TESTBINFILES) hdf5tomsgpack
+all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so $(TESTBINFILES) hdf5-stream
 
 install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
 	mkdir -p $(INCDIR)/ $(LIBDIR)/ $(PYDIR)/rf_pipelines/streams $(PYDIR)/rf_pipelines/transforms
@@ -165,5 +165,5 @@ time-clippers: time-clippers.cpp $(INCFILES) $(KERNEL_INCFILES) librf_pipelines.
 time-detrenders: time-detrenders.cpp $(INCFILES) $(KERNEL_INCFILES) librf_pipelines.so
 	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines $(LIBS)
 
-hdf5tomsgpack: hdf5tomsgpack.cpp
+hdf5-stream: hdf5-stream.cpp
 	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines $(LIBS)

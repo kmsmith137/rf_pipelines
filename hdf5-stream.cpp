@@ -44,6 +44,7 @@ int main(int argc, char **argv) {
     if (argc == 0) {
       cout << "Need hdf5 input filenames!" << endl;
       usage();
+      return -1;
     }
 
     vector<string> fns;
