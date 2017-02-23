@@ -340,7 +340,8 @@ std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename
 // a multiple of nt_per_packet; suggest a value like 512).
 //
 extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &dstname, int nfreq_coarse_per_packet, int nt_per_chunk, 
-							   int nt_per_packet, float wt_cutoff, double target_gbps);
+							   int nt_per_packet, float wt_cutoff, double target_gbps,
+							   int beam_id=0);
 
 
 // Some day, this factory function will return a C++ implementation of the 'badchannel_mask' class.

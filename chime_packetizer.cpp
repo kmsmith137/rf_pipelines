@@ -41,7 +41,8 @@ struct chime_packetizer : public wi_transform {
 };
 
 
-chime_packetizer::chime_packetizer(const string &dstname, int nfreq_coarse_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps)
+chime_packetizer::chime_packetizer(const string &dstname, int nfreq_coarse_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps,
+int beam_id)
 {
     // Argument checking
 
@@ -58,7 +59,7 @@ chime_packetizer::chime_packetizer(const string &dstname, int nfreq_coarse_per_p
 
     // Initialize ini_params (some initializations deferred to set_stream)
 
-    this->ini_params.beam_ids = { 0 };
+    this->ini_params.beam_ids = { beam_id };
     this->ini_params.dstname = dstname;
     this->ini_params.nfreq_coarse_per_packet = nfreq_coarse_per_packet;
     this->ini_params.nt_per_chunk = nt_per_chunk;
