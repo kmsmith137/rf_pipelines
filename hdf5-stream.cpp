@@ -12,19 +12,24 @@ using namespace ch_frb_io;
 using namespace rf_pipelines;
 
 static void usage() {
-  cout << "hdf5-stream [options] <HDF5 filenames ...>\n" <<
-    "    [-d DEST],  DEST like \"127.0.0.1:10252\"\n" <<
-    "    [-t Gbps],  throttle packet-sending rate\n" << endl;
+    cout << "hdf5-stream [options] <HDF5 filenames ...>\n" <<
+        "    [-d DEST],  DEST like \"127.0.0.1:10252\"\n" <<
+        "    [-b BEAM],  BEAM an integer beam id\n" <<
+        "    [-t Gbps],  throttle packet-sending rate\n" << endl;
 }
 
 int main(int argc, char **argv) {
 
     string dest = "127.0.0.1:10252";
     float gbps = 0.0;
+    int beam = 0;
 
     int c;
-    while ((c = getopt(argc, argv, "d:g:h")) != -1) {
+    while ((c = getopt(argc, argv, "d:g:b:h")) != -1) {
         switch (c) {
+        case 'b':
+            beam = atoi(optarg);
+            break;
 	case 'd':
 	  dest = string(optarg);
 	  break;
@@ -60,7 +65,7 @@ int main(int argc, char **argv) {
     
     auto packetizer = make_chime_packetizer(dest, nfreq_coarse_per_packet,
                                             nt_per_chunk, nt_per_packet,
-                                            wt_cutoff, gbps);
+                                            wt_cutoff, gbps, beam);
 
     vector<shared_ptr<wi_transform> > transforms;
     transforms.push_back(packetizer);
