@@ -36,6 +36,7 @@ OFILES=badchannel_mask.o \
 	misc.o \
 	outdir_manager.o \
 	polynomial_detrenders.o \
+	reverter.o \
 	psrfits_stream.o \
 	std_dev_clippers.o \
 	timing_thread.o \
