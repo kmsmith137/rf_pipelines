@@ -101,6 +101,7 @@ void chime_packetizer::start_substream(int isubstream, double t0)
 
 void chime_packetizer::process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
 {
+    //cout << "chime_packetizer: processing t " << t0 << " to " << t1 << endl;
     this->ostream->send_chunk(intensity, weights, stride, current_fpga_count);
     this->current_fpga_count += nt_chunk * ini_params.fpga_counts_per_sample;
 }
