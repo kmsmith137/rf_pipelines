@@ -1,3 +1,12 @@
+- Version 13:
+
+     - The bonsai_dedisperser can now be constructed from a .txt config file
+       (.hdf5 is no longer necessary).  It still uses the analytic_weights, but
+       can compute them on the fly if needed, rather than needing to read them
+       from an hdf5 config file.
+
+     - Minor updates to bonsai_dedisperser, needed to stay in sync with bonsai v8.
+
 - Version 12:
 
      - Backwards-incompatible: the boolean 'noisy' argument to stream.run() has been replaced
