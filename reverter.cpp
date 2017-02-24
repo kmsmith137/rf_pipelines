@@ -42,10 +42,6 @@ void Saver::process_chunk(double t0, double t1,
                           float* ii, float* ww, ssize_t stride,
                           float* pp_ii, float* pp_ww, ssize_t pp_stride) {
     cout << "Saver: process_chunk, t " << t0 << " to " << t1 << endl;
-    /*
-     if (filled)
-     throw runtime_error("Saver: process_chunk called but I already have a chunk buffered!");
-     */
     for (ssize_t i=0; i<nfreq; i++)
         memcpy(intensity + i*nt_chunk, ii + i*stride, sizeof(float)*nt_chunk);
     for (ssize_t i=0; i<nfreq; i++)
@@ -56,18 +52,13 @@ void Saver::process_chunk(double t0, double t1,
 
 void Saver::revert_chunk(double t0, double t1,
                          float* ii, float* ww, ssize_t stride) {
-    /*
-     if (!filled)
-     throw runtime_error("Saver: revert_chunk called but I do not have a chunk buffered!");
-     */
     if (t0 != this->t0 || t1 != this->t1)
-        throw runtime_error("Saver: revert_chunk called for time range " + to_string(t0) + " to " + to_string(t1) + " but I have range " + to_string(this->t0) + " to " + to_string(this->t1) + " buffered!");
-            
+        throw runtime_error("Saver: revert_chunk called for time range " + to_string(t0) + " to " + to_string(t1) +
+                            " but I have range " + to_string(this->t0) + " to " + to_string(this->t1) + " buffered!");
     for (ssize_t i=0; i<nfreq; i++)
         memcpy(ii + i*stride, intensity + i*nt_chunk, sizeof(float)*nt_chunk);
     for (ssize_t i=0; i<nfreq; i++)
         memcpy(ww + i*stride, weight + i*nt_chunk,    sizeof(float)*nt_chunk);
-    //filled = false;
 }
 
 Reverter::Reverter(shared_ptr<Saver> s) :

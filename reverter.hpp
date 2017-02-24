@@ -5,6 +5,16 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
+/**
+ This is a pair of wi_transform classes, Saver and Reverter, where
+ Saver saves the chunks, and Reverter restores them.  A transform
+ chain can have a Saver, some other transform that modifies the
+ stream, and then a Reverter, which well restore the stream to its
+ original values.  Multiple Reverters can read from one Saver, but
+ this requires exposing the classes rather than using opaque
+ wi_transform objects, hence this header file.
+ */
+
 std::pair<std::shared_ptr<rf_pipelines::wi_transform>,
           std::shared_ptr<rf_pipelines::wi_transform> >
 make_reverter(ssize_t nt_chunk);
