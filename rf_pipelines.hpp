@@ -334,30 +334,24 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 							   int nt_per_packet, float wt_cutoff, double target_gbps);
 
 
-//
 // Returns a "transform" which doesn't actually modify the data, it just runs the bonsai dedisperser.  
-// The dedisperser must be initialized from a config hdf5 file produced with the program 
-// 'bonsai-mkweight' in the bonsai github repo.
 //
-// If 'trigger_hdf5_filename' is a nonempty string, then triggers will be written to one
-// or more HDF5 output files.  If 'nt_per_file' is zero, then all triggers will be written
-// to a single "monster file".  Otherwise multiple files will be written.  Note that nt_per_file
-// is the number of input time samples (the number of coarse-grained triggers is usually
-// much smaller).
+// Currently, we use "analytic weights", i.e. the trigger normalization for a toy noise model in
+// which every (frequency_channel, time) sample is a *unit* Gaussian.  This is a placeholder for
+// implementing something better soon!
 //
-// If 'trigger_plot_stem' is a nonempty string, then realtime trigger plots will be written.  
-// In this case, the nt_per_file arg must be positive.  Filenames are of the form
-//   ${trigger_plot_stem}_${plot_number}_tree${tree_index}.png.
+// If 'config_filename' is an hdf5 file with precomputed analytic weights, they will be read from
+// disk.  Otherwise they will be computed in the transform constructor.
 //
-// FIXME: Currently the dedisperser must be initialized from a config hdf5 file (rather than
-// the simpler config text file) since we use analytic weights to normalize the triggers.
-// Since the analytic weights are only correct for unit-variance noise, the trigger normalization
-// will be wrong for a real experiment, and the triggers won't be meaningfully normalized to
-// "sigmas".  All of this is just a placeholder until Monte Carlo trigger variance estimation
-// is implemented in bonsai.
+// If the 'track_global_max' flag is set to true, then the following json output will be written:
+//   frb_global_max_trigger
+//   frb_global_max_trigger_dm
+//   frb_global_max_trigger_tfinal
 //
-extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_hdf5_filename, const std::string &trigger_hdf5_filename, 
-							     const std::string &trigger_plot_stem, int nt_per_file=0);
+// We don't currently define any mechanism for the C++ bonsai_transform to write hdf5 files or plots,
+// but this should be easy to change if needed.  The python bonsai_transform does contain plotter logic.
+
+extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_filename, bool track_global_max=false);
 
 
 // Some day, this factory function will return a C++ implementation of the 'badchannel_mask' class.
