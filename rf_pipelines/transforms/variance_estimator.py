@@ -56,14 +56,16 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         # This is the main computational routine defining the transform, which is called
         # once per incoming "block" of data.  For documentation on the interface see
         # rf_pipelines.py_wi_transform docstring.
-
+        
+        # Get incoming data in chunks of size v1_chunk
         for i in xrange(0, self.nt_chunk, self.v1_chunk):
+            # Process the chunks for each frequency sequentially, wrap back if nt_chunk > v1_chunk
             for frequency in xrange(self.nfreq):
                 # Compute v1 for each frequency
                 a = self._v1(intensity[frequency, i : i+self.v1_chunk], weights[frequency, i : i+self.v1_chunk])
                 self.v1[frequency, self.iv1] = a
             self.iv1 += 1
-            # Check if we should output a v2! 
+            # Check if we should output a v2
             if self.iv1 == self.v2_chunk:
                 for frequency in xrange(self.nfreq):
                     # Empty v1[frequency] and compute median for v2 (0 if too many v1 values are 0)
