@@ -37,6 +37,7 @@ OFILES=badchannel_mask.o \
 	outdir_manager.o \
 	polynomial_detrenders.o \
 	reverter.o \
+	pulse_adder.o \
 	psrfits_stream.o \
 	std_dev_clippers.o \
 	timing_thread.o \
@@ -120,6 +121,11 @@ ifeq ($(HAVE_CH_FRB_IO),y)
 	CPP += -DHAVE_CH_FRB_IO
 	LIBS += -lch_frb_io -lhdf5
 endif
+
+#ifeq ($(HAVE_CH_FRB_IO),y)
+#	CPP += -DHAVE_CH_FRB_IO
+	LIBS += -lsimpulse
+#endif
 
 
 ####################################################################################################

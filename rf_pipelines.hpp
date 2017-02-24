@@ -75,6 +75,7 @@
 
 namespace bonsai { class dedisperser; }
 
+#include "simpulse.hpp"
 
 namespace rf_pipelines {
 #if 0
@@ -293,6 +294,8 @@ extern void wi_downsample(float *out_intensity, float *out_weights, int out_stri
 extern void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, const float *weights, 
 				  int nfreq, int nt, int stride, int niter=1, double sigma=3.0, bool two_pass=false);
 
+
+extern std::shared_ptr<wi_transform> make_pulse_adder(ssize_t nt, std::vector<std::shared_ptr<simpulse::single_pulse> > &thepulses);
 
 //
 // This is a pseudo-transform which doesn't actually modify the data, it just writes it to a file in
