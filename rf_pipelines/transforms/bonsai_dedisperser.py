@@ -210,31 +210,3 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         self.buf[zoom_level, :, :] = 0.
         self.ifile[zoom_level] += 1
         self.ipos[zoom_level] = 0
-
-
-####################################################################################################
-
-
-def old_bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename=None, trigger_plot_stem=None, nt_per_file=0, ibeam=0):
-    """
-    This is the old C++ bonsai_dedisperser, which we're trying to phase out, in favor of the
-    python implementation which has been partially implemented above!
-
-    The plotting behavior of the C++ dedisperser is not what we want:
-
-       - one plot_group per tree
-       - number of y-pixels in plots is determined by bonsai config file (not selectable)
-       - time downsampling factor in plots is determined by bonasi config file (not selectable)
-    
-    When the new plotting behavior is implemented in the python bonsai_dedisperser, then the
-    old_bonsai_dedisperser can be removed.
-    """
-
-    if trigger_hdf5_filename is None:
-        trigger_hdf5_filename = ''
-
-    if trigger_plot_stem is None:
-        trigger_plot_stem = ''
-
-    # Note: 'ibeam' argument ignored, as of bonsai v7_devel.
-    return rf_pipelines_c.make_bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename, trigger_plot_stem, nt_per_file)
