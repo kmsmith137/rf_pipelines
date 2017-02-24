@@ -1584,21 +1584,6 @@ static PyObject *make_chime_file_writer(PyObject *self, PyObject *args)
 }
 
 
-static PyObject *make_bonsai_dedisperser(PyObject *self, PyObject *args)
-{
-    const char *config_hdf5_filename = nullptr;
-    const char *trigger_hdf5_filename = nullptr;
-    const char *trigger_plot_stem = nullptr;
-    int nt_per_file = 0;
-    
-    if (!PyArg_ParseTuple(args, "sssi", &config_hdf5_filename, &trigger_hdf5_filename, &trigger_plot_stem, &nt_per_file))
-	return NULL;
-
-    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_bonsai_dedisperser(config_hdf5_filename, trigger_hdf5_filename, trigger_plot_stem, nt_per_file);
-    return wi_transform_object::make(ret);
-}
-
-
 // extern std::shared_ptr<wi_transform> make_badchannel_mask(const std::string &maskpath, int nt_chunk=1024);
 static PyObject *make_badchannel_mask(PyObject *self, PyObject *args)
 {
@@ -1780,7 +1765,6 @@ static PyMethodDef module_methods[] = {
     { "make_intensity_clipper", (PyCFunction) tc_wrap3<make_intensity_clipper>, METH_VARARGS, make_intensity_clipper_docstring },
     { "make_std_dev_clipper", (PyCFunction) tc_wrap3<make_std_dev_clipper>, METH_VARARGS, make_std_dev_clipper_docstring },
     { "make_chime_file_writer", tc_wrap2<make_chime_file_writer>, METH_VARARGS, dummy_module_method_docstring },
-    { "make_bonsai_dedisperser", tc_wrap2<make_bonsai_dedisperser>, METH_VARARGS, dummy_module_method_docstring },
     { "make_badchannel_mask", tc_wrap2<make_badchannel_mask>, METH_VARARGS, make_badchannel_mask_docstring },
     { "apply_polynomial_detrender", (PyCFunction) tc_wrap3<apply_polynomial_detrender>, METH_VARARGS | METH_KEYWORDS, apply_polynomial_detrender_docstring },
     { "apply_intensity_clipper", (PyCFunction) tc_wrap3<apply_intensity_clipper>, METH_VARARGS | METH_KEYWORDS, apply_intensity_clipper_docstring },
