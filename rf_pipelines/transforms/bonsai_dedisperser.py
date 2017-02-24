@@ -11,8 +11,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
     Constructor arguments
     ---------------------
 
-       - config_hdf5_filename:  The configuration file used to initialize the dedisperser.  
-           This must be produced with the program 'bonsai-mkweight' in the bonsai github repo.
+       - config_filename:  The configuration file used to initialize the dedisperser.  
 
        - img_prefix: Determines output filenames, using a similar convention to the plotter_transform.
            There should be an option to create a bonsai_dedisperser without trigger plots, so let's
@@ -27,18 +26,19 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
        - n_zoom: Number of zoom levels in plots.
 
-       - trigger_hdf5_filename: If specified, coarse-grained triggers will be written to an HDF5 file.
+       - track_global_max: If True, then the following json output will be written:
+             frb_global_max_trigger, frb_global_max_trigger_dm, frb_global_max_trigger_tfinal
+             (Note: not fully implemented yet!)
 
+    Currently, we use "analytic weights", i.e. the trigger normalization for a toy noise model in
+    which every (frequency_channel, time) sample is a *unit* Gaussian.  This is a placeholder for
+    implementing something better soon!
 
-    FIXME: Currently the dedisperser must be initialized from a config hdf5 file (rather than
-    the simpler config text file) since we use analytic weights to normalize the triggers.
-    Since the analytic weights are only correct for unit-variance noise, the trigger normalization
-    will be wrong for a real experiment, and the triggers won't be meaningfully normalized to
-    "sigmas".  All of this is just a placeholder until Monte Carlo trigger variance estimation
-    is implemented in bonsai.
+    If 'config_filename' is an hdf5 file with precomputed analytic weights, they will be read from
+    disk.  Otherwise they will be computed in the transform constructor.
     """
 
-    def __init__(self, config_hdf5_filename, img_prefix="triggers", img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, trigger_hdf5_filename=None):
+    def __init__(self, config_filename, img_prefix="triggers", img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, track_global_max=False):
         # We import the bonsai module here, rather than at the top of the file, so that bonsai isn't
         # required to import rf_pipelines (but is required when you try to construct a bonsai_dedisperser).
         try:
@@ -51,26 +51,24 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         else:
             self.make_plot = True
 
-        name = "bonsai_dedisperser('%s')" % config_hdf5_filename
+        name = "bonsai_dedisperser('%s')" % config_filename
         rf_pipelines.py_wi_transform.__init__(self, name)
 
-        self.config_hdf5_filename = config_hdf5_filename
-        self.dedisperser = bonsai.Dedisperser(config_hdf5_filename, 'hdf5')
-        self.dedisperser.read_analytic_variance(config_hdf5_filename)
+        self.config_filename = config_filename
+        self.dedisperser = bonsai.Dedisperser(config_filename, init_analytic_variance=True)
+        self.global_max_tracker = None
+
+        if track_global_max:
+            self.global_max_tracker = bonsai.global_max_tracker()
+            self.dedisperser.add_processor(self.global_max_tracker)
         
         # Note that 'nfreq' is determined by the config file.  If the stream's 'nfreq' differs,
         # then an exception will be thrown.  The 'nt_chunk' parameter is also determined by the
         # config file, not a constructor argument.
         self.nfreq = self.dedisperser.nfreq
-        self.nt_chunk = self.dedisperser.nt_data
+        self.nt_chunk = self.dedisperser.nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
-
-        if trigger_hdf5_filename:
-            self.dedisperser.start_trigger_file(trigger_hdf5_filename, nt_per_file=0)
-
-        # Activates some fields in self.dedisperser which are used in the frb_olympics.
-        self.dedisperser.global_max_trigger_active = True
 
         # Set plotting parameters
         if self.make_plot:
@@ -96,7 +94,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
     def set_stream(self, stream):
         if stream.nfreq != self.nfreq:
-            raise RuntimeError("rf_pipelines: number of frequencies in stream (nfreq=%d) does not match bonsai config file '%s' (nfreq=%d)" % (stream.nfreq, self.config_hdf5_filename, self.nfreq))
+            raise RuntimeError("rf_pipelines: number of frequencies in stream (nfreq=%d) does not match bonsai config file '%s' (nfreq=%d)" % (stream.nfreq, self.config_filename, self.nfreq))
 
 
     def start_substream(self, isubstream, t0):
