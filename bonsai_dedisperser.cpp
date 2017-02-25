@@ -25,10 +25,9 @@ shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_filen
 struct bonsai_dedisperser : public wi_transform {
     unique_ptr<bonsai::dedisperser> dedisperser;
     shared_ptr<bonsai::global_max_tracker> max_tracker;
+    bool deallocate_between_substreams = false;
 
-    bonsai::config_params config;
-
-    bonsai_dedisperser(const string &config_filename, bool track_global_max);
+    bonsai_dedisperser(const string &config_filename, bool track_global_max, bool deallocate_between_substreams);
 
     virtual void set_stream(const wi_stream &stream) override;
     virtual void start_substream(int isubstream, double t0) override;
@@ -38,12 +37,14 @@ struct bonsai_dedisperser : public wi_transform {
 
 
 
-bonsai_dedisperser::bonsai_dedisperser(const string &config_filename, bool track_global_max)
+bonsai_dedisperser::bonsai_dedisperser(const string &config_filename, bool track_global_max, bool deallocate_between_substreams_) :
+    deallocate_between_substreams(deallocate_between_substreams_)
 {
     auto initializer = bonsai::config_initializer::make(config_filename);
-
     bonsai::config_params config(*initializer);
-    this->dedisperser = make_unique<bonsai::dedisperser> (config);
+
+    bool allocate = !deallocate_between_substreams;
+    this->dedisperser = make_unique<bonsai::dedisperser> (config, allocate);
     
     if (initializer->analytic_variance_readable)
 	this->dedisperser->read_analytic_variance(*initializer);
@@ -89,6 +90,9 @@ void bonsai_dedisperser::start_substream(int isubstream, double t0)
     // but we currently can't handle the case of a run which defines multiple substreams.
     if (isubstream > 0)
 	throw runtime_error("bonsai_dedisperser: currently can't process a stream which defines multiple substreams");
+
+    if (deallocate_between_substreams)
+	this->dedisperser->allocate();
 }
 
 
@@ -108,13 +112,17 @@ void bonsai_dedisperser::end_substream()
 	this->json_per_substream["frb_global_max_trigger_dm"] = max_tracker->global_max_trigger_dm;
 	this->json_per_substream["frb_global_max_trigger_tfinal"] = max_tracker->global_max_trigger_arrival_time;
     }
+
+    if (deallocate_between_substreams)
+	this->dedisperser->deallocate();
 }
 
 
-shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_filename, bool track_global_max)
+shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_filename, bool track_global_max, bool deallocate_between_substreams)
 {
-    return make_shared<bonsai_dedisperser> (config_filename, track_global_max);
+    return make_shared<bonsai_dedisperser> (config_filename, track_global_max, deallocate_between_substreams);
 }
+
 
 #endif  // HAVE_BONSAI
 

@@ -350,8 +350,12 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 //
 // We don't currently define any mechanism for the C++ bonsai_transform to write hdf5 files or plots,
 // but this should be easy to change if needed.  The python bonsai_transform does contain plotter logic.
+//
+// If the 'deallocate_between_substreams' flag is set, then the dedisperser will be deallocated initially,
+// allocate buffers in start_substream(), and deallocate in end_substream().
 
-extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_filename, bool track_global_max=false);
+extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_filename, bool track_global_max=false, 
+							     bool deallocate_between_substreams=false);
 
 
 // Some day, this factory function will return a C++ implementation of the 'badchannel_mask' class.

@@ -28,7 +28,9 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
        - track_global_max: If True, then the following json output will be written:
              frb_global_max_trigger, frb_global_max_trigger_dm, frb_global_max_trigger_tfinal
-             (Note: not fully implemented yet!)
+
+       - deallocate_between_substreams: if True, then the dedisperser will be deallocated initialially,
+           allocate buffers in start_substream(), and deallocate in end_substream().
 
     Currently, we use "analytic weights", i.e. the trigger normalization for a toy noise model in
     which every (frequency_channel, time) sample is a *unit* Gaussian.  This is a placeholder for
@@ -36,9 +38,12 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
     If 'config_filename' is an hdf5 file with precomputed analytic weights, they will be read from
     disk.  Otherwise they will be computed in the transform constructor.
+    
+    If the deallocate_between_substreams=False, then the dedisperser will be deallocated initially,
+    allocate buffers in start_substream(), and deallocate in end_substream().
     """
 
-    def __init__(self, config_filename, img_prefix="triggers", img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, track_global_max=False):
+    def __init__(self, config_filename, img_prefix="triggers", img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, track_global_max=False, deallocate_between_substreams=False):
         # We import the bonsai module here, rather than at the top of the file, so that bonsai isn't
         # required to import rf_pipelines (but is required when you try to construct a bonsai_dedisperser).
         try:
@@ -55,7 +60,10 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         rf_pipelines.py_wi_transform.__init__(self, name)
 
         self.config_filename = config_filename
-        self.dedisperser = bonsai.Dedisperser(config_filename, init_analytic_variance=True)
+        self.deallocate_between_substreams = deallocate_between_substreams
+        
+        initially_allocated = not deallocate_between_substreams
+        self.dedisperser = bonsai.Dedisperser(config_filename, init_analytic_variance=True, allocate=initially_allocated)
         self.global_max_tracker = None
 
         if track_global_max:
@@ -98,6 +106,9 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
 
     def start_substream(self, isubstream, t0):
+        if self.deallocate_between_substreams:
+            self.dedisperser.allocate()
+
         if self.make_plot:
             self.buf = np.zeros((self.n_zoom, self.img_ndm, self.img_nt), dtype=np.float32)
             self.isubstream = isubstream
@@ -178,6 +189,9 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             self.json_per_substream["frb_global_max_trigger"] = self.global_max_tracker.global_max_trigger
             self.json_per_substream["frb_global_max_trigger_dm"] = self.global_max_tracker.global_max_trigger_dm
             self.json_per_substream["frb_global_max_trigger_tfinal"] = self.global_max_tracker.global_max_trigger_arrival_time
+
+        if self.deallocate_between_substreams:
+            self.dedisperser.deallocate()
 
 
     def _max_downsample(self, arr, new_dm, new_t):
