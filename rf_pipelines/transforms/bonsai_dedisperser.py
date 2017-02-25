@@ -170,7 +170,14 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             for zoom_level in xrange(self.n_zoom):
                 if self.ipos[zoom_level] > 0:
                     self._write_file(zoom_level)
+
         self.dedisperser.end_dedispersion()
+        
+        if self.global_max_tracker is not None:
+            # Add global max trigger data to pipeline json output
+            self.json_per_substream["frb_global_max_trigger"] = self.global_max_tracker.global_max_trigger
+            self.json_per_substream["frb_global_max_trigger_dm"] = self.global_max_tracker.global_max_trigger_dm
+            self.json_per_substream["frb_global_max_trigger_tfinal"] = self.global_max_tracker.global_max_trigger_arrival_time
 
 
     def _max_downsample(self, arr, new_dm, new_t):
