@@ -73,6 +73,7 @@ Transforms:
 
 
 import sys
+import json
 import numpy as np
 
 # Not sure why, but this import has to be in the toplevel module,
@@ -121,14 +122,22 @@ class py_wi_transform(wi_transform):
         add_plot(basename, it0, nt, nx, ny, group_id=0) -> string filename
         add_file(basename) -> string filename
 
-    The result of a transform is specified through its JSON output.  Currently, it's possible
-    for a python transform to write the "plots" part of the JSON output, but arbitrary JSON
-    output can't be written from python.  This is an arbitrary limitation that would be easy
-    to fix, let me know if it would be useful!
+    The result of a transform is specified through its JSON output.  To add key/value pairs
+    to the JSON, you just modify one of the three dictionaries:
 
+        self.json_persistent
+        self.json_per_stream
+        self.json_per_substream
+
+    These dictionaries are merged to produce the JSON output from the transform.  They differ
+    in when they are cleared: either never ("persistent"), after the end of every stream 
+    ("per_stream"), or after the end of every substream ("per_substream").
+
+    Additionally, the transform's JSON output includes plot info (in the key "plots").  This
+    part of the JSON is generated using special logic, not the three dictionaries above.  See
     If your transform creates plots, and you want plot information to end up in the JSON output,
-    see the docstrings for the add_plot_group() and add_plot() methods of class py_wi_transform,
-    or see the plotter_transform class for an example.
+    docstrings for py_wi_transform.add_plot_group() and py_wi_transform.add_plot(), or check
+    out the plotter_transform class for an example.
 
     The "plots" part of the transform's (per-substream) json output consists of
 
@@ -236,6 +245,11 @@ class py_wi_transform(wi_transform):
         """Base class constructor is just a reminder to set self.name, and supplies a default value."""
         self.name = name if (name is not None) else self.__class__.__name__
 
+        self.json_persistent = { }
+        self.json_per_stream = { }
+        self.json_per_substream = { }
+
+
     def set_stream(self, stream):
         pass
 
@@ -252,6 +266,40 @@ class py_wi_transform(wi_transform):
         return self.name if (self.name is not None) else self.__class__.__name__
 
 
+    def _merge_json(self, dst, k):
+        """Helper function called by _get_json()."""
+
+        if hasattr(self, k):
+            dst.update(getattr(self, k))
+            return
+
+        print >>sys.stderr, 'rf_pipelines: warning: %s does not define self.%s.  Maybe you subclassed py_wi_transform, but forgot to call the base class constructor?' % (self, k)
+
+
+    def _get_json(self):
+        """
+        The _get_json() method is used to communicate a python's JSON output to the C++ part of rf_pipelines.
+        It merges the three json_* members, and serializes to a string (which is the return value).
+        """
+
+        ret = { }
+        self._merge_json(ret, 'json_persistent')
+        self._merge_json(ret, 'json_per_stream')
+        self._merge_json(ret, 'json_per_substream')
+
+        return json.dumps(ret)
+
+
+    def _clear_json(self, substream_only):
+        """
+        The _clear_json() method is used by the C++ part of rf_pipelines to reset JSON state in the python transform.
+        It clears self.json_per_substream, and (if the 'substream_only' flag is False) self.json_per_stream.
+        """
+
+        self.json_per_substream = { }
+
+        if not substream_only:
+            self.json_per_stream = { }
 
 
 ####################################################################################################

@@ -633,7 +633,6 @@ struct wi_transform {
 
     // These virtual member functions are called by the pipeline to manage json output from the transform.
     // There's normally no need to override them (we only do so in the python-wrapping code).
-
     virtual void _get_json(Json::Value &dst) const;
     virtual void _clear_json(bool substream_only);
 };

@@ -223,6 +223,33 @@ struct upcalling_wi_transform : public rf_pipelines::wi_transform
 	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"end_substream", NULL);
 	object ret(p, false);
     }
+
+    virtual void _get_json(Json::Value &dst) const override
+    {
+	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"_get_json", NULL);
+	object ret(p, false);  // a convenient way to ensure Py_DECREF gets called, and throw an exception on failure
+
+	// Note: PyString_AsString() returns a pointer to the internal string representation, not a copy of the string.
+	char *str = PyString_AsString(p);
+	if (!str)
+	    throw runtime_error("rf_pipelines: py_wi_transform._get_json() did not return a string as expected");
+	
+	Json::Value src;
+	Json::Reader reader;
+	
+	bool success = reader.parse(str, src);
+	if (!success)
+	    throw runtime_error("rf_pipelines: py_wi_transform.get_json() returned a string, but it did not successfully parse to json");
+	
+	for (const auto &key : src.getMemberNames())
+	    dst[key] = src[key];
+    }
+
+    virtual void _clear_json(bool substream_only) override
+    {
+	PyObject *p = PyObject_CallMethod(this->get_pyobj(), (char *)"_clear_json", (char *)"i", (int)substream_only);
+	object ret(p, false);  // a convenient way to ensure Py_DECREF gets called, and throw an exception on failure
+    }
 };
 
 
