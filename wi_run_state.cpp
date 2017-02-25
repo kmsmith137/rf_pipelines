@@ -329,7 +329,7 @@ void wi_run_state::output_substream_json()
     for (const shared_ptr<wi_transform> &t: transforms) {
 	Json::Value json_transform;
 	json_transform["name"] = t->name;
-	json_transform["time"] = t->time_spent_in_transform;
+	json_transform["cpu_time"] = t->time_spent_in_transform;
 
 	t->_get_json(json_transform);
 

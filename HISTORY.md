@@ -7,6 +7,9 @@
 
      - Minor updates to bonsai_dedisperser, needed to stay in sync with bonsai v8.
 
+     - Rename "time" field in JSON output to "cpu_time", to avoid confusion with	
+       timestamp-like fields.
+
 - Version 12:
 
      - Backwards-incompatible: the boolean 'noisy' argument to stream.run() has been replaced

@@ -485,8 +485,6 @@ struct wi_transform {
     //    this->json_persistent["key"] = value;
     //    this->json_per_stream["key"]["key2"].append(value);
     //
-    // FIXME should these be Json::Object instead of Json::Value?
-    //
     // The transforms's per-substream json output is obtained by combining
     //   - the json_persistent, json_per_stream, and json_per_substream objects
     //   - data from the plot_groups (see below), which goes into "plots"

@@ -8,7 +8,7 @@ pipeline_output = {
 
 transform_output = {
     "name": name of transform
-    "time": cpu time used by transform (FIXME rename to "cpu_time" to avoid confusion with timestamp fields)
+    "cpu_time": cpu time used by transform
     "plots": [ list of plot_substreams ]
 }
 
