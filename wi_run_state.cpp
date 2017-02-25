@@ -14,19 +14,6 @@ namespace rf_pipelines {
 #endif
 
 
-static void merge_json(Json::Value &dst, const Json::Value &src)
-{
-    if (src.isNull())
-	return;
-
-    if (!src.isObject())
-	throw runtime_error("expected json value to be of 'object' type");
-
-    for (const auto &key : src.getMemberNames())
-        dst[key] = src[key];
-}
-
-
 wi_run_state::wi_run_state(const wi_stream &stream, const vector<shared_ptr<wi_transform> > &transforms_, const shared_ptr<outdir_manager> &manager_, Json::Value *json_output_, int verbosity_) :
     nfreq(stream.nfreq),
     nt_stream_maxwrite(stream.nt_maxwrite),
@@ -344,9 +331,7 @@ void wi_run_state::output_substream_json()
 	json_transform["name"] = t->name;
 	json_transform["time"] = t->time_spent_in_transform;
 
-	merge_json(json_transform, t->json_persistent);
-	merge_json(json_transform, t->json_per_stream);
-	merge_json(json_transform, t->json_per_substream);
+	t->_get_json(json_transform);
 
 	for (const shared_ptr<plot_group> &g: t->plot_groups) {
 	    if (g->is_empty)
@@ -378,7 +363,7 @@ void wi_run_state::clear_per_substream_data()
 {
     for (const shared_ptr<wi_transform> &t: transforms) {
 	t->time_spent_in_transform = 0.0;
-	t->json_per_substream.clear();
+	t->_clear_json(true);   // substream_only=true
 
 	for (const shared_ptr<plot_group> &g: t->plot_groups) {
 	    g->is_empty = true;

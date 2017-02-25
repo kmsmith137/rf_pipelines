@@ -89,7 +89,7 @@ void wi_stream::run(const vector<shared_ptr<wi_transform> > &transforms, const s
 				"   Python transforms should call rf_pipelines.py_wi_transform.__init__().]");
 
 	janitor.set_outdir_manager(transform);
-	transform->json_per_stream.clear();
+	transform->_clear_json(false);  // substream_only=false
 
 	if (verbosity >= 3)
 	    cerr << "rf_pipelines: calling transform->set_stream() [" << transform->name << "]" << endl;

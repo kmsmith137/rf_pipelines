@@ -487,13 +487,6 @@ struct wi_transform {
     //
     // FIXME should these be Json::Object instead of Json::Value?
     //
-    // FIXME there is currently no way to modify these from python.
-    // One solution would be to python-wrap the Json objects but that sounds a little painful, and I'm not
-    // sure it's really necessary.  Another possibility is just to have parallel json_* members in the
-    // Python class py_wi_substream, and add a (non-pure) virtual functions to wi_transform to retrieve
-    // and clear json.  In the python subclass these could make appropriate calls into the python interpreter.
-    // I think this would work!
-    //
     // The transforms's per-substream json output is obtained by combining
     //   - the json_persistent, json_per_stream, and json_per_substream objects
     //   - data from the plot_groups (see below), which goes into "plots"
@@ -637,6 +630,12 @@ struct wi_transform {
 
     // end_substream(): counterpart to start_substream() above
     virtual void end_substream() = 0;
+
+    // These virtual member functions are called by the pipeline to manage json output from the transform.
+    // There's normally no need to override them (we only do so in the python-wrapping code).
+
+    virtual void _get_json(Json::Value &dst) const;
+    virtual void _clear_json(bool substream_only);
 };
 
 

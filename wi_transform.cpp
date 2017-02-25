@@ -64,5 +64,36 @@ string wi_transform::add_file(const string &basename)
 }
 
 
+static void merge_json(Json::Value &dst, const Json::Value &src)
+{
+    if (src.isNull())
+	return;
+
+    if (!src.isObject())
+	throw runtime_error("expected json value to be of 'object' type");
+
+    for (const auto &key : src.getMemberNames())
+        dst[key] = src[key];
+}
+
+
+// default implementation of virtual 
+void wi_transform::_get_json(Json::Value &dst) const
+{
+    merge_json(dst, this->json_persistent);
+    merge_json(dst, this->json_per_stream);
+    merge_json(dst, this->json_per_substream);
+}
+
+
+// default implementation of virtual 
+void wi_transform::_clear_json(bool substream_only)
+{
+    this->json_per_substream.clear();
+    
+    if (!substream_only)
+	this->json_per_stream.clear();
+}
+
 
 }  // namespace rf_pipelines
