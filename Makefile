@@ -25,6 +25,8 @@ KERNEL_INCFILES=kernels/downsample.hpp \
 OFILES=badchannel_mask.o \
 	bonsai_dedisperser.o \
 	chime_file_stream.o \
+	chime_frb_file_stream.o \
+	chime_file_stream_base.o \
 	chime_file_writer.o \
 	chime_network_stream.o \
 	chime_packetizer.o \

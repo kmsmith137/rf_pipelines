@@ -123,7 +123,7 @@ extern std::shared_ptr<wi_stream> make_psrfits_stream(const std::string &filenam
 
 
 //
-// CHIME file streams, either from single file, explciit filename, or acquisition directory.
+// CHIME file streams, either from single file, explicit filename, or acquisition directory.
 // In the 'acqusition directory' case, the directory is scanned for filenames of the form NNNNNNNN.h5, where N=[0,9].
 //    
 // The 'nt_chunk' arg is the chunk size used internally when moving data from hdf5 file
@@ -138,6 +138,11 @@ extern std::shared_ptr<wi_stream> make_psrfits_stream(const std::string &filenam
 extern std::shared_ptr<wi_stream> make_chime_stream_from_acqdir(const std::string &filename, ssize_t nt_chunk=0, ssize_t noise_source_align=0);
 extern std::shared_ptr<wi_stream> make_chime_stream_from_filename(const std::string &filename, ssize_t nt_chunk=0, ssize_t noise_source_align=0);
 extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std::vector<std::string> &filename_list, ssize_t nt_chunk=0, ssize_t noise_source_align=0);
+
+// CHIME assembled_chunk file stream, in msgpack format.
+extern std::shared_ptr<wi_stream> make_chime_frb_stream_from_glob(const std::string &glob_pattern, ssize_t nt_chunk=0, ssize_t noise_source_align=0);
+extern std::shared_ptr<wi_stream> make_chime_frb_stream_from_filename(const std::string &filename, ssize_t nt_chunk=0, ssize_t noise_source_align=0);
+extern std::shared_ptr<wi_stream> make_chime_frb_stream_from_filename_list(const std::vector<std::string> &filename_list, ssize_t nt_chunk=0, ssize_t noise_source_align=0);
 
 
 //
