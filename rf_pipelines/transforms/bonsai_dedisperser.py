@@ -127,6 +127,9 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         if self.make_plot:
             triggers = self.dedisperser.get_triggers()
 
+            if not all(np.all(np.isfinite(t)) for t in triggers):
+                raise RuntimeError('bonsai returned "Inf" triggers!  Try reducing the normalization of the intensity and weights arrays, or setting nbits=32 in the bonsai config.')
+
             # First, let's flatten the SM_index and beta_index axes by taking max values to get an array indexed only by dm and time
             preserved_dm_t = np.amax(np.amax(triggers[0], axis=1), axis=1)
     
