@@ -9,6 +9,7 @@ class thermal_noise_weight(rf_pipelines.py_wi_transform):
     """
 
     def __init__(self,nt_chunk=512):
+        rf_pipelines.py_wi_transform.__init__(self)
         self.nt_chunk = nt_chunk
 
     def set_stream(self,stream):

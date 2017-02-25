@@ -46,6 +46,8 @@ class frb_injector_transform(rf_pipelines.py_wi_transform):
              variance estimation is implemented in the pipeline!
         """
 
+        rf_pipelines.py_wi_transform.__init__(self)
+
         self.dm = dm
         self.sm = sm
         self.snr = snr
@@ -54,7 +56,6 @@ class frb_injector_transform(rf_pipelines.py_wi_transform):
         self.undispersed_arrival_time = undispersed_arrival_time
         self.sample_rms = sample_rms
 
-        self.name = 'frb_injector_transform'
         self.nfreq = 0     # to be initialized in set_stream()
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0

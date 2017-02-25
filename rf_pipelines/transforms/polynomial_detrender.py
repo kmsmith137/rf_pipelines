@@ -47,10 +47,12 @@ class polynomial_detrender_python(rf_pipelines.py_wi_transform):
         assert (deg >= 0 and type(deg) == int), "degree must be an integer >= 0"
         assert axis in (0, 1), "axis must be 0 (along freq; constant time) or 1 (along time; constant freq)."
         
+        name = 'polynomial_detrender_python(nt_chunk=%d, deg=%d, axis=%d)' % (nt_chunk, deg, axis)
+        rf_pipelines.py_wi_transform.__init__(self, name)
+
         self.nt_chunk = nt_chunk
         self.deg = deg
         self.axis = axis
-        self.name = 'polynomial_detrender_python(nt_chunk=%d, deg=%d, axis=%d)' % (nt_chunk, deg, axis)
         self.nt_prepad = 0
         self.nt_postpad = 0
         self.test = test

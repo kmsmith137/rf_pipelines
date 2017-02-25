@@ -47,10 +47,12 @@ class mask_expander(rf_pipelines.py_wi_transform):
         assert (0 < thr < 1), "threshold must be between 0 and 1."
         assert axis in (None, 0, 1), "axis must be None (planar; freq and time), 0 (along freq; constant time), or 1 (along time; constant freq)."
 
+        name = 'mask_expander(thr=%f, axis=%s, nt_chunk=%d)' % (thr, axis, nt_chunk)
+        rf_pipelines.py_wi_transform.__init__(name)
+
         self.thr = thr
         self.axis = axis
         self.nt_chunk = nt_chunk
-        self.name = 'mask_expander(thr=%f, axis=%s, nt_chunk=%d)' % (thr, axis, nt_chunk)
 
     def set_stream(self, stream):        
         self.nfreq = stream.nfreq

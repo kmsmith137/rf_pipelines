@@ -23,6 +23,8 @@ class kurtosis_filter(rf_pipelines.py_wi_transform):
     """ 
 
     def __init__(self,thr=(-1,1),nt_chunk=1024):
+        rf_pipelines.py_wi_transform.__init__(self)
+
         assert (type(thr) is tuple) and (thr[0] < thr[1]), "Bad threshold choice! See docstring."
         self.lo_cut, self.hi_cut = thr 
         self.nt_chunk = nt_chunk
