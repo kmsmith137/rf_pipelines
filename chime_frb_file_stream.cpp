@@ -46,12 +46,11 @@ public:
     virtual ~chime_frb_file_stream() { }
 
 protected:
-    virtual void load_file(const std::string &filename);
-    virtual void close_file();
-    virtual void set_params_from_file();
-    virtual void check_file_consistency();
-    virtual void read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride);
-
+    virtual void load_file(const std::string &filename) override;
+    virtual void close_file() override;
+    virtual void set_params_from_file() override;
+    virtual void check_file_consistency() const override;
+    virtual void read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride) const override;
 };
 
     
@@ -60,17 +59,17 @@ chime_frb_file_stream::chime_frb_file_stream(const vector<string> &filename_list
 {
 }
 
-//virtual
+// virtual override
 void chime_frb_file_stream::load_file(const string &fn) {
     this->chunk = assembled_chunk::read_msgpack_file(fn);
 }
 
-//virtual
+// virtual override
 void chime_frb_file_stream::close_file() {
      this->chunk.reset();
 }
 
-//virtual
+// virtual override
 void chime_frb_file_stream::set_params_from_file() {
     this->nfreq = chunk->nupfreq * ch_frb_io::constants::nfreq_coarse_tot;
     this->freq_lo_MHz = 400.0;
@@ -83,8 +82,8 @@ void chime_frb_file_stream::set_params_from_file() {
     this->frequencies_are_increasing = false;
 }
 
-//virtual
-void chime_frb_file_stream::check_file_consistency() {
+// virtual override
+void chime_frb_file_stream::check_file_consistency() const {
     if (this->nfreq != chunk->nupfreq * ch_frb_io::constants::nfreq_coarse_tot)
         throw runtime_error("chime_frb_file_stream: nfreq mismatch!");
     double fpga_t = rf_pipelines::constants::chime_seconds_per_fpga_count;
@@ -94,8 +93,8 @@ void chime_frb_file_stream::check_file_consistency() {
         throw runtime_error("chime_frb_file_stream: nt mismatch!");
 }
 
-//virtual
-void chime_frb_file_stream::read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride) {
+// virtual override
+void chime_frb_file_stream::read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride) const {
     chunk->decode_subset(dst_int, dst_wt, it_file, n, dst_stride);
 }
 

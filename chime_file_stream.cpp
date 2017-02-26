@@ -44,12 +44,11 @@ public:
     virtual ~chime_file_stream() { }
 
 protected:
-    virtual void load_file(const std::string& filename);
-    virtual void close_file();
-    virtual void set_params_from_file();
-    virtual void check_file_consistency();
-    virtual void read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride);
-
+    virtual void load_file(const std::string& filename) override;
+    virtual void close_file() override;
+    virtual void set_params_from_file() override;
+    virtual void check_file_consistency() const override;
+    virtual void read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride) const override;
 };
 
     
@@ -58,17 +57,17 @@ chime_file_stream::chime_file_stream(const vector<string> &filename_list_, ssize
 {
 }
 
-//virtual
+// virtual override
 void chime_file_stream::load_file(const string &fn) {
     this->curr_file = make_shared<ch_frb_io::intensity_hdf5_file>(fn);
 }
 
-//virtual
+// virtual override
 void chime_file_stream::close_file() {
      this->curr_file.reset();
 }
 
-//virtual
+// virtual override
 void chime_file_stream::set_params_from_file() {
     this->nfreq = curr_file->nfreq;
     this->freq_lo_MHz = curr_file->freq_lo_MHz;
@@ -80,8 +79,8 @@ void chime_file_stream::set_params_from_file() {
     this->frequencies_are_increasing = curr_file->frequencies_are_increasing;
 }
 
-//virtual
-void chime_file_stream::check_file_consistency() {
+// virtual override
+void chime_file_stream::check_file_consistency() const {
     if (curr_file->nfreq != this->nfreq)
         throw runtime_error("chime_file_stream: not every .h5 file has the same number of frequency channels?!");
     if (fabs(curr_file->freq_lo_MHz - this->freq_lo_MHz) > 1.0e-4 * this->freq_lo_MHz)
@@ -92,8 +91,8 @@ void chime_file_stream::check_file_consistency() {
         throw runtime_error("chime_file_stream: not every .h5 file has the same time sampling rate?!");
 }
 
-//virtual
-void chime_file_stream::read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride) {
+// virtual override
+void chime_file_stream::read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride) const {
 	    curr_file->get_unpolarized_intensity(dst_int, dst_wt, it_file, n, dst_stride);
 }
 

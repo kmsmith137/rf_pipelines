@@ -24,16 +24,6 @@ chime_file_stream_base::chime_file_stream_base(const vector<string> &filename_li
     this->nt_maxwrite = (nt_chunk > 0) ? nt_chunk : 1024;
 }
 
-void chime_file_stream_base::load_file(const string &fn) {}
-
-void chime_file_stream_base::close_file() {}
-
-void chime_file_stream_base::set_params_from_file() {}
-
-void chime_file_stream_base::check_file_consistency() {}
-
-void chime_file_stream_base::read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride) {}
-
 // virtual
 void chime_file_stream_base::stream_start()
 {

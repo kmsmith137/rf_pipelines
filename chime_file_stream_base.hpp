@@ -36,25 +36,12 @@ public:
     virtual void stream_body(wi_run_state &run_state);
 
 protected:
-    virtual void load_file(const std::string& filename);
-    virtual void close_file();
-    virtual void set_params_from_file();
-    virtual void check_file_consistency();
-    virtual void read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride);
-
+    virtual void load_file(const std::string& filename) = 0;
+    virtual void close_file() = 0;
+    virtual void set_params_from_file() = 0;
+    virtual void check_file_consistency() const = 0;
+    virtual void read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride) const = 0;
 };
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 }   // namespace rf_pipelines
