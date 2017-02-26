@@ -5,7 +5,6 @@ import rf_pipelines
 
 class mask_filler(rf_pipelines.py_wi_transform):
     """
-
     Modifies values in the intensity and weight arrays. If the weight is > w_cutoff, the weight is changed to 
     2.0 and left unmodified. Otherwise the weight is changed to 2.0 AND the intensity is replaced with 
     gaussian random noise with standard deviation given by a previously calculated variance array.
@@ -15,24 +14,26 @@ class mask_filler(rf_pipelines.py_wi_transform):
 
     Constructor Arguments
     ----------------------
-    var_file - the .npy file containing the precalculated variance array
+    var_files - a list of .npy files containing the precalculated variance arrays
 
     n_varsamples - the number of samples used to calculate each variance datapoint and is the product of 
-                   v1_chunk and v2_chunk n_varsamples * var.shape[1] must be equal to the number of samples
-                   in the dataset being filled
+                   v1_chunk and v2_chunk (n_varsamples * var.shape[1] must be equal to the number of samples
+                   in the dataset being filled)
 
     w_cutoff - weight cutoff above which the weight will not be replaced by random noise
-
     """
 
-    def __init__(self, var_file, n_varsamples, w_cutoff, nt_chunk):
-        name = "mask_filler(var_file='%s', w_cutoff=%d, nt_chunk=%d)" % (var_file, w_cutoff, nt_chunk)
+    def __init__(self, var_files, n_varsamples, w_cutoff, nt_chunk):
+        name = "mask_filler(w_cutoff=%d, nt_chunk=%d)" % (w_cutoff, nt_chunk)
 
         # Call base class constructor
         rf_pipelines.py_wi_transform.__init__(self, name)
 
-        # Load the pre-calculated variance array, assumed to be in the same directory as the script
-        self.var = np.load(var_file)
+        # Sort, load, stitch
+        sorted_plots = sorted(var_files)
+        arrays = map(np.load, var_files)
+        concatenated = np.hstack((arrays))
+        self.var = concatenated
         
         # Initialize some other values
         self.n_varsamples = n_varsamples   # number of samples per data point in variance array
@@ -51,7 +52,7 @@ class mask_filler(rf_pipelines.py_wi_transform):
 
 
     def start_substream(self, isubstream, t0):
-        # Add some sort of buffer here later to remove need to nt_chunk % n_varsamples == 0 eventually
+        # Can add some sort of buffer here later to remove need to nt_chunk % n_varsamples == 0 if desired
         pass
 
 
@@ -69,10 +70,8 @@ class mask_filler(rf_pipelines.py_wi_transform):
                     else:
                         intensity[frequency, i] = sigma * np.random.standard_normal()
                         weights[frequency, i] = 2.0
-                if i % self.n_varsamples == 0:
+                if i % self.n_varsamples == 0 and i != 0:
                     ivariance += 1
-                if i > imaxvar:
-                    break
             ivariance = 0
 
     def end_substream(self):
