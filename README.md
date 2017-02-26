@@ -85,6 +85,7 @@ This code is under construction!  A current to do list is in [TODO.md](./TODO.md
 ```
       ./run-unit-tests
       ./test-kernels
+      ./test-file-stream-base
       ./test-cpp-python-equivalence.py
 ```
 
