@@ -87,7 +87,6 @@ void chime_file_stream_base::stream_body(wi_run_state &run_state)
 	    run_state.finalize_write(nt_maxwrite);
 	    run_state.end_substream();
 
-            close_file();
 	    this->curr_ifile = -1;
 	    return;
 	}
@@ -95,11 +94,10 @@ void chime_file_stream_base::stream_body(wi_run_state &run_state)
 	    // End of file.
 	    curr_ifile++;
 	    it_file = 0;
+	    close_file();
 
-	    if (curr_ifile >= nfiles) {
-                close_file();
+	    if (curr_ifile >= nfiles)
 		continue;
-	    }
 	    
 	    // Open next file and do consistency tests.
 	    double old_t1 = time_hi;
