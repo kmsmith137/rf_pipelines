@@ -295,7 +295,7 @@ extern void weighted_mean_and_rms(float &mean, float &rms, const float *intensit
 				  int nfreq, int nt, int stride, int niter=1, double sigma=3.0, bool two_pass=false);
 
 
-extern std::shared_ptr<wi_transform> make_pulse_adder(ssize_t nt, std::vector<std::shared_ptr<simpulse::single_pulse> > &thepulses);
+extern std::shared_ptr<wi_transform> make_pulse_adder(ssize_t nt, std::vector<std::shared_ptr<simpulse::single_pulse> > &thepulses, double weight=1.0);
 
 //
 // This is a pseudo-transform which doesn't actually modify the data, it just writes it to a file in
