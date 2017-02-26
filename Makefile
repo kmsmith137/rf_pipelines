@@ -32,6 +32,7 @@ OFILES=badchannel_mask.o \
 	chime_packetizer.o \
 	gaussian_noise_stream.o \
 	intensity_clippers.o \
+	lexical_cast.o \
 	misc.o \
 	outdir_manager.o \
 	polynomial_detrenders.o \
