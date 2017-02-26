@@ -70,17 +70,16 @@ void chime_file_stream_base::stream_body(wi_run_state &run_state)
     ssize_t stride;
     bool zero_flag = true;
 
+    // Reminder: setup_write() sets the 'intensity' and 'weights' buffers to zero.
+    // Therefore, if part of the buffer is unmodified here, it will be treated as masked (weight-zero).
     run_state.start_substream(stream_t0);
     run_state.setup_write(nt_maxwrite, intensity, weights, stride, zero_flag, stream_t0);
 
     for (;;) {
-	//
 	// At top of loop, the state of the stream is represented by the following variables;
-	//   curr_file   -> pointer to currently open file object
 	//   curr_ifile  -> index of current file
 	//   it_file     -> time index within current file
 	//   it_chunk    -> time index within output chunk
-	//
 
 	if (curr_ifile >= nfiles) {
 	    // End of stream
@@ -141,7 +140,8 @@ void chime_file_stream_base::stream_body(wi_run_state &run_state)
 	    it_chunk += n;
 	}
 	else if (it_chunk < 0) {
-	    // Drop data, by advancing it_chunk
+	    // Drop data, by advancing it_chunk.
+	    // This only happens if 'noise_source_align' is specified, and we need to drop the first few samples in the stream.
 	    ssize_t n = min(-it_chunk, nt - it_file);
 	    it_file += n;
 	    it_chunk += n;
@@ -150,12 +150,11 @@ void chime_file_stream_base::stream_body(wi_run_state &run_state)
 	    // Read data from file
 	    ssize_t n = min(nt - it_file, nt_maxwrite - it_chunk);
 	    
-	    //
 	    // A note on frequency channel ordering.  In rf_pipelines, frequencies must 
 	    // be ordered from highest frequency to lowest.  In the ch_frb_io::intensity_hdf5_file,
 	    // either ordering can be used depending on the value of the 'frequencies_are_increasing' 
 	    // flag.  If this flag is set, then we need to reorder by using a negative stride.
-	    //
+
 	    bool incflag = frequencies_are_increasing;
 	    float *dst_int = incflag ? (intensity + (nfreq-1)*stride + it_chunk) : (intensity + it_chunk);
 	    float *dst_wt = incflag ? (weights + (nfreq-1)*stride + it_chunk) : (weights + it_chunk);
