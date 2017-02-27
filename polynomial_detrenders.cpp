@@ -5,8 +5,6 @@
 //   calls _make_polynomial_detrender(axis, nt_chunk, polydeg, epsilon)
 
 #include <cassert>
-#include <array>
-
 #include "rf_pipelines_internals.hpp"
 #include "kernels/polyfit.hpp"
 

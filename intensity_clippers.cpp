@@ -2,7 +2,6 @@
 // Df,Dt are the frequency/time downsampling factors.  Eventually I'd like to 
 // improve this by having special kernels to handle the large-Df and large-Dt cases.
 
-#include <array>
 #include "rf_pipelines_internals.hpp"
 #include "kernels/intensity_clippers.hpp"
 
