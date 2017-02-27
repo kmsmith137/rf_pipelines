@@ -7,6 +7,21 @@ import numpy.random as rand
 import rf_pipelines
 
 
+def take(arr, i, axis):
+    """Replacement for numpy.take(), which is broken in some versions of numpy."""
+
+    assert 0 <= axis < len(arr.shape)
+
+    a = np.reshape(arr, (np.prod(arr.shape[:axis], dtype=np.int),
+                         arr.shape[axis], 
+                         np.prod(arr.shape[(axis+1):], dtype=np.int)))
+
+    a = a[:,i,:]
+    
+    return np.reshape(a, arr.shape[:axis] + arr.shape[(axis+1):])
+    
+
+
 def test_expand_array():
     for iter in xrange(1000):
         out_ndim = rand.randint(1, 5)
@@ -26,7 +41,7 @@ def test_expand_array():
             u = rf_pipelines.utils.expand_array(t, out_shape, axis=axis)
             
             for i in xrange(out_shape[axis]):
-                assert np.array_equal(t, np.take(u,i,axis=axis))
+                assert np.array_equal(t, take(u,i,axis=axis))
 
     print >>sys.stderr, 'test_expand_array: pass'
 
