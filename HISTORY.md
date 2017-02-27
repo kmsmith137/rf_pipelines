@@ -5,6 +5,8 @@
        can compute them on the fly if needed, rather than needing to read them
        from an hdf5 config file.
 
+     - From Dustin: new stream class to read CHIMEFRB msgpack files.
+
      - Minor updates to bonsai_dedisperser, needed to stay in sync with bonsai v8.
 
      - Rename "time" field in JSON output to "cpu_time", to avoid confusion with	
