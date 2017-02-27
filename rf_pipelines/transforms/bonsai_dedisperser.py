@@ -14,8 +14,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
        - config_filename:  The configuration file used to initialize the dedisperser.  
 
        - img_prefix: Determines output filenames, using a similar convention to the plotter_transform.
-           There should be an option to create a bonsai_dedisperser without trigger plots, so let's
-           say that if img_prefix=None, then no plots are generated.
+           If img_prefix=None (the default), then no plots are generated.
 
        - img_ndm: Number of y-pixels in each output plot (same as img_nfreq in the plotter_transform).
            Note that the y-axis of the bonsai plots corresponds to dispersion measure.
@@ -43,7 +42,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
     allocate buffers in start_substream(), and deallocate in end_substream().
     """
 
-    def __init__(self, config_filename, img_prefix="triggers", img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, track_global_max=False, deallocate_between_substreams=False):
+    def __init__(self, config_filename, img_prefix=None, img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, track_global_max=False, deallocate_between_substreams=False):
         # We import the bonsai module here, rather than at the top of the file, so that bonsai isn't
         # required to import rf_pipelines (but is required when you try to construct a bonsai_dedisperser).
         try:
