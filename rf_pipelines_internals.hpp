@@ -245,23 +245,19 @@ inline T square(T x)
     return x*x; 
 }
 
-inline double uniform_rand()
+inline double uniform_rand(std::mt19937 &rng)
 {
-    return (rand() + 0.5) / (RAND_MAX + 1.0);
+    return std::uniform_real_distribution<>()(rng);
 }
 
-inline double uniform_rand(double lo, double hi)
+inline double uniform_rand(std::mt19937 &rng, double lo, double hi)
 {
-    return lo + (hi-lo)*uniform_rand();
+    return lo + (hi-lo) * uniform_rand(rng);
 }
 
-inline ssize_t randint(ssize_t lo, ssize_t hi)
+inline ssize_t randint(std::mt19937 &rng, ssize_t lo, ssize_t hi)
 {
-    rf_assert(lo < hi);
-    ssize_t ret = lo + (ssize_t)((hi-lo)*uniform_rand());
-    ret = std::max(ret, lo);    // should be redundant
-    ret = std::min(ret, hi-1);  // should be redundant
-    return ret;
+    return std::uniform_int_distribution<>(lo,hi-1)(rng);   // note hi-1 here!
 }
 
 inline double dist(double x, double y)

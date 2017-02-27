@@ -166,7 +166,7 @@ void wraparound_buf::_copy(ssize_t it0_dst, ssize_t it0_src, ssize_t nt)
 }
 
 // static member function
-void wraparound_buf::run_unit_tests()
+void wraparound_buf::run_unit_tests(std::mt19937 &rng)
 {
     cerr << "wraparound_buf::run_unit_tests()";
 
@@ -174,10 +174,10 @@ void wraparound_buf::run_unit_tests()
 	if (i % 10 == 0)
 	    cerr << ".";
 
-	ssize_t nfreq = randint(1, 10);
-	ssize_t nt_contig = randint(1, 10);
-	ssize_t nt_ring = randint(1, 20);
-	ssize_t nt_linear = randint(1000, 2000);
+	ssize_t nfreq = randint(rng, 1, 10);
+	ssize_t nt_contig = randint(rng, 1, 10);
+	ssize_t nt_ring = randint(rng, 1, 20);
+	ssize_t nt_linear = randint(rng, 1000, 2000);
 
 	vector<float> linear_ibuf(nfreq * nt_linear, 0.0);
 	vector<float> linear_wbuf(nfreq * nt_linear, 0.0);
@@ -192,7 +192,7 @@ void wraparound_buf::run_unit_tests()
 	    
 	    // Appending write
 
-	    ssize_t nt_append = randint(1, nt_contig+1);
+	    ssize_t nt_append = randint(rng, 1, nt_contig+1);
 	    if (ipos + nt_append > nt_linear)
 		break;
 
@@ -204,8 +204,8 @@ void wraparound_buf::run_unit_tests()
 		    ssize_t swrap = ifreq*stride + it;
 		    ssize_t slin = ifreq*nt_linear + ipos + it;
 
-		    intensity[swrap] = linear_ibuf[slin] = uniform_rand();
-		    weights[swrap] = linear_wbuf[slin] = uniform_rand();
+		    intensity[swrap] = linear_ibuf[slin] = uniform_rand(rng);
+		    weights[swrap] = linear_wbuf[slin] = uniform_rand(rng);
 		}
 	    }
 	
@@ -216,8 +216,8 @@ void wraparound_buf::run_unit_tests()
 
 	    for (int j = 0; j < 5; j++) {
 		ssize_t it0_min = max(ipos - nt_contig, (ssize_t)0);
-		ssize_t it0_write = randint(it0_min, ipos);
-		ssize_t it1_write = randint(it0_write+1, ipos+1);
+		ssize_t it0_write = randint(rng, it0_min, ipos);
+		ssize_t it1_write = randint(rng, it0_write+1, ipos+1);
 		ssize_t nt_write = it1_write - it0_write;
 	    
 		wrap_buf.setup_write(it0_write, nt_write, intensity, weights, stride);
@@ -230,8 +230,8 @@ void wraparound_buf::run_unit_tests()
 			rf_assert(intensity[swrap] == linear_ibuf[slin]);
 			rf_assert(weights[swrap] == linear_wbuf[slin]);
 
-			intensity[swrap] = linear_ibuf[slin] = uniform_rand();
-			weights[swrap] = linear_wbuf[slin] = uniform_rand();
+			intensity[swrap] = linear_ibuf[slin] = uniform_rand(rng);
+			weights[swrap] = linear_wbuf[slin] = uniform_rand(rng);
 		    }
 		}
 

@@ -20,12 +20,12 @@ struct affine_map2 {
 	return af*ifreq + at*it + b;
     }
 
-    static affine_map2 make_random()
+    static affine_map2 make_random(std::mt19937 &rng)
     {
 	affine_map2 ret;
-	ret.af = uniform_rand(0.1, 10.);
-	ret.at = uniform_rand(0.01, 1.0);
-	ret.b = uniform_rand(1., 10.);
+	ret.af = uniform_rand(rng, 0.1, 10.);
+	ret.at = uniform_rand(rng, 0.01, 1.0);
+	ret.b = uniform_rand(rng, 1., 10.);
 	return ret;
     }
 };
@@ -51,11 +51,11 @@ struct affine_map1 {
 	return ret;
     }
 
-    static affine_map1 make_random()
+    static affine_map1 make_random(std::mt19937 &rng)
     {
 	affine_map1 ret;
-	ret.a = uniform_rand(0.5, 1.0);
-	ret.b = uniform_rand(0.0, 10.0);
+	ret.a = uniform_rand(rng, 0.5, 1.0);
+	ret.b = uniform_rand(rng, 0.0, 10.0);
 	return ret;
     }
 };
@@ -67,17 +67,19 @@ struct affine_map1 {
 //   (sw_f*ifreq + sw_t*it + sw0)    [ weights ]
 //
 struct test_wi_stream : public wi_stream {
+    std::mt19937 &rng;
     ssize_t nt_stream;
     affine_map2 intensity_map;
     affine_map2 weight_map;
 
-    test_wi_stream()
+    test_wi_stream(std::mt19937 &rng_) :
+	rng(rng_)
     {
-	this->nfreq = randint(1, 9);
-	this->nt_maxwrite = randint(10, 21);
-	this->nt_stream = randint(200, 401);
-	this->intensity_map = affine_map2::make_random();
-	this->weight_map = affine_map2::make_random();
+	this->nfreq = randint(rng, 1, 9);
+	this->nt_maxwrite = randint(rng, 10, 21);
+	this->nt_stream = randint(rng, 200, 401);
+	this->intensity_map = affine_map2::make_random(rng);
+	this->weight_map = affine_map2::make_random(rng);
 
 	// arbitrary
 	this->freq_lo_MHz = 400.;
@@ -94,7 +96,7 @@ struct test_wi_stream : public wi_stream {
 	ssize_t ipos = 0;
 
 	while (ipos < nt_stream) {
-	    ssize_t nt = randint(1, nt_maxwrite+1);
+	    ssize_t nt = randint(rng, 1, nt_maxwrite+1);
 	    nt = min(nt, nt_stream - ipos);
 
 	    float *intensity;
@@ -133,17 +135,17 @@ struct test_wi_transform : public wi_transform {
     ssize_t curr_it;
 
  
-    test_wi_transform(const test_wi_stream &stream, const std::shared_ptr<test_wi_transform> &prev_transform)
+    test_wi_transform(std::mt19937 &rng, const test_wi_stream &stream, const std::shared_ptr<test_wi_transform> &prev_transform)
     {
 	// initialize fields in base class
 	this->name = "test_transform";
 	this->nfreq = stream.nfreq;
-	this->nt_chunk = randint(1, 21);
-	this->nt_prepad = max(randint(-15,21), (ssize_t)0);    // order-one probability of zero
-	this->nt_postpad = max(randint(-15,21), (ssize_t)0);   // order-one probability of zero
+	this->nt_chunk = randint(rng, 1, 21);
+	this->nt_prepad = max(randint(rng,-15,21), (ssize_t)0);    // order-one probability of zero
+	this->nt_postpad = max(randint(rng,-15,21), (ssize_t)0);   // order-one probability of zero
 
-	this->my_imap = affine_map1::make_random();
-	this->my_wmap = affine_map1::make_random();
+	this->my_imap = affine_map1::make_random(rng);
+	this->my_wmap = affine_map1::make_random(rng);
 
 	if (prev_transform) {
 	    this->in_imap = prev_transform->out_imap;
@@ -222,7 +224,7 @@ struct test_wi_transform : public wi_transform {
 };
 
 
-static void run_pipeline_unit_tests()
+static void run_pipeline_unit_tests(std::mt19937 &rng)
 {
     cerr << "run_pipeline_unit_tests()";
 
@@ -231,16 +233,16 @@ static void run_pipeline_unit_tests()
 	    cerr << ".";
 	
 	// make random test stream
-	test_wi_stream stream;
+	test_wi_stream stream(rng);
 	
 	// make random transforms
-	int ntransforms = randint(1, 10);
+	int ntransforms = randint(rng, 1, 10);
 
 	vector<shared_ptr<wi_transform> > transforms(ntransforms);
 	shared_ptr<test_wi_transform> prev;
 
 	for (int itr = 0; itr < ntransforms; itr++)
-	    transforms[itr] = prev = make_shared<test_wi_transform> (stream, prev);
+	    transforms[itr] = prev = make_shared<test_wi_transform> (rng, stream, prev);
 
 	int verbosity=0;
 	stream.run(transforms, ".", nullptr, verbosity);
@@ -255,8 +257,11 @@ static void run_pipeline_unit_tests()
 
 int main(int argc, char **argv)
 {
-    wraparound_buf::run_unit_tests();
-    run_pipeline_unit_tests();
+    std::random_device rd;
+    std::mt19937 rng(rd());
+
+    wraparound_buf::run_unit_tests(rng);
+    run_pipeline_unit_tests(rng);
 
     return 0;
 }

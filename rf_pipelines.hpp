@@ -69,6 +69,7 @@
 #include <set>
 #include <vector>
 #include <memory>
+#include <random>
 #include <iostream>
 #include <json/json.h>
 
@@ -683,7 +684,7 @@ struct wraparound_buf {
     void _copy(ssize_t it_dst, ssize_t it_src, ssize_t nt);
     void _check_integrity();
 
-    static void run_unit_tests();
+    static void run_unit_tests(std::mt19937 &rng);
 };
 
 

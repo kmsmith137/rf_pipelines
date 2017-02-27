@@ -14,10 +14,10 @@ using namespace rf_pipelines;
 class test_stream : public chime_file_stream_base {
 public:
     // Parameters of the test_stream not specified in the constructor (e.g. nfreq) will be randomly generated.
-    test_stream(const vector<string> &filename_list, int nt_chunk, int noise_source_align, int nsamples_per_noise_source_switch, int it_initial);
+    test_stream(std::mt19937 &rng, const vector<string> &filename_list, int nt_chunk, int noise_source_align, int nsamples_per_noise_source_switch, int it_initial);
 
     // Factory function which additionally randomizes (nfiles, nt_chunk, noise_source_align).
-    static shared_ptr<test_stream> make_random();
+    static shared_ptr<test_stream> make_random(std::mt19937 &rng);
 
     // These fields begin with underscores, to distinguish them from fields of the 
     // base classes (wi_stream, chime_file_stream_base) with the same names.
@@ -54,23 +54,23 @@ protected:
 
 
 // static member function
-shared_ptr<test_stream> test_stream::make_random()
+shared_ptr<test_stream> test_stream::make_random(std::mt19937 &rng)
 {
-    int nfiles = randint(1, 11);
-    int nt_chunk = randint(1, 11);
-    int noise_source_align = randint(0,2) ? (1 << randint(1,5)) : 0;
-    int nsamples_per_noise_source_switch = 1 << randint(4,7);
-    int it_initial = randint(0, 100);
+    int nfiles = randint(rng, 1, 11);
+    int nt_chunk = randint(rng, 1, 11);
+    int noise_source_align = randint(rng,0,2) ? (1 << randint(rng,1,5)) : 0;
+    int nsamples_per_noise_source_switch = 1 << randint(rng,4,7);
+    int it_initial = randint(rng, 0, 100);
 
     vector<string> filename_list(nfiles);
     for (int i = 0; i < nfiles; i++)
 	filename_list[i] = to_string(i);
 
-    return make_shared<test_stream> (filename_list, nt_chunk, noise_source_align, nsamples_per_noise_source_switch, it_initial);
+    return make_shared<test_stream> (rng, filename_list, nt_chunk, noise_source_align, nsamples_per_noise_source_switch, it_initial);
 }
 
 
-test_stream::test_stream(const vector<string> &filename_list_, int nt_chunk_, int noise_source_align_, int nsamples_per_noise_source_switch_, int it_initial_) :
+test_stream::test_stream(std::mt19937 &rng, const vector<string> &filename_list_, int nt_chunk_, int noise_source_align_, int nsamples_per_noise_source_switch_, int it_initial_) :
     chime_file_stream_base(filename_list_, nt_chunk_, noise_source_align_)
 {
     this->_nfiles = filename_list_.size();
@@ -88,21 +88,21 @@ test_stream::test_stream(const vector<string> &filename_list_, int nt_chunk_, in
     int f = 0;
     do {
 	this->_file_it[0] = _it0;
-	this->_file_nt[0] = randint(f, f+10);
+	this->_file_nt[0] = randint(rng, f, f+10);
 	
 	for (int i = 1; i < _nfiles; i++) {
-	    this->_file_it[i] = _file_it[i-1] + _file_nt[i-1] + randint(0,11);
-	    this->_file_nt[i] = randint(1, 11);
-	    this->_file_freq_inc[i] = randint(0, 2);
+	    this->_file_it[i] = _file_it[i-1] + _file_nt[i-1] + randint(rng,0,11);
+	    this->_file_nt[i] = randint(rng, 1, 11);
+	    this->_file_freq_inc[i] = randint(rng, 0, 2);
 	}
 	
 	this->_it1 = _file_it[_nfiles-1] + _file_nt[_nfiles-1];
 	f++;
     } while (_it1 <= _it0 + noise_source_align_);
     
-    this->_nfreq = randint(1, 11);
-    this->_freq_lo_MHz = uniform_rand(200.0, 600.0);
-    this->_freq_hi_MHz = uniform_rand(600.0, 1000.0);
+    this->_nfreq = randint(rng, 1, 11);
+    this->_freq_lo_MHz = uniform_rand(rng, 200.0, 600.0);
+    this->_freq_hi_MHz = uniform_rand(rng, 600.0, 1000.0);
     this->_dt_sample = (1 << 23) * constants::chime_seconds_per_fpga_count / double(nsamples_per_noise_source_switch_);
 }
 
@@ -191,7 +191,7 @@ struct test_transform : public wi_transform {
     shared_ptr<test_stream> s;
     int it_curr = 0;
 
-    test_transform(const shared_ptr<test_stream> &s_);
+    test_transform(std::mt19937 &rng, const shared_ptr<test_stream> &s_);
 
     virtual void set_stream(const wi_stream &stream) override;
     virtual void start_substream(int isubstream, double t0) override;
@@ -200,10 +200,10 @@ struct test_transform : public wi_transform {
 };
 
 
-test_transform::test_transform(const shared_ptr<test_stream> &s_)
+test_transform::test_transform(std::mt19937 &rng, const shared_ptr<test_stream> &s_)
 {
     this->s = s_;
-    this->nt_chunk = randint(1, 11);
+    this->nt_chunk = randint(rng, 1, 11);
     this->name = "test_transform";
 
     int n = s->_noise_source_align;
@@ -265,14 +265,17 @@ void test_transform::end_substream()
 
 int main(int argc, char **argv)
 {
+    std::random_device rd;
+    std::mt19937 rng(rd());
+
     cerr << "test-file-stream-base..";
 
     for (int iter = 0; iter < 1000; iter++) {
 	if (iter % 10 == 0)
 	    cerr << ".";
 
-	shared_ptr<test_stream> sp = test_stream::make_random();
-	shared_ptr<test_transform> tp = make_shared<test_transform> (sp);
+	shared_ptr<test_stream> sp = test_stream::make_random(rng);
+	shared_ptr<test_transform> tp = make_shared<test_transform> (rng, sp);
 
 	// run pipeline with no outputs
 	sp->run({tp}, "", nullptr, 0);
