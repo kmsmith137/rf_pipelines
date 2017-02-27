@@ -1,11 +1,18 @@
 - Version 13:
 
+     - From Dustin: new stream class to read CHIMEFRB msgpack files.
+
+     - From Maya: new transform (variance_estimator) to estimate per-channel,
+       slowly varying variance from RFI-masked data.
+     
+     - From Maya: new transform (mask_filler) to fill in the RFI mask with
+       simulated Gaussian noise, given variance_estimator output from a
+       previous pipeline run.
+
      - The bonsai_dedisperser can now be constructed from a .txt config file
        (.hdf5 is no longer necessary).  It still uses the analytic_weights, but
        can compute them on the fly if needed, rather than needing to read them
        from an hdf5 config file.
-
-     - From Dustin: new stream class to read CHIMEFRB msgpack files.
 
      - Minor updates to bonsai_dedisperser, needed to stay in sync with bonsai v8.
 
