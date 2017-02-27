@@ -69,7 +69,8 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/thermal_noise_weight.py \
 	rf_pipelines/transforms/RC_detrender.py \
 	rf_pipelines/transforms/intensity_clipper.py \
-	rf_pipelines/transforms/variance_estimator.py
+	rf_pipelines/transforms/variance_estimator.py \
+	rf_pipelines/transforms/mask_filler.py
 
 TESTBINFILES=run-unit-tests \
 	test-kernels \
