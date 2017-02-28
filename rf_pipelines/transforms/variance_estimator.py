@@ -48,7 +48,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
     def start_substream(self, isubstream, t0):
         # Called once per substream (a stream can be split into multiple substreams).
         self.v1 = np.zeros((self.nfreq, self.v2_chunk))
-        self.iv1 = 0   # keeps track of which positon we are adding v1 to 
+        self.iv1 = 0   # keeps track of which position we are adding v1 to 
         self.v2 = []
 
 
@@ -57,7 +57,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         # once per incoming "block" of data.  For documentation on the interface see
         # rf_pipelines.py_wi_transform docstring.
         
-        # Get incoming data in chunks of size v1_chunk
+        # Use i to index time samples of size v1_chunk
         for i in xrange(0, self.nt_chunk, self.v1_chunk):
             # Process the chunks for each frequency sequentially, wrap back if nt_chunk > v1_chunk
             for frequency in xrange(self.nfreq):
@@ -65,7 +65,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
                 a = self._v1(intensity[frequency, i : i+self.v1_chunk], weights[frequency, i : i+self.v1_chunk])
                 self.v1[frequency, self.iv1] = a
             self.iv1 += 1
-            # Check if we should output a v2
+            # Once we have calculated a value for each frequency, check if we should output a v2
             if self.iv1 == self.v2_chunk:
                 for frequency in xrange(self.nfreq):
                     # Empty v1[frequency] and compute median for v2 (0 if too many v1 values are 0)
@@ -76,14 +76,14 @@ class variance_estimator(rf_pipelines.py_wi_transform):
                         self.v2.append(np.median(self.v1[frequency][np.nonzero(self.v1[frequency])]))
                 self.v1[frequency, :] = 0
                 self.iv1 = 0
-                # Write a file every now and then (for now, after 32 x-pixels are produced)
-                if len(self.v2) >= 1024*64:
+                # Write a file every now and then (for now, after 64 x-pixels are produced)
+                if len(self.v2) >= self.nfreq*64:
                     self._write()
 
 
     def end_substream(self):
         """Write any remaining data"""
-        if len(self.v2) >= 1024:
+        if len(self.v2) >= self.nfreq:
             self._write()
 
 
