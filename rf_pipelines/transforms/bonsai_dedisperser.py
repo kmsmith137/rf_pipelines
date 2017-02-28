@@ -92,11 +92,15 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                     self.nt_chunk_ds += [self.nt_chunk // self.downsample_nt[zoom_level + 1]]
                     self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[zoom_level + 1], ny=img_ndm)
                     self.img_prefix += [img_prefix + "_zoom" + str(zoom_level+1)] 
-            self.dimensions_init = False  # temporary! 
 
             if self.nt_chunk % self.downsample_nt[-1] != 0:
                 raise RuntimeError("bonsai plotter transform: specified nt_chunk(=%d) must be a multiple of downsampling factor at max zoom level (=%d)" 
                                    % (self.nt_chunk, self.downsample_nt[-1]))
+
+        # Set incoming triger dimension paramaters
+        self.trigger_dim = self.dedisperser.ndm_coarse[0], self.dedisperser.nt_coarse_per_chunk[0]
+        assert self.trigger_dim[0] % self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0] == 0   # downsample or upsample dm                                                                   
+        assert self.trigger_dim[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % self.trigger_dim[1] == 0   # downsample or upsample t      
         
 
     def set_stream(self, stream):
@@ -146,13 +150,6 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             # First, let's flatten the SM_index and beta_index axes by taking max values to get an array indexed only by dm and time
             preserved_dm_t = np.amax(np.amax(triggers[0], axis=1), axis=1)
     
-            # Here we check that some parameters are okay - temp. until trigger dimensions can be accessed from __init__! 
-            if self.dimensions_init == False:
-                self.trigger_dim = preserved_dm_t.shape
-                assert self.trigger_dim[0] % self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0] == 0   # downsample or upsample dm
-                assert self.trigger_dim[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % self.trigger_dim[1] == 0   # downsample or upsample t
-                self.dimensions_init = True
-
             # Because "zooming" only happens in the time axis, we can reshape the dm axis outside of the loop
             # In the y (dm) axis, we need to transform self.trigger_dim[0] to self.img_ndm - may need to downsample or upsample
             if self.trigger_dim[0] > self.img_ndm:
