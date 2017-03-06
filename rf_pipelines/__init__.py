@@ -54,7 +54,6 @@ Streams:
    psrfits_stream()
 
 Transforms:
-
    badchannel_mask()          masks list of frequency ranges specified in external file
    bonsai_dedisperser()       runs data through bonsai dedisperser (also available in C++)
    chime_file_writer()        write stream to a single file in CHIME hdf5 format (also available in C++)
@@ -69,6 +68,9 @@ Transforms:
    intensity_clipper()        clipping algorithm based on variance of intensity (also available in C++)
    std_dev_clipper()          masks data based on variance of variances (also available in C++)
    thermal_noise_weight()     applies optimal weighting assuming flat gains and variance proportional to intensity
+   variance_estimator()       estimates per-channel, slowly varying variance from RFI-masked data
+   mask_filler()              fills in the RFI mask with simulated Gaussian noise, given variance_estimator output from a previous pipeline run
+   noise_filler()             fills in the RFI mask with simulated Gaussian noise
 """
 
 
@@ -467,6 +469,7 @@ from .transforms.thermal_noise_weight import thermal_noise_weight
 from .transforms.RC_detrender import RC_detrender
 from .transforms.variance_estimator import variance_estimator
 from .transforms.mask_filler import mask_filler
+from .transforms.noise_filler import noise_filler
 
 # Helper routines for implementing new transforms in python.
 
