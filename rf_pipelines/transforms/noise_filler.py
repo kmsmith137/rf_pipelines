@@ -64,6 +64,7 @@ class noise_filler(rf_pipelines.py_wi_transform):
 
 
     def _write(self):
-       out = np.array(self.var_accumulator).reshape((self.nfreq, -1), order='F')
-       np.save('simulated_var_%d_%f_%s' % (self.nt_chunk, self.increment, time.strftime('%y-%m-%d-%X')), out)
+       out = np.array(self.var_accumulator).reshape((self.nfreq, -1))#, order='F')
+       np.save('simulated_var_%s' % (time.strftime('%y-%m-%d-%X')), out)
+       print 'Noise Filler: wrote', 'simulated_var_%d_%f_%s' % (self.nt_chunk, self.increment, time.strftime('%y-%m-%d-%X'))
        self.var_accumulator = []
