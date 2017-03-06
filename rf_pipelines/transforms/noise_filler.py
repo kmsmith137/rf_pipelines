@@ -46,10 +46,10 @@ class noise_filler(rf_pipelines.py_wi_transform):
         # First, cycle through the chunk and replace values with simulated ones using self.current_var
         for f in range(self.nfreq):
             variance = self.current_var[f]
-            intensity[f] = numpy.random.normal(scale=variance, size=(self.nt_chunk))                
+            intensity[f] = np.random.normal(scale=variance, size=(self.nt_chunk))                
 
         # Add self.current_var to accumulator
-        self.var_accumulator += self.current_var
+        self.var_accumulator.append(self.current_var)
 
         # Increment self.current_var
         self.current_var += self.increment
