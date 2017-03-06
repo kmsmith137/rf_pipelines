@@ -1625,6 +1625,24 @@ static PyObject *make_badchannel_mask(PyObject *self, PyObject *args)
 }
 
 
+// extern std::shared_ptr<wi_transform> make_bb_dedisperser(double dm_start, double dm_end, double dm_tol, double pulse_width_ms);
+static PyObject *make_bb_dedisperser(PyObject *self, PyObject *args)
+{
+    double dm_start = 0.0;
+    double dm_end = 0.0;
+    double dm_tol = 0.0;
+    double pulse_width_ms = 0.0;
+
+    // The "dddd" argument tells PyArg_ParseTuple() that four pointers to 'double' follow.
+    // See https://docs.python.org/2/c-api/arg.html for more info.
+    if (!PyArg_ParseTuple(args, "dddd", &dm_start, &dm_end, &dm_tol, &pulse_width_ms))
+	return NULL;
+
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_bb_dedisperser(dm_start, dm_end, dm_tol, pulse_width_ms);
+    return wi_transform_object::make(ret);
+}
+
+
 // FIXME improve?
 static constexpr const char *dummy_module_method_docstring = 
     "This is a C++ function in the rf_pipelines_c module.\n"
@@ -1776,6 +1794,11 @@ static constexpr const char *make_badchannel_mask_docstring =
     "Right now, it is a placeholder which throws an exception if called.\n";
 
 
+static constexpr const char *make_bb_dedisperser_docstring = 
+    "make_bb_dedisperser(dm_start, dm_end, dm_tol, pulse_width_ms)\n"
+    "\n"
+    "Returns a wrapper around the Ben Barsdell 'dedisp' GPU code.\n";
+
 
 // -------------------------------------------------------------------------------------------------
 
@@ -1793,6 +1816,7 @@ static PyMethodDef module_methods[] = {
     { "make_std_dev_clipper", (PyCFunction) tc_wrap3<make_std_dev_clipper>, METH_VARARGS, make_std_dev_clipper_docstring },
     { "make_chime_file_writer", tc_wrap2<make_chime_file_writer>, METH_VARARGS, dummy_module_method_docstring },
     { "make_badchannel_mask", tc_wrap2<make_badchannel_mask>, METH_VARARGS, make_badchannel_mask_docstring },
+    { "make_bb_dedisperser", tc_wrap2<make_bb_dedisperser>, METH_VARARGS, make_bb_dedisperser_docstring },
     { "apply_polynomial_detrender", (PyCFunction) tc_wrap3<apply_polynomial_detrender>, METH_VARARGS | METH_KEYWORDS, apply_polynomial_detrender_docstring },
     { "apply_intensity_clipper", (PyCFunction) tc_wrap3<apply_intensity_clipper>, METH_VARARGS | METH_KEYWORDS, apply_intensity_clipper_docstring },
     { "apply_std_dev_clipper", (PyCFunction) tc_wrap3<apply_std_dev_clipper>, METH_VARARGS | METH_KEYWORDS, apply_std_dev_clipper_docstring },

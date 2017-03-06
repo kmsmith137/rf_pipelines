@@ -455,6 +455,7 @@ from .streams.gaussian_noise_stream import gaussian_noise_stream
 from .transforms.chime_packetizer import chime_packetizer
 from .transforms.chime_transforms import chime_file_writer
 from .transforms.plotter_transform import plotter_transform
+from .transforms.bb_dedisperser import bb_dedisperser
 from .transforms.bonsai_dedisperser import bonsai_dedisperser
 from .transforms.frb_injector_transform import frb_injector_transform
 from .transforms.badchannel_mask import badchannel_mask
