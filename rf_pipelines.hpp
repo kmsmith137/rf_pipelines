@@ -370,6 +370,11 @@ extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &
 extern std::shared_ptr<wi_transform> make_badchannel_mask(const std::string &maskpath, int nt_chunk=1024);
 
 
+// Returns a wrapper around the Ben Barsdell 'dedisp' GPU code.
+
+extern std::shared_ptr<wi_transform> make_bb_dedisperser(double dm_start, double dm_end, double dm_tol, double pulse_width_ms);
+
+
 // -------------------------------------------------------------------------------------------------
 //
 // The 'wi_stream' and 'wi_transform' virtual base classes.
