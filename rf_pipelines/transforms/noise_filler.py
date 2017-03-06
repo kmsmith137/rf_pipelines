@@ -1,35 +1,36 @@
 import numpy as np
-from numpy import random
+import time
 import rf_pipelines
 
 
 class noise_filler(rf_pipelines.py_wi_transform):
     """
-    
+    This adds simulated Gaussian noise to intensity arrays and leaves the weights arrays unchanged. 
+
+    The current implementation is as follows:
+    - the variance of the noise added is constant across all time samples in a given frequency channel
+      for each call to process_chunk
+    - the variance will increase or decrease accrording to the value of self.increment between each
+      process_chunk call
+    - the initial variance will be random for each frequency 
+
+    Extra variables information:
+    - nt_chunk: if testing with variance_estimator, choose a value close to v1_chunk * v2_chunk - default
+      is for 16 and 32 for quick testing. 
+    - increment: how much the variance is incremented by with each call to process_chunk - default is 
+      0.1 for a reasonable value given initial variance is between 0.1 and 0.9
+    - current_var: a nfreq length list containing the variance values currently being indexed by 
+      process_chunk
+    - var_accumulator: holds all the variance values used in a pipeline run - written out as a .npy 
+      file in end_substream
+
     """
 
-    def __init__(self, var_files, n_varsamples, w_cutoff, nt_chunk):
-        name = "mask_filler(w_cutoff=%d, nt_chunk=%d)" % (w_cutoff, nt_chunk)
-
-        # Call base class constructor
-        rf_pipelines.py_wi_transform.__init__(self, name)
-
-        # Sort, load, stitch
-        sorted_plots = sorted(var_files)
-        arrays = map(np.load, var_files)
-        concatenated = np.hstack((arrays))
-        self.var = concatenated
-        
-        # Initialize some other values
-        self.n_varsamples = n_varsamples   # number of samples per data point in variance array
-        self.w_cutoff = w_cutoff
-        self.nt_postpad = 0
-        self.nt_prepad = 0
-
-        # FOR NOW nt_chunk must be a multiple of n_varsamples
-        assert nt_chunk % n_varsamples == 0, \
-            'For now, nt_chunk(=%d) must be a multiple of n_varsamples(=%d). I might implement some buffering later to fix this!' % (nt_chunk, n_varsamples)
+    def __init__(self, nt_chunk=512, increment=0.1):
+        name = "noise_filler(nt_chunk=%d, increment=%f)" % (nt_chunk, increment)
         self.nt_chunk = nt_chunk
+        self.increment = increment
+        rf_pipelines.py_wi_transform.__init__(self, name)
 
 
     def set_stream(self, s):
@@ -37,29 +38,32 @@ class noise_filler(rf_pipelines.py_wi_transform):
 
 
     def start_substream(self, isubstream, t0):
-        # Can add some sort of buffer here later to remove need to nt_chunk % n_varsamples == 0 if desired
-        pass
+        self.current_var = np.random.ranf(size=self.nfreq) + 0.001
+        self.var_accumulator = []    # Reshape at the end 
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        ivariance = 0
-        imaxvar = self.var.shape[1]
-        for frequency in xrange(self.nfreq):
-            for i in xrange(intensity.shape[1]):
-                if weights[frequency, i] > self.w_cutoff:
-                    weights[frequency, i] = 2.0
-                else:
-                    sigma = (self.var[frequency, ivariance])**2
-                    if sigma == 0:
-                        weights[frequency, i] = 0
-                    else:
-                        intensity[frequency, i] = sigma * np.random.standard_normal()
-                        weights[frequency, i] = 2.0
-                if i % self.n_varsamples == 0 and i != 0:
-                    ivariance += 1
-            ivariance = 0
+        # First, cycle through the chunk and replace values with simulated ones using self.current_var
+        for f in range(self.nfreq):
+            variance = self.current_var[f]
+            intensity[f] = numpy.random.normal(scale=variance, size=(self.nt_chunk))                
+
+        # Add self.current_var to accumulator
+        self.var_accumulator += self.current_var
+
+        # Increment self.current_var
+        self.current_var += self.increment
+
+        # Write out if things are getting too large
+        if len(self.var_accumulator) >= self.nfreq * 64:
+            self._write()
+
 
     def end_substream(self):
-        # Write out plot
-        pass
+        self._write()
 
+
+    def _write(self):
+       out = np.array(self.var_accumulator).reshape((self.nfreq, -1), order='F')
+       np.save('simulated_var_%d_%f_%s' % (self.nt_chunk, self.increment, time.strftime('%y-%m-%d-%X')), out)
+       self.var_accumulator = []
