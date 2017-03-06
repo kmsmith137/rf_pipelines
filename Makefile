@@ -23,6 +23,7 @@ KERNEL_INCFILES=kernels/downsample.hpp \
 
 # Source files for the core C++ library 'librf_pipelines.so'
 OFILES=badchannel_mask.o \
+	bb_dedisperser.o \
 	bonsai_dedisperser.o \
 	chime_file_stream.o \
 	chime_frb_file_stream.o \
@@ -58,6 +59,7 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/__init__.py \
 	rf_pipelines/transforms/chime_packetizer.py \
 	rf_pipelines/transforms/chime_transforms.py \
+	rf_pipelines/transforms/bb_dedisperser.py \
 	rf_pipelines/transforms/bonsai_dedisperser.py \
 	rf_pipelines/transforms/frb_injector_transform.py \
 	rf_pipelines/transforms/plotter_transform.py \
