@@ -43,7 +43,7 @@ class noise_filler(rf_pipelines.py_wi_transform):
         # self.current_var = np.random.randint(500, 550, (self.nfreq))
 
         # If increment is +ve, this works
-        self.current_var = (np.random.ranf(size=self.nfreq) + 0.1) * 10
+        self.current_var = (np.random.ranf(size=self.nfreq) + 0.01) * 2
 
         self.var_accumulator = []    # Reshape at the end 
 
