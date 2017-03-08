@@ -17,7 +17,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
 
     The variance array is written out as a .npy file in the directory of the test script.
     The prefix for this outputted file can be determined by the fname argument. 
-    Variance arrays are outputted after the v2 array accumulated 32 x pixels so that v2 
+    Variance arrays are outputted after the v2 array accumulated 64 x pixels so that v2 
     does not become too large and too much data is not lost if something causes the
     pipeline run to terminate. 
     """
@@ -114,7 +114,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         else:
             name = '%s-%s.npy' % (self.fname, time.strftime('%y-%m-%d-%X'))
         np.save(name, out)
-        print "Variance Estimator: wrote ", name
+        print "Variance Estimator: wrote", name
         
         # Clear self.v2
         self.v2 = []

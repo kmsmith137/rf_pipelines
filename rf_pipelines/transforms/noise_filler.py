@@ -12,7 +12,8 @@ class noise_filler(rf_pipelines.py_wi_transform):
       for each call to process_chunk
     - the variance will increase or decrease accrording to the value of self.increment between each
       process_chunk call
-    - the initial variance will be random for each frequency 
+    - the initial variance will be random for each frequency (you need to change the values of the
+      random starting values generated at the beginning as well)
 
     Extra variables information:
     - nt_chunk: if testing with variance_estimator, choose a value close to v1_chunk * v2_chunk - default
@@ -38,7 +39,12 @@ class noise_filler(rf_pipelines.py_wi_transform):
 
 
     def start_substream(self, isubstream, t0):
-        self.current_var = np.random.ranf(size=self.nfreq) + 0.001
+        # If increment is -ve, this may work nicely
+        # self.current_var = np.random.randint(500, 550, (self.nfreq))
+
+        # If increment is +ve, this works
+        self.current_var = (np.random.ranf(size=self.nfreq) + 0.1) * 10
+
         self.var_accumulator = []    # Reshape at the end 
 
 
@@ -64,7 +70,7 @@ class noise_filler(rf_pipelines.py_wi_transform):
 
 
     def _write(self):
-       out = np.array(self.var_accumulator).reshape((self.nfreq, -1))#, order='F')
+       out = np.array(self.var_accumulator).reshape((self.nfreq, -1), order='F')**2
        np.save('simulated_var_%s' % (time.strftime('%y-%m-%d-%X')), out)
-       print 'Noise Filler: wrote', 'simulated_var_%s' % (time.strftime('%y-%m-%d-%X'))
+       print 'Noise Filler: wrote', 'simulated_var_%s' % (time.strftime('%y-%m-%d-%X')) + '.npy'
        self.var_accumulator = []
