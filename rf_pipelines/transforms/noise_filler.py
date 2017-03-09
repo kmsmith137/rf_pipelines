@@ -1,6 +1,7 @@
 import numpy as np
 import time
 import rf_pipelines
+import h5py
 
 
 class noise_filler(rf_pipelines.py_wi_transform):
@@ -70,7 +71,16 @@ class noise_filler(rf_pipelines.py_wi_transform):
 
 
     def _write(self):
-       out = np.array(self.var_accumulator).reshape((self.nfreq, -1), order='F')**2
-       np.save('simulated_var_%s' % (time.strftime('%y-%m-%d-%X')), out)
-       print 'Noise Filler: wrote', 'simulated_var_%s' % (time.strftime('%y-%m-%d-%X')) + '.npy'
-       self.var_accumulator = []
+        write_time = time.strftime('%y-%m-%d-%X')
+        name = 'simulated_var_' + write_time + '.h5'
+        out = np.array(self.var_accumulator).reshape((self.nfreq, -1), order='F')**2
+
+        with h5py.File(name, 'w') as hf:
+            hf.create_dataset("variance",  data=out)
+            hf.attrs['nt_chunk'] = self.nt_chunk
+            hf.attrs['increment'] = self.increment
+            hf.attrs['write_time'] = write_time
+
+        print 'Noise Filler: wrote', name 
+
+        self.var_accumulator = []
