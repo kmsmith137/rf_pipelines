@@ -6,6 +6,9 @@ try:
 except:
     pass  # warning message has already been printed in rf_pipelines/__init__.py
 
+import h5py
+import glob
+
 
 def expand_array(arr, new_shape, axis):
     arr = np.array(arr)
@@ -288,4 +291,32 @@ def json_str(obj, depth=1, indent=''):
         return '{ %s }' % (', '.join(x))
     
     raise RuntimeError('rf_pipelines.json_str(): unrecognized object')
+
+
+####################################################################################################
+
+
+def _read_h5(fname):
+    with h5py.File(fname, 'r') as hf:
+        return hf['variance'][:]
+
+def variance_plots():
+    # Group .h5 files together by prefix
+    plots_d = dict()
+    for plot in glob.glob('./*.h5'):
+        plot_prefix = plot[:-21]    # includes everything but the date/time and extension
+        if plot_prefix not in plots_d:
+            plots_d[plot_prefix] = [plot]
+        else:
+            plots_d[plot_prefix] += [plot]
+
+    # Sort, load, stitch, print useful stuff, plot
+    for plot_group_key in plots_d:
+        sorted_plots = sorted(plots_d[plot_group_key])
+        arrays = map(_read_h5, sorted_plots)
+        concatenated = np.hstack((arrays))
+        print '\n', plot_group_key, 'shape:', concatenated.shape
+        print plot_group_key, 'amax:', np.amax(concatenated)
+        print plot_group_key, 'amin (nonzero):', np.amin(concatenated[np.where(concatenated > 0)])
+        write_png(plot_group_key+'.png', concatenated, transpose=True, ytop_to_bottom=True, clip_niter=1)
 
