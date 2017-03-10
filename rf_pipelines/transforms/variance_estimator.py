@@ -62,6 +62,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         # Save the first t0 for the first iteration of process_chunk
         if self.t0 == 0:
             self.t0 = t0
+            self.t1 = t1  # for edge case in which only one call to process_chunk is made
 
         # Use i to index time samples of size v1_chunk
         for i in xrange(0, self.nt_chunk, self.v1_chunk):
