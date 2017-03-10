@@ -1,6 +1,8 @@
 import numpy as np
 from numpy import random
 import rf_pipelines
+from math import sqrt
+import h5py
 
 
 class mask_filler(rf_pipelines.py_wi_transform):
@@ -31,7 +33,7 @@ class mask_filler(rf_pipelines.py_wi_transform):
 
         # Sort, load, stitch
         sorted_plots = sorted(var_files)
-        arrays = map(np.load, var_files)
+        arrays = map(self._read_h5, [var_files])
         concatenated = np.hstack((arrays))
         self.var = concatenated
         
@@ -64,7 +66,7 @@ class mask_filler(rf_pipelines.py_wi_transform):
                 if weights[frequency, i] > self.w_cutoff:
                     weights[frequency, i] = 2.0
                 else:
-                    sigma = (self.var[frequency, ivariance])**2
+                    sigma = sqrt(self.var[frequency, ivariance])
                     if sigma == 0:
                         weights[frequency, i] = 0
                     else:
@@ -77,3 +79,8 @@ class mask_filler(rf_pipelines.py_wi_transform):
     def end_substream(self):
         pass
 
+
+    def _read_h5(self, fname):
+        print fname
+        with h5py.File(fname, 'r') as hf:
+            return hf['variance'][:]
