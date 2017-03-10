@@ -34,7 +34,7 @@ inline void _kernel_mask1(T *weights, smask_t<T,S> mask, int stride)
 template<typename T, unsigned int S, unsigned int R, unsigned int N, typename std::enable_if<(R>0 && N>0),int>::type = 0>
 inline void _kernel_mask1(T *weights, smask_t<T,S> mask, int stride)
 {
-    simd_t<T,S> wval = simd_t<T,S>::loadu(weights);
+    simd_t<T,S> wval = simd_helpers::simd_load<T,S> (weights);
     wval = wval.apply_mask(mask);
     wval.storeu(weights);
 
@@ -117,7 +117,8 @@ inline void _kernel_mask_columns(T *weights, const smask_t<T,1> *mask, int nfreq
 	const smask_t<T,1> *mrow = mask;
 
 	for (int it = 0; it < nt; it += Dt*S) {
-	    smask_t<T,S> m = smask_t<T,S>::loadu(mrow);
+	    smask_t<T,S> m;
+	    m.loadu(mrow);
 	    _kernel_mask<T,S,1,Dt> (wrow + it, m, stride);
 	    mrow += S;
 	}

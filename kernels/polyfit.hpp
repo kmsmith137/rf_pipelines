@@ -100,8 +100,8 @@ inline void _kernel_detrend_t_pass1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S
     for (int i = 0; i < nt; i += S) {
 	simd_t<T,S> z = z0 + dz * simd_t<T,S>(i);
 
-	simd_t<T,S> ival = simd_t<T,S>::loadu(ivec+i);
-	simd_t<T,S> wval = simd_t<T,S>::loadu(wvec+i);
+	simd_t<T,S> ival = simd_helpers::simd_load<T,S>(ivec+i);
+	simd_t<T,S> wval = simd_helpers::simd_load<T,S>(wvec+i);
 
 	simd_ntuple<T,S,N> pvec;
 	_kernel_legpoly_eval(pvec, z);
@@ -129,7 +129,7 @@ inline void _kernel_detrend_t_pass2(T *ivec, int nt, const simd_ntuple<T,S,N> &c
 	simd_ntuple<T,S,N> pvec;
 	_kernel_legpoly_eval(pvec, z);
 
-	simd_t<T,S> ival = simd_t<T,S>::loadu(ivec + i);
+	simd_t<T,S> ival = simd_helpers::simd_load<T,S> (ivec + i);
 
 	ival = pvec._vertical_dotn(coeffs, ival);
 	ival.storeu(ivec + i);
@@ -190,8 +190,8 @@ inline void _kernel_detrend_f_pass1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S
     for (int i = 0; i < nfreq; i++) {
 	T z = z0 + i*dz;
 
-	simd_t<T,S> ival = simd_t<T,S>::loadu(ivec + i*stride);
-	simd_t<T,S> wval = simd_t<T,S>::loadu(wvec + i*stride);
+	simd_t<T,S> ival = simd_helpers::simd_load<T,S> (ivec + i*stride);
+	simd_t<T,S> wval = simd_helpers::simd_load<T,S> (wvec + i*stride);
 
 	simd_ntuple<T,S,N> pvec;
 	_kernel_legpoly_eval(pvec, simd_t<T,S>(z));
@@ -211,7 +211,7 @@ inline void _kernel_detrend_f_pass2(T *ivec, int nfreq, const simd_ntuple<T,S,N>
 	simd_ntuple<T,S,N> pvec;
 	_kernel_legpoly_eval(pvec, simd_t<T,S>(z));
 
-	simd_t<T,S> ival = simd_t<T,S>::loadu(ivec + i*stride);
+	simd_t<T,S> ival = simd_helpers::simd_load<T,S> (ivec + i*stride);
 
 	ival = pvec._vertical_dotn(coeffs, ival);
 	ival.storeu(ivec + i*stride);
@@ -236,7 +236,7 @@ template<typename T, unsigned int S>
 inline void _kernel_colzero_partial(T *weights, int nfreq, int stride, simd_t<int,S> mask)
 {
     for (int i = 0; i < nfreq; i++) {
-	simd_t<T,S> w = simd_t<T,S>::loadu(weights + i*stride);
+	simd_t<T,S> w = simd_helpers::simd_load<T,S> (weights + i*stride);
 	w = w.apply_mask(mask);
 	w.storeu(weights + i*stride);
     }

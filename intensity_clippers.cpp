@@ -360,7 +360,8 @@ void _wrms_hack_for_testing2(float &mean, float &rms, const float *intensity, co
     if (mean_hint.size() != S)
 	throw runtime_error("rf_pipelines: wrong mean_hint size in _wrms_hack_for_testing2()");
 
-    _mean_variance_iterator<float,S> v(simd_t<float,S>::loadu(&mean_hint[0]), simd_t<float,S>(1.0e10));
+    simd_t<float,S> mh = simd_helpers::simd_load<float,S> (&mean_hint[0]);
+    _mean_variance_iterator<float,S> v(mh, simd_t<float,S>(1.0e10));
     _kernel_visit_2d<1,1> (v, intensity, weights, nfreq, nt, stride);
 
     simd_t<float,S> mean_x, rms_x;

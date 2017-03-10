@@ -71,8 +71,8 @@ inline void _kernel_visit_2d(V &v, const typename V::T *intensity, const typenam
 	const T *wrow = weights + ifreq*stride;
 
 	for (int it = 0; it < nt; it += S) {
-	    simd_t<T,S> ival = simd_t<T,S>::loadu(irow + it);
-	    simd_t<T,S> wval = simd_t<T,S>::loadu(wrow + it);
+	    simd_t<T,S> ival = simd_helpers::simd_load<T,S>(irow + it);
+	    simd_t<T,S> wval = simd_helpers::simd_load<T,S>(wrow + it);
 
 	    v.accumulate_i(ival, wval);
 	}
@@ -103,8 +103,8 @@ inline void _kernel_visit_1d_f(V &v, const typename V::T *intensity, const typen
     constexpr int S = V::S;
 
     for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	simd_t<T,S> ival = simd_t<T,S>::loadu(intensity + ifreq*stride);
-	simd_t<T,S> wval = simd_t<T,S>::loadu(weights + ifreq*stride);
+	simd_t<T,S> ival = simd_helpers::simd_load<T,S>(intensity + ifreq*stride);
+	simd_t<T,S> wval = simd_helpers::simd_load<T,S>(weights + ifreq*stride);
 	v.accumulate_i(ival, wval);
     }
 }

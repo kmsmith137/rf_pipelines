@@ -118,7 +118,7 @@ inline void _kernel_intensity_mask_2d(T *weights, const T *ds_intensity, simd_t<
 	T *wrow = weights + ifreq * stride;
 
 	for (int it = 0; it < nt; it += Dt*S) {
-	    simd_t<T,S> ival = simd_t<T,S>::loadu(ds_itmp);
+	    simd_t<T,S> ival = simd_helpers::simd_load<T,S>(ds_itmp);
 	    ds_itmp += S;
 
 	    smask_t<T,S> valid1 = ival.compare_lt(hi);
@@ -147,7 +147,7 @@ inline void _kernel_intensity_mask_1d_f(T *weights, const T *ds_intensity, simd_
     simd_t<T,S> hi = mean + thresh;
 
     for (int ifreq = 0; ifreq < nfreq; ifreq += Df) {
-	simd_t<T,S> ival = simd_t<T,S>::loadu(ds_intensity);
+	simd_t<T,S> ival = simd_helpers::simd_load<T,S> (ds_intensity);
 	ds_intensity += ds_stride;
 
 	smask_t<T,S> valid1 = ival.compare_lt(hi);

@@ -34,8 +34,8 @@ inline void _kernel_downsample1a(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T 
 template<typename T, unsigned int S, unsigned int R, unsigned int N, typename std::enable_if<(R > 0 && N > 0),int>::type = 0>
 inline void _kernel_downsample1a(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T *intensity, const T *weights, int stride)
 {
-    simd_t<T,S> ival = simd_t<T,S>::loadu(intensity);
-    simd_t<T,S> wval = simd_t<T,S>::loadu(weights);
+    simd_t<T,S> ival = simd_helpers::simd_load<T,S> (intensity);
+    simd_t<T,S> wval = simd_helpers::simd_load<T,S> (weights);
 
     ds_wi += wval * ival;
     ds_w += wval;
@@ -48,8 +48,8 @@ inline void _kernel_downsample1a(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T 
 template<typename T, unsigned int S, unsigned int R, unsigned int N, typename std::enable_if<(R > 0 && N > 0),int>::type = 0>
 inline void _kernel_downsample1(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T *intensity, const T *weights, int stride)
 {
-    simd_t<T,S> ival = simd_t<T,S>::loadu(intensity);
-    simd_t<T,S> wval = simd_t<T,S>::loadu(weights);
+    simd_t<T,S> ival = simd_helpers::simd_load<T,S> (intensity);
+    simd_t<T,S> wval = simd_helpers::simd_load<T,S> (weights);
     
     ds_wi = wval * ival;
     ds_w = wval;
