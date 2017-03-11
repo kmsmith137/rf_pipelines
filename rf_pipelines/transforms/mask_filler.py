@@ -1,8 +1,9 @@
+import rf_pipelines
 import numpy as np
 from numpy import random
-import rf_pipelines
 from math import sqrt
 import h5py
+import glob
 
 
 class mask_filler(rf_pipelines.py_wi_transform):
@@ -16,7 +17,7 @@ class mask_filler(rf_pipelines.py_wi_transform):
 
     Constructor Arguments
     ----------------------
-    var_files - a list of .npy files containing the precalculated variance arrays
+    var_dir - directory containing .h5 variance files
 
     n_varsamples - the number of samples used to calculate each variance datapoint and is the product of 
                    v1_chunk and v2_chunk (n_varsamples * var.shape[1] must be equal to the number of samples
@@ -25,15 +26,16 @@ class mask_filler(rf_pipelines.py_wi_transform):
     w_cutoff - weight cutoff above which the weight will not be replaced by random noise
     """
 
-    def __init__(self, var_files, n_varsamples, w_cutoff, nt_chunk):
+    def __init__(self, var_dir, n_varsamples, w_cutoff, nt_chunk):
         name = "mask_filler(w_cutoff=%d, nt_chunk=%d)" % (w_cutoff, nt_chunk)
 
         # Call base class constructor
         rf_pipelines.py_wi_transform.__init__(self, name)
 
         # Sort, load, stitch
+        var_files = glob.glob(var_dir + '/*.h5')
         sorted_plots = sorted(var_files)
-        arrays = map(self._read_h5, [var_files])
+        arrays = map(self._read_h5, var_files)
         concatenated = np.hstack((arrays))
         self.var = concatenated
         
