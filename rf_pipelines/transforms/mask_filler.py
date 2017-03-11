@@ -19,14 +19,10 @@ class mask_filler(rf_pipelines.py_wi_transform):
     ----------------------
     var_dir - directory containing .h5 variance files
 
-    n_varsamples - the number of samples used to calculate each variance datapoint and is the product of 
-                   v1_chunk and v2_chunk (n_varsamples * var.shape[1] must be equal to the number of samples
-                   in the dataset being filled)
-
     w_cutoff - weight cutoff above which the weight will not be replaced by random noise
     """
 
-    def __init__(self, var_dir, n_varsamples, w_cutoff, nt_chunk):
+    def __init__(self, var_dir, w_cutoff, nt_chunk):
         name = "mask_filler(w_cutoff=%d, nt_chunk=%d)" % (w_cutoff, nt_chunk)
 
         # Call base class constructor
@@ -40,12 +36,16 @@ class mask_filler(rf_pipelines.py_wi_transform):
         self.var = concatenated
         
         # Initialize some other values
-        self.n_varsamples = n_varsamples   # number of samples per data point in variance array
         self.w_cutoff = w_cutoff
         self.nt_postpad = 0
         self.nt_prepad = 0
 
-        # FOR NOW nt_chunk must be a multiple of n_varsamples
+        # Check all v1_chunk and v2_chunk are the same
+        v1_chunk, v2_chunk = self._check_h5(sorted_plots[0])
+        assert all(self._check_h5(item) == (v1_chunk, v2_chunk) for item in sorted_plots)
+        self.n_varsamples = v1_chunk * v2_chunk
+        
+        # For now, nt_chunk must be a multipe of n_varsamples 
         assert nt_chunk % n_varsamples == 0, \
             'For now, nt_chunk(=%d) must be a multiple of n_varsamples(=%d). I might implement some buffering later to fix this!' % (nt_chunk, n_varsamples)
         self.nt_chunk = nt_chunk
@@ -83,6 +83,9 @@ class mask_filler(rf_pipelines.py_wi_transform):
 
 
     def _read_h5(self, fname):
-        print fname
         with h5py.File(fname, 'r') as hf:
             return hf['variance'][:]
+
+    def _check_5f(self, fname):
+        with h5py.File(fname, 'r') as hf:
+            return hf.attrs['v1_chunk'], hf.attrs['v2_chunk']
