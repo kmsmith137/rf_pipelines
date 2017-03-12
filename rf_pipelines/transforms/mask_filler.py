@@ -62,7 +62,6 @@ class mask_filler(rf_pipelines.py_wi_transform):
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         ivariance = 0
-        imaxvar = self.var.shape[1]
         for frequency in xrange(self.nfreq):
             for i in xrange(intensity.shape[1]):
                 if weights[frequency, i] > self.w_cutoff:
@@ -85,6 +84,7 @@ class mask_filler(rf_pipelines.py_wi_transform):
     def _read_h5(self, fname):
         with h5py.File(fname, 'r') as hf:
             return hf['variance'][:]
+
 
     def _check_5f(self, fname):
         with h5py.File(fname, 'r') as hf:
