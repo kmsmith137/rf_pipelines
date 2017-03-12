@@ -24,7 +24,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
     process_chunk call). 
     """
 
-    def __init__(self, v1_chunk=128, v2_chunk=64, nt_chunk=1024, fname=None):
+    def __init__(self, v1_chunk=128, v2_chunk=80, nt_chunk=1024, fname=None):
         name = "variance_estimator(v1_chunk=%d, v2_chunk=%d, nt_chunk=%d)" % (v1_chunk, v2_chunk, nt_chunk)
 
         # Call base class constructor
