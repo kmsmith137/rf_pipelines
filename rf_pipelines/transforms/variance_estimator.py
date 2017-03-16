@@ -1,7 +1,7 @@
 import rf_pipelines
 import numpy as np
-import time
 import h5py
+from math import floor
 
 
 class variance_estimator(rf_pipelines.py_wi_transform):
@@ -16,8 +16,9 @@ class variance_estimator(rf_pipelines.py_wi_transform):
     Thus, the final variance array produced is of dimensions
         (nfreq, total number of time samples / v1_chunk / v1_chunk)
 
-    The variance array is written out as a .npy file in the directory of the test script.
+    The variance array is written out as a .h5 file in the directory of the test script.
     The prefix for this outputted file can be determined by the fname argument. 
+
     Variance arrays are outputted after the v2 array accumulated at least 64 x pixels so that v2 
     does not become too large and too much data is not lost if something causes the
     pipeline run to terminate (note that files are only outputted at the end of a 
@@ -33,12 +34,22 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         assert nt_chunk % v1_chunk == 0, \
             'For now, nt_chunk(=%d) must be a multiple of v1_chunk(=%d)' % (nt_chunk, v1_chunk)
 
-        self.v1_chunk = v1_chunk        
+        self.v1_chunk = v1_chunk
         self.v2_chunk = v2_chunk
         self.nt_chunk = nt_chunk
-        self.nt_prepad = 0  
+        self.nt_prepad = 0
         self.nt_postpad = 0 
         self.fname = fname
+        self.v1_t = floor(self.v2_chunk / 2) + 1  # which v1 to index for time (+1 since iv1 is len, not index)
+            
+        # Make and open the h5 file
+        if fname is None:
+            name = 'var_v1_%d_v2_%d.h5' % (self.v1_chunk, self.v2_chunk)
+        else:
+            name = '%s_v1_%d_v2_%d.h5' % (fname, self.v1_chunk, self.v2_chunk)
+        self.f = h5py.File(name, mode='w')
+        self.f.attrs['v1_chunk'] = self.v1_chunk
+        self.f.attrs['v2_chunk'] = self.v2_chunk
 
 
     def set_stream(self, s):
@@ -51,20 +62,22 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         # Called once per substream (a stream can be split into multiple substreams).
         self.v1 = np.zeros((self.nfreq, self.v2_chunk))
         self.iv1 = 0   # keeps track of which position we are adding v1 to 
-        self.v2 = []
-        self.t0 = 0   # initialized here for first outputted file
+        self.v2 = []   # stores final v2 values (reshaped when being outputted)
+        self.t = []    # keeps track of the average time for each v2
+
+        # Create h5 dsets here so we can change them later - can be extended if maxshape is None
+        self.v_dset = self.f.create_dataset('variance', shape=(self.nfreq, 0), dtype=np.float32, maxshape=(self.nfreq, None))
+
+        # I coudn't get this to work without being 2-D, so time needs to be accessed by indexing the 0th 
+        # element to get a normal list in Variance_Estimates class
+        self.t_dset = self.f.create_dataset('time', shape=(1,0), dtype=np.float32, maxshape=(1, None)) 
+
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         # This is the main computational routine defining the transform, which is called
         # once per incoming "block" of data.  For documentation on the interface see
         # rf_pipelines.py_wi_transform docstring.
         
-        # Save the first t0 for the first iteration of process_chunk
-        if self.t0 == 0:
-            self.t0 = t0
-            self.t1 = t1  # for edge case in which only one call to process_chunk is made
-
-        # Use i to index time samples of size v1_chunk
         for i in xrange(0, self.nt_chunk, self.v1_chunk):
             # Process the chunks for each frequency sequentially, wrap back if nt_chunk > v1_chunk
             for frequency in xrange(self.nfreq):
@@ -72,6 +85,16 @@ class variance_estimator(rf_pipelines.py_wi_transform):
                 a = self._v1(intensity[frequency, i : i+self.v1_chunk], weights[frequency, i : i+self.v1_chunk])
                 self.v1[frequency, self.iv1] = a
             self.iv1 += 1
+
+            # Check whether we need to record the time
+            if self.iv1 == self.v1_t:
+                # Write the current time to self.t. i tells you the number of time samples that have been gone though (ignoring frequency), 
+                # so we can use that to interpolate a time. 
+                if self.v2_chunk % 2 == 0:
+                    self.t += [ 1. * i / (t1 - t0) + t0 ]  # take the first time index in the chunk
+                else:
+                    self.t += [ 1. * i / (t1 - t0) + t0 - (t1 - t0) / (self.nt_chunk / self.v1_chunk) / 2 ]  # take the middle time index of the previous chunk  
+
             # Once we have calculated a value for each frequency, check if we should output a v2
             if self.iv1 == self.v2_chunk:
                 for frequency in xrange(self.nfreq):
@@ -82,18 +105,21 @@ class variance_estimator(rf_pipelines.py_wi_transform):
                         # Here, we want to ignore elements with value 0
                         self.v2.append(np.median(self.v1[frequency][np.nonzero(self.v1[frequency])]))
                 self.v1[frequency, :] = 0
-                self.iv1 = 0
+                self.iv1 = 0                
+
         # Write a file every now and then (for now, after at least 64 x-pixels are produced)
         if len(self.v2) >= self.nfreq*64:
-            self.t1 = t1
             self._write()
-            self.t0 = t1
 
 
     def end_substream(self):
         """Write any remaining data"""
-        if len(self.v2) >= self.nfreq:
+        if len(self.v2) > 0:
+            # We need to remove the extra time that was calculated
+            if 1. * len(self.v2) / self.nfreq != len(self.t):
+                self.t.pop()
             self._write()
+        self.f.close()
 
 
     def _v1(self, i, w):
@@ -118,21 +144,13 @@ class variance_estimator(rf_pipelines.py_wi_transform):
                 out[frequency] = np.interp(indices, nonzero, out[frequency, nonzero])
 
         # Write data to script directory
-        write_time = time.strftime('%y-%m-%d-%X')
-        if self.fname is None:
-            name = 'var-v1-%d-v2-%d-%s.h5' % (self.v1_chunk, self.v2_chunk, write_time)
-        else:
-            name = '%s-%s.h5' % (self.fname, write_time)
-        
-        with h5py.File(name, 'w') as hf:
-            hf.create_dataset("variance",  data=out)
-            hf.attrs['t0'] = self.t0
-            hf.attrs['t1'] = self.t1
-            hf.attrs['v1_chunk'] = self.v1_chunk
-            hf.attrs['v2_chunk'] = self.v2_chunk
-            hf.attrs['write_time'] = write_time
+        shape = self.v_dset.shape
+        self.v_dset.resize((self.nfreq, shape[1] + len(out[0])))
+        self.t_dset.resize((1, shape[1] + len(out[0])))
+        self.v_dset[:, shape[1]:] = out[:,:]
+        self.t_dset[0, shape[1]:] = self.t[:]
+        print 'Variance Estimator: writing variance data to', self.fname
 
-        print "Variance Estimator: wrote", name
-        
-        # Clear self.v2
+        # Clear self.v2 and self.t
         self.v2 = []
+        self.t = []
