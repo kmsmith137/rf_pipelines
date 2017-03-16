@@ -39,14 +39,13 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0 
-        self.fname = fname
         self.v1_t = floor(self.v2_chunk / 2) + 1  # which v1 to index for time (+1 since iv1 is len, not index)
             
         # Make and open the h5 file
         if fname is None:
-            name = 'var_v1_%d_v2_%d.h5' % (self.v1_chunk, self.v2_chunk)
+            self.fname = 'var_v1_%d_v2_%d.h5' % (self.v1_chunk, self.v2_chunk)
         else:
-            name = '%s_v1_%d_v2_%d.h5' % (fname, self.v1_chunk, self.v2_chunk)
+            self.fname = '%s_v1_%d_v2_%d.h5' % (fname, self.v1_chunk, self.v2_chunk)
         self.f = h5py.File(name, mode='w')
         self.f.attrs['v1_chunk'] = self.v1_chunk
         self.f.attrs['v2_chunk'] = self.v2_chunk
