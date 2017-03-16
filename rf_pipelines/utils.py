@@ -344,10 +344,6 @@ class Variance_Estimates():
         for f in range(self.var.shape[0]):
             ret += [ np.interp(t, self.t, self.var[f]) ] 
         return ret
-        #print t
-        #print self.t.shape
-        #print self.var.shape
-        #return np.interp(t, self.t, self.var)#, left=self.var[0], right=self.var[-1])
 
     def _read_h5(self, fname, dset):
         with h5py.File(fname, 'r') as hf:
