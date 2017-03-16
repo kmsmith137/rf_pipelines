@@ -295,28 +295,53 @@ def json_str(obj, depth=1, indent=''):
 
 ####################################################################################################
 
+def var_to_png(name, var, comparison=False):
+    """
+    After fiddling with matplotlib for a couple hours to no avail, this is an attempt
+    at writing a functional (not pretty) plotter for variance arrays. It will plot
+    variances between 'low' and 'high' on a green colourscale. Values exceeding
+    the threshold will be saturated red and values below the threshold will be saturated
+    blue (blue is for comparison plots only). Values of 0 will be white (as they have been masked). 
+    """
+    if comparison:
+        # For generating a comparison plot (dividing two variance plots by each other)
+        low = np.where(var < 0.5)
+        high = np.where(var > 2)
+        zero = np.where(var == 0.)
+        green_factor = 127.5
+    else:
+        # For producing a single variance plot (no blue)
+        high = np.where(var > 0.01)
+        zero = np.where(var == 0.)
+        green_factor = 22500.
 
-def _read_h5(fname):
-    with h5py.File(fname, 'r') as hf:
-        return hf['variance'][:]
+    rgb = np.zeros((var.shape[0], var.shape[1], 3), dtype=np.uint8)
+    rgb[:,:,1] = var * 22500.     # Set green values
+    if comparison:                # Overwrite with some blue (low values)
+        rgb[low[0], low[1], 2] = 200.
+        rgb[low[0], low[1], 1] = 0
+    rgb[high[0], high[1], 0] = 200.    # Then red (high values)
+    rgb[high[0], high[1], 1] = 0
+    rgb[zero[0], zero[1], :] = 255     # Finally, if anything is 0, make white
 
-def variance_plots():
-    # Group .h5 files together by prefix
-    plots_d = dict()
-    for plot in glob.glob('./*.h5'):
-        plot_prefix = plot[:-21]    # includes everything but the date/time and extension
-        if plot_prefix not in plots_d:
-            plots_d[plot_prefix] = [plot]
-        else:
-            plots_d[plot_prefix] += [plot]
+    img = PIL.Image.fromarray(rgb)
+    img.save(name)
+    print 'wrote %s' % name    
 
-    # Sort, load, stitch, print useful stuff, plot
-    for plot_group_key in plots_d:
-        sorted_plots = sorted(plots_d[plot_group_key])
-        arrays = map(_read_h5, sorted_plots)
-        concatenated = np.hstack((arrays))
-        print '\n', plot_group_key, 'shape:', concatenated.shape
-        print plot_group_key, 'amax:', np.amax(concatenated)
-        print plot_group_key, 'amin (nonzero):', np.amin(concatenated[np.where(concatenated > 0)])
-        write_png(plot_group_key+'.png', concatenated, transpose=True, ytop_to_bottom=True, clip_niter=1)
 
+class Variance_Estimates():
+    def __init__(self, h5):
+        self.var = self._read_h5(h5, 'variance')
+        self.t = read_h5(h5, 'time')[0]  # [0] required because t was stored as 2-D array
+        assert self.var.shape[1] == self.time.shape[0]
+        size = (self.t[1] - self.t[0]) / 2.
+        print 'WARN: This variance file ranges approximately from times', self.t[0] - size, 'to', self.t[-1] + size
+        print 'Requesting variances outside of this time range will result in eval() returning' \
+              'the endpoints of the variance array.'
+        
+    def eval(self, t):
+        return np.interp(t, self.t, self.var, left=self.var[0], right=self.var[-1])
+
+    def _read_h5(self, fname, dset):
+        with h5py.File(fname, 'r') as hf:
+            return hf[dset][:]
