@@ -1,9 +1,6 @@
 import rf_pipelines
 import numpy as np
 from numpy import random
-from math import sqrt
-import h5py
-import glob
 
 
 class mask_filler(rf_pipelines.py_wi_transform):
@@ -22,70 +19,37 @@ class mask_filler(rf_pipelines.py_wi_transform):
     w_cutoff - weight cutoff above which the weight will not be replaced by random noise
     """
 
-    def __init__(self, var_dir, w_cutoff, nt_chunk):
+    def __init__(self, var_file, w_cutoff, nt_chunk):
         name = "mask_filler(w_cutoff=%d, nt_chunk=%d)" % (w_cutoff, nt_chunk)
 
         # Call base class constructor
         rf_pipelines.py_wi_transform.__init__(self, name)
 
-        # Sort, load, stitch
-        var_files = glob.glob(var_dir + '/*.h5')
-        sorted_plots = sorted(var_files)
-        arrays = map(self._read_h5, var_files)
-        concatenated = np.hstack((arrays))
-        self.var = concatenated
-        
-        # Initialize some other values
+        self.Variance = rf_pipelines.utils.Variance_Estimates(var_file)
         self.w_cutoff = w_cutoff
         self.nt_postpad = 0
         self.nt_prepad = 0
-
-        # Check all v1_chunk and v2_chunk are the same
-        v1_chunk, v2_chunk = self._check_h5(sorted_plots[0])
-        assert all(self._check_h5(item) == (v1_chunk, v2_chunk) for item in sorted_plots)
-        self.n_varsamples = v1_chunk * v2_chunk
-        
-        # For now, nt_chunk must be a multipe of n_varsamples 
-        assert nt_chunk % n_varsamples == 0, \
-            'For now, nt_chunk(=%d) must be a multiple of n_varsamples(=%d). I might implement some buffering later to fix this!' % (nt_chunk, n_varsamples)
         self.nt_chunk = nt_chunk
+        print 'WARNING nt_chunk should be less than v1_chunk * v2_chunk for the variance array.'
 
 
     def set_stream(self, s):
          self.nfreq = s.nfreq
 
 
-    def start_substream(self, isubstream, t0):
-        # Can add some sort of buffer here later to remove need to nt_chunk % n_varsamples == 0 if desired
-        pass
-
-
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        ivariance = 0
-        for frequency in xrange(self.nfreq):
-            for i in xrange(intensity.shape[1]):
-                if weights[frequency, i] > self.w_cutoff:
-                    weights[frequency, i] = 2.0
-                else:
-                    sigma = sqrt(self.var[frequency, ivariance])
-                    if sigma == 0:
-                        weights[frequency, i] = 0
-                    else:
-                        intensity[frequency, i] = sigma * np.random.standard_normal()
-                        weights[frequency, i] = 2.0
-                if i % self.n_varsamples == 0 and i != 0:
-                    ivariance += 1
-            ivariance = 0
+        var = self.Variance.eval((t0+t1)/2.)
+        
+        # 'intensity_valid' will be a 2D boolean-valued numpy array
+        intensity_valid = (weights > self.w_cutoff)
+        
+        rand_intensity = np.random.standard_normal(size=intensity.shape)
+        weights[:,:] = 0.0
+        
+        for (ifreq,v) in enumerate(var):
+            if v > 0.0:
+                rand_intensity[ifreq,:] *= v**0.5
+                weights[ifreq,:] = 2.0
 
-    def end_substream(self):
-        pass
+        intensity[:,:] = np.where(intensity_valid, intensity, rand_intensity)
 
-
-    def _read_h5(self, fname):
-        with h5py.File(fname, 'r') as hf:
-            return hf['variance'][:]
-
-
-    def _check_5f(self, fname):
-        with h5py.File(fname, 'r') as hf:
-            return hf.attrs['v1_chunk'], hf.attrs['v2_chunk']
