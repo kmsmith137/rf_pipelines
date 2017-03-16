@@ -332,15 +332,22 @@ def var_to_png(name, var, comparison=False):
 class Variance_Estimates():
     def __init__(self, h5):
         self.var = self._read_h5(h5, 'variance')
-        self.t = read_h5(h5, 'time')[0]  # [0] required because t was stored as 2-D array
-        assert self.var.shape[1] == self.time.shape[0]
+        self.t = self._read_h5(h5, 'time')[0]  # [0] required because t was stored as 2-D array
+        assert self.var.shape[1] == self.t.shape[0]
         size = (self.t[1] - self.t[0]) / 2.
         print 'WARN: This variance file ranges approximately from times', self.t[0] - size, 'to', self.t[-1] + size
         print 'Requesting variances outside of this time range will result in eval() returning' \
               'the endpoints of the variance array.'
         
     def eval(self, t):
-        return np.interp(t, self.t, self.var, left=self.var[0], right=self.var[-1])
+        ret = []
+        for f in range(self.var.shape[0]):
+            ret += [ np.interp(t, self.t, self.var[f]) ] 
+        return ret
+        #print t
+        #print self.t.shape
+        #print self.var.shape
+        #return np.interp(t, self.t, self.var)#, left=self.var[0], right=self.var[-1])
 
     def _read_h5(self, fname, dset):
         with h5py.File(fname, 'r') as hf:
