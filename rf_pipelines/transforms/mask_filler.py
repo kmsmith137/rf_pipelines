@@ -14,8 +14,7 @@ class mask_filler(rf_pipelines.py_wi_transform):
 
     Constructor Arguments
     ----------------------
-    var_dir - directory containing .h5 variance files
-
+    var_file - the h5 variance file for the acquisition
     w_cutoff - weight cutoff above which the weight will not be replaced by random noise
     """
 
