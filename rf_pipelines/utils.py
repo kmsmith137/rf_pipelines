@@ -335,6 +335,17 @@ class Variance_Estimates():
         self.t = self._read_h5(h5, 'time')[0]  # [0] required because t was stored as 2-D array
         assert self.var.shape[1] == self.t.shape[0]
         size = (self.t[1] - self.t[0]) / 2.
+
+        # Interpolate zeros
+        x = len(self.var[0])
+        indices = np.arange(x)
+        for frequency in xrange(len(self.var)):
+            nonzero = np.nonzero(self.var[frequency])[0]
+            if len(nonzero) < 0.25 * x:
+                self.var[frequency] = np.zeros((x))
+            else:
+                self.var[frequency] = np.interp(indices, nonzero, self.var[frequency, nonzero])
+
         print 'WARN: This variance file ranges approximately from times', self.t[0] - size, 'to', self.t[-1] + size
         print 'Requesting variances outside of this time range will result in eval() returning' \
               'the endpoints of the variance array.'
