@@ -16,16 +16,15 @@ class variance_estimator(rf_pipelines.py_wi_transform):
     Thus, the final variance array produced is of dimensions
         (nfreq, total number of time samples / v1_chunk / v1_chunk)
 
-    The variance array is written out as a .h5 file in the directory of the test script.
-    The prefix for this outputted file can be determined by the fname argument. 
+    The variance array is written out as a .h5 file in the directory of the test script
+    by default. The prefix for this outputted file can be determined by the fname argument. 
 
     Variance arrays are outputted after the v2 array accumulated at least 64 x pixels so that v2 
     does not become too large and too much data is not lost if something causes the
-    pipeline run to terminate (note that files are only outputted at the end of a 
-    process_chunk call). 
+    pipeline run to terminate.
     """
 
-    def __init__(self, v1_chunk=128, v2_chunk=80, nt_chunk=1024, fname=None):
+    def __init__(self, v1_chunk=128, v2_chunk=80, nt_chunk=1024, fname=None, outdir='.'):
         name = "variance_estimator(v1_chunk=%d, v2_chunk=%d, nt_chunk=%d)" % (v1_chunk, v2_chunk, nt_chunk)
 
         # Call base class constructor
@@ -43,9 +42,9 @@ class variance_estimator(rf_pipelines.py_wi_transform):
             
         # Make and open the h5 file
         if fname is None:
-            self.fname = 'var_v1_%d_v2_%d.h5' % (self.v1_chunk, self.v2_chunk)
+            self.fname = '%s/var_v1_%d_v2_%d.h5' % (outdir, self.v1_chunk, self.v2_chunk)
         else:
-            self.fname = '%s_v1_%d_v2_%d.h5' % (fname, self.v1_chunk, self.v2_chunk)
+            self.fname = '%s/%s_v1_%d_v2_%d.h5' % (outdir, fname, self.v1_chunk, self.v2_chunk)
         self.f = h5py.File(self.fname, mode='w')
         self.f.attrs['v1_chunk'] = self.v1_chunk
         self.f.attrs['v2_chunk'] = self.v2_chunk
