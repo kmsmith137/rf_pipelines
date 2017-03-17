@@ -109,8 +109,14 @@ def chime_stream_from_times(dirname, t0, t1, nt_chunk=0, noise_source_align=0):
     files_with_paths = [join(dirname, file) for file in files]
 
     assert t0 < t1, 'First time index must be less than second time index.'
-    assert t0 < get_times(files_with_paths[-1])[1], \
-        'First time index must be less than final time index for acquisition'
+    
+    # FIXME this assertion assumes a complete acquistion, meaning that 
+    # the very last file has been written completely to disk. This is not
+    # true when files are being copied over. In this case, the last file 
+    # is still inaccessible, hence h5py.File fails.
+    #assert t0 < get_times(files_with_paths[-1])[1], \
+    #    'First time index must be less than final time index for acquisition'
+
     assert t1 > get_times(files_with_paths[0])[0], \
         'Second time index must be greater than the first time index for the acquisition'
 
