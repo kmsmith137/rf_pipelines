@@ -28,13 +28,15 @@ def read_h5(fname):
     return var
 
 
-def plot(h5_file):
+def plot(h5_file, max):
     """Plot a single h5 file"""
     name = h5_file[:-3] + '.png'
     var = read_h5(h5_file)
     print name, 'shape:', var.shape
+    print name, 'max', np.amax(var)
+    print name, 'min', np.amin(var)
 
-    rf_pipelines.utils.var_to_png(name, var, comparison=False)
+    rf_pipelines.utils.var_to_png(name, var, max=float(max))
 
 
 def compare(h5_file1, h5_file2, factor):
@@ -55,13 +57,13 @@ def compare(h5_file1, h5_file2, factor):
     comparison = var1/var2
     name = 'comp_' + h5_file1[:-3] + '_' + h5_file2[:-3] + '.png'
 
-    rf_pipelines.utils.var_to_png(name, comparison, comparison=True)
+    rf_pipelines.utils.var_comparison_png(name, comparison)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 2:
-        # Plot a single variance file
-        plot(sys.argv[1])
+    if len(sys.argv) == 3:
+        # Plot a single variance file (var, max)
+        plot(sys.argv[1], sys.argv[2])
     else:
         # Three args - var1, var2, conversion factor
         compare(sys.argv[1], sys.argv[2], sys.argv[3])
