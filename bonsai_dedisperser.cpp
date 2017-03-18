@@ -14,7 +14,7 @@ namespace rf_pipelines {
 
 #ifndef HAVE_BONSAI
 
-shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_filename, bool track_global_max)
+shared_ptr<wi_transform> make_bonsai_dedisperser(const string &config_filename, const bonsai_initializer &ini_params)
 {
     throw runtime_error("make_bonsai_dedisperser() was called, but this rf_pipelines instance was compiled without bonsai");
 }
@@ -25,9 +25,9 @@ shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_filen
 struct bonsai_dedisperser : public wi_transform {
     unique_ptr<bonsai::dedisperser> dedisperser;
     shared_ptr<bonsai::global_max_tracker> max_tracker;
-    bool deallocate_between_substreams = false;
+    bool deallocate_between_substreams;
 
-    bonsai_dedisperser(const string &config_filename, bool track_global_max, bool deallocate_between_substreams);
+    bonsai_dedisperser(const string &config_filename, const bonsai_initializer &ini_params);
 
     virtual void set_stream(const wi_stream &stream) override;
     virtual void start_substream(int isubstream, double t0) override;
@@ -37,22 +37,19 @@ struct bonsai_dedisperser : public wi_transform {
 
 
 
-bonsai_dedisperser::bonsai_dedisperser(const string &config_filename, bool track_global_max, bool deallocate_between_substreams_) :
-    deallocate_between_substreams(deallocate_between_substreams_)
+bonsai_dedisperser::bonsai_dedisperser(const string &config_filename, const bonsai_initializer &ini_params) :
+    deallocate_between_substreams(ini_params.deallocate_between_substreams)
 {
-    auto initializer = bonsai::config_initializer::make(config_filename);
-    bonsai::config_params config(*initializer);
+    bonsai::dedisperser::initializer ini2;
+    ini2.file_type = ini_params.file_type;
+    ini2.verbosity = ini_params.verbosity;
+    ini2.allocate = !ini_params.deallocate_between_substreams;
+    ini2.use_analytic_normalization = ini_params.use_analytic_normalization;
 
-    bool allocate = !deallocate_between_substreams;
-    this->dedisperser = make_unique<bonsai::dedisperser> (config, allocate);
-    
-    if (initializer->analytic_variance_readable)
-	this->dedisperser->read_analytic_variance(*initializer);
-    else
-	this->dedisperser->compute_analytic_variance();
+    this->dedisperser = make_unique<bonsai::dedisperser> (config_filename, ini2);
 
-    if (track_global_max) {
-	this->max_tracker = make_shared<bonsai::global_max_tracker> ();
+    if (ini_params.track_global_max) {
+	this->max_tracker = make_shared<bonsai::global_max_tracker> (ini_params.dm_min, ini_params.dm_max);
 	this->dedisperser->add_processor(max_tracker);
     }
 
@@ -118,9 +115,9 @@ void bonsai_dedisperser::end_substream()
 }
 
 
-shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_filename, bool track_global_max, bool deallocate_between_substreams)
+shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_filename, const bonsai_initializer &ini_params)
 {
-    return make_shared<bonsai_dedisperser> (config_filename, track_global_max, deallocate_between_substreams);
+    return make_shared<bonsai_dedisperser> (config_filename, ini_params);
 }
 
 

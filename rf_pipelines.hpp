@@ -342,13 +342,6 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 
 // Returns a "transform" which doesn't actually modify the data, it just runs the bonsai dedisperser.  
 //
-// Currently, we use "analytic weights", i.e. the trigger normalization for a toy noise model in
-// which every (frequency_channel, time) sample is a *unit* Gaussian.  This is a placeholder for
-// implementing something better soon!
-//
-// If 'config_filename' is an hdf5 file with precomputed analytic weights, they will be read from
-// disk.  Otherwise they will be computed in the transform constructor.
-//
 // If the 'track_global_max' flag is set to true, then the following json output will be written:
 //   frb_global_max_trigger
 //   frb_global_max_trigger_dm
@@ -356,12 +349,22 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 //
 // We don't currently define any mechanism for the C++ bonsai_transform to write hdf5 files or plots,
 // but this should be easy to change if needed.  The python bonsai_transform does contain plotter logic.
-//
-// If the 'deallocate_between_substreams' flag is set, then the dedisperser will be deallocated initially,
-// allocate buffers in start_substream(), and deallocate in end_substream().
 
-extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_filename, bool track_global_max=false, 
-							     bool deallocate_between_substreams=false);
+
+struct bonsai_initializer {
+    std::string file_type;                       // Allowed values are { txt, hdf5 }.  Empty string means "infer from filename".
+    int verbosity = 1;                           // Print some informational output (in constructor only)
+    bool deallocate_between_substreams = false;  // Infrequently used, but useful in frb_olympics
+    bool use_analytic_normalization = false;     // If true, then unit-variance toy model is assumed (not suitable for real data!)
+    bool track_global_max = false;               // If true, then global max trigger info will be written to pipeline json file
+    int dm_min = 0.0;                            // Only meaningful if track_global_max = True
+    int dm_max = 0.0;                            // Only meaningful if track_global_max = True.  Zero means "no max DM".
+
+    bonsai_initializer() { }
+};
+
+
+extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_filename, const bonsai_initializer &ini_params = bonsai_initializer());
 
 
 // Some day, this factory function will return a C++ implementation of the 'badchannel_mask' class.
