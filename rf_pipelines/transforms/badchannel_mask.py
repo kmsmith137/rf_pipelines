@@ -19,7 +19,7 @@ class badchannel_mask(rf_pipelines.py_wi_transform):
     """
 
     def __init__(self, maskpath=None, nt_chunk=1024, mask=None):
-        name = 'badchannel_mask(%s, %s)' % (maskpath, mask)
+        name = 'badchannel_mask(maskpath=%s, mask=%s)' % (maskpath, mask)
         rf_pipelines.py_wi_transform.__init__(self, name)
 
         self.maskpath = maskpath 

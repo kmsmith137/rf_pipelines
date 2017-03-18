@@ -295,33 +295,43 @@ def json_str(obj, depth=1, indent=''):
 
 ####################################################################################################
 
-def var_to_png(name, var, comparison=False):
+
+def var_comparison_png(name, arr, min=0.5, max=2):
     """
-    After fiddling with matplotlib for a couple hours to no avail, this is an attempt
-    at writing a functional (not pretty) plotter for variance arrays. It will plot
-    variances between 'low' and 'high' on a green colourscale. Values exceeding
-    the threshold will be saturated red and values below the threshold will be saturated
-    blue (blue is for comparison plots only). Values of 0 will be white (as they have been masked). 
+    Plots the ratio of variance files. Variances between min and max are on a greenscale. Lower 
+    than min is saturated blue and higher than max is saturated red. Zero variance is white. 
     """
-    if comparison:
-        # For generating a comparison plot (dividing two variance plots by each other)
-        low = np.where(var < 0.5)
-        high = np.where(var > 2)
-        zero = np.where(var == 0.)
-        green_factor = 127.5
-    else:
-        # For producing a single variance plot (no blue)
-        high = np.where(var > 0.01)
-        zero = np.where(var == 0.)
-        green_factor = 22500.
+    low = np.where(var < min)
+    high = np.where(var > max)
+    zero = np.where(var == 0.)
+    factor = 255. / high
+    
+    rgb = np.zeros((var.shape[0], var.shape[1], 3), dtype=np.uint8)
+    rgb[:,:,1] = var * green_factor     # Set green values
+    rgb[low[0], low[1], 2] = 255.       # Blue
+    rgb[low[0], low[1], 1] = 0.
+    rgb[high[0], high[1], 0] = 255.     # Red (high values)
+    rgb[high[0], high[1], 1:3] = 0.
+    rgb[zero[0], zero[1], :] = 255.     # Finally, if anything is 0, make white
+
+    img = PIL.Image.fromarray(rgb)
+    img.save(name)
+    print 'wrote %s' % name    
+
+
+def var_to_png(name, var, max=0.01):
+    """
+    Plots variance h5 files. Variances below max are on a greenscale and above are saturated red. 
+    Zero variance is white. 
+    """
+    high = np.where(var > max)
+    zero = np.where(var == 0.)
+    factor = 255. / max
 
     rgb = np.zeros((var.shape[0], var.shape[1], 3), dtype=np.uint8)
-    rgb[:,:,1] = var * 22500.     # Set green values
-    if comparison:                # Overwrite with some blue (low values)
-        rgb[low[0], low[1], 2] = 200.
-        rgb[low[0], low[1], 1] = 0
+    rgb[:,:,1] = var * factor          # Set green values
     rgb[high[0], high[1], 0] = 200.    # Then red (high values)
-    rgb[high[0], high[1], 1] = 0
+    rgb[high[0], high[1], 1] = 0.
     rgb[zero[0], zero[1], :] = 255     # Finally, if anything is 0, make white
 
     img = PIL.Image.fromarray(rgb)
@@ -335,6 +345,17 @@ class Variance_Estimates():
         self.t = self._read_h5(h5, 'time')[0]  # [0] required because t was stored as 2-D array
         assert self.var.shape[1] == self.t.shape[0]
         size = (self.t[1] - self.t[0]) / 2.
+
+        # Interpolate zeros
+        x = len(self.var[0])
+        indices = np.arange(x)
+        for frequency in xrange(len(self.var)):
+            nonzero = np.nonzero(self.var[frequency])[0]
+            if len(nonzero) < 0.25 * x:
+                self.var[frequency] = np.zeros((x))
+            else:
+                self.var[frequency] = np.interp(indices, nonzero, self.var[frequency, nonzero])
+
         print 'WARN: This variance file ranges approximately from times', self.t[0] - size, 'to', self.t[-1] + size
         print 'Requesting variances outside of this time range will result in eval() returning' \
               'the endpoints of the variance array.'
@@ -344,10 +365,6 @@ class Variance_Estimates():
         for f in range(self.var.shape[0]):
             ret += [ np.interp(t, self.t, self.var[f]) ] 
         return ret
-        #print t
-        #print self.t.shape
-        #print self.var.shape
-        #return np.interp(t, self.t, self.var)#, left=self.var[0], right=self.var[-1])
 
     def _read_h5(self, fname, dset):
         with h5py.File(fname, 'r') as hf:

@@ -16,16 +16,15 @@ class variance_estimator(rf_pipelines.py_wi_transform):
     Thus, the final variance array produced is of dimensions
         (nfreq, total number of time samples / v1_chunk / v1_chunk)
 
-    The variance array is written out as a .h5 file in the directory of the test script.
-    The prefix for this outputted file can be determined by the fname argument. 
+    The variance array is written out as a .h5 file in the directory of the test script
+    by default. The prefix for this outputted file can be determined by the fname argument. 
 
     Variance arrays are outputted after the v2 array accumulated at least 64 x pixels so that v2 
     does not become too large and too much data is not lost if something causes the
-    pipeline run to terminate (note that files are only outputted at the end of a 
-    process_chunk call). 
+    pipeline run to terminate.
     """
 
-    def __init__(self, v1_chunk=128, v2_chunk=80, nt_chunk=1024, fname=None):
+    def __init__(self, v1_chunk=128, v2_chunk=80, nt_chunk=1024, fname=None, outdir='.'):
         name = "variance_estimator(v1_chunk=%d, v2_chunk=%d, nt_chunk=%d)" % (v1_chunk, v2_chunk, nt_chunk)
 
         # Call base class constructor
@@ -39,15 +38,14 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0 
-        self.fname = fname
         self.v1_t = floor(self.v2_chunk / 2) + 1  # which v1 to index for time (+1 since iv1 is len, not index)
             
         # Make and open the h5 file
         if fname is None:
-            name = 'var_v1_%d_v2_%d.h5' % (self.v1_chunk, self.v2_chunk)
+            self.fname = '%s/var_v1_%d_v2_%d.h5' % (outdir, self.v1_chunk, self.v2_chunk)
         else:
-            name = '%s_v1_%d_v2_%d.h5' % (fname, self.v1_chunk, self.v2_chunk)
-        self.f = h5py.File(name, mode='w')
+            self.fname = '%s/%s_v1_%d_v2_%d.h5' % (outdir, fname, self.v1_chunk, self.v2_chunk)
+        self.f = h5py.File(self.fname, mode='w')
         self.f.attrs['v1_chunk'] = self.v1_chunk
         self.f.attrs['v2_chunk'] = self.v2_chunk
 
@@ -133,15 +131,6 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         """Writes a .h5 file"""
         # Reshape self.v2
         out = np.array(self.v2).reshape((self.nfreq, -1), order='F')
-
-        # Interpolate zeros
-        indices = np.arange(len(out[0]))
-        for frequency in xrange(self.nfreq):
-            nonzero = np.nonzero(out[frequency])[0]
-            if len(nonzero) < 0.25 * len(indices):
-                out[frequency] = np.zeros((len(out[0])))
-            else:
-                out[frequency] = np.interp(indices, nonzero, out[frequency, nonzero])
 
         # Write data to script directory
         shape = self.v_dset.shape
