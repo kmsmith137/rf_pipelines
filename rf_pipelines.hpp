@@ -359,6 +359,8 @@ struct bonsai_initializer {
     bool track_global_max = false;               // If true, then global max trigger info will be written to pipeline json file
     int dm_min = 0.0;                            // Only meaningful if track_global_max = True
     int dm_max = 0.0;                            // Only meaningful if track_global_max = True.  Zero means "no max DM".
+    std::string hdf5_output_filename;            // If this string is nonempty, then trigger HDF5 files will be written.
+    int nt_per_hdf5_file = 0;                    // Only meaningful if hdf5_output_filename is nonempty.  Zero means "one big file".
 
     bonsai_initializer() { }
 };

@@ -30,7 +30,11 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
        - dm_min, dm_max: Only meaningful if track_global_max is True.
 
-       - deallocate_between_substreams: infrequently-used option 
+       - hdf5_output_filename: If specified, HDF5 file(s) containing coarse-grained triggers will be written.
+
+       - nt_per_hdf5_file: Only meaningful if hdf5_output_filename=True.  Zero means "one big file".
+
+       - deallocate_between_substreams: infrequently-used option, used in frb_olympics
 
        - use_analytic_normalization: if True, then the dedisperser will use the exact trigger
            normalization, assuming a toy model in which each input (frequency, time) sample
@@ -38,8 +42,8 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
     """
 
     def __init__(self, config_filename, img_prefix=None, img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, 
-                 track_global_max=False, dm_min=None, dm_max=None, deallocate_between_substreams=False, 
-                 use_analytic_normalization=False):
+                 track_global_max=False, dm_min=None, dm_max=None, hdf5_output_filename=None, nt_per_hdf5_file=0,
+                 deallocate_between_substreams=False, use_analytic_normalization=False):
 
         # We import the bonsai module here, rather than at the top of the file, so that bonsai isn't
         # required to import rf_pipelines (but is required when you try to construct a bonsai_dedisperser).
@@ -66,7 +70,11 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         if track_global_max:
             self.global_max_tracker = bonsai.global_max_tracker(dm_min, dm_max)
             self.dedisperser.add_processor(self.global_max_tracker)
-        
+
+        if hdf5_output_filename:
+            t = bonsai.trigger_hdf5_file_writer(hdf5_output_filename, nt_per_hdf5_file)
+            self.dedispeser.add_processor(t)
+
         # Note that 'nfreq' is determined by the config file.  If the stream's 'nfreq' differs,
         # then an exception will be thrown.  The 'nt_chunk' parameter is also determined by the
         # config file, not a constructor argument.

@@ -53,6 +53,11 @@ bonsai_dedisperser::bonsai_dedisperser(const string &config_filename, const bons
 	this->dedisperser->add_processor(max_tracker);
     }
 
+    if (ini_params.hdf5_output_filename.size() > 0) {
+	auto t = make_shared<bonsai::trigger_hdf5_file_writer> (ini_params.hdf5_output_filename, ini_params.nt_per_hdf5_file);
+	this->dedisperser->add_processor(t);
+    }
+
     // initialize members of wi_transform base class
     this->name = "bonsai_dedisperser(" + config_filename + ")";
     this->nfreq = dedisperser->nfreq;
