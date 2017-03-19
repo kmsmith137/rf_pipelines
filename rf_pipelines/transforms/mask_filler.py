@@ -16,10 +16,11 @@ class mask_filler(rf_pipelines.py_wi_transform):
     ----------------------
     var_file - the h5 variance file for the acquisition
     w_cutoff - weight cutoff above which the weight will not be replaced by random noise
+    nt_chunk - the buffer size
     """
 
-    def __init__(self, var_file, w_cutoff, nt_chunk):
-        name = "mask_filler(w_cutoff=%d, nt_chunk=%d)" % (w_cutoff, nt_chunk)
+    def __init__(self, var_file, w_cutoff, nt_chunk=1024):
+        name = "mask_filler(var_file=%s, w_cutoff=%d, nt_chunk=%d)" % (var_file, w_cutoff, nt_chunk)
 
         # Call base class constructor
         rf_pipelines.py_wi_transform.__init__(self, name)
@@ -51,4 +52,3 @@ class mask_filler(rf_pipelines.py_wi_transform):
                 weights[ifreq,:] = 2.0
 
         intensity[:,:] = np.where(intensity_valid, intensity, rand_intensity)
-
