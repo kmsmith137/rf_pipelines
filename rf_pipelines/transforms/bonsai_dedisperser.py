@@ -73,7 +73,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
         if hdf5_output_filename:
             t = bonsai.trigger_hdf5_file_writer(hdf5_output_filename, nt_per_hdf5_file)
-            self.dedispeser.add_processor(t)
+            self.dedisperser.add_processor(t)
 
         # Note that 'nfreq' is determined by the config file.  If the stream's 'nfreq' differs,
         # then an exception will be thrown.  The 'nt_chunk' parameter is also determined by the
