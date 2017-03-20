@@ -6,8 +6,8 @@ from numpy import random
 class mask_filler(rf_pipelines.py_wi_transform):
     """
     Modifies values in the intensity and weight arrays. If the weight is > w_cutoff, the weight is changed to 
-    2.0 and left unmodified. Otherwise the weight is changed to 2.0 AND the intensity is replaced with 
-    gaussian random noise with standard deviation given by a previously calculated variance array.
+    2.0 and (FIXME the intensity is) left unmodified. Otherwise the weight is changed to 2.0 AND the intensity 
+    is replaced with gaussian random noise with standard deviation given by a previously calculated variance array.
 
     Note that if the entire frequency channel was masked in the variance array (variance = 0), it will remain 
     masked. 
@@ -38,6 +38,11 @@ class mask_filler(rf_pipelines.py_wi_transform):
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
+        
+        # FIXME perhaps we need to normalize weights here so that
+        # w_cutoff becomes more meaningful and less data-dependant? 
+        # e.g. weights /= max(weights)
+
         var = self.Variance.eval((t0+t1)/2.)
         
         # 'intensity_valid' will be a 2D boolean-valued numpy array
