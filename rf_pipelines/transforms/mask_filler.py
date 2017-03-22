@@ -30,7 +30,7 @@ class mask_filler(rf_pipelines.py_wi_transform):
         self.nt_postpad = 0
         self.nt_prepad = 0
         self.nt_chunk = nt_chunk
-        print 'WARNING nt_chunk should be less than v1_chunk * v2_chunk for the variance array.'
+        print 'WARNING nt_chunk should be less than (FIXME or equal to) v1_chunk * v2_chunk for the variance array.'
 
 
     def set_stream(self, s):
