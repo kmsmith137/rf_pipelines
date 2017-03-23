@@ -6,12 +6,12 @@ from numpy import random
 class mask_filler(rf_pipelines.py_wi_transform):
     """
     Modifies values in the intensity and weight arrays. If the weight is > w_cutoff, the weight is changed to 
-    2.0 and (FIXME the intensity is) left unmodified. Otherwise the weight is changed to 2.0 AND the intensity 
+    2.0 and the intensity is left unmodified. Otherwise the weight is changed to 2.0 AND the intensity 
     is replaced with gaussian random noise with standard deviation given by a previously calculated variance array.
 
     Note that if the entire frequency channel was masked in the variance array (variance = 0), it will remain 
     masked. 
-
+    
     Constructor Arguments
     ----------------------
     var_file - the h5 variance file for the acquisition
@@ -30,19 +30,21 @@ class mask_filler(rf_pipelines.py_wi_transform):
         self.nt_postpad = 0
         self.nt_prepad = 0
         self.nt_chunk = nt_chunk
-        print 'WARNING nt_chunk should be less than (FIXME or equal to) v1_chunk * v2_chunk for the variance array.'
-
+        print 'WARNING nt_chunk should be less than or equal to v1_chunk * v2_chunk for the variance array.'
 
     def set_stream(self, s):
          self.nfreq = s.nfreq
 
-
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         
-        # FIXME perhaps we need to normalize weights here so that
-        # w_cutoff becomes more meaningful and less data-dependant? 
-        # e.g. weights /= max(weights)
-
+        # ---------------------------------------------------------
+        # FIXME We need to normalize weights here so that
+        # w_cutoff becomes more meaningful and less data-dependant.
+        # e.g. weights[:] /= np.max(weights).
+        # note: (1) Incoherent-beam acq --> w_max = 2.0
+        #       (2) Any such changes may also need to be applied
+        #           to other components (e.g. bonsai)
+        # ---------------------------------------------------------
         var = self.Variance.eval((t0+t1)/2.)
         
         # 'intensity_valid' will be a 2D boolean-valued numpy array
