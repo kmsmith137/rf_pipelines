@@ -356,9 +356,9 @@ class Variance_Estimates():
             else:
                 self.var[frequency] = np.interp(indices, nonzero, self.var[frequency, nonzero])
 
-        print 'WARN: This variance file ranges approximately from times', self.t[0] - size, 'to', self.t[-1] + size
-        print 'Requesting variances outside of this time range will result in eval() returning' \
-              'the endpoints of the variance array.'
+        print "Variance_Estimate: This variance file ranges approximately from times", self.t[0] - size, 'to', self.t[-1] + size
+        print ("Variance_Estimate: Requesting variances outside of this time range will result in eval() returning"
+               + " the endpoints of the variance array.")
         
     def eval(self, t):
         ret = []

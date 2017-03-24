@@ -20,7 +20,7 @@ class mask_filler(rf_pipelines.py_wi_transform):
     """
 
     def __init__(self, var_file, w_cutoff, nt_chunk=1024):
-        name = "mask_filler(var_file=%s, w_cutoff=%d, nt_chunk=%d)" % (var_file, w_cutoff, nt_chunk)
+        name = "mask_filler(var_file=%s, w_cutoff=%s, nt_chunk=%d)" % (var_file, w_cutoff, nt_chunk)
 
         # Call base class constructor
         rf_pipelines.py_wi_transform.__init__(self, name)
@@ -30,13 +30,12 @@ class mask_filler(rf_pipelines.py_wi_transform):
         self.nt_postpad = 0
         self.nt_prepad = 0
         self.nt_chunk = nt_chunk
-        print 'WARNING nt_chunk should be less than or equal to v1_chunk * v2_chunk for the variance array.'
+        print 'mask_filler: nt_chunk should be less than or equal to v1_chunk * v2_chunk for the variance array.'
 
     def set_stream(self, s):
          self.nfreq = s.nfreq
 
-    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        
+    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights): 
         # ---------------------------------------------------------
         # FIXME We need to normalize weights here so that
         # w_cutoff becomes more meaningful and less data-dependant.
