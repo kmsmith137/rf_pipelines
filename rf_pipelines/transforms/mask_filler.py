@@ -20,7 +20,7 @@ class mask_filler(rf_pipelines.py_wi_transform):
     """
 
     def __init__(self, var_file, w_cutoff, nt_chunk=1024):
-        name = "mask_filler(var_file=%s, w_cutoff=%d, nt_chunk=%d)" % (var_file, w_cutoff, nt_chunk)
+        name = "mask_filler(var_file=%s, w_cutoff=%s, nt_chunk=%d)" % (var_file, w_cutoff, nt_chunk)
 
         # Call base class constructor
         rf_pipelines.py_wi_transform.__init__(self, name)
