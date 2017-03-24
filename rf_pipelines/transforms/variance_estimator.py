@@ -46,7 +46,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
             self.var_path = './var_v1_%d_v2_%d.h5' % (self.v1_chunk, self.v2_chunk)
         else:
             self.var_path = '%s_v1_%d_v2_%d.h5' % (var_path, self.v1_chunk, self.v2_chunk)
-        self.f = h5py.File(self.fname, mode='w')
+        self.f = h5py.File(self.var_path, mode='w')
         self.f.attrs['v1_chunk'] = self.v1_chunk
         self.f.attrs['v2_chunk'] = self.v2_chunk
 
@@ -139,7 +139,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         self.t_dset.resize((1, shape[1] + len(out[0])))
         self.v_dset[:, shape[1]:] = out[:,:]
         self.t_dset[0, shape[1]:] = self.t[:]
-        print 'Variance Estimator: writing variance data to', self.fname
+        print 'Variance Estimator: writing variance data to', self.var_path
 
         # Clear self.v2 and self.t
         self.v2 = []
