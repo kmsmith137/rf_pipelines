@@ -73,6 +73,9 @@
 #include <iostream>
 #include <json/json.h>
 
+namespace bonsai { class dedisperser; }
+
+
 namespace rf_pipelines {
 #if 0
 }; // pacify emacs c-mode
@@ -340,7 +343,13 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 							   int nt_per_packet, float wt_cutoff, double target_gbps);
 
 
-// Returns a "transform" which doesn't actually modify the data, it just runs the bonsai dedisperser.  
+// Some day, this factory function will return a C++ implementation of the 'badchannel_mask' class.
+// Right now, it is a placeholder which throws an exception if called.
+
+extern std::shared_ptr<wi_transform> make_badchannel_mask(const std::string &maskpath, int nt_chunk=1024);
+
+
+// bonsai_dedisperser: a "transform" which doesn't actually modify the data, it just runs the bonsai dedisperser.  
 //
 // If the 'track_global_max' flag is set to true, then the following json output will be written:
 //   frb_global_max_trigger
@@ -365,14 +374,11 @@ struct bonsai_initializer {
     bonsai_initializer() { }
 };
 
-
+// This interface is similar to the python make_bonsai_dedisperser().
 extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_filename, const bonsai_initializer &ini_params = bonsai_initializer());
 
-
-// Some day, this factory function will return a C++ implementation of the 'badchannel_mask' class.
-// Right now, it is a placeholder which throws an exception if called.
-
-extern std::shared_ptr<wi_transform> make_badchannel_mask(const std::string &maskpath, int nt_chunk=1024);
+// This interface may be more suitable for low-level use.
+extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::shared_ptr<bonsai::dedisperser> &d);
 
 
 // -------------------------------------------------------------------------------------------------

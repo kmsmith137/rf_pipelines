@@ -23,11 +23,13 @@ shared_ptr<wi_transform> make_bonsai_dedisperser(const string &config_filename, 
 
 
 struct bonsai_dedisperser : public wi_transform {
-    unique_ptr<bonsai::dedisperser> dedisperser;
+    shared_ptr<bonsai::dedisperser> dedisperser;
     shared_ptr<bonsai::global_max_tracker> max_tracker;
     bool deallocate_between_substreams;
 
-    bonsai_dedisperser(const string &config_filename, const bonsai_initializer &ini_params);
+    // Note: if 'tp' is a nonempty pointer, then caller is responsible for calling dp->add_processor(tp).
+    // This is a little "fragile", but since this is an internal interface, I didn't bother improving it!
+    bonsai_dedisperser(const shared_ptr<bonsai::dedisperser> &dp, const shared_ptr<bonsai::global_max_tracker> &tp, bool deallocate_between_substreams);
 
     virtual void set_stream(const wi_stream &stream) override;
     virtual void start_substream(int isubstream, double t0) override;
@@ -36,30 +38,13 @@ struct bonsai_dedisperser : public wi_transform {
 };
 
 
-
-bonsai_dedisperser::bonsai_dedisperser(const string &config_filename, const bonsai_initializer &ini_params) :
-    deallocate_between_substreams(ini_params.deallocate_between_substreams)
-{
-    bonsai::dedisperser::initializer ini2;
-    ini2.file_type = ini_params.file_type;
-    ini2.verbosity = ini_params.verbosity;
-    ini2.allocate = !ini_params.deallocate_between_substreams;
-    ini2.use_analytic_normalization = ini_params.use_analytic_normalization;
-
-    this->dedisperser = make_unique<bonsai::dedisperser> (config_filename, ini2);
-
-    if (ini_params.track_global_max) {
-	this->max_tracker = make_shared<bonsai::global_max_tracker> (ini_params.dm_min, ini_params.dm_max);
-	this->dedisperser->add_processor(max_tracker);
-    }
-
-    if (ini_params.hdf5_output_filename.size() > 0) {
-	auto t = make_shared<bonsai::trigger_hdf5_file_writer> (ini_params.hdf5_output_filename, ini_params.nt_per_hdf5_file);
-	this->dedisperser->add_processor(t);
-    }
-
+bonsai_dedisperser::bonsai_dedisperser(const shared_ptr<bonsai::dedisperser> &dp, const shared_ptr<bonsai::global_max_tracker> &tp, bool deallocate_between_substreams_) :
+    dedisperser(dp), 
+    max_tracker(tp),
+    deallocate_between_substreams(deallocate_between_substreams_)
+{ 
     // initialize members of wi_transform base class
-    this->name = "bonsai_dedisperser(" + config_filename + ")";
+    this->name = "bonsai_dedisperser(" + dp->config.name + ")";
     this->nfreq = dedisperser->nfreq;
     this->nt_chunk = dedisperser->nt_chunk;
     this->nt_postpad = 0;
@@ -120,9 +105,42 @@ void bonsai_dedisperser::end_substream()
 }
 
 
+// -------------------------------------------------------------------------------------------------
+
+
 shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_filename, const bonsai_initializer &ini_params)
 {
-    return make_shared<bonsai_dedisperser> (config_filename, ini_params);
+    bonsai::dedisperser::initializer ini2;
+
+    ini2.file_type = ini_params.file_type;
+    ini2.verbosity = ini_params.verbosity;
+    ini2.allocate = !ini_params.deallocate_between_substreams;
+    ini2.use_analytic_normalization = ini_params.use_analytic_normalization;
+
+    shared_ptr<bonsai::dedisperser> dedisperser = make_shared<bonsai::dedisperser> (config_filename, ini2);
+    shared_ptr<bonsai::global_max_tracker> max_tracker;
+
+    if (ini_params.track_global_max) {
+	max_tracker = make_shared<bonsai::global_max_tracker> (ini_params.dm_min, ini_params.dm_max);
+	dedisperser->add_processor(max_tracker);
+    }
+
+    if (ini_params.hdf5_output_filename.size() > 0) {
+	auto t = make_shared<bonsai::trigger_hdf5_file_writer> (ini_params.hdf5_output_filename, ini_params.nt_per_hdf5_file);
+	dedisperser->add_processor(t);
+    }
+
+    return make_shared<bonsai_dedisperser> (dedisperser, max_tracker, ini_params.deallocate_between_substreams);
+}
+
+
+shared_ptr<wi_transform> make_bonsai_dedisperser(const shared_ptr<bonsai::dedisperser> &dp)
+{
+    if (!dp)
+	throw runtime_error("rf_pipelines: empty shared_ptr<bonsai::dedisperser> was passed to make_bonsai_dedisperser()");
+
+    shared_ptr<bonsai::global_max_tracker> tp;
+    return make_shared<bonsai_dedisperser> (dp, tp, false);
 }
 
 
