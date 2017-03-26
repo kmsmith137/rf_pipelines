@@ -339,7 +339,7 @@ def var_to_png(name, var, max=0.01):
     print 'wrote %s' % name    
 
 
-def triggers_png(name, arr, threshold=10, transpose=False, ytop_to_bottom=False, yellow=0):
+def triggers_png(name, arr, threshold=5, transpose=False, ytop_to_bottom=False, yellow=0):
     """
     Less than 10 sigma is on a blue scale and greater than 10 sigma is on a red scale.                                                  
     The yellow argument defines the size of a yellow interval between blue and red.
@@ -350,8 +350,11 @@ def triggers_png(name, arr, threshold=10, transpose=False, ytop_to_bottom=False,
     if not ytop_to_bottom:
         arr = arr[::-1]
 
-    red = np.where(arr > threshold + yellow / 2.)
-    blue = np.where(arr < threshold - yellow / 2.)
+    red = arr > (threshold + yellow / 2.)
+    blue = arr < (threshold - yellow / 2.)
+
+#     red = np.where(arr > threshold + yellow / 2.)
+#     blue = np.where(arr < threshold - yellow / 2.)
     rgb = np.zeros((arr.shape[0], arr.shape[1], 3), dtype=np.uint8)
 
     if yellow != 0:
@@ -361,15 +364,25 @@ def triggers_png(name, arr, threshold=10, transpose=False, ytop_to_bottom=False,
         rgb[:, :, 1] = 255
         rgb[:, :, 2] = 51
 
+    r = np.maximum(255 + threshold + yellow / 2 - arr, 100)
+    rgb[:, :, 0] = np.where(red, r, rgb[:,:,0])
+    rgb[:, :, 1] = np.where(red, 0, rgb[:,:,1])
+    rgb[:, :, 2] = np.where(red, 0, rgb[:,:,2])
+
+    b = np.maximum(arr * 255/threshold, 100)
+    rgb[:, :, 0] = np.where(blue, 0, rgb[:,:,0])
+    rgb[:, :, 1] = np.where(blue, 0, rgb[:,:,1])
+    rgb[:, :, 2] = np.where(blue, b, rgb[:,:,2])
+
     # Set redscale values (vary between 255 (10 sigma) and 100 (>=165 sigma) with defaults
     # Red is cutoff at 100 to prevent confusion with dark blue
-    rgb[red[0], red[1], 0] = np.maximum(255 + threshold + yellow / 2 - (arr[red[0], red[1]]), 100)
-    rgb[red[0], red[1], 1] = 0
-    rgb[red[0], red[1], 2] = 0
+    # rgb[red[0], red[1], 0] = np.maximum(255 + threshold + yellow / 2 - (arr[red[0], red[1]]), 100)
+    # rgb[red[0], red[1], 1] = 0
+    # rgb[red[0], red[1], 2] = 0
 
-    # Values between 0 and 10 are dark blue to bright blue (note <4 sigma is the same colour)
-    rgb[blue[0], blue[1], 2] = np.maximum(arr[blue[0], blue[1]] * 255/threshold, 100)
-    rgb[blue[0], blue[1], 0:2] = 0
+    # # Values between 0 and 10 are dark blue to bright blue (note <4 sigma is the same colour)
+    # rgb[blue[0], blue[1], 2] = np.maximum(arr[blue[0], blue[1]] * 255/threshold, 100)
+    # rgb[blue[0], blue[1], 0:2] = 0
 
     img = PIL.Image.fromarray(rgb)
     img.save(name)
