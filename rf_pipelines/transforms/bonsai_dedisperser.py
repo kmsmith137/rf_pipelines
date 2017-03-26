@@ -43,7 +43,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
     def __init__(self, config_filename, img_prefix=None, img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, 
                  track_global_max=False, dm_min=None, dm_max=None, hdf5_output_filename=None, nt_per_hdf5_file=0,
-                 deallocate_between_substreams=False, use_analytic_normalization=False):
+                 deallocate_between_substreams=False, use_analytic_normalization=False, dynamic_plotter=True):
 
         # We import the bonsai module here, rather than at the top of the file, so that bonsai isn't
         # required to import rf_pipelines (but is required when you try to construct a bonsai_dedisperser).
@@ -85,6 +85,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
         # Set plotting parameters
         if self.make_plot:
+            self.dynamic_plotter = dynamic_plotter
             self.n_zoom = n_zoom
             self.img_ndm = img_ndm
             self.img_nt = img_nt
@@ -233,8 +234,11 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                                  nx = self.buf[zoom_level, :, :].shape[1],
                                  ny = self.buf[zoom_level, :, :].shape[0], 
                                  group_id = zoom_level)
-
-        rf_pipelines.write_png(filename, self.buf[zoom_level, :, :], transpose=True)
+        
+        if self.dynamic_plotter:
+            rf_pipelines.write_png(filename, self.buf[zoom_level, :, :], transpose=True)
+        else:
+            rf_pipelines.utils.triggers_png(filename, self.buf[zoom_level, :, :], transpose=True)
 
         self.buf[zoom_level, :, :] = 0.
         self.ifile[zoom_level] += 1
