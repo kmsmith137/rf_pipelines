@@ -1,3 +1,12 @@
+- Version 14:
+
+     - Minor changes to bonsai_dedipserser, following API changes in bonsai v9.
+
+     - From Maya: integration of frb_injector and variance_estimator transforms
+
+     - From Maya: improved bonsai trigger plot cosmetics to make events above detection
+       threshold visually apparent.
+
 - Version 13:
 
      - From Dustin: new stream class to read CHIMEFRB msgpack files.
