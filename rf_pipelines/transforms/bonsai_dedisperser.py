@@ -43,7 +43,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
     def __init__(self, config_filename, img_prefix=None, img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, 
                  track_global_max=False, dm_min=None, dm_max=None, hdf5_output_filename=None, nt_per_hdf5_file=0,
-                 deallocate_between_substreams=False, use_analytic_normalization=False, dynamic_plotter=True):
+                 deallocate_between_substreams=False, use_analytic_normalization=False, dynamic_plotter=False):
 
         # We import the bonsai module here, rather than at the top of the file, so that bonsai isn't
         # required to import rf_pipelines (but is required when you try to construct a bonsai_dedisperser).

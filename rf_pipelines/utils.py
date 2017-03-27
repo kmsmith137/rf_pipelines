@@ -339,13 +339,8 @@ def var_to_png(name, var, max=0.01):
     print 'wrote %s' % name    
 
 
-def triggers_png(name, arr, threshold=5, transpose=False, ytop_to_bottom=False, yellow=0):
-    """
-    Less than 10 sigma is on a blue scale and greater than 10 sigma is on a red scale.                                                  
-    The yellow argument defines the size of a yellow interval between blue and red.
-    """
-    assert threshold > 0
-    assert yellow >=0
+def triggers_png(name, arr, threshold1=6, threshold2=10, transpose=False, ytop_to_bottom=False):
+    assert 0 < threshold1 < threshold2
 
     if not transpose:
         arr = np.transpose(arr)
@@ -353,29 +348,23 @@ def triggers_png(name, arr, threshold=5, transpose=False, ytop_to_bottom=False, 
     if not ytop_to_bottom:
         arr = arr[::-1]
 
-    red = arr > (threshold + yellow / 2.)
-    blue = arr < (threshold - yellow / 2.)
+    # 2D boolean arrays
+    below_threshold1 = (arr < threshold1)
+    below_threshold2 = (arr < threshold2)
+
+    # below threshold1: scale range [0,threshold1] -> [0,1]
+    t0 = arr / threshold1
+    t0 = np.maximum(t0, 0.0001)    # 0.0001 instead of 0.0, to make roundoff-robust
+    t0 = np.minimum(t0, 0.9999)    # 0.9999 instead of 1.0, to make roundoff-robust
+
+    # below threshold1: use (dark blue) -> (dark red) scale, same as write_png()
+    # between threshold1 and threshold2: yellow (r=g=255, b=51)
+    # above threshold2: green (r=b=100, g=255)
+
     rgb = np.zeros((arr.shape[0], arr.shape[1], 3), dtype=np.uint8)
-
-    if yellow != 0:
-        # Make everything Masoud's yellow >:| (actually, a slightly different one as that one
-        # looked too white in the plots)
-        rgb[:, :, 0] = 255
-        rgb[:, :, 1] = 255
-        rgb[:, :, 2] = 51
-
-    # Set redscale values (vary between 255 (10 sigma) and 100 (>=165 sigma) with defaults
-    # Red is cutoff at 100 to prevent confusion with dark blue
-    r = np.maximum(255 + threshold + yellow / 2 - arr, 100)
-    rgb[:, :, 0] = np.where(red, r, rgb[:, :, 0])
-    rgb[:, :, 1] = np.where(red, 0, rgb[:, :, 1])
-    rgb[:, :, 2] = np.where(red, 0, rgb[:, :, 2])
-
-    # # Values between 0 and 10 are dark blue to bright blue (note <4 sigma is the same colour)
-    b = np.maximum(arr * 255/threshold, 100)
-    rgb[:, :, 0] = np.where(blue, 0, rgb[:, :, 0])
-    rgb[:, :, 1] = np.where(blue, 0, rgb[:, :, 1])
-    rgb[:, :, 2] = np.where(blue, b, rgb[:, :, 2])
+    rgb[:,:,0] = np.where(below_threshold1, 256*t0,     np.where(below_threshold2, 255, 100))
+    rgb[:,:,1] = np.where(below_threshold1, 0,          np.where(below_threshold2, 255, 255))
+    rgb[:,:,2] = np.where(below_threshold1, 256*(1-t0), np.where(below_threshold2, 51, 100))
 
     img = PIL.Image.fromarray(rgb)
     img.save(name)
