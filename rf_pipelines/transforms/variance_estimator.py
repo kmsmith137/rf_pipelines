@@ -25,7 +25,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
     This ensures a safe execution.
     """
 
-    def __init__(self, v1_chunk=128, v2_chunk=80, nt_chunk=1024, var_path=None):
+    def __init__(self, v1_chunk=32, v2_chunk=192, nt_chunk=1024, var_path=None):
         name = "variance_estimator(v1_chunk=%d, v2_chunk=%d, nt_chunk=%d)" % (v1_chunk, v2_chunk, nt_chunk)
 
         # Call base class constructor
