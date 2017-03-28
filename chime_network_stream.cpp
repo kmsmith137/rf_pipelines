@@ -106,7 +106,7 @@ void chime_network_stream::stream_body(wi_run_state &run_state)
     bool startflag = false;
 
     for (;;) {
-	shared_ptr<ch_frb_io::assembled_chunk> chunk = stream->get_assembled_chunk(0);
+	shared_ptr<ch_frb_io::assembled_chunk> chunk = stream->get_assembled_chunk(assembler_id);
 
 	if (!chunk)
 	    break;
