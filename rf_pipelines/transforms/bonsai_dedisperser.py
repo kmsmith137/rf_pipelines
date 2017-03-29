@@ -108,9 +108,11 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                                    % (self.nt_chunk, self.downsample_nt[-1]))
 
             # Set incoming triger dimension paramaters
-            self.trigger_dim = self.dedisperser.ndm_coarse[0], self.dedisperser.nt_coarse_per_chunk[0]
-            assert self.trigger_dim[0] % self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0] == 0   # downsample or upsample dm
-            assert self.trigger_dim[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % self.trigger_dim[1] == 0   # downsample or upsample t      
+            self.ntrees = len(self.dedisperser.ndm_coarse)
+            self.trigger_dim = [(ndm, nt) for zip(self.dedisperser.ndm_coarse, self.dedisperser.nt_coarse_per_chunk)]
+            for i in range(self.ntrees):
+                assert self.trigger_dim[i, 0] % self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[i, 0] == 0   # downsample or upsample dm
+                assert self.trigger_dim[i, 1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % self.trigger_dim[i, 1] == 0   # downsample or upsample t      
         
 
     def set_stream(self, stream):
@@ -123,6 +125,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             self.dedisperser.allocate()
 
         if self.make_plot:
+            self.tree0 = [Plot() for i in range(self.ntrees)]
             self.buf = np.zeros((self.n_zoom, self.img_ndm, self.img_nt), dtype=np.float32)
             self.isubstream = isubstream
             self.ifile = np.zeros((self.n_zoom))    # keeps track of which png file we're accumulating 
@@ -208,8 +211,25 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             self.dedisperser.deallocate()
 
 
-    def _max_downsample(self, arr, new_dm, new_t):
+
+class Plot():
+    # Handles a single plot
+    def __init__(self, ny, nx, nt_chunk_ds, ndm_chunk_ds, img_prefix, zoom_level):
+        self.plot_group = np.zeros((ny, nx))
+        self.nt_chunk_ds = nt_chunk_ds  # number of x pixels written per chunk
+        self.ndm_chunk_ds = ndm_chunk_ds  # number of y pixels written per chunk
+        self.ipos = 0  # keeps track of what position in the array we are adding to
+        self.ifile = 0  # keeps track of which file we are accumulating (for file name)
+        self.img_prefix = img_prefix  # for file-writing purposes
+        self.zoom_level = zoom_level  # for file-writing purposes
+
+    def add_chunk(self, arr):
+        pass
+
+    def max_downsample_x(self, arr, new_dm, new_t):
         """Takes maxima along axes"""
+        # Note we never need to down/upsample the dm axis from the Plot class because resizing will be the 
+        # same across all zoom levels
         assert arr.ndim == 2
         assert new_dm > 0
         assert new_t > 0
@@ -222,10 +242,10 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         return arr
 
 
-    def _write_file(self, zoom_level):
+    def write_file(self, zoom_level):
         # When we reach end-of-stream, the buffer might be partially full (i.e. self.ipos < self.img_nt).                                                                                           
         # In this case, pad with black                                                                                                  
-        basename = self.img_prefix[zoom_level]
+        basename = self.img_prefix + '_' + str(self.zoom_level)
         if self.isubstream > 0:
             basename += str(isubstream+1)
         basename += ('_%s.png' % self.ifile[zoom_level])
