@@ -2,6 +2,7 @@ import sys
 import numpy as np
 import rf_pipelines
 import rf_pipelines.rf_pipelines_c as rf_pipelines_c
+from L1b import L1Grouper
 
 class bonsai_dedisperser(rf_pipelines.py_wi_transform):
     """
@@ -39,13 +40,19 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
        - use_analytic_normalization: if True, then the dedisperser will use the exact trigger
            normalization, assuming a toy model in which each input (frequency, time) sample
            is an uncorrelated Gaussian.  Not suitable for real data!
+
+       - dyanmic_plotter, plot_threshold1, plot_threshold2: if the first is true, the old red-blue plotter
+           will be used, else the new fixed-scale plotter will be used (the second two arguments are arguments
+           for the new plotter, representing the sigma value for colour transitions) 
+
+       - event_outfile: None for running without peak finding and the name of a txt file for running with 
+           peak finding and outputting the results there
     """
 
     def __init__(self, config_filename, img_prefix=None, img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, 
                  track_global_max=False, dm_min=None, dm_max=None, hdf5_output_filename=None, nt_per_hdf5_file=0,
                  deallocate_between_substreams=False, use_analytic_normalization=False, dynamic_plotter=False,
-                 plot_threshold1=6, plot_threshold2=10):
-
+                 plot_threshold1=6, plot_threshold2=10, event_outfile=None):
         # We import the bonsai module here, rather than at the top of the file, so that bonsai isn't
         # required to import rf_pipelines (but is required when you try to construct a bonsai_dedisperser).
         try:
@@ -75,6 +82,12 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         if hdf5_output_filename:
             t = bonsai.trigger_hdf5_file_writer(hdf5_output_filename, nt_per_hdf5_file)
             self.dedisperser.add_processor(t)
+
+        # For grouper code
+        self.event_outfile = event_outfile
+        if self.event_outfile is not None:
+            self.grouper = L1Grouper(self.dedisperser)
+            self.detected_events = []
 
         # Note that 'nfreq' is determined by the config file.  If the stream's 'nfreq' differs,
         # then an exception will be thrown.  The 'nt_chunk' parameter is also determined by the
@@ -108,11 +121,9 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                                    % (self.nt_chunk, self.downsample_nt[-1]))
 
             # Set incoming triger dimension paramaters
-            self.ntrees = len(self.dedisperser.ndm_coarse)
-            self.trigger_dim = [(ndm, nt) for zip(self.dedisperser.ndm_coarse, self.dedisperser.nt_coarse_per_chunk)]
-            for i in range(self.ntrees):
-                assert self.trigger_dim[i, 0] % self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[i, 0] == 0   # downsample or upsample dm
-                assert self.trigger_dim[i, 1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % self.trigger_dim[i, 1] == 0   # downsample or upsample t      
+            self.trigger_dim = self.dedisperser.ndm_coarse[0], self.dedisperser.nt_coarse_per_chunk[0]
+            assert self.trigger_dim[0] % self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0] == 0   # downsample or upsample dm
+            assert self.trigger_dim[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % self.trigger_dim[1] == 0   # downsample or upsample t      
         
 
     def set_stream(self, stream):
@@ -125,7 +136,6 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             self.dedisperser.allocate()
 
         if self.make_plot:
-            self.tree0 = [Plot() for i in range(self.ntrees)]
             self.buf = np.zeros((self.n_zoom, self.img_ndm, self.img_nt), dtype=np.float32)
             self.isubstream = isubstream
             self.ifile = np.zeros((self.n_zoom))    # keeps track of which png file we're accumulating 
@@ -211,25 +221,8 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             self.dedisperser.deallocate()
 
 
-
-class Plot():
-    # Handles a single plot
-    def __init__(self, ny, nx, nt_chunk_ds, ndm_chunk_ds, img_prefix, zoom_level):
-        self.plot_group = np.zeros((ny, nx))
-        self.nt_chunk_ds = nt_chunk_ds  # number of x pixels written per chunk
-        self.ndm_chunk_ds = ndm_chunk_ds  # number of y pixels written per chunk
-        self.ipos = 0  # keeps track of what position in the array we are adding to
-        self.ifile = 0  # keeps track of which file we are accumulating (for file name)
-        self.img_prefix = img_prefix  # for file-writing purposes
-        self.zoom_level = zoom_level  # for file-writing purposes
-
-    def add_chunk(self, arr):
-        pass
-
-    def max_downsample_x(self, arr, new_dm, new_t):
+    def _max_downsample(self, arr, new_dm, new_t):
         """Takes maxima along axes"""
-        # Note we never need to down/upsample the dm axis from the Plot class because resizing will be the 
-        # same across all zoom levels
         assert arr.ndim == 2
         assert new_dm > 0
         assert new_t > 0
@@ -242,10 +235,10 @@ class Plot():
         return arr
 
 
-    def write_file(self, zoom_level):
+    def _write_file(self, zoom_level):
         # When we reach end-of-stream, the buffer might be partially full (i.e. self.ipos < self.img_nt).                                                                                           
         # In this case, pad with black                                                                                                  
-        basename = self.img_prefix + '_' + str(self.zoom_level)
+        basename = self.img_prefix[zoom_level]
         if self.isubstream > 0:
             basename += str(isubstream+1)
         basename += ('_%s.png' % self.ifile[zoom_level])
