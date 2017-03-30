@@ -75,6 +75,7 @@
 
 namespace bonsai { class dedisperser; }
 
+#include "simpulse.hpp"
 
 namespace rf_pipelines {
 #if 0
@@ -294,6 +295,8 @@ extern void weighted_mean_and_rms(float &mean, float &rms, const float *intensit
 				  int nfreq, int nt, int stride, int niter=1, double sigma=3.0, bool two_pass=false);
 
 
+extern std::shared_ptr<wi_transform> make_pulse_adder(ssize_t nt, std::vector<std::shared_ptr<simpulse::single_pulse> > &thepulses, double weight=1.0);
+
 //
 // This is a pseudo-transform which doesn't actually modify the data, it just writes it to a file in
 // CHIME hdf5 format.  (For now, the entire stream is written to a single file, I'll generalize later
@@ -313,6 +316,9 @@ extern void weighted_mean_and_rms(float &mean, float &rms, const float *intensit
 //
 std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename, bool clobber=false, int bitshuffle=2, ssize_t nt_chunk=0);
 
+
+std::pair<std::shared_ptr<wi_transform>, std::shared_ptr<wi_transform> >
+make_reverter(ssize_t nt_chunk);
 
 //
 // Converts a stream to UDP packets in "CHIME L0_L1" format, and sends them over the network.
@@ -340,7 +346,8 @@ std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename
 // a multiple of nt_per_packet; suggest a value like 512).
 //
 extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &dstname, int nfreq_coarse_per_packet, int nt_per_chunk, 
-							   int nt_per_packet, float wt_cutoff, double target_gbps);
+							   int nt_per_packet, float wt_cutoff, double target_gbps,
+							   int beam_id=0);
 
 
 // Some day, this factory function will return a C++ implementation of the 'badchannel_mask' class.

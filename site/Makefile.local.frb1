@@ -2,7 +2,8 @@
 
 HAVE_PSRFITS=n
 HAVE_CH_FRB_IO=y
-HAVE_BONSAI=y
+#HAVE_BONSAI=y
+HAVE_BONSAI=n
 
 # Directory where C++ libraries will be installed
 LIBDIR=$(HOME)/lib
@@ -25,4 +26,18 @@ NUMPY_INCDIR=/usr/lib64/python2.7/site-packages/numpy/core/include
 # Don't forget -pthread and -fPIC
 # Don't forget -march=native
 #
-CPP=g++ -std=c++11 -pthread -fPIC -Wall -Wno-literal-suffix -O3 -march=native -ffast-math -funroll-loops -I. -I$(INCDIR) -I/usr/include/jsoncpp -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR) -L. -L$(LIBDIR)
+
+DEBUG ?= no
+ifeq ($(DEBUG),no)
+     CPP=g++ -std=c++11 -pthread -fPIC -march=native -Wall -O3 -ffast-math -funroll-loops
+else
+     CPP=g++ -std=c++11 -pthread -fPIC -march=native -Wall -O0 -g -ffast-math -funroll-loops
+endif
+
+JSONCPP_INCDIR=/usr/include/jsoncpp
+
+CPP += -I. -I$(INCDIR) -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR) -I$(JSONCPP_INCDIR)
+
+#CPP=g++ -std=c++11 -pthread -fPIC -Wall -Wno-literal-suffix -O3 -march=native -ffast-math -funroll-loops -I. -I$(INCDIR) -I/usr/include/jsoncpp -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR) -L. -L$(LIBDIR)
+
+CPP_LFLAGS=-L$(LIBDIR)
