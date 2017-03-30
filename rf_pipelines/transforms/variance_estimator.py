@@ -26,7 +26,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
     """
 
     def __init__(self, var_filename, v1_chunk=128, v2_chunk=80, nt_chunk=1024):
-        name = "variance_estimator(var_file=%s, v1_chunk=%d, v2_chunk=%d, nt_chunk=%d)" % (var_file, v1_chunk, v2_chunk, nt_chunk)
+        name = "variance_estimator(var_filename=%s, v1_chunk=%d, v2_chunk=%d, nt_chunk=%d)" % (var_filename, v1_chunk, v2_chunk, nt_chunk)
 
         assert var_filename is not None
         assert isinstance(var_filename, basestring)   # if this fails, arguments are probably in the old ordering
