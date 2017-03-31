@@ -2,7 +2,7 @@ import sys
 import numpy as np
 import rf_pipelines
 import rf_pipelines.rf_pipelines_c as rf_pipelines_c
-from L1b import L1Grouper
+
 
 class bonsai_dedisperser(rf_pipelines.py_wi_transform):
     """
@@ -86,7 +86,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         # For grouper code
         self.event_outfile = event_outfile
         if self.event_outfile is not None:
-            self.grouper = L1Grouper(self.dedisperser)
+            self.grouper = rf_pipelines.L1Grouper(self.dedisperser)
             self.detected_events = []
 
         # Note that 'nfreq' is determined by the config file.  If the stream's 'nfreq' differs,
@@ -160,8 +160,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         #
         # Each 4D array is indexed by (DM_index, SM_index, beta_index, time_index).
         if self.make_plot:
-            triggers = self.dedisperser.get_triggers()
-
+            triggers = self.dedisperser.get_triggers() 
             if not all(np.all(np.isfinite(t)) for t in triggers):
                 # Was the problem in the input arrays... ?
                 if not np.all(np.isfinite(intensity)) or not np.all(np.isfinite(weights)):
@@ -201,6 +200,12 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             
                     if self.ipos[zoom_level] >= self.img_nt:
                         self._write_file(zoom_level)
+            
+        # For grouper code
+        if self.event_outfile is not None:
+            events = self.grouper.process_triggers()
+            if events is not None:
+                self.detected_events.append(events) 
  
 
     def end_substream(self):
@@ -219,6 +224,13 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
         if self.deallocate_between_substreams:
             self.dedisperser.deallocate()
+
+        # For grouper code
+        if self.event_outfile is not None and self.detected_events:
+            self.detected_events = np.hstack(self.detected_events)
+            for event in self.detected_events:
+                print ("Recovered pulse --- DM: %.1f,  snr: %.1f, time: %.1f s"
+                       % (event.dm, event.snr, event.time.astype(float)/1e6))
 
 
     def _max_downsample(self, arr, new_dm, new_t):
