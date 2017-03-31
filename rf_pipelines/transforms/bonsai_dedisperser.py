@@ -247,3 +247,35 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         self.buf[zoom_level, :, :] = 0.
         self.ifile[zoom_level] += 1
         self.ipos[zoom_level] = 0
+
+
+# First, we establish the number of zoom levels
+# Then, for each tree, we identify the amount of downsampling we need to do for each zoom level
+# Because we only zoom in the time axis, we only need a 1D list of downsampling amounts for the dm axis
+# i.e. [dm_ds_tree0, dm_ds_tree1, ..., dm_ds_treen]
+
+# For the time axis, we need a downsampling parameter for each zoom level for each tree, so this calls for
+# a 2D numpy array as follows of size (ntrees, nzoom)
+# [[ds_t_z0_t0, ds_t_z1_t0, ...,  ds_t_zn_t0], [[ds_t_z0_t1, ds_t_z1_t1, ...,  ds_t_zn_t1], ..., [[ds_t_z0_tn, ds_t_z1_tn, ...,  ds_t_zn_tn]]
+
+# Then, in process_chunk, we need to get the triggers
+# Then, for each tree, we should down/upsample in the dm axis as required. Here it is fine to modify the actual trigger arrays
+
+# Next comes the trickier part... doing the time downsampling and constructing the plot objects
+# I think the easiest thing to do will be to construct a plot class such that the class contains a plot object
+# that actually contains all the zoom levels for that plot... so actually I guess it would be a tree object, not a plot object
+
+# Then, when we pass a dm-down/upsampled array to this tree object with an add() function, it will down/upsample in the time
+# access as required by each of the zoom levels and build up the array itself
+# This means that each tree object needs to know by how much to down/upsample each chunk in time. This can be accomplished by 
+# the nt_chunk_ds parameter, which defines how many x pixels we have per chunk
+
+# In an ideal world, this would be everything to worry about, but no! We must also worry about stacking in the dm axis if
+# multiple trees are being plotted in the same plot
+# For this purpose, I propose keeping two parameters it and idm, similar to the old ipos counter. 
+# The tree object will take as an argument the number. Wait I just realized it's not a tree. It is in the trivial case of 
+# just plotting one tree... uhm I guess it is a plot object, but with all the zooms built in. Back to calling it a plot 
+# object I guess. Anyway, it will take the number of trees being passed to it as an argument. The add() method will then
+# expect a length ntrees list with the arrays for all the trees in it and use a for loop to do the things. Okay
+# I think this is good enough to start coding. 
+
