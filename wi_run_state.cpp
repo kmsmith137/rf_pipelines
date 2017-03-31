@@ -50,7 +50,7 @@ void wi_run_state::start_substream(double t0)
 	cerr << "rf_pipelines: run_state->start_substream() called by stream, t0=" << t0 << ".  Calls to transform->start_substream() will follow..." << endl;
 
     if ((this->state > 0) && (this->state < 4))
-	throw runtime_error("rf_transforms: logic error in stream: double call to start_substream() (maybe a call to end_substream() is missing somewhere?)");
+	throw runtime_error("rf_pipelines: logic error in stream: double call to start_substream() (maybe a call to end_substream() is missing somewhere?)");
 
     this->clear_per_substream_data();
     this->substream_start_time = t0;
@@ -121,17 +121,17 @@ void wi_run_state::setup_write(ssize_t nt, float* &intensityp, float* &weightp, 
 
     // states 1,3 are OK
     if ((this->state == 0) || (this->state == 4))
-	throw runtime_error("rf_transforms: logic error in stream: setup_write() was called without prior call to start_substream()");
+	throw runtime_error("rf_pipelines: logic error in stream: setup_write() was called without prior call to start_substream()");
     if (this->state == 2)
-	throw runtime_error("rf_transforms: logic error in stream: double call to setup_write(), without call to finalize_write() in between");
+	throw runtime_error("rf_pipelines: logic error in stream: double call to setup_write(), without call to finalize_write() in between");
 
     if (nt <= 0)
-	throw runtime_error("rf_transforms: logic error in stream: setup_write() was called with nt <= 0");
+	throw runtime_error("rf_pipelines: logic error in stream: setup_write() was called with nt <= 0");
     if (nt > this->nt_stream_maxwrite)
-	throw runtime_error("rf_transforms: logic error in stream: setup_write() was called with nt > nt_maxwrite");
+	throw runtime_error("rf_pipelines: logic error in stream: setup_write() was called with nt > nt_maxwrite");
 
     if (fabs(t0 - stream_curr_time) >= 1.0e-2 * dt_sample)
-	throw runtime_error("rf_transforms: timestamp jitter is not allowed to exceed 1% of the sample length");
+	throw runtime_error("rf_pipelines: timestamp jitter is not allowed to exceed 1% of the sample length");
 
     this->main_buffer.setup_append(nt, intensityp, weightp, stride, zero_flag);
     this->stream_curr_time = t0;
@@ -156,11 +156,11 @@ void wi_run_state::finalize_write(ssize_t nt)
 	cerr << "rf_pipelines: run_state->finalize_write() was called by stream, nt=" << nt << ".  Calls to process_chunk() may follow..." << endl;
 
     if (this->state == 3)
-	throw runtime_error("rf_transforms: logic error in stream: double call to finalize_write()");
+	throw runtime_error("rf_pipelines: logic error in stream: double call to finalize_write()");
     if (this->state != 2)
-	throw runtime_error("rf_transforms: logic error in stream: finalize_write() was called without prior call to setup_write()");
+	throw runtime_error("rf_pipelines: logic error in stream: finalize_write() was called without prior call to setup_write()");
     if (nt != this->nt_pending)
-	throw runtime_error("rf_transforms: logic error in stream: values of 'nt' in setup_write() and finalize_write() don't match");
+	throw runtime_error("rf_pipelines: logic error in stream: values of 'nt' in setup_write() and finalize_write() don't match");
 
     // stream_ipos and stream_curr_time get updated at the end
     this->main_buffer.finalize_append(nt);
@@ -244,9 +244,9 @@ void wi_run_state::end_substream()
 	cerr << "rf_pipelines: run_state->end_substream() called by stream.  A bunch of \"flushing\" calls to setup_write() and finalize_write() may follow..." << endl;
 
     if (this->state == 4)
-	throw runtime_error("rf_transforms: logic error in stream: double call to end_substream()");
+	throw runtime_error("rf_pipelines: logic error in stream: double call to end_substream()");
     if (this->state != 3)
-	throw runtime_error("rf_transforms: logic error in stream: call to end_substream() without prior call to start_substream()");
+	throw runtime_error("rf_pipelines: logic error in stream: call to end_substream() without prior call to start_substream()");
 
     // We pad the stream with fake weight-zero data, until every transform has "seen"
     // every sample of real data.  First we need to compute the needed amount of padding.

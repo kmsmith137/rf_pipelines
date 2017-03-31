@@ -60,14 +60,25 @@ void bonsai_dedisperser::set_stream(const wi_stream &stream)
 {
     // Check that stream params match bonsai config
 
-    if (stream.nfreq != dedisperser->nfreq)
-	throw runtime_error("rf_transforms: value of 'nfreq' in stream doesn't match value in bonsai config");
-    if (reldist(stream.freq_lo_MHz, dedisperser->freq_lo_MHz) > 1.0e-4)
-	throw runtime_error("rf_transforms: value of 'freq_lo_MHz' in stream doesn't match value in bonsai config");
-    if (reldist(stream.freq_hi_MHz, dedisperser->freq_hi_MHz) > 1.0e-4)
-	throw runtime_error("rf_transforms: value of 'freq_hi_MHz' in stream doesn't match value in bonsai config");
-    if (reldist(stream.dt_sample, dedisperser->dt_sample) > 1.0e-3)
-	throw runtime_error("rf_transforms: value of 'dt_sample' in stream doesn't match value in bonsai config");
+    if (stream.nfreq != dedisperser->nfreq) {
+	throw runtime_error("rf_pipelines: value of 'nfreq' in stream (=" + to_string(stream.nfreq)
+			    + ") doesn't match value in bonsai config (=" + to_string(dedisperser->nfreq) + ")");
+    }
+
+    if (reldist(stream.freq_lo_MHz, dedisperser->freq_lo_MHz) > 1.0e-4) {
+	throw runtime_error("rf_pipelines: value of 'freq_lo_MHz' in stream (=" + to_string(stream.freq_lo_MHz)
+			    + ") doesn't match value in bonsai config (=" + to_string(dedisperser->freq_lo_MHz) + ")");
+    }
+
+    if (reldist(stream.freq_hi_MHz, dedisperser->freq_hi_MHz) > 1.0e-4) {
+	throw runtime_error("rf_pipelines: value of 'freq_hi_MHz' in stream (=" + to_string(stream.freq_hi_MHz)
+			    + ") doesn't match value in bonsai config (=" + to_string(dedisperser->freq_hi_MHz) + ")");
+    }
+
+    if (reldist(stream.dt_sample, dedisperser->dt_sample) > 1.0e-3) {
+	throw runtime_error("rf_pipelines: value of 'dt_sample' in stream (=" + to_string(stream.dt_sample)
+			    + ") doesn't match value in bonsai config (=" + to_string(dedisperser->dt_sample) + ")");
+    }
 }
 
 
