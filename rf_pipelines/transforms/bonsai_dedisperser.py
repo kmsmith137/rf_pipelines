@@ -279,3 +279,19 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 # expect a length ntrees list with the arrays for all the trees in it and use a for loop to do the things. Okay
 # I think this is good enough to start coding. 
 
+class Plotter():
+    """A plotter object holds all desired zoom levels for a plot"""
+    def __init__(self, dim, nzoom, ntrees, nt_chunk_ds):
+        # dim - (ny, nx) number of y and x pixels per plot
+        # nzoom - number of zoom levels
+        # ntrees - number of trees that will be used to construct the plot
+        # nt_chunk_ds - 2D array containing the number of x pixels per chunk for each (ntrees, nzoom)
+        self.plots = np.zeros((nzoom, ny, nx))
+        self.nzoom = nzoom
+        self.ntrees = ntrees
+        self.nt_chunk_ds = nt_chunk_ds
+        assert len(self.nt_chunk_ds) == self.ntrees
+        assert all([len(zoom) == self.nzoom for zoom in self.nt_chunk_ds])
+
+        def add(self, arrs):
+            pass
