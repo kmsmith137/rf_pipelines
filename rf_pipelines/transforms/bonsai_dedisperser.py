@@ -84,7 +84,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         self.nt_prepad = 0
         self.nt_postpad = 0
 
-        # Set plotting parameters ---- these things all need to change lol
+        # Set plotting parameters
         if self.make_plot:
             self.dynamic_plotter = dynamic_plotter
             self.plot_threshold1 = plot_threshold1
@@ -107,12 +107,23 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                 raise RuntimeError("bonsai plotter transform: specified nt_chunk(=%d) must be a multiple of downsampling factor at max zoom level (=%d)" 
                                    % (self.nt_chunk, self.downsample_nt[-1]))
 
-            # Set incoming triger dimension paramaters ---- as do these things
-            self.trigger_dim = self.dedisperser.ndm_coarse[0], self.dedisperser.nt_coarse_per_chunk[0]
+            # Set incoming triger dimension paramaters for assertions
+            # trigger_dim stores dimensions as a list of tuples containing dimensions for each tree
+            # This is where our hard-coded tree logic begins, though it's easy enough to modify as desired
+            self.trigger_dim = [(ndm, nt) for (ndm, nt) in zip(self.dedisperser.ndm_coarse, self.deidsperser.nt_coarse_per_chunk)]
+            assert len(trigger_dim) > 1
+
+            # Make plots
+            plot0 = Plotter((self.img_ndm, self.img_nt), self.n_zoom, 1, self.nt_chunk_ds, img_prefix, downsample_nt, substream=0)
+            plot1 = Plotter((self.img_ndm, self.img_nt), self.n_zoom, len(self.trigger_dim)-1, self.nt_chunk_ds, img_prefix, downsample_nt, substream=0)
+
             assert self.trigger_dim[0] % self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0] == 0   # downsample or upsample dm
             assert self.trigger_dim[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % self.trigger_dim[1] == 0   # downsample or upsample t      
-            # Add as cheat-y assert, but I think this should be fine. Saves a lot of work
+
+            # Add a cheat-y assert, but I think this should be fine. Saves a lot of work
             assert self.img_nt % self.nt_chunk_ds[-1] == 0
+
+            # Now, make the plotter objects (hard code two plots, tree0 in the first, and the rest in the second)
             
 
     def set_stream(self, stream):
@@ -209,37 +220,6 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         if self.deallocate_between_substreams:
             self.dedisperser.deallocate()
 
-
-
-# First, we establish the number of zoom levels
-# Then, for each tree, we identify the amount of downsampling we need to do for each zoom level
-# Because we only zoom in the time axis, we only need a 1D list of downsampling amounts for the dm axis
-# i.e. [dm_ds_tree0, dm_ds_tree1, ..., dm_ds_treen]
-
-# For the time axis, we need a downsampling parameter for each zoom level for each tree, so this calls for
-# a 2D numpy array as follows of size (ntrees, nzoom)
-# [[ds_t_z0_t0, ds_t_z1_t0, ...,  ds_t_zn_t0], [[ds_t_z0_t1, ds_t_z1_t1, ...,  ds_t_zn_t1], ..., [[ds_t_z0_tn, ds_t_z1_tn, ...,  ds_t_zn_tn]]
-
-# Then, in process_chunk, we need to get the triggers
-# Then, for each tree, we should down/upsample in the dm axis as required. Here it is fine to modify the actual trigger arrays
-
-# Next comes the trickier part... doing the time downsampling and constructing the plot objects
-# I think the easiest thing to do will be to construct a plot class such that the class contains a plot object
-# that actually contains all the zoom levels for that plot... so actually I guess it would be a tree object, not a plot object
-
-# Then, when we pass a dm-down/upsampled array to this tree object with an add() function, it will down/upsample in the time
-# access as required by each of the zoom levels and build up the array itself
-# This means that each tree object needs to know by how much to down/upsample each chunk in time. This can be accomplished by 
-# the nt_chunk_ds parameter, which defines how many x pixels we have per chunk
-
-# In an ideal world, this would be everything to worry about, but no! We must also worry about stacking in the dm axis if
-# multiple trees are being plotted in the same plot
-# For this purpose, I propose keeping two parameters it and idm, similar to the old ipos counter. 
-# The tree object will take as an argument the number. Wait I just realized it's not a tree. It is in the trivial case of 
-# just plotting one tree... uhm I guess it is a plot object, but with all the zooms built in. Back to calling it a plot 
-# object I guess. Anyway, it will take the number of trees being passed to it as an argument. The add() method will then
-# expect a length ntrees list with the arrays for all the trees in it and use a for loop to do the things. Okay
-# I think this is good enough to start coding. 
 
 class Plotter():
     """A plotter object holds all desired zoom levels for a plot"""
