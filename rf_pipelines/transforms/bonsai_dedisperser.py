@@ -84,7 +84,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         self.nt_prepad = 0
         self.nt_postpad = 0
 
-        # Set plotting parameters
+        # Set plotting parameters ---- these things all need to change lol
         if self.make_plot:
             self.dynamic_plotter = dynamic_plotter
             self.plot_threshold1 = plot_threshold1
@@ -107,11 +107,13 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                 raise RuntimeError("bonsai plotter transform: specified nt_chunk(=%d) must be a multiple of downsampling factor at max zoom level (=%d)" 
                                    % (self.nt_chunk, self.downsample_nt[-1]))
 
-            # Set incoming triger dimension paramaters
+            # Set incoming triger dimension paramaters ---- as do these things
             self.trigger_dim = self.dedisperser.ndm_coarse[0], self.dedisperser.nt_coarse_per_chunk[0]
             assert self.trigger_dim[0] % self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0] == 0   # downsample or upsample dm
             assert self.trigger_dim[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % self.trigger_dim[1] == 0   # downsample or upsample t      
-        
+            # Add as cheat-y assert, but I think this should be fine. Saves a lot of work
+            assert self.img_nt % self.nt_chunk_ds[-1] == 0
+            
 
     def set_stream(self, stream):
         if stream.nfreq != self.nfreq:
@@ -208,20 +210,6 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             self.dedisperser.deallocate()
 
 
-    def _max_downsample(self, arr, new_dm, new_t):
-        """Takes maxima along axes"""
-        assert arr.ndim == 2
-        assert new_dm > 0
-        assert new_t > 0
-        (ndm, nt) = arr.shape
-        assert ndm % new_dm == 0
-        assert nt % new_t == 0
-        arr = np.reshape(arr, (new_dm, ndm//new_dm, new_t, nt//new_t))
-        arr = np.amax(arr, axis=3)
-        arr = np.amax(arr, axis=1)
-        return arr
-
-
     def _write_file(self, zoom_level):
         # When we reach end-of-stream, the buffer might be partially full (i.e. self.ipos < self.img_nt).                                                                                           
         # In this case, pad with black                                                                                                  
@@ -290,8 +278,55 @@ class Plotter():
         self.nzoom = nzoom
         self.ntrees = ntrees
         self.nt_chunk_ds = nt_chunk_ds
+        self.ix = np.zeros(nzoom)  # keep track of what x position to add chunks to
+
         assert len(self.nt_chunk_ds) == self.ntrees
         assert all([len(zoom) == self.nzoom for zoom in self.nt_chunk_ds])
+        assert np.all(np.sum(self.nt_chunk_ds, axis=1) == ny)
 
         def add(self, arrs):
-            pass
+            # First, we check that the list of arrays that have been passed to this method is equal to the number of 
+            # trees being plotted
+            assert len(arrs) == self.ntrees
+            
+            # Also note that one thing we are assuming here is that the arr will fit evenly into each plot and that we will
+            # never need to buffer 
+
+            # Now, we need to iterate over each tree
+            iy = 0 # keep track of where to add each tree vertically
+            for i, tree in enumerate(arrs):
+                # Now, we need to resize whatever darn number of times arrrrrgh this is going to be sad
+                # Iterate over each zoom level I guess :'(
+                for zoom_level in range(self.nzoom):
+                    # Oh right! I already wrote this! Hooray for copying and pasting old code! 
+                    dm_t = tree.copy()
+                    dm_t_shape = dm_t.shape
+                    # In the x (time) axis, we need to transform self.trigger_dim[1] to self.nt_chunk / self.downsample_nt - may need to downsample or upsample
+                    if dm_t_shape[1] > self.nt_chunk_ds[zoom_level]:
+                        dm_t = self._max_downsample(dm_t, dm_t.shape[0], self.nt_chunk_ds[zoom_level])
+                    elif dm_t_shape[1] < self.nt_chunk_ds[zoom_level]:
+                        dm_t = rf_pipelines.upsample(dm_t, dm_t.shape[0], self.nt_chunk_ds[zoom_level])
+                    # Now the array will be scaled properly to stick into the plot accumulator arrays
+                    # Because of the nice cheat-y assert, we don't need to worry about like anything! :D
+                    self.plot[zoom_level, self.iy, self.ix[zoom_level]] = dm_t
+                    self.ix[zoom_level] += dm_t_shape[1]
+                
+                iy += dm_t_shape[1]
+            for zoom_level in range(self.nzoom):
+                if self.ix[zoom_level] >= self.img_nt:
+                    self._write_file(zoom_level)
+ 
+
+    def _max_downsample(self, arr, new_dm, new_t):
+        """Takes maxima along axes"""
+        assert arr.ndim == 2
+        assert new_dm > 0
+        assert new_t > 0
+        (ndm, nt) = arr.shape
+        assert ndm % new_dm == 0
+        assert nt % new_t == 0
+        arr = np.reshape(arr, (new_dm, ndm//new_dm, new_t, nt//new_t))
+        arr = np.amax(arr, axis=3)
+        arr = np.amax(arr, axis=1)
+        return arr
+
