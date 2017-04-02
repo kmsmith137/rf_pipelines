@@ -114,7 +114,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             self.ntrees = len(self.trigger_dim)
             assert self.ntrees > 1
             assert self.trigger_dim[0][0]% self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0][0] == 0  # downsample or upsample dm for plot0
-            assert all([tup[0] % self.img_ndm/self.ntrees  == 0 or self.im_ndm/self.ntrees % tup[0] == 0 for tup in self.trigger_dim])  # for plot1 
+            assert all([tup[0] % self.img_ndm/self.ntrees  == 0 or self.img_ndm/self.ntrees % tup[0] == 0 for tup in self.trigger_dim])  # for plot1 
             assert all(tup[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % tup[1] == 0 for tup in self.trigger_dim)  # downsample or upsample t
 
             # Add a cheat-y assert, but I think this should be fine. Saves a lot of work
@@ -133,6 +133,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         if self.make_plot:
             self.isubstream = isubstream
             # Make plots THIS IS THE LAST THING THAT NEEDS TO BE FIXED HERE IN INIT I'M PRETTY SURE
+            # Oh no, actually need to figure out plot group stuff as well. But I think that's it.
             plot0 = Plotter((self.img_ndm, self.img_nt), self.n_zoom, 1, self.nt_chunk_ds, img_prefix, downsample_nt, substream=0)
             plot1 = Plotter((self.img_ndm, self.img_nt), self.n_zoom, self.ntrees-1, self.nt_chunk_ds, img_prefix, downsample_nt, substream=0)
 
@@ -157,46 +158,19 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         if self.make_plot:
             triggers = self.dedisperser.get_triggers()
 
+            # Checking for invalid values in the incoming array
             if not all(np.all(np.isfinite(t)) for t in triggers):
                 # Was the problem in the input arrays... ?
                 if not np.all(np.isfinite(intensity)) or not np.all(np.isfinite(weights)):
                     raise RuntimeError('bonsai_dedisperser: input intensity/weights arrays contained Inf or NaN!')
-
                 # If not, then maybe it's a 16-bit overflow... ?
                 raise RuntimeError('bonsai returned Inf or NaN triggers!  Try reducing the normalization of the intensity and weights arrays, or setting nbits=32 in the bonsai config.')
 
-            # First, let's flatten the SM_index and beta_index axes by taking max values to get an array indexed only by dm and time
-            preserved_dm_t = np.amax(np.amax(triggers[0], axis=1), axis=1)
-    
-            # Because "zooming" only happens in the time axis, we can reshape the dm axis outside of the loop
-            # In the y (dm) axis, we need to transform self.trigger_dim[0] to self.img_ndm - may need to downsample or upsample
-            if self.trigger_dim[0] > self.img_ndm:
-                preserved_dm_t = self._max_downsample(preserved_dm_t, self.img_ndm, preserved_dm_t.shape[1])
-            elif self.trigger_dim[0] < self.img_ndm:
-                preserved_dm_t = rf_pipelines.upsample(preserved_dm_t, self.img_ndm, preserved_dm_t.shape[1])
-                    
-            for zoom_level in xrange(self.n_zoom): 
-                dm_t = preserved_dm_t.copy()
+            # Max along the beta and SM indices, then add the new triggers to the plots! 
+            flat_triggers = [np.amax(np.amax(tree, axis=1), axis=1) for tree in triggers]
+            plot0.add(flat_triggers[0])
+            plot1.add(flat_triggers[1:])
 
-                # In the x (time) axis, we need to transform self.trigger_dim[1] to self.nt_chunk / self.downsample_nt - may need to downsample or upsample
-                if dm_t.shape[1] > self.nt_chunk_ds[zoom_level]:
-                    dm_t = self._max_downsample(dm_t, dm_t.shape[0], self.nt_chunk_ds[zoom_level])
-                elif dm_t.shape[1] < self.nt_chunk_ds[zoom_level]:
-                    dm_t = rf_pipelines.upsample(dm_t, dm_t.shape[0], self.nt_chunk_ds[zoom_level])
- 
-                # Now the array will be scaled properly to stick into the plot accumulator array
-                ichunk = 0
-                while ichunk < self.nt_chunk_ds[zoom_level]:
-                    # Move to end of chunk or end of current plot, whichever comes first.                                                                                        
-                    n = min(self.nt_chunk_ds[zoom_level] - ichunk, self.img_nt - self.ipos[zoom_level])
-                    assert n > 0
-                    self.buf[zoom_level, :, self.ipos[zoom_level]:(self.ipos[zoom_level]+n)] = dm_t[:, ichunk:(ichunk+n)]
-                    self.ipos[zoom_level] += n
-                    ichunk += n
-            
-                    if self.ipos[zoom_level] >= self.img_nt:
-                        self._write_file(zoom_level)
- 
 
     def end_substream(self):
         if self.make_plot:
@@ -228,6 +202,7 @@ class Plotter():
         self.nzoom = nzoom
         self.ntrees = ntrees
         self.nt_chunk_ds = nt_chunk_ds  # number of x pixels per chunk (nzoom-dim list)
+        self.ndm = self.nx / self.ntrees  # number of y pixels per tree
         self.ix = np.zeros(nzoom)  # keep track of what x position to add chunks to
 
         # Blarg stuff for write_file...
@@ -245,31 +220,39 @@ class Plotter():
             # First, we check that the list of arrays that have been passed to this method is equal to the number of 
             # trees being plotted
             assert len(arrs) == self.ntrees
+
+            # Because "zooming" only happens in the time axis, we can reshape the dm axis outside of the loop
+            # In the y (dm) axis, we need to transform self.trigger_dim[0] to self.img_ndm - may need to downsample or upsample
+            # We repeat this process for every tree
+            for i in xrange(self.ntrees):
+                arr_shape = arr[i].shape
+                if arr_shape[0] > self.ndm:
+                    arrs = self.max_ds(arrs[i], self.ndm, arr_shape[1])
+                elif arr_shape[0] < self.ndm:
+                    arrs = rf_pipelines.upsample(arrs[i], self.ndm, arr_shape[1])
+
             # Also note that one thing we are assuming here is that the arr will fit evenly into each plot and that we will
             # never need to buffer 
-            # Now, we need to iterate over each tree
-            iy = 0 # keep track of where to add each tree vertically
-            for i, tree in enumerate(arrs):
-                # Now, we need to resize whatever darn number of times arrrrrgh this is going to be sad
-                # Iterate over each zoom level I guess :'(
-                for zoom_level in range(self.nzoom):
-                    # Oh right! I already wrote this! Hooray for copying and pasting old code! 
-                    dm_t = tree.copy()
+            iy = 0   # keep track of where to add each tree vertically
+            for itree in xrange(self.ntrees):
+                for zoom_level in xrange(self.nzoom):
+                    dm_t = arrs[itree].copy()
                     dm_t_shape = dm_t.shape
                     # In the x (time) axis, we need to transform self.trigger_dim[1] to self.nt_chunk / self.downsample_nt - may need to downsample or upsample
                     if dm_t_shape[1] > self.nt_chunk_ds[zoom_level]:
-                        dm_t = self.max_ds(dm_t, dm_t.shape[0], self.nt_chunk_ds[zoom_level])
+                        dm_t = self.max_ds(dm_t, dm_t_shape[0], self.nt_chunk_ds[zoom_level])
                     elif dm_t_shape[1] < self.nt_chunk_ds[zoom_level]:
-                        dm_t = rf_pipelines.upsample(dm_t, dm_t.shape[0], self.nt_chunk_ds[zoom_level])
+                        dm_t = rf_pipelines.upsample(dm_t, dm_t_shape[0], self.nt_chunk_ds[zoom_level])
                     # Now the array will be scaled properly to stick into the plot accumulator arrays
-                    # Because of the nice cheat-y assert, we don't need to worry about like anything! :D
-                    self.plot[zoom_level, self.iy, self.ix[zoom_level]] = dm_t
-                    self.ix[zoom_level] += dm_t_shape[1]
-                
-                iy += dm_t_shape[1]
-            for zoom_level in range(self.nzoom):
-                if self.ix[zoom_level] >= self.img_nt:
-                    self._write_file(zoom_level)
+                    # Because of the nice cheat-y assert, we don't need to worry about anything! :D
+                    self.plot[zoom_level, self.iy:self.iy+self.ndm, self.ix[zoom_level]:self.ix[zoom_level]+self.nt_chunk_ds[zoom_level]] = dm_t
+                    self.ix[zoom_level] += self.nt_chunk_ds[zoom_level]
+                iy += self.ndm
+
+            # After adding, check whether we need to write any files
+            for zoom_level in xrange(self.nzoom):
+                if self.ix[zoom_level] >= self.nx:
+                    self.write_file(zoom_level)
  
 
     def max_ds(self, arr, new_dm, new_t):
