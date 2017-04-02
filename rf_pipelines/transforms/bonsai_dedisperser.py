@@ -111,20 +111,15 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             # trigger_dim stores dimensions as a list of tuples containing dimensions for each tree
             # This is where our hard-coded tree logic begins, though it's easy enough to modify as desired
             self.trigger_dim = [(ndm, nt) for (ndm, nt) in zip(self.dedisperser.ndm_coarse, self.deidsperser.nt_coarse_per_chunk)]
-            assert len(trigger_dim) > 1
-
-            # Make plots
-            plot0 = Plotter((self.img_ndm, self.img_nt), self.n_zoom, 1, self.nt_chunk_ds, img_prefix, downsample_nt, substream=0)
-            plot1 = Plotter((self.img_ndm, self.img_nt), self.n_zoom, len(self.trigger_dim)-1, self.nt_chunk_ds, img_prefix, downsample_nt, substream=0)
-
-            assert self.trigger_dim[0] % self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0] == 0   # downsample or upsample dm
-            assert self.trigger_dim[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % self.trigger_dim[1] == 0   # downsample or upsample t      
+            self.ntrees = len(self.trigger_dim)
+            assert self.ntrees > 1
+            assert self.trigger_dim[0][0]% self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0][0] == 0  # downsample or upsample dm for plot0
+            assert all([tup[0] % self.img_ndm/self.ntrees  == 0 or self.im_ndm/self.ntrees % tup[0] == 0 for tup in self.trigger_dim])  # for plot1 
+            assert all(tup[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % tup[1] == 0 for tup in self.trigger_dim)  # downsample or upsample t
 
             # Add a cheat-y assert, but I think this should be fine. Saves a lot of work
             assert self.img_nt % self.nt_chunk_ds[-1] == 0
 
-            # Now, make the plotter objects (hard code two plots, tree0 in the first, and the rest in the second)
-            
 
     def set_stream(self, stream):
         if stream.nfreq != self.nfreq:
@@ -136,10 +131,10 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             self.dedisperser.allocate()
 
         if self.make_plot:
-            self.buf = np.zeros((self.n_zoom, self.img_ndm, self.img_nt), dtype=np.float32)
             self.isubstream = isubstream
-            self.ifile = np.zeros((self.n_zoom))    # keeps track of which png file we're accumulating 
-            self.ipos = np.zeros((self.n_zoom))     # keeps track of how many (downsampled) time samples have been accumulated into file so far
+            # Make plots THIS IS THE LAST THING THAT NEEDS TO BE FIXED HERE IN INIT I'M PRETTY SURE
+            plot0 = Plotter((self.img_ndm, self.img_nt), self.n_zoom, 1, self.nt_chunk_ds, img_prefix, downsample_nt, substream=0)
+            plot1 = Plotter((self.img_ndm, self.img_nt), self.n_zoom, self.ntrees-1, self.nt_chunk_ds, img_prefix, downsample_nt, substream=0)
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
