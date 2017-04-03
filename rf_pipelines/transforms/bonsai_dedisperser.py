@@ -106,7 +106,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                                    % (self.nt_chunk, self.downsample_nt[-1]))
 
             # Set incoming triger dimension paramaters for assertions
-            # trigger_dim stores dimensions as a list of tuples containing dimensions for each tree
+            # self.trigger_dim stores dimensions as a list of tuples containing dimensions for each tree
             # This is where our hard-coded tree logic begins, though it's easy enough to modify as desired
             self.trigger_dim = [(ndm, nt) for (ndm, nt) in zip(self.dedisperser.ndm_coarse, self.deidsperser.nt_coarse_per_chunk)]
             self.ntrees = len(self.trigger_dim)
@@ -286,5 +286,3 @@ class Plotter():
         arr = np.amax(arr, axis=3)
         arr = np.amax(arr, axis=1)
         return arr
-
-
