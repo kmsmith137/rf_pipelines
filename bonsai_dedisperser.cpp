@@ -97,7 +97,7 @@ void bonsai_dedisperser::start_substream(int isubstream, double t0)
 void bonsai_dedisperser::process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
 {
     // Note: rf_pipelines and bonsai use the same frequency channel ordering (highest-to-lowest), so we can pass the arrays and stride "as is"
-    dedisperser->run(intensity, weights, stride);
+    dedisperser->run(intensity, weights, stride, t0);
 }
 
 
