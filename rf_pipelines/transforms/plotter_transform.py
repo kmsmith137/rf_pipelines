@@ -108,7 +108,7 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         self.intensity_buf = np.zeros((self.n_zoom, self.img_nfreq, self.img_nt), dtype=np.float32)
         self.weight_buf = np.zeros((self.n_zoom, self.img_nfreq, self.img_nt), dtype=np.float32)
         self.isubstream = isubstream
-        self.ifile = np.zeros((self.n_zoom))    # keeps track of which png file we're accumulating
+        self.ifile = np.zeros((self.n_zoom), int)    # keeps track of which png file we're accumulating
         self.ipos = np.zeros((self.n_zoom), int)     # keeps track of how many (downsampled) time samples have been accumulated into file so far
 
 
