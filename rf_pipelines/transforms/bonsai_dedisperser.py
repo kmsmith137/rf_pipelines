@@ -5,6 +5,10 @@ import rf_pipelines
 
 class bonsai_dedisperser(rf_pipelines.py_wi_transform):
     """
+    ********************
+    BUG: CANNOT HANDLE 1D TRIGGER ARRAY!!!!
+    ********************
+
     Returns a "transform" which doesn't actually modify the data, it just runs the bonsai dedisperser.
 
 
@@ -108,7 +112,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             # Set incoming triger dimension paramaters for assertions
             # self.trigger_dim stores dimensions as a list of tuples containing dimensions for each tree
             # This is where our hard-coded tree logic begins, though it's easy enough to modify as desired
-            self.trigger_dim = [(ndm, nt) for (ndm, nt) in zip(self.dedisperser.ndm_coarse, self.deidsperser.nt_coarse_per_chunk)]
+            self.trigger_dim = [(ndm, nt) for (ndm, nt) in zip(self.dedisperser.ndm_coarse, self.dedisperser.nt_coarse_per_chunk)]
             self.ntrees = len(self.trigger_dim)
             assert self.ntrees > 1
             assert self.trigger_dim[0][0]% self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0][0] == 0  # downsample or upsample dm for plot0
@@ -119,9 +123,20 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             # Ensures that each chunk will evenly divide the plot, so no fancy buffering is required
             assert self.img_nt % self.nt_chunk_ds[-1] == 0
 
+            print 'ntrees', self.ntrees-1
+            print 'nzoom', self.n_zoom
+            self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[0], ny=img_ndm)
+            self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[1], ny=img_ndm)
+            self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[2], ny=img_ndm)
+            self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[3], ny=img_ndm)
+            self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[0], ny=img_ndm)
+            self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[1], ny=img_ndm)
+            self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[2], ny=img_ndm)
+            self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[3], ny=img_ndm)
+
+
             # Convention for plot groups: 1st half will be the tree0 plot and 2nd half will be the plot for the rest of the trees
-            for i in xrange(2*self.n_zoom):
-                self.add_plot_group("waterfall", nt_per_pix=downsample_nt[i % (self.ntrees-1)], ny=img_ndm)
+            # for i in xrange(2*self.n_zoom-2):
 
 
     def set_stream(self, stream):
@@ -135,8 +150,8 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
         if self.make_plot:
             self.isubstream = isubstream
-            plot0 = Plotter(self, ntrees=1, nt_chunk_ds=self.nt_chunk_ds[0], downsample_nt=self.downsample_nt[0], plot=0)
-            plot1 = Plotter(self, ntrees=self.ntrees-1, nt_chunk_ds=self.nt_chunk_ds[1:], downsample_nt=self.downsample_nt[1:], plot=1)
+            self.plot0 = Plotter(self, ntrees=1, iplot=0)
+            self.plot1 = Plotter(self, ntrees=self.ntrees-2, iplot=1)
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
@@ -169,8 +184,8 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
             # Max along the beta and SM indices, then add the new triggers to the plots! 
             flat_triggers = [np.amax(np.amax(tree, axis=1), axis=1) for tree in triggers]
-            plot0.process(flat_triggers[0])
-            plot1.process(flat_triggers[1:])
+            self.plot0.process([flat_triggers[0]])
+            self.plot1.process(flat_triggers[1:2])
 
 
     def end_substream(self):
@@ -191,20 +206,23 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             self.dedisperser.deallocate()
 
 
-    def _write_file(self, arr, zoom_level, downsample_nt, ifile, iplot):
+    def _write_file(self, arr, zoom_level, downsample_nt, ifile, iplot, nzoom):
         # When we reach end-of-stream, the buffer might be partially full. In this case, pad with black.
         basename = self.img_prefix[zoom_level] + '_plot' + str(iplot)
         if self.isubstream > 0:
             basename += str(isubstream+1)
         basename += ('_%s.png' % ifile)
 
+        group_id = iplot * nzoom + zoom_level
+        print 'group_id', group_id 
+
         # The add_plot() method adds the plot to the JSON output, and returns the filename that should be written.                                                                                         
         filename = self.add_plot(basename,
-                                 it0 = int(ifile[zoom_level] * self.img_nt * downsample_nt),
+                                 it0 = int(ifile * self.img_nt * downsample_nt),
                                  nt = self.img_nt * downsample_nt, 
                                  nx = arr.shape[1],
                                  ny = arr.shape[0], 
-                                 group_id = zoom_level*(iplot+1))
+                                 group_id = group_id)
         
         if self.dynamic_plotter:
             rf_pipelines.write_png(filename, arr, transpose=True)
@@ -215,63 +233,62 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
 class Plotter():
     """A plotter object holds all desired zoom levels for a plot"""
-    def __init__(self, transform, ntrees, nt_chunk_ds, downsample_nt, iplot):
+    def __init__(self, transform, ntrees, iplot):
         self.transform = transform       # To use _write_file()
-        self.iplot = iplot               # For determining outfile name and which plot group a plot belongs to
+        self.iplot = iplot               # Helpful for establishing plot group
         self.nzoom = transform.n_zoom    # Number of zoom levels to be produced
         self.nx = transform.img_nt       # Number of x pixels per plot
         self.ny = transform.img_ndm      # Number of y pixels per plot
         self.ntrees = ntrees             # Number of trees being __plotted together__ (different from transform.ntrees)
-        self.nt_chunk_ds = nt_chunk_ds   # Number of x pixels that should be written per chunk (2D array)
+        self.nt_chunk_ds = transform.nt_chunk_ds   # Number of x pixels that should be written per chunk (2D array)
         self.ndm = self.nx / self.ntrees # Number of y pixels per tree
-        self.ix = np.zeros(self.nzoom)        # Keep track of what x position to add chunks to
+        self.ix = np.zeros(self.nzoom)   # Keep track of what x position to add chunks to
         self.isubstream = transform.isubstream
 
-        assert len(self.nt_chunk_ds) == self.ntrees
-        assert all([len(zoom) == self.nzoom for zoom in self.nt_chunk_ds])
-        assert np.all(np.sum(self.nt_chunk_ds, axis=1) == self.ny)
-
         self.plots = np.zeros((self.nzoom, self.ny, self.nx))        
+        assert self.nzoom == len(self.nt_chunk_ds)
 
         # Extra info for transform.write_file
         self.img_prefix = transform.img_prefix
-        self.downsample_nt = downsample_nt  # In constructor so only relevant tree info passed (the same is true of nt_chunk_ds)
-        self.ifile = np.zeros(nzoom)
+        self.downsample_nt = transform.downsample_nt  # In constructor so only relevant tree info passed (the same is true of nt_chunk_ds)
+        self.ifile = np.zeros(self.nzoom)
 
 
-        def process(self, arrs):
-            # Check that the arrays passed to process contain the expected number of trees
-            assert len(arrs) == self.ntrees
+    def process(self, arrs):
+        # Check that the arrays passed to process contain the expected number of trees
+        assert len(arrs) == self.ntrees
             
-            # Zooming only happens in the time axis, so we can reshape the dm axis outside of the loop
-            for i in xrange(self.ntrees):
-                arr_shape = arrs[i].shape
-                if arr_shape[0] > self.ndm:
-                    arrs = self.max_ds(arrs[i], self.ndm, arr_shape[1])
-                elif arr_shape[0] < self.ndm:
-                    arrs = rf_pipelines.upsample(arrs[i], self.ndm, arr_shape[1])
+        # Zooming only happens in the time axis, so we can reshape the dm axis outside of the loop
+        for i in xrange(self.ntrees):
+            arr_shape = arrs[i].shape
+            if arrs[i].ndim == 1:
+                arrs[i] = np.reshape(arrs[i], (-1, 1))
+            if arr_shape[0] > self.ndm:
+                arrs = self.max_ds(arrs[i], self.ndm, arr_shape[1])
+            elif arr_shape[0] < self.ndm:
+                arrs = rf_pipelines.upsample(arrs[i], self.ndm, arr_shape[1])
 
-            iy = 0  # Keep track of where to add each tree vertically
-            for itree in xrange(self.ntrees):
-                for zoom_level in xrange(self.nzoom):
-                    dm_t = arrs[itree].copy()
-                    dm_t_shape = dm_t.shape
-                    # In the x (time) axis, we need to transform dm_t_shape[1] to self.nt_chunk_ds[zoom_level] - may need to up/downsample
-                    if dm_t_shape[1] > self.nt_chunk_ds[zoom_level]:
-                        dm_t = self.max_ds(dm_t, dm_t_shape[0], self.nt_chunk_ds[zoom_level])
-                    elif dm_t_shape[1] < self.nt_chunk_ds[zoom_level]:
-                        dm_t = rf_pipelines.upsample(dm_t, dm_t_shape[0], self.nt_chunk_ds[zoom_level])
-                    # Now the array will be scaled properly to stick into the plot accumulator arrays
-                    self.plot[zoom_level, self.iy:self.iy+self.ndm, self.ix[zoom_level]:self.ix[zoom_level]+self.nt_chunk_ds[zoom_level]] = dm_t
-                    self.ix[zoom_level] += self.nt_chunk_ds[zoom_level]
-                iy += self.ndm
-
-            # After adding, check whether we need to write any files
+        iy = 0  # Keep track of where to add each tree vertically
+        for itree in xrange(self.ntrees):
             for zoom_level in xrange(self.nzoom):
-                if self.ix[zoom_level] >= self.nx:
-                    self.transform._write_file(self.plot[zoom_level, :, :], zoom_level, self.downsample_nt[zoom_level], self.ifile[zoom_level], self.iplot)
-                    self.ifile[zoom_level] += 1
-                    self.ix[zoom_level] = 0
+                dm_t = arrs[itree].copy()
+                dm_t_shape = dm_t.shape
+                # In the x (time) axis, we need to transform dm_t_shape[1] to self.nt_chunk_ds[zoom_level] - may need to up/downsample
+                if dm_t_shape[1] > self.nt_chunk_ds[zoom_level]:
+                    dm_t = self.max_ds(dm_t, dm_t_shape[0], self.nt_chunk_ds[zoom_level])
+                elif dm_t_shape[1] < self.nt_chunk_ds[zoom_level]:
+                    dm_t = rf_pipelines.upsample(dm_t, dm_t_shape[0], self.nt_chunk_ds[zoom_level])
+                # Now the array will be scaled properly to stick into the plot accumulator arrays
+                self.plots[zoom_level, iy:iy+self.ndm, self.ix[zoom_level]:self.ix[zoom_level]+self.nt_chunk_ds[zoom_level]] = dm_t
+                self.ix[zoom_level] += self.nt_chunk_ds[zoom_level]
+            iy += self.ndm
+
+        # After adding, check whether we need to write any files
+        for zoom_level in xrange(self.nzoom):
+            if self.ix[zoom_level] >= self.nx:
+                self.transform._write_file(self.plots[zoom_level, :, :], zoom_level, self.downsample_nt[zoom_level], self.ifile[zoom_level], self.iplot, self.nzoom)
+                self.ifile[zoom_level] += 1
+                self.ix[zoom_level] = 0
 
 
     def max_ds(self, arr, new_dm, new_t):
