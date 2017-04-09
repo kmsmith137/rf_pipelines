@@ -123,20 +123,9 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             # Ensures that each chunk will evenly divide the plot, so no fancy buffering is required
             assert self.img_nt % self.nt_chunk_ds[-1] == 0
 
-            print 'ntrees', self.ntrees-1
-            print 'nzoom', self.n_zoom
-            self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[0], ny=img_ndm)
-            self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[1], ny=img_ndm)
-            self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[2], ny=img_ndm)
-            self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[3], ny=img_ndm)
-            self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[0], ny=img_ndm)
-            self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[1], ny=img_ndm)
-            self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[2], ny=img_ndm)
-            self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[3], ny=img_ndm)
-
-
             # Convention for plot groups: 1st half will be the tree0 plot and 2nd half will be the plot for the rest of the trees
-            # for i in xrange(2*self.n_zoom-2):
+            for i in 2*range(self.n_zoom):
+                self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[i], ny=img_ndm)
 
 
     def set_stream(self, stream):
@@ -189,10 +178,12 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
 
     def end_substream(self):
+        print "Forcing end-of-pipeline write..."
         if self.make_plot:
             for zoom_level in xrange(self.n_zoom):
-                if self.ipos[zoom_level] > 0:
-                    self._write_file(zoom_level)
+                self._write_file(self.plot0.plots[zoom_level], zoom_level, self.plot0.downsample_nt[zoom_level], self.plot0.ifile[zoom_level], self.plot0.iplot, self.n_zoom)
+                self._write_file(self.plot1.plots[zoom_level], zoom_level, self.plot1.downsample_nt[zoom_level], self.plot1.ifile[zoom_level], self.plot1.iplot, self.n_zoom)
+
 
         self.dedisperser.end_dedispersion()
         
@@ -214,7 +205,6 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         basename += ('_%s.png' % ifile)
 
         group_id = iplot * nzoom + zoom_level
-        print 'group_id', group_id 
 
         # The add_plot() method adds the plot to the JSON output, and returns the filename that should be written.                                                                                         
         filename = self.add_plot(basename,
