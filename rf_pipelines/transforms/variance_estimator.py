@@ -9,24 +9,21 @@ class variance_estimator(rf_pipelines.py_wi_transform):
     This pseudo-transform (meaning that it does not actually modify its input)
     estimates the variance of an intensity array and writes the results into a file. 
     First, it computes the variance across 'v1_chunk' number of time samples. Then, it 
-    computes the median of 'v2_chunk' number of 'v1_chunk' estimates. 
+    computes the median of 'v2_chunk' number of 'v1_chunk' estimates. Thus, the final 
+    variance array produced is of dimensions (nfreq, total number of time samples / 
+    v1_chunk / v1_chunk). The 'var_filename' argument is used to store the variance 
+    estimates in a .h5 file.
    
-    Thus, the final variance array produced is of dimensions
-            (nfreq, total number of time samples / v1_chunk / v1_chunk)
-
-    Note: if 75% of a freq channel is masked, then the variance is set to 0.
-
-    The variance array is written out as a .h5 file in the working directory by default.
-    A full path may be specified via the 'var_path' argument, which must end with the
-    file name. E.g., if var_path = '/data2/var_est/file' then the output will be written
-    as '/data2/var_est/file_*_.h5' where '_*_' indicates the other arguments.
-    
-    Note: the variance arrays are outputted after accumulating the first 64 bins.
-    This ensures a safe execution.
+    Notes: 
+       - If 75% of a freq channel is masked, then the variance is set to 0.
+       - The variance arrays are outputted after accumulating the first 64 bins.
     """
 
-    def __init__(self, v1_chunk=32, v2_chunk=192, nt_chunk=1024, var_path=None):
-        name = "variance_estimator(v1_chunk=%d, v2_chunk=%d, nt_chunk=%d)" % (v1_chunk, v2_chunk, nt_chunk)
+    def __init__(self, var_filename, v1_chunk=128, v2_chunk=80, nt_chunk=1024):
+        name = "variance_estimator(var_filename=%s, v1_chunk=%d, v2_chunk=%d, nt_chunk=%d)" % (var_filename, v1_chunk, v2_chunk, nt_chunk)
+
+        assert var_filename is not None
+        assert isinstance(var_filename, basestring)   # if this fails, arguments are probably in the old ordering
 
         # Call base class constructor
         rf_pipelines.py_wi_transform.__init__(self, name)
@@ -40,13 +37,9 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         self.nt_prepad = 0
         self.nt_postpad = 0 
         self.v1_t = floor(self.v2_chunk / 2) + 1  # which v1 to index for time (+1 since iv1 is len, not index)
-            
-        # Make and open the h5 file
-        if var_path is None:
-            self.var_path = './var_v1_%d_v2_%d.h5' % (self.v1_chunk, self.v2_chunk)
-        else:
-            self.var_path = '%s_v1_%d_v2_%d.h5' % (var_path, self.v1_chunk, self.v2_chunk)
-        self.f = h5py.File(self.var_path, mode='w')
+        self.var_filename = var_filename
+
+        self.f = h5py.File(self.var_filename, mode='w')
         self.f.attrs['v1_chunk'] = self.v1_chunk
         self.f.attrs['v2_chunk'] = self.v2_chunk
 
@@ -139,7 +132,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         self.t_dset.resize((1, shape[1] + len(out[0])))
         self.v_dset[:, shape[1]:] = out[:,:]
         self.t_dset[0, shape[1]:] = self.t[:]
-        print 'Variance Estimator: writing variance data to', self.var_path
+        print 'Variance Estimator: writing variance data to', self.var_filename
 
         # Clear self.v2 and self.t
         self.v2 = []
