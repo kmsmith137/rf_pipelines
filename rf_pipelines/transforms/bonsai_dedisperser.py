@@ -142,6 +142,10 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             self.plot0 = Plotter(self, ntrees=1, iplot=0)
             self.plot1 = Plotter(self, ntrees=self.ntrees-2, iplot=1)
 
+            # Int flag for the web_viewer - splits by plot group (e.g. if 2, divide the plot groups in two and treat each as a separate transform
+            # such that the individual tree plots are displayed in different rows)
+            self.json_per_substream["n_plot_groups"] = 2
+
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         # FIXME some day I'd like to remove this extra copy required by current cython implementation
