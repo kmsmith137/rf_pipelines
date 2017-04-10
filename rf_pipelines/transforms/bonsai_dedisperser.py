@@ -119,18 +119,26 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             assert all([tup[0] % self.img_ndm/self.ntrees  == 0 or self.img_ndm/self.ntrees % tup[0] == 0 for tup in self.trigger_dim])  # for plot1 
             assert all(tup[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % tup[1] == 0 for tup in self.trigger_dim)  # downsample or upsample t
 
-            # Add a cheat-y assert, but I think this should be fine
+            # Add a cheat-y assert, but I think this should be fine, since we usually use powers of 2 for everything
             # Ensures that each chunk will evenly divide the plot, so no fancy buffering is required
             assert self.img_nt % self.nt_chunk_ds[-1] == 0
 
+            # This will eventually be added to the constructor I think, but I am holding off for now to avoid 
+            # making changes to ch_frb_rfi :)
+            # I think a nice convention for this variable will be to plot tree0 in the first, and divide the remaining
+            # trees evenly between the remaining plots, provided things are evenly divisible
+            self.nplot_groups = 2
+            assert (self.ntrees - 2) % (nplot_groups - 1) # FIX -2 -> -1 from ntrees once bug is better
+
             # Convention for plot groups: 1st half will be the tree0 plot and 2nd half will be the plot for the rest of the trees
-            for i in 2*range(self.n_zoom):
+            for i in self.nplot_groups*range(self.n_zoom):
                 self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[i], ny=img_ndm)
 
 
     def set_stream(self, stream):
         if stream.nfreq != self.nfreq:
-            raise RuntimeError("rf_pipelines: number of frequencies in stream (nfreq=%d) does not match bonsai config file '%s' (nfreq=%d)" % (stream.nfreq, self.config_filename, self.nfreq))
+            raise RuntimeError("rf_pipelines: number of frequencies in stream (nfreq=%d) does not match bonsai config file '%s' (nfreq=%d)" 
+                               % (stream.nfreq, self.config_filename, self.nfreq))
 
 
     def start_substream(self, isubstream, t0):
@@ -139,12 +147,14 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
         if self.make_plot:
             self.isubstream = isubstream
+            # self.plot_groups = [Plotter(self, ntrees=(1 if i==0 else (self.ntrees - 1) / self.nplot_groups), iplot=i) for i in xrange(self.nplot_groups)]
+            # FIX for now, do this manually, but replace with the line above once the bug is fixed
             self.plot0 = Plotter(self, ntrees=1, iplot=0)
             self.plot1 = Plotter(self, ntrees=self.ntrees-2, iplot=1)
 
             # Int flag for the web_viewer - splits by plot group (e.g. if 2, divide the plot groups in two and treat each as a separate transform
             # such that the individual tree plots are displayed in different rows)
-            self.json_per_substream["n_plot_groups"] = 2
+            self.json_per_substream["n_plot_groups"] = self.nplot_groups
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
@@ -173,21 +183,32 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                 if not np.all(np.isfinite(intensity)) or not np.all(np.isfinite(weights)):
                     raise RuntimeError('bonsai_dedisperser: input intensity/weights arrays contained Inf or NaN!')
                 # If not, then maybe it's a 16-bit overflow... ?
-                raise RuntimeError('bonsai returned Inf or NaN triggers!  Try reducing the normalization of the intensity and weights arrays, or setting nbits=32 in the bonsai config.')
+                raise RuntimeError('bonsai returned Inf or NaN triggers! ' + 
+                                   'Try reducing the normalization of the intensity and weights arrays, or setting nbits=32 in the bonsai config.')
 
             # Max along the beta and SM indices, then add the new triggers to the plots! 
             flat_triggers = [np.amax(np.amax(tree, axis=1), axis=1) for tree in triggers]
+            # FIX uncomment lines below once things are fixed:
+            # while i < self.ntrees:
+            #     self.plot_groups[i].process(flat_triggers[0 if i==0 else (i : (self.ntrees - 1) / self.nplot_groups)])
+            #     i += (0 if i ==1 else (self.ntrees - 1) / self.nplot_groups))
             self.plot0.process([flat_triggers[0]])
             self.plot1.process(flat_triggers[1:2])
 
 
     def end_substream(self):
-        print "Forcing end-of-pipeline write..."
         if self.make_plot:
             for zoom_level in xrange(self.n_zoom):
+                # FIX uncomment below later...
+                # for i in xrange(self.nplot_groups):
+                #     self._write_file(self.plot_groups[i].plots[zoom_level], 
+                #                      zoom_level,
+                #                      self.plot_groups[i].downsample_nt[zoom_level],
+                #                      self.plot_groups[i].ifile[zoom_level],
+                #                      self.plot_groups[i].iplot,
+                #                      self.nzoom)
                 self._write_file(self.plot0.plots[zoom_level], zoom_level, self.plot0.downsample_nt[zoom_level], self.plot0.ifile[zoom_level], self.plot0.iplot, self.n_zoom)
                 self._write_file(self.plot1.plots[zoom_level], zoom_level, self.plot1.downsample_nt[zoom_level], self.plot1.ifile[zoom_level], self.plot1.iplot, self.n_zoom)
-
 
         self.dedisperser.end_dedispersion()
         
@@ -210,7 +231,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
         group_id = iplot * nzoom + zoom_level
 
-        # The add_plot() method adds the plot to the JSON output, and returns the filename that should be written.                                                                                         
+        # The add_plot() method adds the plot to the JSON output, and returns the filename that should be written.
         filename = self.add_plot(basename,
                                  it0 = int(ifile * self.img_nt * downsample_nt),
                                  nt = self.img_nt * downsample_nt, 
@@ -283,7 +304,8 @@ class Plotter():
                 self.transform._write_file(self.plots[zoom_level, :, :], zoom_level, self.downsample_nt[zoom_level], self.ifile[zoom_level], self.iplot, self.nzoom)
                 self.ifile[zoom_level] += 1
                 self.ix[zoom_level] = 0
-
+                self.plots[zoom_level, :, :] = 0
+                
 
     def max_ds(self, arr, new_dm, new_t):
         """Takes maxima along axes to downsample"""
