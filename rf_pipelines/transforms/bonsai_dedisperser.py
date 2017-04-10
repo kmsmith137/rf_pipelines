@@ -135,7 +135,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         weights = np.array(weights, dtype=np.float32, order='C')
 
         # Send the inputs (intensity, weights) to the dedisperser.
-        self.dedisperser.run(intensity, weights)
+        self.dedisperser.run(intensity, weights, t0)
 
         # Retrieve the outputs (trigger arrays) from the dedisperser.
         #

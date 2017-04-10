@@ -5,6 +5,8 @@
 #include <ch_frb_io.hpp>
 #endif
 
+#include "chime_packetizer.hpp"
+
 using namespace std;
 
 namespace rf_pipelines {
@@ -15,33 +17,16 @@ namespace rf_pipelines {
 
 #ifndef HAVE_CH_FRB_IO
 
-shared_ptr<wi_transform> make_chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff)
+shared_ptr<wi_transform> make_chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff,
+					       int beam_id)
 {
     throw runtime_error("rf_pipelines::make_chime_packetizer() was called, but rf_pipelines was compiled without ch_frb_io");
 }
 
 #else  // HAVE_CH_FRB_IO
 
-
-struct chime_packetizer : public wi_transform {
-    // Note: inherits { nfreq, nt_chunk, nt_prepad, nt_postpad } from base class wi_transform
-
-    ch_frb_io::intensity_network_ostream::initializer ini_params;
-    uint64_t current_fpga_count = 0;
-
-    shared_ptr<ch_frb_io::intensity_network_ostream> ostream;
-
-    chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps);
-
-    virtual void set_stream(const wi_stream &stream);
-    virtual void start_substream(int isubstream, double t0);
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride);
-    virtual void end_substream();
-    virtual std::string get_name() const { return "chime_packetizer"; }
-};
-
-
-chime_packetizer::chime_packetizer(const string &dstname, int nfreq_coarse_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps)
+chime_packetizer::chime_packetizer(const string &dstname, int nfreq_coarse_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps,
+int beam_id)
 {
     // Argument checking
 
@@ -58,7 +43,7 @@ chime_packetizer::chime_packetizer(const string &dstname, int nfreq_coarse_per_p
 
     // Initialize ini_params (some initializations deferred to set_stream)
 
-    this->ini_params.beam_ids = { 0 };
+    this->ini_params.beam_ids = { beam_id };
     this->ini_params.dstname = dstname;
     this->ini_params.nfreq_coarse_per_packet = nfreq_coarse_per_packet;
     this->ini_params.nt_per_chunk = nt_per_chunk;
@@ -116,6 +101,7 @@ void chime_packetizer::start_substream(int isubstream, double t0)
 
 void chime_packetizer::process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
 {
+    //cout << "chime_packetizer: processing t " << t0 << " to " << t1 << endl;
     this->ostream->send_chunk(intensity, weights, stride, current_fpga_count);
     this->current_fpga_count += nt_chunk * ini_params.fpga_counts_per_sample;
 }
@@ -129,9 +115,9 @@ void chime_packetizer::end_substream()
 }
 
 
-shared_ptr<wi_transform> make_chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps)
+shared_ptr<wi_transform> make_chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps, int beam_id)
 {
-    return make_shared<chime_packetizer> (dstname, nfreq_per_packet, nt_per_chunk, nt_per_packet, wt_cutoff, target_gbps);
+    return make_shared<chime_packetizer> (dstname, nfreq_per_packet, nt_per_chunk, nt_per_packet, wt_cutoff, target_gbps, beam_id);
 }
 
 
