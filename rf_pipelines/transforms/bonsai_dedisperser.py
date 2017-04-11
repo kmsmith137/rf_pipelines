@@ -138,8 +138,8 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         if self.make_plot:
             self.buf = np.zeros((self.n_zoom, self.img_ndm, self.img_nt), dtype=np.float32)
             self.isubstream = isubstream
-            self.ifile = np.zeros((self.n_zoom))    # keeps track of which png file we're accumulating 
-            self.ipos = np.zeros((self.n_zoom))     # keeps track of how many (downsampled) time samples have been accumulated into file so far
+            self.ifile = np.zeros((self.n_zoom), int)    # keeps track of which png file we're accumulating 
+            self.ipos = np.zeros((self.n_zoom), int)     # keeps track of how many (downsampled) time samples have been accumulated into file so far
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
@@ -148,7 +148,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         weights = np.array(weights, dtype=np.float32, order='C')
 
         # Send the inputs (intensity, weights) to the dedisperser.
-        self.dedisperser.run(intensity, weights)
+        self.dedisperser.run(intensity, weights, t0)
 
         # Retrieve the outputs (trigger arrays) from the dedisperser.
         #

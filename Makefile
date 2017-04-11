@@ -12,7 +12,7 @@
 
 include Makefile.local
 
-INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp chime_file_stream_base.hpp 
+INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp chime_packetizer.hpp chime_file_stream_base.hpp reverter.hpp
 
 KERNEL_INCFILES=kernels/downsample.hpp \
 	kernels/intensity_clippers.hpp \
@@ -36,6 +36,8 @@ OFILES=badchannel_mask.o \
 	misc.o \
 	outdir_manager.o \
 	polynomial_detrenders.o \
+	reverter.o \
+	pulse_adder.o \
 	psrfits_stream.o \
 	std_dev_clippers.o \
 	timing_thread.o \
@@ -120,6 +122,11 @@ ifeq ($(HAVE_CH_FRB_IO),y)
 	CPP += -DHAVE_CH_FRB_IO
 	LIBS += -lch_frb_io -lhdf5
 endif
+
+#ifeq ($(HAVE_CH_FRB_IO),y)
+#	CPP += -DHAVE_CH_FRB_IO
+	LIBS += -lsimpulse
+#endif
 
 
 ####################################################################################################

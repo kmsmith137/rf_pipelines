@@ -295,10 +295,28 @@ inline ssize_t gcd(ssize_t m, ssize_t n)
 }
 
 template<typename T>
+inline void stringify(std::stringstream &ss, const T &x)
+{
+    ss << x;
+}
+
+template<typename T>
+inline void stringify(std::stringstream &ss, const std::vector<T> &v)
+{
+    ss << "[";
+    for (unsigned int i = 0; i < v.size(); i++) {
+	if (i > 0)
+	    ss << ",";
+	ss << v[i];
+    }
+    ss << "]";
+}
+
+template<typename T>
 inline std::string stringify(const T &x)
 {
     std::stringstream ss;
-    ss << x;
+    stringify(ss, x);
     return ss.str();
 }
 
