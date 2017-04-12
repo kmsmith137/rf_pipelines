@@ -17,7 +17,7 @@ class L1Grouper(object):
     dedisp : instance of bonsai.Dedisperser
         Used primarily to scrape config parameters
     thr : float, optional
-        SNR threshold used to identify candidate events (default: 8)
+        SNR threshold used to identify candidate events (default: 7)
     beam : int, optional
         ID of source beam (0 -> 1023 for CHIME, default: 0)
     addr : str, optional
@@ -25,7 +25,7 @@ class L1Grouper(object):
         String should be compliant with a ``socket.connect()`` call.
         (default: None)
     """
-    def __init__(self, dedisp, thr=8, beam=0, addr=None):
+    def __init__(self, dedisp, thr=7, beam=0, addr=None):
         self.dedisp = dedisp
         self.thr = thr
         self.beam = beam
@@ -174,7 +174,7 @@ class L1Grouper(object):
         self.cur_events = []
         return dump
 
-    def _sift_repeats(self, events, t_thr=0.256, dm_thr=8):
+    def _sift_repeats(self, events, t_thr=0.256, dm_thr=7):
         """
         Removes events coincident with events from the previous chunk.
         This is a fix for a rare corner case where detections of a pulse

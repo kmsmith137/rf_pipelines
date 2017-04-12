@@ -47,12 +47,20 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
        - event_outfile: None for running without peak finding and the name of a txt file for running with 
            peak finding and outputting the results there
+
+       - L1Grouper_thr: TODO
+       
+       - L1Grouper_beam: TODO
+       
+       _ L1Grouper_addr: TODO
     """
 
     def __init__(self, config_filename, img_prefix=None, img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, 
                  track_global_max=False, dm_min=None, dm_max=None, hdf5_output_filename=None, nt_per_hdf5_file=0,
                  deallocate_between_substreams=False, use_analytic_normalization=False, dynamic_plotter=False,
-                 plot_threshold1=6, plot_threshold2=10, event_outfile=None):
+                 plot_threshold1=6, plot_threshold2=10, event_outfile=None, L1Grouper_thr=7, L1Grouper_beam=0, 
+                 L1Grouper_addr=None):
+
         # We import the bonsai module here, rather than at the top of the file, so that bonsai isn't
         # required to import rf_pipelines (but is required when you try to construct a bonsai_dedisperser).
         try:
@@ -109,6 +117,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             self.nt_chunk_ds = [self.nt_chunk // self.downsample_nt[0]]
             self.img_prefix = [str(img_prefix) + "_zoom0"]
             self.add_plot_group("waterfall", nt_per_pix=downsample_nt, ny=img_ndm)
+
             if self.n_zoom > 1:
                 for zoom_level in xrange(self.n_zoom - 1):
                     self.downsample_nt += [self.downsample_nt[zoom_level] * 2]   # zoom_level = previous element's index because of the original value added
