@@ -52,7 +52,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
        
        - L1Grouper_beam: TODO
        
-       _ L1Grouper_addr: TODO
+       - L1Grouper_addr: TODO
     """
 
     def __init__(self, config_filename, img_prefix=None, img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, 
@@ -94,7 +94,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         # For grouper code
         self.event_outfile = event_outfile
         if self.event_outfile is not None:
-            self.grouper = rf_pipelines.L1Grouper(self.dedisperser)
+            self.grouper = rf_pipelines.L1Grouper(self.dedisperser, L1Grouper_thr, L1Grouper_beam, L1Grouper_addr)
             self.detected_events = []
 
         # Note that 'nfreq' is determined by the config file.  If the stream's 'nfreq' differs,
