@@ -45,14 +45,10 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
            will be used, else the new fixed-scale plotter will be used (the second two arguments are arguments
            for the new plotter, representing the sigma value for colour transitions) 
 
-       - event_outfile: None for running without peak finding and the name of a txt file for running with 
-           peak finding and outputting the results there
+       - event_outfile: None for running without peak finding or a full path for running with
+           peak finding (i.e. L1Grouper) and writing the results in a text file
 
-       - L1Grouper_thr: TODO
-       
-       - L1Grouper_beam: TODO
-       
-       - L1Grouper_addr: TODO
+       - (L1Grouper_thr, L1Grouper_beam, L1Grouper_addr) are L1Grouper parameters (see its docstring!)
     """
 
     def __init__(self, config_filename, img_prefix=None, img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, 
