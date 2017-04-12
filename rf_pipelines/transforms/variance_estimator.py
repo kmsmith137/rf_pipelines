@@ -25,7 +25,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
     This ensures a safe execution.
     """
 
-    def __init__(self, v1_chunk=128, v2_chunk=80, nt_chunk=1024, var_path=None):
+    def __init__(self, v1_chunk=32, v2_chunk=192, nt_chunk=1024, var_path=None):
         name = "variance_estimator(v1_chunk=%d, v2_chunk=%d, nt_chunk=%d)" % (v1_chunk, v2_chunk, nt_chunk)
 
         # Call base class constructor
@@ -40,12 +40,8 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         self.nt_prepad = 0
         self.nt_postpad = 0 
         self.v1_t = floor(self.v2_chunk / 2) + 1  # which v1 to index for time (+1 since iv1 is len, not index)
-            
-        # Make and open the h5 file
-        if var_path is None:
-            self.var_path = './var_v1_%d_v2_%d.h5' % (self.v1_chunk, self.v2_chunk)
-        else:
-            self.var_path = '%s_v1_%d_v2_%d.h5' % (var_path, self.v1_chunk, self.v2_chunk)
+        self.var_path = var_filename
+
         self.f = h5py.File(self.var_path, mode='w')
         self.f.attrs['v1_chunk'] = self.v1_chunk
         self.f.attrs['v2_chunk'] = self.v2_chunk

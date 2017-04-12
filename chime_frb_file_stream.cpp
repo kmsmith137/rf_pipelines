@@ -110,7 +110,7 @@ static void list_glob(vector<string> &filenames, const string &glob_pattern, boo
         throw runtime_error("glob() failed: " + string(strerror(errno)));
     }
 
-    for (int i=0; i< (int)theglob.gl_pathc; i++) {
+    for (size_t i=0; i<theglob.gl_pathc; i++) {
         filenames.push_back(string(theglob.gl_pathv[i]));
     }
 

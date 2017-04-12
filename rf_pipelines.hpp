@@ -74,7 +74,9 @@
 #include <json/json.h>
 
 namespace bonsai { class dedisperser; }
+namespace ch_frb_io { class intensity_network_stream; }
 
+#include "simpulse.hpp"
 
 namespace rf_pipelines {
 #if 0
@@ -152,11 +154,13 @@ extern std::shared_ptr<wi_stream> make_chime_frb_stream_from_filename_list(const
 //
 // CHIME network stream.  Receives UDP packets in "CHIME L0-L1 format".
 //
-// This interface is less general than the low-level interface in ch_frb_io: 
-// only one beam can be received, and not all boolean options are supported.
-//
+
+// Assumes the ch_frb_io::intensity_network_stream object is already constructed (but not started).
+// The assembler_id is an index satisfying 0 <= assembler_ix < num_beams_in_assembler (not a beam_id).
+extern std::shared_ptr<wi_stream> make_chime_network_stream(const std::shared_ptr<ch_frb_io::intensity_network_stream> &stream, int beam_id);
+
+// A higher-level interface which constructs a ch_frb_io::intensity_network_stream expecting a single beam_id.  
 // If the 'udp_port' argument is zero, then the default chimefrb port will be used.
-//
 extern std::shared_ptr<wi_stream> make_chime_network_stream(int udp_port=0, int beam_id=0);
 
 
@@ -294,6 +298,8 @@ extern void weighted_mean_and_rms(float &mean, float &rms, const float *intensit
 				  int nfreq, int nt, int stride, int niter=1, double sigma=3.0, bool two_pass=false);
 
 
+extern std::shared_ptr<wi_transform> make_pulse_adder(ssize_t nt, std::vector<std::shared_ptr<simpulse::single_pulse> > &thepulses, double weight=1.0);
+
 //
 // This is a pseudo-transform which doesn't actually modify the data, it just writes it to a file in
 // CHIME hdf5 format.  (For now, the entire stream is written to a single file, I'll generalize later
@@ -313,6 +319,9 @@ extern void weighted_mean_and_rms(float &mean, float &rms, const float *intensit
 //
 std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename, bool clobber=false, int bitshuffle=2, ssize_t nt_chunk=0);
 
+
+std::pair<std::shared_ptr<wi_transform>, std::shared_ptr<wi_transform> >
+make_reverter(ssize_t nt_chunk);
 
 //
 // Converts a stream to UDP packets in "CHIME L0_L1" format, and sends them over the network.
@@ -340,7 +349,8 @@ std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename
 // a multiple of nt_per_packet; suggest a value like 512).
 //
 extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &dstname, int nfreq_coarse_per_packet, int nt_per_chunk, 
-							   int nt_per_packet, float wt_cutoff, double target_gbps);
+							   int nt_per_packet, float wt_cutoff, double target_gbps,
+							   int beam_id=0);
 
 
 // Some day, this factory function will return a C++ implementation of the 'badchannel_mask' class.
