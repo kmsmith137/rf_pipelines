@@ -40,4 +40,4 @@ CPP += -I. -I$(INCDIR) -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR) -I$(JSONCPP_INCDIR)
 
 #CPP=g++ -std=c++11 -pthread -fPIC -Wall -Wno-literal-suffix -O3 -march=native -ffast-math -funroll-loops -I. -I$(INCDIR) -I/usr/include/jsoncpp -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR) -L. -L$(LIBDIR)
 
-CPP_LFLAGS=-L$(LIBDIR)
+CPP_LFLAGS= -L. -L$(LIBDIR)
