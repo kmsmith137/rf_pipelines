@@ -5,10 +5,6 @@ import rf_pipelines
 
 class bonsai_dedisperser(rf_pipelines.py_wi_transform):
     """
-    ********************
-    BUG: CANNOT HANDLE 1D TRIGGER ARRAY!!!!
-    ********************
-
     Returns a "transform" which doesn't actually modify the data, it just runs the bonsai dedisperser.
 
 
@@ -128,7 +124,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             # I think a nice convention for this variable will be to plot tree0 in the first, and divide the remaining
             # trees evenly between the remaining plots, provided things are evenly divisible
             self.nplot_groups = 2
-            assert (self.ntrees - 2) % (nplot_groups - 1) # FIX -2 -> -1 from ntrees once bug is better
+            assert (self.ntrees - 1) % (self.nplot_groups - 1) == 0
 
             # Convention for plot groups: 1st half will be the tree0 plot and 2nd half will be the plot for the rest of the trees
             for i in self.nplot_groups*range(self.n_zoom):
@@ -147,11 +143,10 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
         if self.make_plot:
             self.isubstream = isubstream
-            # self.plot_groups = [Plotter(self, ntrees=(1 if i==0 else (self.ntrees - 1) / self.nplot_groups), iplot=i) for i in xrange(self.nplot_groups)]
-            # FIX for now, do this manually, but replace with the line above once the bug is fixed
-            self.plot0 = Plotter(self, ntrees=1, iplot=0)
-            self.plot1 = Plotter(self, ntrees=self.ntrees-2, iplot=1)
-
+            self.plot_groups = [Plotter(self, ntrees=(1 if i==0 else (self.ntrees - 1) / (self.nplot_groups - 1)), iplot=i) for i in xrange(self.nplot_groups)]
+            print 'starting substream'
+            for plot in self.plot_groups:
+                print plot.ntrees
             # Int flag for the web_viewer - splits by plot group (e.g. if 2, divide the plot groups in two and treat each as a separate transform
             # such that the individual tree plots are displayed in different rows)
             self.json_per_substream["n_plot_groups"] = self.nplot_groups
@@ -188,27 +183,26 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
             # Max along the beta and SM indices, then add the new triggers to the plots! 
             flat_triggers = [np.amax(np.amax(tree, axis=1), axis=1) for tree in triggers]
-            # FIX uncomment lines below once things are fixed:
-            # while i < self.ntrees:
-            #     self.plot_groups[i].process(flat_triggers[0 if i==0 else (i : (self.ntrees - 1) / self.nplot_groups)])
-            #     i += (0 if i ==1 else (self.ntrees - 1) / self.nplot_groups))
-            self.plot0.process([flat_triggers[0]])
-            self.plot1.process(flat_triggers[1:2])
+
+            i = 0
+            while i < self.nplot_groups:
+                if i == 0:
+                    self.plot_groups[i].process([flat_triggers[0]])
+                else:
+                    self.plot_groups[i].process(flat_triggers[i : i + (self.ntrees - 1) / (self.nplot_groups - 1)])
+                i += (1 if i == 0 else (self.ntrees - 1) / (self.nplot_groups - 1))
 
 
     def end_substream(self):
         if self.make_plot:
             for zoom_level in xrange(self.n_zoom):
-                # FIX uncomment below later...
-                # for i in xrange(self.nplot_groups):
-                #     self._write_file(self.plot_groups[i].plots[zoom_level], 
-                #                      zoom_level,
-                #                      self.plot_groups[i].downsample_nt[zoom_level],
-                #                      self.plot_groups[i].ifile[zoom_level],
-                #                      self.plot_groups[i].iplot,
-                #                      self.nzoom)
-                self._write_file(self.plot0.plots[zoom_level], zoom_level, self.plot0.downsample_nt[zoom_level], self.plot0.ifile[zoom_level], self.plot0.iplot, self.n_zoom)
-                self._write_file(self.plot1.plots[zoom_level], zoom_level, self.plot1.downsample_nt[zoom_level], self.plot1.ifile[zoom_level], self.plot1.iplot, self.n_zoom)
+                for i in xrange(self.nplot_groups):
+                    self._write_file(self.plot_groups[i].plots[zoom_level], 
+                                     zoom_level,
+                                     self.plot_groups[i].downsample_nt[zoom_level],
+                                     self.plot_groups[i].ifile[zoom_level],
+                                     self.plot_groups[i].iplot,
+                                     self.n_zoom)
 
         self.dedisperser.end_dedispersion()
         
@@ -272,16 +266,14 @@ class Plotter():
     def process(self, arrs):
         # Check that the arrays passed to process contain the expected number of trees
         assert len(arrs) == self.ntrees
-            
+        shape = [triggers.shape for triggers in arrs]
+
         # Zooming only happens in the time axis, so we can reshape the dm axis outside of the loop
         for i in xrange(self.ntrees):
-            arr_shape = arrs[i].shape
-            if arrs[i].ndim == 1:
-                arrs[i] = np.reshape(arrs[i], (-1, 1))
-            if arr_shape[0] > self.ndm:
-                arrs = self.max_ds(arrs[i], self.ndm, arr_shape[1])
-            elif arr_shape[0] < self.ndm:
-                arrs = rf_pipelines.upsample(arrs[i], self.ndm, arr_shape[1])
+            if shape[i][0] > self.ndm:
+                arrs[i] = self.max_ds(arrs[i], self.ndm, shape[i][1])
+            elif shape[i][0] < self.ndm:
+                arrs[i] = rf_pipelines.upsample(arrs[i], self.ndm, shape[i][1])
 
         iy = 0  # Keep track of where to add each tree vertically
         for itree in xrange(self.ntrees):
@@ -295,8 +287,8 @@ class Plotter():
                     dm_t = rf_pipelines.upsample(dm_t, dm_t_shape[0], self.nt_chunk_ds[zoom_level])
                 # Now the array will be scaled properly to stick into the plot accumulator arrays
                 self.plots[zoom_level, iy:iy+self.ndm, self.ix[zoom_level]:self.ix[zoom_level]+self.nt_chunk_ds[zoom_level]] = dm_t
-                self.ix[zoom_level] += self.nt_chunk_ds[zoom_level]
             iy += self.ndm
+        self.ix += self.nt_chunk_ds
 
         # After adding, check whether we need to write any files
         for zoom_level in xrange(self.nzoom):
