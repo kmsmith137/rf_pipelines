@@ -39,12 +39,21 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
        - use_analytic_normalization: if True, then the dedisperser will use the exact trigger
            normalization, assuming a toy model in which each input (frequency, time) sample
            is an uncorrelated Gaussian.  Not suitable for real data!
+
+       - dynamic_plotter, plot_threshold1, plot_threshold2: if False, plot_threshold1 and plot_threshold2 define
+            the points of colour disontinuities in rf_pipelines.utils.triggers_png. If True, write_png is used
+            and the plot threshold parameters are meaningless.
+
+       - nplot_groups: The number of rows of plots the bonsai dedisperser should produce as displayed in the 
+            web viewer. If 1, only tree 0 will be plotted. If >1, tree 0 will be plotted in the bottom row, and
+            the remaining trees will be divided between the remaining plots. 
+
     """
 
     def __init__(self, config_filename, img_prefix=None, img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, 
                  track_global_max=False, dm_min=None, dm_max=None, hdf5_output_filename=None, nt_per_hdf5_file=0,
                  deallocate_between_substreams=False, use_analytic_normalization=False, dynamic_plotter=False,
-                 plot_threshold1=6, plot_threshold2=10):
+                 plot_threshold1=6, plot_threshold2=10, nplot_groups=1):
 
         # We import the bonsai module here, rather than at the top of the file, so that bonsai isn't
         # required to import rf_pipelines (but is required when you try to construct a bonsai_dedisperser).
@@ -105,26 +114,18 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                 raise RuntimeError("bonsai plotter transform: specified nt_chunk(=%d) must be a multiple of downsampling factor at max zoom level (=%d)" 
                                    % (self.nt_chunk, self.downsample_nt[-1]))
 
-            # Set incoming triger dimension paramaters for assertions
-            # self.trigger_dim stores dimensions as a list of tuples containing dimensions for each tree
-            # This is where our hard-coded tree logic begins, though it's easy enough to modify as desired
             self.trigger_dim = [(ndm, nt) for (ndm, nt) in zip(self.dedisperser.ndm_coarse, self.dedisperser.nt_coarse_per_chunk)]
             self.ntrees = len(self.trigger_dim)
-            assert self.ntrees > 1
-            assert self.trigger_dim[0][0]% self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0][0] == 0  # downsample or upsample dm for plot0
-            assert all([tup[0] % self.img_ndm/self.ntrees  == 0 or self.img_ndm/self.ntrees % tup[0] == 0 for tup in self.trigger_dim])  # for plot1 
-            assert all(tup[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % tup[1] == 0 for tup in self.trigger_dim)  # downsample or upsample t
+            self.nplot_groups = nplot_groups
 
-            # Add a cheat-y assert, but I think this should be fine, since we usually use powers of 2 for everything
-            # Ensures that each chunk will evenly divide the plot, so no fancy buffering is required
-            assert self.img_nt % self.nt_chunk_ds[-1] == 0
-
-            # This will eventually be added to the constructor I think, but I am holding off for now to avoid 
-            # making changes to ch_frb_rfi :)
-            # I think a nice convention for this variable will be to plot tree0 in the first, and divide the remaining
-            # trees evenly between the remaining plots, provided things are evenly divisible
-            self.nplot_groups = 2
-            assert (self.ntrees - 1) % (self.nplot_groups - 1) == 0
+            assert self.ntrees > 0
+            assert self.nplot_groups > 0
+            assert self.trigger_dim[0][0]% self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0][0] == 0  # Downsample or upsample dm for plot0
+            if self.ntrees > 1:
+                assert all([tup[0] % self.img_ndm/(self.ntrees -1)  == 0 or self.img_ndm/(self.ntrees - 1) % tup[0] == 0 for tup in self.trigger_dim[1:]])  # For plot1 +
+            assert all(tup[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % tup[1] == 0 for tup in self.trigger_dim)  # Downsample or upsample t
+            assert self.img_nt % self.nt_chunk_ds[-1] == 0  # Each chunk evenly divides the plots
+            assert (self.ntrees - 1) % (self.nplot_groups - 1) == 0  # Trees are evenly divisible between plots
 
             # Convention for plot groups: 1st half will be the tree0 plot and 2nd half will be the plot for the rest of the trees
             for i in self.nplot_groups*range(self.n_zoom):
@@ -144,12 +145,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         if self.make_plot:
             self.isubstream = isubstream
             self.plot_groups = [Plotter(self, ntrees=(1 if i==0 else (self.ntrees - 1) / (self.nplot_groups - 1)), iplot=i) for i in xrange(self.nplot_groups)]
-            print 'starting substream'
-            for plot in self.plot_groups:
-                print plot.ntrees
-            # Int flag for the web_viewer - splits by plot group (e.g. if 2, divide the plot groups in two and treat each as a separate transform
-            # such that the individual tree plots are displayed in different rows)
-            self.json_per_substream["n_plot_groups"] = self.nplot_groups
+            self.json_per_substream["n_plot_groups"] = self.nplot_groups  # Helpful parameter for the web viewer
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
@@ -183,7 +179,6 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
             # Max along the beta and SM indices, then add the new triggers to the plots! 
             flat_triggers = [np.amax(np.amax(tree, axis=1), axis=1) for tree in triggers]
-
             i = 0
             while i < self.nplot_groups:
                 if i == 0:
@@ -253,14 +248,12 @@ class Plotter():
         self.ndm = self.nx / self.ntrees # Number of y pixels per tree
         self.ix = np.zeros(self.nzoom)   # Keep track of what x position to add chunks to
         self.isubstream = transform.isubstream
-
-        self.plots = np.zeros((self.nzoom, self.ny, self.nx))        
-        assert self.nzoom == len(self.nt_chunk_ds)
-
-        # Extra info for transform.write_file
         self.img_prefix = transform.img_prefix
-        self.downsample_nt = transform.downsample_nt  # In constructor so only relevant tree info passed (the same is true of nt_chunk_ds)
+        self.downsample_nt = transform.downsample_nt
         self.ifile = np.zeros(self.nzoom)
+        self.plots = np.zeros((self.nzoom, self.ny, self.nx))        
+
+        assert self.nzoom == len(self.nt_chunk_ds)
 
 
     def process(self, arrs):
@@ -288,7 +281,7 @@ class Plotter():
                 # Now the array will be scaled properly to stick into the plot accumulator arrays
                 self.plots[zoom_level, iy:iy+self.ndm, self.ix[zoom_level]:self.ix[zoom_level]+self.nt_chunk_ds[zoom_level]] = dm_t
             iy += self.ndm
-        self.ix += self.nt_chunk_ds
+        self.ix += self.nt_chunk_ds  # We can do this here because of the assertion that each chunks evenly divide into plots
 
         # After adding, check whether we need to write any files
         for zoom_level in xrange(self.nzoom):
