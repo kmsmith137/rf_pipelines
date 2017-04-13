@@ -120,6 +120,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
             assert self.ntrees > 0
             assert self.nplot_groups > 0
+            assert self.nplot_groups <= self.ntrees
             assert self.trigger_dim[0][0]% self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0][0] == 0  # Downsample or upsample dm for plot0
             if self.ntrees > 1:
                 assert all([tup[0] % self.img_ndm/(self.ntrees - 1)  == 0 or self.img_ndm/(self.ntrees - 1) % tup[0] == 0 for tup in self.trigger_dim[1:]])  # For plot1 +
@@ -191,14 +192,13 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
     def end_substream(self):
         if self.make_plot:
+            # Write whatever may be left in the plots
             for zoom_level in xrange(self.n_zoom):
                 for i in xrange(self.nplot_groups):
                     self._write_file(self.plot_groups[i].plots[zoom_level], 
                                      zoom_level,
-                                     self.plot_groups[i].downsample_nt[zoom_level],
                                      self.plot_groups[i].ifile[zoom_level],
-                                     self.plot_groups[i].iplot,
-                                     self.n_zoom)
+                                     self.plot_groups[i].iplot)
 
         self.dedisperser.end_dedispersion()
         
@@ -212,19 +212,18 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             self.dedisperser.deallocate()
 
 
-    def _write_file(self, arr, zoom_level, downsample_nt, ifile, iplot, nzoom):
-        # When we reach end-of-stream, the buffer might be partially full. In this case, pad with black.
+    def _write_file(self, arr, zoom_level, ifile, iplot):
         basename = self.img_prefix[zoom_level] + '_plot' + str(iplot)
         if self.isubstream > 0:
             basename += str(isubstream+1)
         basename += ('_%s.png' % ifile)
 
-        group_id = iplot * nzoom + zoom_level
+        group_id = iplot * self.n_zoom + zoom_level
 
         # The add_plot() method adds the plot to the JSON output, and returns the filename that should be written.
         filename = self.add_plot(basename,
-                                 it0 = int(ifile * self.img_nt * downsample_nt),
-                                 nt = self.img_nt * downsample_nt, 
+                                 it0 = int(ifile * self.img_nt * self.downsample_nt[zoom_level]),
+                                 nt = self.img_nt * self.downsample_nt[zoom_level],
                                  nx = arr.shape[1],
                                  ny = arr.shape[0], 
                                  group_id = group_id)
@@ -239,22 +238,15 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 class Plotter():
     """A plotter object holds all desired zoom levels for a plot"""
     def __init__(self, transform, ntrees, iplot):
-        self.transform = transform       # To use _write_file()
+        self.transform = transform       # Access transform parameters
         self.iplot = iplot               # Helpful for establishing plot group
-        self.nzoom = transform.n_zoom    # Number of zoom levels to be produced
-        self.nx = transform.img_nt       # Number of x pixels per plot
-        self.ny = transform.img_ndm      # Number of y pixels per plot
         self.ntrees = ntrees             # Number of trees being __plotted together__ (different from transform.ntrees)
-        self.nt_chunk_ds = transform.nt_chunk_ds   # Number of x pixels that should be written per chunk (2D array)
-        self.ndm = self.nx / self.ntrees # Number of y pixels per tree
-        self.ix = np.zeros(self.nzoom)   # Keep track of what x position to add chunks to
-        self.isubstream = transform.isubstream
-        self.img_prefix = transform.img_prefix
-        self.downsample_nt = transform.downsample_nt
-        self.ifile = np.zeros(self.nzoom)
-        self.plots = np.zeros((self.nzoom, self.ny, self.nx))        
+        self.ndm = self.transform.img_nt / self.ntrees # Number of y pixels per tree
+        self.ix = np.zeros(self.transform.n_zoom)   # Keep track of what x position to add chunks to
+        self.ifile = np.zeros(self.transform.n_zoom)
+        self.plots = np.zeros((self.transform.n_zoom, self.transform.img_nt, self.transform.img_ndm))
 
-        assert self.nzoom == len(self.nt_chunk_ds)
+        assert transform.n_zoom == len(self.transform.nt_chunk_ds)
 
 
     def process(self, arrs):
@@ -271,23 +263,26 @@ class Plotter():
 
         iy = 0  # Keep track of where to add each tree vertically
         for itree in xrange(self.ntrees):
-            for zoom_level in xrange(self.nzoom):
+            for zoom_level in xrange(self.transform.n_zoom):
                 dm_t = arrs[itree].copy()
                 dm_t_shape = dm_t.shape
                 # In the x (time) axis, we need to transform dm_t_shape[1] to self.nt_chunk_ds[zoom_level] - may need to up/downsample
-                if dm_t_shape[1] > self.nt_chunk_ds[zoom_level]:
-                    dm_t = self.max_ds(dm_t, dm_t_shape[0], self.nt_chunk_ds[zoom_level])
-                elif dm_t_shape[1] < self.nt_chunk_ds[zoom_level]:
-                    dm_t = rf_pipelines.upsample(dm_t, dm_t_shape[0], self.nt_chunk_ds[zoom_level])
+                if dm_t_shape[1] > self.transform.nt_chunk_ds[zoom_level]:
+                    dm_t = self.max_ds(dm_t, dm_t_shape[0], self.transform.nt_chunk_ds[zoom_level])
+                elif dm_t_shape[1] < self.transform.nt_chunk_ds[zoom_level]:
+                    dm_t = rf_pipelines.upsample(dm_t, dm_t_shape[0], self.transform.nt_chunk_ds[zoom_level])
                 # Now the array will be scaled properly to stick into the plot accumulator arrays
-                self.plots[zoom_level, iy:iy+self.ndm, self.ix[zoom_level]:self.ix[zoom_level]+self.nt_chunk_ds[zoom_level]] = dm_t
+                self.plots[zoom_level, iy:iy+self.ndm, self.ix[zoom_level]:self.ix[zoom_level]+self.transform.nt_chunk_ds[zoom_level]] = dm_t
             iy += self.ndm
-        self.ix += self.nt_chunk_ds  # We can do this here because of the assertion that each chunks evenly divide into plots
+        self.ix += self.transform.nt_chunk_ds  # We can do this here because of the assertion that each chunks evenly divide into plots
 
         # After adding, check whether we need to write any files
-        for zoom_level in xrange(self.nzoom):
-            if self.ix[zoom_level] >= self.nx:
-                self.transform._write_file(self.plots[zoom_level, :, :], zoom_level, self.downsample_nt[zoom_level], self.ifile[zoom_level], self.iplot, self.nzoom)
+        for zoom_level in xrange(self.transform.n_zoom):
+            if self.ix[zoom_level] >= self.transform.img_nt:
+                self.transform._write_file(self.plots[zoom_level, :, :], 
+                                           zoom_level, 
+                                           self.ifile[zoom_level], 
+                                           self.iplot)
                 self.ifile[zoom_level] += 1
                 self.ix[zoom_level] = 0
                 self.plots[zoom_level, :, :] = 0
