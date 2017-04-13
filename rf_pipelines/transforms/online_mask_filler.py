@@ -33,19 +33,75 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
 
     def __init__(self, v1_chunk=32, v2_chunk=192, w_cutoff=1.8, nt_chunk=1024):
         name = 'online_mask_filler(v1_chunk=%d, v2_chunk=%d, w_cutoff=%d, nt_chunk=%d)' % (v1_chunk, v2_chunk, w_cutoff, nt_chunk)
+
+        # Call base class constructor
         rf_pipelines.py_wi_transform.__init__(self, name)
+
+        self.v1_chunk = v1_chunk
+        self.v2_chunk = v2_chunk
+        self.w_cutoff = w_cutoff
         self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
 
+        assert self.nt_chunk % self.v1_chunk == 0
+
+
     def set_stream(self, s):
+        # As explained in the rf_pipelines.py_wi_transform docstring, this function is
+        # called once per pipeline run, when the stream (the 's' argument) has been specified.
         self.nfreq = s.nfreq
 
+
     def start_substream(self, isubstream):
+        # Called once per substream (a stream can be split into multiple substreams).
         self.isubstream = isubstream
-        
+        self.v1_estimates = np.zeros((self.nfreq, self.v1_chunk))
+        self.running_var = np.zeros((self.nfreq))
+        self.iv1 = 0 # keeps track of which position we are adding v1 to
+
+
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        pass
+        for i in xrange(0, self.nt_chunk, self.v1_chunk):
+            for frequency in xrange(self.nfreq):
+                # Compute v1 for each frequency
+                a = self._v1(intensity[frequency, i : i+self.v1_chunk], weights[frequency, i : i+self.v1_chunk])
+                self.v1[frequency, self.iv1] = a
+            self.iv1 += 1
+
+        # Once we have calculated a value for each frequency, check if we should output a v2
+        if self.iv1 == self.v2_chunk:
+            for frequency in xrange(self.nfreq):
+                # Empty v1[frequency] and compute median for v2 (0 if too many v1 values are 0)
+                if np.count_nonzero(self.v1[frequency]) < self.v2_chunk * 0.25: 
+                    self.v2[frequency] = 0
+                else:
+                    # Here, we want to ignore elements with value 0
+                    self.v2[frequency] = np.median(self.v1[frequency][np.nonzero(self.v1[frequency])])
+            self.v1[frequency, :] = 0        
+            self.iv1 = 0
+
+        # Finally, fill the chunk with whatever's in the running_var
+        # (I think this is a reasonable enough approximation given that nt_chunk is pretty small, but let me know if not)
+        intensity_valid = (weights > self.w_cutoff)  # a 2d numpy boolean array
+        
+        rand_intensity = np.random.standard_normal(size=intensity.shape)
+        weights[:,:] = 0.0
+        
+        for (ifreq,v) in enumerate(self.running_var):
+            if v > 0.0:
+                rand_intensity[ifreq,:] *= v**0.5
+                weights[ifreq,:] = 2.0
+
+        intensity[:,:] = np.where(intensity_valid, intensity, rand_intensity)
+
 
     def end_substream(self):
         pass
+
+
+    def _v1(self, i, w):
+        """Calculate weighted variance"""
+        if np.count_nonzero(w) < self.v1_chunk * 0.25:
+            return 0
+        return np.average(i**2, weights=w) 
