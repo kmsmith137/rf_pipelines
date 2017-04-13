@@ -73,7 +73,8 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/intensity_clipper.py \
 	rf_pipelines/transforms/variance_estimator.py \
 	rf_pipelines/transforms/mask_filler.py \
-	rf_pipelines/transforms/noise_filler.py
+	rf_pipelines/transforms/noise_filler.py \
+	rf_pipelines/transforms/online_mask_filler.py
 
 TESTBINFILES=run-unit-tests \
 	test-kernels \

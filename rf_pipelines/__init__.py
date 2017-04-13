@@ -71,6 +71,7 @@ Transforms:
    variance_estimator()       estimates per-channel, slowly varying variance from RFI-masked data
    mask_filler()              fills in the RFI mask with simulated Gaussian noise, given variance_estimator output from a previous pipeline run
    noise_filler()             fills in the RFI mask with simulated Gaussian noise
+   online_mask_filler()       does online variance estimation and mask filling (replaced variance_estimator() and mask_filler())
 """
 
 
@@ -470,6 +471,7 @@ from .transforms.RC_detrender import RC_detrender
 from .transforms.variance_estimator import variance_estimator
 from .transforms.mask_filler import mask_filler
 from .transforms.noise_filler import noise_filler
+from .transforms.online_mask_filler import online_mask_filler
 
 # Helper routines for implementing new transforms in python.
 
