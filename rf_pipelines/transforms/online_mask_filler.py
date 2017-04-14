@@ -53,10 +53,10 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
         self.nfreq = s.nfreq
 
 
-    def start_substream(self, isubstream):
+    def start_substream(self, isubstream, t0):
         # Called once per substream (a stream can be split into multiple substreams).
         self.isubstream = isubstream
-        self.v1_estimates = np.zeros((self.nfreq, self.v1_chunk))
+        self.v1_estimates = np.zeros((self.nfreq, self.v2_chunk))
         self.running_var = np.zeros((self.nfreq))
         self.iv1 = 0 # keeps track of which position we are adding v1 to
 
@@ -66,19 +66,19 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
             for frequency in xrange(self.nfreq):
                 # Compute v1 for each frequency
                 a = self._v1(intensity[frequency, i : i+self.v1_chunk], weights[frequency, i : i+self.v1_chunk])
-                self.v1[frequency, self.iv1] = a
+                self.v1_estimates[frequency, self.iv1] = a
             self.iv1 += 1
 
         # Once we have calculated a value for each frequency, check if we should output a v2
         if self.iv1 == self.v2_chunk:
             for frequency in xrange(self.nfreq):
                 # Empty v1[frequency] and compute median for v2 (0 if too many v1 values are 0)
-                if np.count_nonzero(self.v1[frequency]) < self.v2_chunk * 0.25: 
-                    self.v2[frequency] = 0
+                if np.count_nonzero(self.v1_estimates[frequency]) < self.v2_chunk * 0.25: 
+                    self.running_var[frequency] = 0
                 else:
                     # Here, we want to ignore elements with value 0
-                    self.v2[frequency] = np.median(self.v1[frequency][np.nonzero(self.v1[frequency])])
-            self.v1[frequency, :] = 0        
+                    self.running_var[frequency] = np.median(self.v1_estimates[frequency][np.nonzero(self.v1_estimates[frequency])])
+            self.v1_estimates[frequency, :] = 0
             self.iv1 = 0
 
         # Finally, fill the chunk with whatever's in the running_var
