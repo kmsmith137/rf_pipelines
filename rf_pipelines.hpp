@@ -298,7 +298,16 @@ extern void weighted_mean_and_rms(float &mean, float &rms, const float *intensit
 				  int nfreq, int nt, int stride, int niter=1, double sigma=3.0, bool two_pass=false);
 
 
+// Adds simulated FRB's to the pipeline's intensity array.
+// Note: this is semiredundant with its python counterpart, rf_pipelines.frb_injector_transform.
+// Eventually we should combine these into a single transform!
 extern std::shared_ptr<wi_transform> make_pulse_adder(ssize_t nt, std::vector<std::shared_ptr<simpulse::single_pulse> > &thepulses, double weight=1.0);
+
+
+// The online_mask_filler maintains a running estimate of the per-channel intensity 
+// variance, and "fills in" the RFI mask with random noise.
+extern std::shared_ptr<wi_transform> make_online_mask_filler(int v1_chunk, int v2_chunk, float w_cutoff, int nt_chunk);
+
 
 //
 // This is a pseudo-transform which doesn't actually modify the data, it just writes it to a file in

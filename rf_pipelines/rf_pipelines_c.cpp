@@ -1625,6 +1625,78 @@ static PyObject *make_badchannel_mask(PyObject *self, PyObject *args)
 }
 
 
+// A python wrapper for the function (declared in rf_pipelines.hpp)
+//
+//   shared_ptr<wi_transform> rf_pipelines::make_online_mask_filler(int v1_chunk, int v2_chunk, float w_cutoff, int nt_chunk)
+//
+// Note the following possibly confusing point!  The following two functions have the
+// same name, but are defined in different C++ namespaces and are different:
+//
+//   rf_pipelines::make_online_mask_filler(): pure-C++ function returning the transform,
+//      defined in online_mask_filler.cpp
+//
+//   make_online_mask_filler(): its python wrapper, defined here.
+//
+// The python wrapper's argument list 'args' is a python object which can be manipulated 
+// from C++, using functions such as PyArg_Parsetuple() which are defined in the python 
+// interpreter.  Its return value is another python object.
+//
+// It is a "bridge" between python and C++: its job is to take the argument list, convert
+// it into native C++ data types (int, float, etc.), call the C++ function make_online_mask_filler(),
+// and convert the result into a python object.
+
+static PyObject *make_online_mask_filler(PyObject *self, PyObject *args, PyObject *kwds)
+{
+    // Step 1: We want to arrange things so that this function is callable from python as
+    //
+    //   make_online_mask_filler(v1_chunk, v2_chunk, w_cutoff, nt_chunk)
+    //
+    // where the arguments are (python integer, python integer, python float, python integer)
+    // respectively.  We want to convert to (C++ int, C++ int, C++ float, C++ int), with a
+    // python exception raised if there is an error (like datatype mismatch or wrong number 
+    // of arguments).  
+    //
+    // This kind of simple conversion can be done using the function PyArg_ParseTupleAndKeywords(), 
+    // which is part of the python interpreter.  For documentation see:
+    //
+    //   https://docs.python.org/2/c-api/arg.html
+    //
+    // If you need to do more complicated conversions (e.g. python list-of-integers to
+    // C++ std::vector<int>) it can be a real mess, just let me know if this arises!
+
+    static const char *kwlist[] = { "v1_chunk", "v2_chunk", "w_cutoff", "nt_chunk", NULL };
+
+    int v1_chunk = 0;
+    int v2_chunk = 0;
+    float w_cutoff = 0.0;
+    int nt_chunk = 0;
+
+    // The "iifi" format string indicates that the C++ data types of the variables which
+    // follow are ().
+    //
+    // Warning: PyArg_ParseTupleAndKeywords() is "fragile", in the sense that minor errors
+    // will cause it to segfault or otherwise behave disastrously!  (E.g. forgetting to
+    // terminate 'kwlist' with a null pointer, or mismatch between the format string and
+    // the C++ data types of the variables which follow)
+    //
+    // If an error occurs (e.g. datatype mismatch, wrong number of arguments) then
+    // returning a null pointer from this function will raise an exception in the python caller.
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "iifi", (char **)kwlist, &v1_chunk, &v2_chunk, &w_cutoff, &nt_chunk))
+	return NULL;
+
+    // Step 2: Now that all arguments have been converted, call rf_pipelines::make_online_mask_filler().
+
+    std::shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_online_mask_filler(v1_chunk, v2_chunk, w_cutoff, nt_chunk);
+
+    // Step 3: convert the C++ transform to a python object.
+    // This is a long convoluted process, but it's all encapsulated in the function
+    // wi_transform_object::make(), defined elsewhere in this file!
+
+    return wi_transform_object::make(ret);
+}
+
+
 // FIXME improve?
 static constexpr const char *dummy_module_method_docstring = 
     "This is a C++ function in the rf_pipelines_c module.\n"
@@ -1775,6 +1847,8 @@ static constexpr const char *make_badchannel_mask_docstring =
     "Some day, this factory function will return a C++ implementation of the 'badchannel_mask' class.\n"
     "Right now, it is a placeholder which throws an exception if called.\n";
 
+static constexpr const char *make_online_mask_filler_docstring =
+    "For documentation, see docstring for rf_pipelines.online_mask_filler.";
 
 
 // -------------------------------------------------------------------------------------------------
@@ -1793,6 +1867,7 @@ static PyMethodDef module_methods[] = {
     { "make_std_dev_clipper", (PyCFunction) tc_wrap3<make_std_dev_clipper>, METH_VARARGS, make_std_dev_clipper_docstring },
     { "make_chime_file_writer", tc_wrap2<make_chime_file_writer>, METH_VARARGS, dummy_module_method_docstring },
     { "make_badchannel_mask", tc_wrap2<make_badchannel_mask>, METH_VARARGS, make_badchannel_mask_docstring },
+    { "make_online_mask_filler", (PyCFunction) tc_wrap3<make_online_mask_filler>, METH_VARARGS | METH_KEYWORDS, make_online_mask_filler_docstring },
     { "apply_polynomial_detrender", (PyCFunction) tc_wrap3<apply_polynomial_detrender>, METH_VARARGS | METH_KEYWORDS, apply_polynomial_detrender_docstring },
     { "apply_intensity_clipper", (PyCFunction) tc_wrap3<apply_intensity_clipper>, METH_VARARGS | METH_KEYWORDS, apply_intensity_clipper_docstring },
     { "apply_std_dev_clipper", (PyCFunction) tc_wrap3<apply_std_dev_clipper>, METH_VARARGS | METH_KEYWORDS, apply_std_dev_clipper_docstring },
