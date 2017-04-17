@@ -121,9 +121,10 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             assert self.ntrees > 0
             assert self.nplot_groups > 0
             assert self.nplot_groups <= self.ntrees
-            assert self.trigger_dim[0][0]% self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0][0] == 0  # Downsample or upsample dm for plot0
-            if self.ntrees > 1:
-                assert all([tup[0] % self.img_ndm/(self.ntrees - 1)  == 0 or self.img_ndm/(self.ntrees - 1) % tup[0] == 0 for tup in self.trigger_dim[1:]])  # For plot1 +
+            assert self.trigger_dim[0][0] % self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0][0] == 0  # Downsample or upsample dm for plot0
+            if self.nplot_groups > 1:
+                assert all([tup[0] % self.img_ndm/((self.ntrees - 1)/(self.nplot_groups - 1))  == 0 
+                            or self.img_ndm/((self.ntrees - 1)/(self.nplot_groups - 1)) % tup[0] == 0 for tup in self.trigger_dim[1:]])  # For plot1 +
             assert all(tup[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % tup[1] == 0 for tup in self.trigger_dim)  # Downsample or upsample t
             assert self.img_nt % self.nt_chunk_ds[-1] == 0  # Each chunk evenly divides the plots
             if self.nplot_groups > 1:
