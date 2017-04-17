@@ -235,7 +235,8 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             self.detected_events = np.hstack(self.detected_events)
             for event in self.detected_events:
                 print ("Recovered pulse --- DM: %.1f,  snr: %.1f, time: %.1f s"
-                       % (event.dm, event.snr, event.time.astype(float)/1e6))
+                       % (event['dm'], event['snr'], 
+                          event['time'].astype(float)/1e6))
 
 
     def _max_downsample(self, arr, new_dm, new_t):

@@ -193,9 +193,9 @@ class L1Grouper(object):
         repeats = []
         for i in icands:
             for p in prev:
-                if abs(events[i].dm-p.dm) > dm_thr:
+                if abs(events[i]['dm']-p['dm']) > dm_thr:
                     continue
-                if (events[i].time - p.time).astype(float)/1e3 > t_thr:
+                if (events[i]['time'] - p['time']).astype(float)/1e3 > t_thr:
                     continue
                 repeats.append(i)
                 break
@@ -213,42 +213,42 @@ class L1Grouper(object):
         best = group[group.snr.argmax()]
         event = np.zeros(1, self.L1_HDR_DTYPE).view(np.recarray)
         event.beam = self.beam
-        event.itree = best.itree
-        event.snr = best.snr
+        event.itree = best['itree']
+        event.snr = best['snr']
 
         # Arrival Time
-        buf_len = self.bufs[best.itree].shape[-1]
-        it = best.time/self.t_scale[best.itree]+buf_len
+        buf_len = self.bufs[best['itree']].shape[-1]
+        it = best['time']/self.t_scale[best['itree']]+buf_len
         t0 = self._ichunk * self.dedisp.nt_chunk * self.dedisp.dt_sample
         dt = (self.dedisp.nt_chunk * self.dedisp.dt_sample /
-              self.dedisp.nt_coarse_per_chunk[best.itree])
-        t = t0 + (it-buf_len)*dt - self.dedisp.trigger_lag_dt[best.itree]
+              self.dedisp.nt_coarse_per_chunk[best['itree']])
+        t = t0 + (it-buf_len)*dt - self.dedisp.trigger_lag_dt[best['itree']]
         event.time = self.start_time + np.timedelta64(int(1e6*t), 'us')
 
         # DM
-        idm = best.dm/self.dm_scale[best.itree]
-        event.dm = (idm * self.dedisp.max_dm[best.itree] /
-                    self.dedisp.ndm_coarse[best.itree])
+        idm = best['dm']/self.dm_scale[best['itree']]
+        event.dm = (idm * self.dedisp.max_dm[best['itree']] /
+                    self.dedisp.ndm_coarse[best['itree']])
 
         # SNR curves
         dm_offs = np.arange(1-buf_len/2, buf_len/2).repeat(3)
         dm_offs = dm_offs.reshape(buf_len-1, 3)
         t_offs = np.tile(np.arange(-1, 2), buf_len-1).reshape(buf_len-1, 3)
         t_offs += dm_offs
-        bowtie = self.chunk[best.itree][idm+dm_offs, best.sm,
-                                        best.beta, it+t_offs]
+        bowtie = self.chunk[best['itree']][idm+dm_offs, best['sm'],
+                                        best['beta'], it+t_offs]
         event.snr_vs_dm[0, :len(bowtie)] = bowtie.max(1)
 
-        if self.dedisp.nsm[best.itree] > 1:
-            event.snr_vs_sm = self.chunk[best.itree][idm, :, event.beta[0], it]
+        if self.dedisp.nsm[best['itree']] > 1:
+            event.snr_vs_sm = self.chunk[best['itree']][idm, :, event.beta[0], it]
 
-        if self.dedisp.nbeta[best.itree] > 1:
-            event.snr_vs_beta = self.chunk[best.itree][idm, event.sm[0], :, it]
+        if self.dedisp.nbeta[best['itree']] > 1:
+            event.snr_vs_beta = self.chunk[best['itree']][idm, event.sm[0], :, it]
 
         if self.dedisp.ntrees > 1:
             for itree in xrange(self.dedisp.ntrees):
                 try:
-                    snr = group[group.itree == itree].snr.max()
+                    snr = group[group['itree'] == itree].snr.max()
                     event.snr_vs_itree[0, itree] = snr
                 except:
                     pass
