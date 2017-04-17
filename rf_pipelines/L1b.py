@@ -211,7 +211,7 @@ class L1Grouper(object):
         """
         group = np.array(group).view(np.recarray)
         best = group[group.snr.argmax()]
-        event = np.zeros(1, self.L1_HDR_DTYPE)[0].view(np.recarray)
+        event = np.zeros(1, self.L1_HDR_DTYPE).view(np.recarray)
         event.beam = self.beam
         event.itree = best.itree
         event.snr = best.snr
@@ -237,19 +237,19 @@ class L1Grouper(object):
         t_offs += dm_offs
         bowtie = self.chunk[best.itree][idm+dm_offs, best.sm,
                                         best.beta, it+t_offs]
-        event.snr_vs_dm[:len(bowtie)] = bowtie.max(1)
+        event.snr_vs_dm[0, :len(bowtie)] = bowtie.max(1)
 
         if self.dedisp.nsm[best.itree] > 1:
-            event.snr_vs_sm = self.chunk[best.itree][idm, :, event.beta, it]
+            event.snr_vs_sm = self.chunk[best.itree][idm, :, event.beta[0], it]
 
         if self.dedisp.nbeta[best.itree] > 1:
-            event.snr_vs_beta = self.chunk[best.itree][idm, event.sm, :, it]
+            event.snr_vs_beta = self.chunk[best.itree][idm, event.sm[0], :, it]
 
         if self.dedisp.ntrees > 1:
             for itree in xrange(self.dedisp.ntrees):
                 try:
                     snr = group[group.itree == itree].snr.max()
-                    event.snr_vs_itree[itree] = snr
+                    event.snr_vs_itree[0, itree] = snr
                 except:
                     pass
-        return event
+        return event[0]
