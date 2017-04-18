@@ -2,7 +2,6 @@ import sys
 import numpy as np
 import rf_pipelines
 import rf_pipelines.rf_pipelines_c as rf_pipelines_c
-import json
 
 
 class bonsai_dedisperser(rf_pipelines.py_wi_transform):
