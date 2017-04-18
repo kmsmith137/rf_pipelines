@@ -240,7 +240,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                               event['time'].astype(float)/1e6))
                     if i == 0:
                         f.write("n \t dm \t snr \t time\n")
-                    f.write("%d \t %.1f \t %.1f \t %.1f\n" % (i+1, event['dm'], event['snr'], event['time'].astype(float)/1e6))
+                    f.write("%d \t %.2f \t %.2f \t %.4f\n" % (i+1, event['dm'], event['snr'], event['time'].astype(float)/1e6))
 
     def _max_downsample(self, arr, new_dm, new_t):
         """Takes maxima along axes"""
