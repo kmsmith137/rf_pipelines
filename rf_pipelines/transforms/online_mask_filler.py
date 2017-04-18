@@ -31,20 +31,22 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
 
     """
 
-    def __init__(self, v1_chunk=32, v2_chunk=192, w_cutoff=1.8, nt_chunk=1024):
+    def __init__(self, v1_chunk=32, var_weight=10e-3, var_clamp=10e-3, w_clamp=10e-3, w_cutoff=1.8):
         name = 'online_mask_filler(v1_chunk=%d, v2_chunk=%d, w_cutoff=%d, nt_chunk=%d)' % (v1_chunk, v2_chunk, w_cutoff, nt_chunk)
 
         # Call base class constructor
         rf_pipelines.py_wi_transform.__init__(self, name)
 
         self.v1_chunk = v1_chunk
-        self.v2_chunk = v2_chunk
+        self.nt_chunk = v1_chunk
+        self.var_weight = var_weight
+        self.var_clamp = var_clamp
+        self.w_clamp = w_clamp
         self.w_cutoff = w_cutoff
-        self.nt_chunk = nt_chunk
         self.nt_prepad = 0
         self.nt_postpad = 0
 
-        assert self.nt_chunk % self.v1_chunk == 0
+        assert v1_chunk > 0
 
 
     def set_stream(self, s):
@@ -55,45 +57,38 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
 
     def start_substream(self, isubstream, t0):
         # Called once per substream (a stream can be split into multiple substreams).
-        self.isubstream = isubstream
-        self.v1_estimates = np.zeros((self.nfreq, self.v2_chunk))
         self.running_var = np.zeros((self.nfreq))
-        self.iv1 = 0 # keeps track of which position we are adding v1 to
+        self.v1_estimates = np.zeros((self.nfreq))
+        self.running_weights = np.zeros((self.nfreq))
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        for i in xrange(0, self.nt_chunk, self.v1_chunk):
-            for frequency in xrange(self.nfreq):
-                # Compute v1 for each frequency
-                a = self._v1(intensity[frequency, i : i+self.v1_chunk], weights[frequency, i : i+self.v1_chunk])
-                self.v1_estimates[frequency, self.iv1] = a
-            self.iv1 += 1
+        # Update running var
+        for frequency in xrange(self.nfreq):
+            # Calculate the v1 normally
+            tmp = self._v1(intensity[frequency, :], weights[frequency, :])
 
-        # Once we have calculated a value for each frequency, check if we should output a v2
-        if self.iv1 == self.v2_chunk:
-            for frequency in xrange(self.nfreq):
-                # Empty v1[frequency] and compute median for v2 (0 if too many v1 values are 0)
-                if np.count_nonzero(self.v1_estimates[frequency]) < self.v2_chunk * 0.25: 
-                    self.running_var[frequency] = 0
-                else:
-                    # Here, we want to ignore elements with value 0
-                    self.running_var[frequency] = np.median(self.v1_estimates[frequency][np.nonzero(self.v1_estimates[frequency])])
-            self.v1_estimates[frequency, :] = 0
-            self.iv1 = 0
+            if tmp == 0:
+                # If a variance estimate fails, start tapering weights and don't update the running variance
+                weights[frequency, :] = max(0, weights[frequency, :] - self.w_clamp)
+            else:
+                # The v1 calculation was successful, so increase the weights (if possible) and update the variance
+                weights[frequency, :] = min(weights[frequency, :], weights[frequency, :] + self.w_clamp)
+                tmp = min(tmp, self.running_var[frequency] + self.var_clamp)
+                tmp = max(tmp, self.running_var[frequency] - self.var_clamp)
+                
+                # Update running_var 
+                self.running_var[frequency] = (1-self.var_weight) * self.running_var[frequency] + self.var_weight * tmp
 
-        # Finally, fill the chunk with whatever's in the running_var
-        # (I think this is a reasonable enough approximation given that nt_chunk is pretty small, but let me know if not)
-        intensity_valid = (weights > self.w_cutoff)  # a 2d numpy boolean array
-        
-        rand_intensity = np.random.standard_normal(size=intensity.shape)
-        weights[:,:] = 0.0
-        
-        for (ifreq,v) in enumerate(self.running_var):
-            if v > 0.0:
-                rand_intensity[ifreq,:] *= v**0.5
-                weights[ifreq,:] = 2.0
-
-        intensity[:,:] = np.where(intensity_valid, intensity, rand_intensity)
+            # Mask fill
+            intensity_valid = (weights > self.w_cutoff)
+            rand_intensity = np.random.standard_normal(size=intensity.shape)
+            weights[:,:] = 0.0
+            for (ifreq,v) in enumerate(self.running_var):
+                if v > 0.0:
+                    rand_intensity[ifreq,:] *= v**0.5
+                    weights[ifreq,:] = 2.0
+            intensity[:,:] = np.where(intensity_valid, intensity, rand_intensity)
 
 
     def end_substream(self):
