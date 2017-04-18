@@ -2,6 +2,7 @@ import sys
 import numpy as np
 import rf_pipelines
 import rf_pipelines.rf_pipelines_c as rf_pipelines_c
+import json
 
 
 class bonsai_dedisperser(rf_pipelines.py_wi_transform):
@@ -233,11 +234,14 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         # For grouper code
         if self.event_outfile is not None and self.detected_events:
             self.detected_events = np.hstack(self.detected_events)
-            for event in self.detected_events:
-                print ("Recovered pulse --- DM: %.1f,  snr: %.1f, time: %.1f s"
-                       % (event['dm'], event['snr'], 
-                          event['time'].astype(float)/1e6))
-
+            with open(self.event_outfile, 'w') as f:
+                for i, event in enumerate(self.detected_events):
+                    print ("Recovered pulse --- n: %d, DM: %.1f,  snr: %.1f, time: %.1f s"
+                           % (i+1, event['dm'], event['snr'], 
+                              event['time'].astype(float)/1e6))
+                    if i == 0:
+                        f.write("n \t dm \t snr \t time\n")
+                    f.write("%d \t %.1f \t %.1f \t %.1f\n" % (i+1, event['dm'], event['snr'], event['time'].astype(float)/1e6))
 
     def _max_downsample(self, arr, new_dm, new_t):
         """Takes maxima along axes"""
@@ -254,14 +258,14 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
 
     def _write_file(self, zoom_level):
-        # When we reach end-of-stream, the buffer might be partially full (i.e. self.ipos < self.img_nt).                                                                                           
+        # When we reach end-of-stream, the buffer might be partially full (i.e. self.ipos < self.img_nt).        
         # In this case, pad with black                                                                                                  
         basename = self.img_prefix[zoom_level]
         if self.isubstream > 0:
             basename += str(isubstream+1)
         basename += ('_%s.png' % self.ifile[zoom_level])
 
-        # The add_plot() method adds the plot to the JSON output, and returns the filename that should be written.                                                                                         
+        # The add_plot() method adds the plot to the JSON output, and returns the filename that should be written.
         filename = self.add_plot(basename,
                                  it0 = int(self.ifile[zoom_level] * self.img_nt * self.downsample_nt[zoom_level]),
                                  nt = self.img_nt * self.downsample_nt[zoom_level],
