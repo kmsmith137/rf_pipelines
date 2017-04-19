@@ -31,7 +31,7 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
 
     """
 
-    def __init__(self, v1_chunk=32, var_weight=10e-3, var_clamp=10e-3, w_clamp=10e-3, w_cutoff=1.8):
+    def __init__(self, v1_chunk=32, var_weight=3.3e-3, var_clamp=3.3e-3, w_clamp=3.3e-3, w_cutoff=1.5):
         name = 'online_mask_filler(v1_chunk=%d, v2_chunk=%d, w_cutoff=%d, nt_chunk=%d)' % (v1_chunk, v2_chunk, w_cutoff, nt_chunk)
 
         # Call base class constructor
