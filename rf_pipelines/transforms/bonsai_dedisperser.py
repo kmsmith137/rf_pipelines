@@ -44,16 +44,14 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             the points of colour disontinuities in rf_pipelines.utils.triggers_png. If True, write_png is used
             and the plot threshold parameters are meaningless.
 
-       - nplot_groups: The number of rows of plots the bonsai dedisperser should produce as displayed in the 
-            web viewer. If 1, only tree 0 will be plotted. If >1, tree 0 will be plotted in the bottom row, and
-            the remaining trees will be divided between the remaining plots. 
+       - plot_all_trees: if False, only tree 0 will be plotted; if True, all trees will be plotted.
 
     """
 
     def __init__(self, config_filename, img_prefix=None, img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, 
                  track_global_max=False, dm_min=None, dm_max=None, hdf5_output_filename=None, nt_per_hdf5_file=0,
                  deallocate_between_substreams=False, use_analytic_normalization=False, dynamic_plotter=False,
-                 plot_threshold1=6, plot_threshold2=10, nplot_groups=1):
+                 plot_threshold1=6, plot_threshold2=10, plot_all_trees=False):
 
         # We import the bonsai module here, rather than at the top of the file, so that bonsai isn't
         # required to import rf_pipelines (but is required when you try to construct a bonsai_dedisperser).
@@ -116,23 +114,20 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
             self.trigger_dim = [(ndm, nt) for (ndm, nt) in zip(self.dedisperser.ndm_coarse, self.dedisperser.nt_coarse_per_chunk)]
             self.ntrees = len(self.trigger_dim)
-            self.nplot_groups = nplot_groups
-
+            self.plot_all_trees = plot_all_trees
             assert self.ntrees > 0
-            assert self.nplot_groups > 0
-            assert self.nplot_groups <= self.ntrees
             assert self.trigger_dim[0][0] % self.img_ndm  == 0 or self.img_ndm % self.trigger_dim[0][0] == 0  # Downsample or upsample dm for plot0
-            if self.nplot_groups > 1:
-                assert all([tup[0] % self.img_ndm/((self.ntrees - 1)/(self.nplot_groups - 1))  == 0 
-                            or self.img_ndm/((self.ntrees - 1)/(self.nplot_groups - 1)) % tup[0] == 0 for tup in self.trigger_dim[1:]])  # For plot1 +
+            if self.plot_all_trees:
+                assert all([tup[0] % (self.img_ndm / 2)  == 0 
+                            or (self.img_ndm / 2) % tup[0] == 0 for tup in self.trigger_dim[1:]])
             assert all(tup[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % tup[1] == 0 for tup in self.trigger_dim)  # Downsample or upsample t
             assert self.img_nt % self.nt_chunk_ds[-1] == 0  # Each chunk evenly divides the plots
-            if self.nplot_groups > 1:
-                assert (self.ntrees - 1) % (self.nplot_groups - 1) == 0  # Trees are evenly divisible between plots
 
-            # Convention for plot groups: 1st half will be the tree0 plot and 2nd half will be the plot for the rest of the trees
-            for i in self.nplot_groups*range(self.n_zoom):
+            for i in xrange(self.n_zoom):
                 self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[i], ny=img_ndm)
+            if self.plot_all_trees:
+                for i in (self.ntrees-1) * range(self.n_zoom):
+                    self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[i], ny=img_ndm/2)
 
 
     def set_stream(self, stream):
@@ -147,8 +142,8 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
         if self.make_plot:
             self.isubstream = isubstream
-            self.plot_groups = [Plotter(self, ntrees=(1 if i==0 else (self.ntrees - 1) / (self.nplot_groups - 1)), iplot=i) for i in xrange(self.nplot_groups)]
-            self.json_per_substream["n_plot_groups"] = self.nplot_groups  # Helpful parameter for the web viewer
+            self.plot_groups = [Plotter(self, ntrees=1, iplot=i) for i in xrange(1 + self.plot_all_trees * (self.ntrees-1))]
+            self.json_per_substream["n_plot_groups"] = 1 + self.plot_all_trees * (self.ntrees-1)  # Helpful parameter for the web viewer
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
@@ -182,20 +177,19 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
             # Max along the beta and SM indices, then add the new triggers to the plots! 
             flat_triggers = [np.amax(np.amax(tree, axis=1), axis=1) for tree in triggers]
-            i = 0
-            while i < self.nplot_groups:
-                if i == 0:
-                    self.plot_groups[i].process([flat_triggers[0]])
-                else:
-                    self.plot_groups[i].process(flat_triggers[i : i + (self.ntrees - 1) / (self.nplot_groups - 1)])
-                i += (1 if i == 0 else (self.ntrees - 1) / (self.nplot_groups - 1))
+
+            if self.plot_all_trees:
+                for i in xrange(1 + self.plot_all_trees * (self.ntrees-1)):
+                    self.plot_groups[i].process([flat_triggers[i]])
+            else:
+                self.plot_groups[0].process([flat_triggers[0]])
 
 
     def end_substream(self):
         if self.make_plot:
             # Write whatever may be left in the plots
             for zoom_level in xrange(self.n_zoom):
-                for i in xrange(self.nplot_groups):
+                for i in xrange(1 + self.plot_all_trees * (self.ntrees-1)):
                     self._write_file(self.plot_groups[i].plots[zoom_level], 
                                      zoom_level,
                                      self.plot_groups[i].ifile[zoom_level],
@@ -214,7 +208,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
 
     def _write_file(self, arr, zoom_level, ifile, iplot):
-        basename = self.img_prefix[zoom_level] + '_plot' + str(iplot)
+        basename = self.img_prefix[zoom_level] + '_tree' + str(iplot)
         if self.isubstream > 0:
             basename += str(isubstream+1)
         basename += ('_%s.png' % ifile)
@@ -237,15 +231,20 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
 
 class Plotter():
-    """A plotter object holds all desired zoom levels for a plot"""
+    """A plotter object holds all desired zoom levels for a plot. The class supports plotting multiple trees 
+       per plot, but this feature is not currently being used (i.e. ntrees=1)."""
+
     def __init__(self, transform, ntrees, iplot):
         self.transform = transform       # Access transform parameters
         self.iplot = iplot               # Helpful for establishing plot group
         self.ntrees = ntrees             # Number of trees being __plotted together__ (different from transform.ntrees)
-        self.ndm = self.transform.img_nt / self.ntrees # Number of y pixels per tree
+        if self.iplot == 0:
+            self.ndm = self.transform.img_ndm / self.ntrees  # Number of y pixels per tree
+        else:
+            self.ndm = self.transform.img_ndm / self.ntrees / 2  # Number of y pixels per tree            
         self.ix = np.zeros(self.transform.n_zoom)   # Keep track of what x position to add chunks to
         self.ifile = np.zeros(self.transform.n_zoom)
-        self.plots = np.zeros((self.transform.n_zoom, self.transform.img_nt, self.transform.img_ndm))
+        self.plots = np.zeros((self.transform.n_zoom, self.ndm, self.transform.img_nt))
 
         assert transform.n_zoom == len(self.transform.nt_chunk_ds)
 
