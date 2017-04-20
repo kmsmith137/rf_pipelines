@@ -31,7 +31,7 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
 
     """
 
-    def __init__(self, v1_chunk=32, var_weight=3.3e-3, var_clamp=3.3e-3, w_clamp=3.3e-3, w_cutoff=1.5, nt_chunk=1024):
+    def __init__(self, v1_chunk=32, var_weight=3.3e-3, var_clamp=3.3e-3, w_clamp=3.3e-1, w_cutoff=1.5, nt_chunk=1024):
         name = 'online_mask_filler(v1_chunk=%d, var_weight=%f, var_clamp=%f, w_clamp=%f, w_cutoff=%f)' % (v1_chunk, var_weight, var_clamp, w_clamp, w_cutoff)
 
         # Call base class constructor
@@ -71,27 +71,28 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
         # Loop over intensity/weights in chunks of size v1_chunk
         for ichunk in xrange(0, self.nt_chunk, self.v1_chunk):
             for frequency in xrange(self.nfreq):
-                # Calculate the v1 normally
+                # Calculate the v1 for each frequency
                 self.tmp[frequency] =  self._v1(intensity[frequency, ichunk:ichunk+self.v1_chunk], weights[frequency, ichunk:ichunk+self.v1_chunk])
 
-            # Update the weights and master variance
+            # Once v1s have been calculated for each frequency, update the weights and running variance
             non_zero_v1 = (self.tmp != 0)
             zero_v1 = np.logical_not(non_zero_v1)
 
+            # For nonzero (successful) v1s, increase the weights (if possible) and update the running variance
             weights[non_zero_v1, ichunk:ichunk+self.v1_chunk] = np.minimum(weights[non_zero_v1, ichunk:ichunk+self.v1_chunk], weights[non_zero_v1, ichunk:ichunk+self.v1_chunk] + self.w_clamp)
             self.tmp[non_zero_v1] = np.minimum(self.tmp[non_zero_v1], self.running_var[non_zero_v1] + self.var_clamp)
             self.tmp[non_zero_v1] = np.maximum(self.tmp[non_zero_v1], self.running_var[non_zero_v1] + self.var_clamp)
             self.running_var[non_zero_v1]  = (1-self.var_weight) * self.running_var[non_zero_v1] + self.var_weight * self.tmp[non_zero_v1]
 
+            # For unsuccessful v1s, decrease the weights (if possible) and do not modify the running variance 
             weights[zero_v1, ichunk:ichunk+self.v1_chunk] = np.maximum(0, weights[zero_v1, ichunk:ichunk+self.v1_chunk] - self.w_clamp)
 
             # Mask fill!
             intensity_valid = (weights[:, ichunk:ichunk+self.v1_chunk] > self.w_cutoff)
             rand_intensity = np.random.standard_normal(size=intensity[:, ichunk:ichunk+self.v1_chunk].shape)
-            weights[:, ichunk:ichunk+self.v1_chunk] = 0.0
             for (ifreq,v) in enumerate(self.running_var):
                 if v > 0.0:
-                    rand_intensity[ifreq,:] *= v**0.5
+                    rand_intensity[ifreq, :] *= v**0.5
                     weights[ifreq, ichunk:ichunk+self.v1_chunk] = 2.0
             intensity[:, ichunk:ichunk+self.v1_chunk] = np.where(intensity_valid, intensity[:, ichunk:ichunk+self.v1_chunk], rand_intensity)
 
