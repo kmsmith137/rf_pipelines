@@ -1,6 +1,7 @@
 import rf_pipelines
 import numpy as np
 
+
 class online_mask_filler(rf_pipelines.py_wi_transform):
     """
     An online implementation of the mask_filler and variance_estimator that does not required a pre-generated file of variance 
@@ -59,24 +60,25 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
     def start_substream(self, isubstream, t0):
         # Called once per substream (a stream can be split into multiple substreams).
         self.running_var = np.zeros((self.nfreq))
+        self.tmp = np.zeros((self.nfreq))
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        for i, ichunk in enumerate(xrange(0, self.nt_chunk, self.nt_chunk / self.v1_chunk)):
-            # Update running var
-            tmp = []
+        for ichunk in xrange(0, self.nt_chunk, self.nt_chunk / self.v1_chunk):
             for frequency in xrange(self.nfreq):
                 # Calculate the v1 normally
-                tmp += [self._v1(intensity[frequency, ichunk:ichunk+self.v1_chunk], weights[frequency, ichunk:ichunk+self.v1_chunk])]
+                self.tmp[frequency] =  self._v1(intensity[frequency, ichunk:ichunk+self.v1_chunk], weights[frequency, ichunk:ichunk+self.v1_chunk])
 
             # Update the weights and master variance
-            if tmp != 0:
-                weights[:, ichunk:ichunk+self.v1_chunk] = np.minimum(weights[:, ichunk:ichunk+self.v1_chunk], weights[:, ichunk:ichunk+self.v1_chunk] + self.w_clamp)
-                tmp = np.minimum(tmp, self.running_var + self.var_clamp)
-                tmp = np.maximum(tmp, self.running_var + self.var_clamp)
-                self.running_var  = (1-self.var_weight) * self.running_var + self.var_weight * tmp
-            else:
-                weights[:, ichunk:ichunk+self.v1_chunk] = np.maximum(0, weights[:, ichunk:ichunk+self.v1_chunk] - self.w_clamp)
+            non_zero_v1 = (self.tmp != 0)
+            zero_v1 = np.logical_not(non_zero_v1)
+
+            weights[non_zero_v1, ichunk:ichunk+self.v1_chunk] = np.minimum(weights[non_zero_v1, ichunk:ichunk+self.v1_chunk], weights[non_zero_v1, ichunk:ichunk+self.v1_chunk] + self.w_clamp)
+            self.tmp[non_zero_v1] = np.minimum(self.tmp[non_zero_v1], self.running_var[non_zero_v1] + self.var_clamp)
+            self.tmp[non_zero_v1] = np.maximum(self.tmp[non_zero_v1], self.running_var[non_zero_v1] + self.var_clamp)
+            self.running_var[non_zero_v1]  = (1-self.var_weight) * self.running_var[non_zero_v1] + self.var_weight * self.tmp[non_zero_v1]
+
+            weights[zero_v1, ichunk:ichunk+self.v1_chunk] = np.maximum(0, weights[zero_v1, ichunk:ichunk+self.v1_chunk] - self.w_clamp)
 
             # Mask fill!
             intensity_valid = (weights[:, ichunk:ichunk+self.v1_chunk] > self.w_cutoff)
