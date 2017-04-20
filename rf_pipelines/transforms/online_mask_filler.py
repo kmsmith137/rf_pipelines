@@ -31,14 +31,14 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
 
     """
 
-    def __init__(self, v1_chunk=32, var_weight=3.3e-3, var_clamp=3.3e-3, w_clamp=3.3e-3, w_cutoff=1.5):
-        name = 'online_mask_filler(v1_chunk=%d, v2_chunk=%d, w_cutoff=%d, nt_chunk=%d)' % (v1_chunk, v2_chunk, w_cutoff, nt_chunk)
+    def __init__(self, v1_chunk=32, var_weight=3.3e-3, var_clamp=3.3e-3, w_clamp=3.3e-3, w_cutoff=1.5, nt_chunk=1024):
+        name = 'online_mask_filler(v1_chunk=%d, var_weight=%f, var_clamp=%f, w_clamp=%f, w_cutoff=%f)' % (v1_chunk, var_weight, var_clamp, w_clamp, w_cutoff)
 
         # Call base class constructor
         rf_pipelines.py_wi_transform.__init__(self, name)
 
         self.v1_chunk = v1_chunk
-        self.nt_chunk = v1_chunk
+        self.nt_chunk = nt_chunk
         self.var_weight = var_weight
         self.var_clamp = var_clamp
         self.w_clamp = w_clamp
@@ -47,6 +47,7 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
         self.nt_postpad = 0
 
         assert v1_chunk > 0
+        assert nt_chunk % v1_chunk == 0
 
 
     def set_stream(self, s):
@@ -58,37 +59,36 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
     def start_substream(self, isubstream, t0):
         # Called once per substream (a stream can be split into multiple substreams).
         self.running_var = np.zeros((self.nfreq))
-        self.v1_estimates = np.zeros((self.nfreq))
+        self.v1_estimates = np.zeros((self.nfreq, self.nt_chunk / self.v1_chunk))
         self.running_weights = np.zeros((self.nfreq))
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        # Update running var
-        for frequency in xrange(self.nfreq):
-            # Calculate the v1 normally
-            tmp = self._v1(intensity[frequency, :], weights[frequency, :])
+        for i, ichunk in enumerate(xrange(0, self.nt_chunk, self.nt_chunk / self.v1_chunk)):
+            # Update running var
+            tmp = []
+            for frequency in xrange(self.nfreq):
+                # Calculate the v1 normally
+                tmp += [self._v1(intensity[frequency, ichunk:ichunk+self.v1_chunk], weights[frequency, ichunk:ichunk+self.v1_chunk])]
 
-            if tmp == 0:
-                # If a variance estimate fails, start tapering weights and don't update the running variance
-                weights[frequency, :] = max(0, weights[frequency, :] - self.w_clamp)
+            # Update the weights and master variance
+            if tmp != 0:
+                weights[:, ichunk:ichunk+self.v1_chunk] = np.minimum(weights[:, ichunk:ichunk+self.v1_chunk], weights[:, ichunk:ichunk+self.v1_chunk] + self.w_clamp)
+                tmp = np.minimum(tmp, self.running_var + self.var_clamp)
+                tmp = np.maximum(tmp, self.running_var + self.var_clamp)
+                self.running_var  = (1-self.var_weight) * self.running_var + self.var_weight * tmp
             else:
-                # The v1 calculation was successful, so increase the weights (if possible) and update the variance
-                weights[frequency, :] = min(weights[frequency, :], weights[frequency, :] + self.w_clamp)
-                tmp = min(tmp, self.running_var[frequency] + self.var_clamp)
-                tmp = max(tmp, self.running_var[frequency] - self.var_clamp)
-                
-                # Update running_var 
-                self.running_var[frequency] = (1-self.var_weight) * self.running_var[frequency] + self.var_weight * tmp
+                weights[:, ichunk:ichunk+self.v1_chunk] = np.maximum(0, weights[:, ichunk:ichunk+self.v1_chunk] - self.w_clamp)
 
-            # Mask fill
-            intensity_valid = (weights > self.w_cutoff)
-            rand_intensity = np.random.standard_normal(size=intensity.shape)
-            weights[:,:] = 0.0
+            # Mask fill!
+            intensity_valid = (weights[:, ichunk:ichunk+self.v1_chunk] > self.w_cutoff)
+            rand_intensity = np.random.standard_normal(size=intensity[:, ichunk:ichunk+self.v1_chunk].shape)
+            weights[:, ichunk:ichunk+self.v1_chunk] = 0.0
             for (ifreq,v) in enumerate(self.running_var):
                 if v > 0.0:
                     rand_intensity[ifreq,:] *= v**0.5
-                    weights[ifreq,:] = 2.0
-            intensity[:,:] = np.where(intensity_valid, intensity, rand_intensity)
+                    weights[ifreq, ichunk:ichunk+self.v1_chunk] = 2.0
+            intensity[:, ichunk:ichunk+self.v1_chunk] = np.where(intensity_valid, intensity[:, ichunk:ichunk+self.v1_chunk], rand_intensity)
 
 
     def end_substream(self):
