@@ -1,7 +1,6 @@
 import rf_pipelines
 import numpy as np
 
-
 class online_mask_filler(rf_pipelines.py_wi_transform):
     """
     An online implementation of the mask_filler and variance_estimator that does not required a pre-generated file of variance 
@@ -48,6 +47,11 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
         self.nt_postpad = 0
 
         assert v1_chunk > 0
+        assert nt_chunk > 0
+        assert var_weight > 0
+        assert var_clamp > 0
+        assert w_clamp > 0
+        assert w_cutoff > 0
         assert nt_chunk % v1_chunk == 0
 
 
@@ -59,12 +63,13 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
 
     def start_substream(self, isubstream, t0):
         # Called once per substream (a stream can be split into multiple substreams).
-        self.running_var = np.zeros((self.nfreq))
-        self.tmp = np.zeros((self.nfreq))
+        self.running_var = np.zeros((self.nfreq))  # holds the current variance estimate for each frequency
+        self.tmp = np.zeros((self.nfreq))  # holds the temporary v1 estimates while they are being updated
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        for ichunk in xrange(0, self.nt_chunk, self.nt_chunk / self.v1_chunk):
+        # Loop over intensity/weights in chunks of size v1_chunk
+        for ichunk in xrange(0, self.nt_chunk, self.v1_chunk):
             for frequency in xrange(self.nfreq):
                 # Calculate the v1 normally
                 self.tmp[frequency] =  self._v1(intensity[frequency, ichunk:ichunk+self.v1_chunk], weights[frequency, ichunk:ichunk+self.v1_chunk])
