@@ -59,8 +59,6 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
     def start_substream(self, isubstream, t0):
         # Called once per substream (a stream can be split into multiple substreams).
         self.running_var = np.zeros((self.nfreq))
-        self.v1_estimates = np.zeros((self.nfreq, self.nt_chunk / self.v1_chunk))
-        self.running_weights = np.zeros((self.nfreq))
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
