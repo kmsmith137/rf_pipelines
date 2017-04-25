@@ -31,7 +31,7 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
 
     """
 
-    def __init__(self, v1_chunk=32, var_weight=3.3e-3, var_clamp=3.3e-3, w_clamp=3.3e-1, w_cutoff=1.5, nt_chunk=1024):
+    def __init__(self, v1_chunk=32, var_weight=3.3e-3, var_clamp=3.3e-3, w_clamp=3.3e-3, w_cutoff=1.5, nt_chunk=1024):
         name = 'online_mask_filler(v1_chunk=%d, var_weight=%f, var_clamp=%f, w_clamp=%f, w_cutoff=%f)' % (v1_chunk, var_weight, var_clamp, w_clamp, w_cutoff)
 
         # Call base class constructor
@@ -75,14 +75,11 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
                 self.tmp[frequency] =  self._v1(intensity[frequency, ichunk:ichunk+self.v1_chunk], weights[frequency, ichunk:ichunk+self.v1_chunk])
 
             # Once v1s have been calculated for each frequency, update the weights and running variance
-            # Must add logic to prevent weight from exceeding 2
             non_zero_v1 = (self.tmp != 0)
             zero_v1 = np.logical_not(non_zero_v1)
 
             # For nonzero (successful) v1s, increase the weights (if possible) and update the running variance
-            self.running_weights[non_zero_v1] = np.maximum(self.running_weights[non_zero_v1],
-                                                           self.running_weights[non_zero_v1] + self.w_clamp)
-            # print self.running_weights[12], self.running_weights[123], self.running_weights[512], self.running_weights[1000]
+            self.running_weights[non_zero_v1] = np.minimum(2.0, self.running_weights[non_zero_v1] + self.w_clamp)
             self.tmp[non_zero_v1] = np.minimum(self.tmp[non_zero_v1], self.running_var[non_zero_v1] + self.var_clamp)
             self.tmp[non_zero_v1] = np.maximum(self.tmp[non_zero_v1], self.running_var[non_zero_v1] + self.var_clamp)
             self.running_var[non_zero_v1]  = (1-self.var_weight) * self.running_var[non_zero_v1] + self.var_weight * self.tmp[non_zero_v1]
