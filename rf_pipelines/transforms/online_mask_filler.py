@@ -33,7 +33,7 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
     """
 
     def __init__(self, v1_chunk=32, var_weight=2e-3, var_clamp=3.3e-3, w_clamp=3.3e-3, w_cutoff=0.5, nt_chunk=1024):
-        name = 'online_mask_filler(v1_chunk=%d, var_weight=%f, var_clamp=%f, w_clamp=%f, w_cutoff=%f)' % (v1_chunk, var_weight, var_clamp, w_clamp, w_cutoff)
+        name = 'online_mask_filler(v1_chunk=%d, var_weight=%.4f, var_clamp=%.4f, w_clamp=%.4f, w_cutoff=%.2f)' % (v1_chunk, var_weight, var_clamp, w_clamp, w_cutoff)
 
         # Call base class constructor
         rf_pipelines.py_wi_transform.__init__(self, name)
@@ -82,7 +82,7 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
             # For nonzero (successful) v1s, increase the weights (if possible) and update the running variance
             self.running_weights[non_zero_v1] = np.minimum(2.0, self.running_weights[non_zero_v1] + self.w_clamp)
             self.tmp[non_zero_v1] = np.minimum(self.tmp[non_zero_v1], self.running_var[non_zero_v1] + self.var_clamp)
-            self.tmp[non_zero_v1] = np.maximum(self.tmp[non_zero_v1], self.running_var[non_zero_v1] + self.var_clamp)
+            self.tmp[non_zero_v1] = np.maximum(self.tmp[non_zero_v1], self.running_var[non_zero_v1] - self.var_clamp)
             self.running_var[non_zero_v1]  = (1-self.var_weight) * self.running_var[non_zero_v1] + self.var_weight * self.tmp[non_zero_v1]
 
             # For unsuccessful v1s, decrease the weights (if possible) and do not modify the running variance 
