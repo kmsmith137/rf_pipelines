@@ -6,27 +6,28 @@ class online_mask_filler(rf_pipelines.py_wi_transform):
     An online implementation of the mask_filler and variance_estimator that does not required a pre-generated file of variance 
     estimates! 
 
-    Variance estimates are calculated independently for each frequency, with a final variance estimates being outputted for 
-    each frequency on a timescale of ~10s (with the default values). First, variance estimates are made for each frequency 
-    using v1_chunk number of samples. Then, once v2_chunk of those variance estimates have accumulated for each frequency, 
-    a median is outputted and used as the final variance estimate. If no variance could be estimated because too much of 
-    a channel is masked, a variance of 0 will be used (for now). The final estimate is used until enough samples are 
-    accumulated for another final variance estimate to be produced. Hence, the variance estimate lags about 10s behind the 
-    current variance. 
+    Variance estimates are calculated independently for each frequency. A variance value is computed for each v1_chunk 
+    samples. Then, an "exponential average" variance is computed, in which the new variance estimate for a frequency is 
+    given a weight of var_weight and the previous variance estimate is given a weight of 1-var_weight. These are summed 
+    to arrive at the updated variance estimate. Note that the variance estimate for a particular frequency cannot vary 
+    by more than var_clamp in a particular chunk to account for outliers. 
     
-    The weights array is continually examined; if a weight is below w_cutoff, the weight is maximized and the corresponding 
-    intensity is replaced with gaussian random noise with variance specified by the variance estimation part of the transform. 
-    If if the weight is greater than or equal to w_cutoff, it is maximized and its intensity is left alone. If a variance 
-    estiamte could not be generated for a particular frequency and time, the corresponding weights are set to 0 if they are 
-    below w_cutoff. 
+    If a new variance estimate is successful, the corresponding weight will be increased (if possible) by w_clamp. If too
+    much of the channel is masked to produce a variance estimate, the corresponding weight will be decreased (if possible)
+    by w_clamp (stored in a temporary weights array).
+
+    Finally, the intensity values are modified. If the corresponding weight is below w_cutoff, the intensity value will
+    be filled with gaussian random noise with a variance given by the calculated variance estimate. 
 
     tldr: Estimates the variance of each frequency independently on ~10s timescales and uses it to uniform the 
     weights/intensity arrays by filling in gaussian random noise with the calculated variance for low weight values. 
 
     Constructor arguments
     ---------------------
-    v1_chunk - Number of samples used to generate a "v1 estimate" (the variance is computed across the sample)
-    v2_chunk - Number of "v1 estimates" used to output a final variance (the median of the "v1 estimates")
+    v1_chunk - Number of samples used to generate a variance estimate (the variance is computed across the sample)
+    var_weight - The weighting given to each new variance estimate in the exponential average
+    var_clamp - The amount the variance can vary by in each v1_chunk per frequency
+    w_clamp - The amount the weight can vary by in each v1_chunk per frequency
     w_cutoff - Weight threshold below which the corresponding intensity will be replaced with gaussian random noise
 
     """
