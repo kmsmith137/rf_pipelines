@@ -27,8 +27,8 @@ class py_online_mask_filler(rf_pipelines.py_wi_transform):
         assert v1_chunk > 0
         assert nt_chunk > 0
         assert var_weight > 0
-        assert var_clamp_add > 0
-        assert var_clamp_mult > 0
+        assert var_clamp_add >= 0
+        assert var_clamp_mult >= 0
         assert w_clamp > 0
         assert w_cutoff > 0
         assert nt_chunk % v1_chunk == 0
@@ -53,6 +53,7 @@ class py_online_mask_filler(rf_pipelines.py_wi_transform):
             for frequency in xrange(self.nfreq):
                 # Calculate the v1 for each frequency
                 self.v1_tmp[frequency] =  self._v1(intensity[frequency, ichunk:ichunk+self.v1_chunk], weights[frequency, ichunk:ichunk+self.v1_chunk])
+                # Check whether the channel has been initialized. If not and a v1 estimate was successfully produced, use that
                 if not self.var_init[frequency] and self.v1_tmp[frequency] != 0:
                     self.var_init[frequency] = True
                     self.running_var = self.v1_tmp[frequency]
@@ -120,7 +121,8 @@ def online_mask_filler(v1_chunk=32, var_weight=2e-3, var_clamp_add=3.3e-3, var_c
     ---------------------
     v1_chunk - Number of samples used to generate a variance estimate (the variance is computed across the sample)
     var_weight - The weighting given to each new variance estimate in the exponential average
-    var_clamp - The amount the variance can vary by in each v1_chunk per frequency
+    var_clamp_add - The amount the variance can vary by in each v1_chunk per frequency
+    var_clamp_mult - The multiplicative amoun the variance can vary by in each v1_chunk per frequency
     w_clamp - The amount the weight can vary by in each v1_chunk per frequency
     w_cutoff - Weight threshold below which the corresponding intensity will be replaced with gaussian random noise
     cpp - If True, then the fast "production" C++ implementation of the transform will be used.
