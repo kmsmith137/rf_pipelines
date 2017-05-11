@@ -40,25 +40,29 @@ class py_online_mask_filler(rf_pipelines.py_wi_transform):
     def start_substream(self, isubstream, t0):
         # Called once per substream (a stream can be split into multiple substreams).
         self.running_var = np.zeros((self.nfreq))  # holds the current variance estimate for each frequency
-        self.tmp = np.zeros((self.nfreq))  # holds the temporary v1 estimates while they are being updated
+        self.v1_tmp = np.zeros((self.nfreq))  # holds the temporary v1 estimates while they are being updated
         self.running_weights = np.zeros((self.nfreq))
+        self.var_init = np.ones((self.nfreq), dtype=bool)
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         # Loop over intensity/weights in chunks of size v1_chunk
         for ichunk in xrange(0, self.nt_chunk, self.v1_chunk):
             for frequency in xrange(self.nfreq):
                 # Calculate the v1 for each frequency
-                self.tmp[frequency] =  self._v1(intensity[frequency, ichunk:ichunk+self.v1_chunk], weights[frequency, ichunk:ichunk+self.v1_chunk])
+                self.v1_tmp[frequency] =  self._v1(intensity[frequency, ichunk:ichunk+self.v1_chunk], weights[frequency, ichunk:ichunk+self.v1_chunk])
+                if not self.var_init[frequency] and self.v1_tmp[frequency] != 0:
+                    self.var_init[frequency] = True
+                    self.running_var = self.v1_tmp[frequency]
 
             # Once v1s have been calculated for each frequency, update the weights and running variance
-            non_zero_v1 = (self.tmp != 0)
-            zero_v1 = np.logical_not(non_zero_v1)
+            non_zero_v1 = np.logical_and(self.v1_tmp != 0, self.var_init)
+            zero_v1 = np.logical_and(np.logical_not(non_zero_v1), self.var_init)
 
             # For nonzero (successful) v1s, increase the weights (if possible) and update the running variance
             self.running_weights[non_zero_v1] = np.minimum(2.0, self.running_weights[non_zero_v1] + self.w_clamp)
-            self.tmp[non_zero_v1] = np.minimum(self.tmp[non_zero_v1], self.running_var[non_zero_v1] + self.var_clamp)
-            self.tmp[non_zero_v1] = np.maximum(self.tmp[non_zero_v1], self.running_var[non_zero_v1] - self.var_clamp)
-            self.running_var[non_zero_v1]  = (1-self.var_weight) * self.running_var[non_zero_v1] + self.var_weight * self.tmp[non_zero_v1]
+            self.v1_tmp[non_zero_v1] = np.minimum(self.v1_tmp[non_zero_v1], self.running_var[non_zero_v1] + self.var_clamp)
+            self.v1_tmp[non_zero_v1] = np.maximum(self.v1_tmp[non_zero_v1], self.running_var[non_zero_v1] - self.var_clamp)
+            self.running_var[non_zero_v1]  = (1-self.var_weight) * self.running_var[non_zero_v1] + self.var_weight * self.v1_tmp[non_zero_v1]
 
             # For unsuccessful v1s, decrease the weights (if possible) and do not modify the running variance 
             self.running_weights[zero_v1] = np.maximum(0, self.running_weights[zero_v1] - self.w_clamp)
