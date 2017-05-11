@@ -7,8 +7,9 @@ import numpy as np
 
 class py_online_mask_filler(rf_pipelines.py_wi_transform):
     """For documentation of the mask_filler, see the 'rf_pipelines.online_mask_filler' docstring."""
-    def __init__(self, v1_chunk=32, var_weight=2e-3, var_clamp=3.3e-3, w_clamp=3.3e-3, w_cutoff=0.5, nt_chunk=1024):
-        name = 'online_mask_filler(v1_chunk=%d, var_weight=%.4f, var_clamp=%.4f, w_clamp=%.4f, w_cutoff=%.2f)' % (v1_chunk, var_weight, var_clamp, w_clamp, w_cutoff)
+    def __init__(self, v1_chunk=32, var_weight=2e-3, var_clamp_add=3.3e-3, var_clamp_mult=3.3e-3, w_clamp=3.3e-3, w_cutoff=0.5, nt_chunk=1024):
+        name = 'online_mask_filler(v1_chunk=%d, var_weight=%.4f, var_clamp_add=%.4f, var_clamp_mult=%.4f, w_clamp=%.4f, w_cutoff=%.2f)' \
+               % (v1_chunk, var_weight, var_clamp_add, var_clamp_mult, w_clamp, w_cutoff)
 
         # Call base class constructor
         rf_pipelines.py_wi_transform.__init__(self, name)
@@ -16,7 +17,8 @@ class py_online_mask_filler(rf_pipelines.py_wi_transform):
         self.v1_chunk = v1_chunk
         self.nt_chunk = nt_chunk
         self.var_weight = var_weight
-        self.var_clamp = var_clamp
+        self.var_clamp_add = var_clamp_add
+        self.var_clamp_mult = var_clamp_mult
         self.w_clamp = w_clamp
         self.w_cutoff = w_cutoff
         self.nt_prepad = 0
@@ -25,7 +27,8 @@ class py_online_mask_filler(rf_pipelines.py_wi_transform):
         assert v1_chunk > 0
         assert nt_chunk > 0
         assert var_weight > 0
-        assert var_clamp > 0
+        assert var_clamp_add > 0
+        assert var_clamp_mult > 0
         assert w_clamp > 0
         assert w_cutoff > 0
         assert nt_chunk % v1_chunk == 0
@@ -60,8 +63,8 @@ class py_online_mask_filler(rf_pipelines.py_wi_transform):
 
             # For nonzero (successful) v1s, increase the weights (if possible) and update the running variance
             self.running_weights[non_zero_v1] = np.minimum(2.0, self.running_weights[non_zero_v1] + self.w_clamp)
-            self.v1_tmp[non_zero_v1] = np.minimum(self.v1_tmp[non_zero_v1], self.running_var[non_zero_v1] + self.var_clamp)
-            self.v1_tmp[non_zero_v1] = np.maximum(self.v1_tmp[non_zero_v1], self.running_var[non_zero_v1] - self.var_clamp)
+            self.v1_tmp[non_zero_v1] = np.minimum(self.v1_tmp[non_zero_v1], self.running_var[non_zero_v1] + self.var_clamp_add + self.running_var[non_zero_v1] * self.var_clamp_mult)
+            self.v1_tmp[non_zero_v1] = np.maximum(self.v1_tmp[non_zero_v1], self.running_var[non_zero_v1] - self.var_clamp_add - self.running_var[non_zero_v1] * self.var_clamp_mult)
             self.running_var[non_zero_v1]  = (1-self.var_weight) * self.running_var[non_zero_v1] + self.var_weight * self.v1_tmp[non_zero_v1]
 
             # For unsuccessful v1s, decrease the weights (if possible) and do not modify the running variance 
@@ -95,7 +98,7 @@ class py_online_mask_filler(rf_pipelines.py_wi_transform):
 # either a C++ transform object or a python transform object, depending on the
 # value of its 'cpp' argument.
 
-def online_mask_filler(v1_chunk=32, var_weight=2e-3, var_clamp=3.3e-3, w_clamp=3.3e-3, w_cutoff=0.5, nt_chunk=1024, cpp=False):
+def online_mask_filler(v1_chunk=32, var_weight=2e-3, var_clamp_add=3.3e-3, var_clamp_mult=3.3e-3, w_clamp=3.3e-3, w_cutoff=0.5, nt_chunk=1024, cpp=False):
     """
     Variance estimates are calculated independently for each frequency. A variance value is computed for each v1_chunk 
     samples. Then, an "exponential average" variance is computed, in which the new variance estimate for a frequency is 
@@ -131,4 +134,4 @@ def online_mask_filler(v1_chunk=32, var_weight=2e-3, var_clamp=3.3e-3, w_clamp=3
         return rf_pipelines.rf_pipelines_c.make_online_mask_filler(v1_chunk, v2_chunk, w_cutoff, nt_chunk)
 
     # Return instance of the py_online_mask_filler class above.
-    return py_online_mask_filler(v1_chunk, var_weight, var_clamp, w_clamp, w_cutoff, nt_chunk)
+    return py_online_mask_filler(v1_chunk, var_weight, var_clamp_add, var_clamp_mult, w_clamp, w_cutoff, nt_chunk)
