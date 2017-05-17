@@ -122,6 +122,9 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                     self.nt_chunk_ds += [self.nt_chunk // self.downsample_nt[zoom_level + 1]]
                     self.img_prefix += [img_prefix + "_zoom" + str(zoom_level+1)] 
 
+            print 'downsample_nt', self.downsample_nt
+            print 'nt_chunk_ds', self.nt_chunk_ds
+
             if self.nt_chunk % self.downsample_nt[-1] != 0:
                 raise RuntimeError("bonsai plotter transform: specified nt_chunk(=%d) must be a multiple of downsampling factor at max zoom level (=%d)" 
                                    % (self.nt_chunk, self.downsample_nt[-1]))
@@ -282,6 +285,10 @@ class Plotter():
 
 
     def process(self, arrs):
+        # This should be re-written to eliminate multiple tree capabilities
+        # and replace with plotter-like buffering
+
+
         # Check that the arrays passed to process contain the expected number of trees
         assert len(arrs) == self.ntrees
         shape = [triggers.shape for triggers in arrs]
@@ -298,13 +305,22 @@ class Plotter():
             for zoom_level in xrange(self.transform.n_zoom):
                 dm_t = arrs[itree].copy()
                 dm_t_shape = dm_t.shape
+                print 'Before time but after dm resizing', dm_t_shape
+                print 'Zoom level', zoom_level
+                print 'nt_chunk_ds[zoom_level]', self.transform.nt_chunk_ds[zoom_level]
                 # In the x (time) axis, we need to transform dm_t_shape[1] to self.nt_chunk_ds[zoom_level] - may need to up/downsample
                 if dm_t_shape[1] > self.transform.nt_chunk_ds[zoom_level]:
+                    print 'too many times! downsample!'
                     dm_t = self.max_ds(dm_t, dm_t_shape[0], self.transform.nt_chunk_ds[zoom_level])
                 elif dm_t_shape[1] < self.transform.nt_chunk_ds[zoom_level]:
                     dm_t = rf_pipelines.upsample(dm_t, dm_t_shape[0], self.transform.nt_chunk_ds[zoom_level])
+                    print 'too few times! upsample!'
                 # Now the array will be scaled properly to stick into the plot accumulator arrays
-                self.plots[zoom_level, iy:iy+self.ndm, self.ix[zoom_level]:self.ix[zoom_level]+self.transform.nt_chunk_ds[zoom_level]] = dm_t
+                print 'After resizing completely', dm_t.shape
+                print 'The amount of time space in the array is ', self.ix[zoom_level]+self.transform.nt_chunk_ds[zoom_level] - self.ix[zoom_level]
+                print 'The start and end t positions are ', self.ix[zoom_level], self.ix[zoom_level]+self.transform.nt_chunk_ds[zoom_level]
+                print 'plots array shape', self.plots[zoom_level].shape
+                self.plots[zoom_level, iy:iy+self.ndm, int(self.ix[zoom_level]):int(self.ix[zoom_level]+self.transform.nt_chunk_ds[zoom_level])] = dm_t
             iy += self.ndm
         self.ix += self.transform.nt_chunk_ds  # We can do this here because of the assertion that each chunks evenly divide into plots
 
