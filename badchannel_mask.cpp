@@ -39,6 +39,7 @@ struct badchannel_mask : public wi_transform {
 
     void _get_bad_channels(const string &maskpath, vector<float> &bad_channels)
     {
+        // Thanks Andrew 
         ifstream inf(maskpath);
         string line;
         string freq;
@@ -110,10 +111,20 @@ struct badchannel_mask : public wi_transform {
 	}
 
 	float scale = stream.nfreq / (freq_hi_MHz - freq_lo_MHz);
-
+	float factor = scale * freq_hi_MHz;
+	vector<int> bad_indices;
+	for (int i = 0; i < vec_size; ++i)
+	{
+	    if (i % 2 == 0)
+	        bad_indices.push_back(int(ceil(factor - temp[i]*scale)));
+	    else
+	        bad_indices.push_back(int(floor(factor - temp[i]*scale)));
+	}
+        
+	for (int i = 0; i < vec_size; i += 2) cout << bad_indices[i] << " " << bad_indices[i + 1] << endl;
     }
 
-    virtual void start_substream(int isubstream, double t0) override
+    virtual  void start_substream(int isubstream, double t0) override
     {
         // Stuff here
     }
