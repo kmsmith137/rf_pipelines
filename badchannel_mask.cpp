@@ -22,7 +22,8 @@ namespace rf_pipelines {
 struct badchannel_mask : public wi_transform {
     // Note: inherits { nfreq, nt_chunk, nt_prepad, nt_postpad } from base class wi_transform
 
-    vector<float> bad_channels;     
+    vector<float> bad_channels; // holds the bad frequencies, as specified from the input file
+    vector<int> bad_indices; // holds the final bad indices to be used to mask the weights array
 
     badchannel_mask(const string &maskpath, int nt_chunk)
     {
@@ -93,35 +94,49 @@ struct badchannel_mask : public wi_transform {
         {
 	    low = this->bad_channels[ilo];
 	    high = this->bad_channels[ilo + 1];
+	    // Both ends of the range are within the observation range
 	    if (low > freq_lo_MHz && high < freq_hi_MHz)
 	    {
 	        temp.push_back(low);
 	        temp.push_back(high);
 	    }
-	    else if (low < freq_lo_MHz && high > freq_lo_MHz)
+	    // The low end is below the observation range
+	    else if (low < freq_lo_MHz && high > freq_lo_MHz && high < freq_hi_MHz)
 	    {
 	        temp.push_back(freq_lo_MHz);
 	        temp.push_back(high);
 	    }
-	    else if (high > freq_hi_MHz && low < freq_hi_MHz)
+	    // The high end is above the observation range
+	    else if (high > freq_hi_MHz && low < freq_hi_MHz && low > freq_lo_MHz)
 	    {
 	        temp.push_back(low);
 	        temp.push_back(freq_hi_MHz);
 	    }
 	}
 
+	// Here, we rescale the bad frequencies into bad indices. Adapted 
+	// from Masoud's python transform comments...
+	// First we need to scale our frequency mask so that it matches with
+        // the number of channels in the chunk. Subtracting the max value 
+	// from the mask (which runs from low to high values) leaves us
+	// with an array that runs in reverse. We make sure that we include
+	// any non-zero overlap with the mask. To this end, we take the
+        // ceiling of the first element -- remember this is in a reversed
+	// order, which means, e.g., a[0,1] has become a[1,0] -- and the
+	// floor of the second element. Next, we convert them to integers
+	// so they can be fed as indexes into the weights array.
+	// We take the max at the end to ensure no values are below 0.
 	float scale = stream.nfreq / (freq_hi_MHz - freq_lo_MHz);
 	float factor = scale * freq_hi_MHz;
-	vector<int> bad_indices;
 	for (int i = 0; i < vec_size; ++i)
 	{
 	    if (i % 2 == 0)
-	        bad_indices.push_back(int(ceil(factor - temp[i]*scale)));
+	        this->bad_indices.push_back(max(int(ceil(factor - temp[i]*scale)), 0));
 	    else
-	        bad_indices.push_back(int(floor(factor - temp[i]*scale)));
+	        this->bad_indices.push_back(max(int(floor(factor - temp[i]*scale)), 0));
 	}
-        
-	for (int i = 0; i < vec_size; i += 2) cout << bad_indices[i] << " " << bad_indices[i + 1] << endl;
+	cout << "FINAL INDICES " << endl;
+        for (int i = 0; i < vec_size; i += 2) cout << bad_indices[i] << " " << bad_indices[i + 1] << endl;
     }
 
     virtual  void start_substream(int isubstream, double t0) override
