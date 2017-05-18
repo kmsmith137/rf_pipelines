@@ -40,7 +40,6 @@ struct badchannel_mask : public wi_transform {
 
     void _get_bad_channels(const string &maskpath, vector<float> &bad_channels)
     {
-        // Thanks Andrew 
         ifstream inf(maskpath);
         string line;
         string freq;
