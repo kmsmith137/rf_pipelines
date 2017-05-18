@@ -22,6 +22,8 @@ namespace rf_pipelines {
 struct badchannel_mask : public wi_transform {
     // Note: inherits { nfreq, nt_chunk, nt_prepad, nt_postpad } from base class wi_transform
 
+    vector<float> bad_channels;     
+
     badchannel_mask(const string &maskpath, int nt_chunk)
     {
         stringstream ss;
@@ -29,8 +31,10 @@ struct badchannel_mask : public wi_transform {
         this->name = ss.str();
 
         // Extract the channels to be removed into bad_channels
-        vector<float> bad_channels; 
-	this->_get_bad_channels(maskpath, bad_channels);
+	this->_get_bad_channels(maskpath, this->bad_channels);
+	this->nt_prepad = 0;
+	this->nt_postpad = 0;
+	this->nt_chunk = nt_chunk;
     }
 
     void _get_bad_channels(const string &maskpath, vector<float> &bad_channels)
@@ -77,21 +81,51 @@ struct badchannel_mask : public wi_transform {
     virtual void set_stream(const wi_stream &stream) override
     {
         this->nfreq = stream.nfreq;
+	float freq_lo_MHz = stream.freq_lo_MHz;
+	float freq_hi_MHz = stream.freq_hi_MHz;
+
+	// First, make sure all intervals are within the freq
+	int vec_size = this->bad_channels.size();
+	float low, high;
+	vector<float> temp;
+	for (int ilo=0; ilo < vec_size-1; ilo+=2)
+        {
+	    low = this->bad_channels[ilo];
+	    high = this->bad_channels[ilo + 1];
+	    if (low > freq_lo_MHz && high < freq_hi_MHz)
+	    {
+	        temp.push_back(low);
+	        temp.push_back(high);
+	    }
+	    else if (low < freq_lo_MHz && high > freq_lo_MHz)
+	    {
+	        temp.push_back(freq_lo_MHz);
+	        temp.push_back(high);
+	    }
+	    else if (high > freq_hi_MHz && low < freq_hi_MHz)
+	    {
+	        temp.push_back(low);
+	        temp.push_back(freq_hi_MHz);
+	    }
+	}
+
+	float scale = stream.nfreq / (freq_hi_MHz - freq_lo_MHz);
+
     }
 
     virtual void start_substream(int isubstream, double t0) override
     {
-
+        // Stuff here
     }
 
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
     {
-	throw runtime_error("oops, C++ badchannel_mask class was requested, but not implemented yet");
+        // Blah 
     }
 
     virtual void end_substream() override
     {
-	throw runtime_error("oops, C++ badchannel_mask class was requested, but not implemented yet");
+        // Stuff here
     }
 };
 
