@@ -24,7 +24,8 @@ struct badchannel_mask : public wi_transform {
 
     vector<float> bad_channels; // holds the bad frequencies, as specified from the input file
     vector<int> bad_indices; // holds the final bad indices to be used to mask the weights array
-
+    int len_indices; // the size of bad_indices
+   
     badchannel_mask(const string &maskpath, int nt_chunk)
     {
         stringstream ss;
@@ -127,15 +128,16 @@ struct badchannel_mask : public wi_transform {
 	// We take the max at the end to ensure no values are below 0.
 	float scale = stream.nfreq / (freq_hi_MHz - freq_lo_MHz);
 	float factor = scale * freq_hi_MHz;
-	for (int i = 0; i < vec_size; ++i)
+	this->len_indices = temp.size();
+	for (int i = 0; i < this->len_indices; ++i)
 	{
 	    if (i % 2 == 0)
 	        this->bad_indices.push_back(max(int(ceil(factor - temp[i]*scale)), 0));
 	    else
 	        this->bad_indices.push_back(max(int(floor(factor - temp[i]*scale)), 0));
 	}
-	cout << "FINAL INDICES " << endl;
-        for (int i = 0; i < vec_size; i += 2) cout << bad_indices[i] << " " << bad_indices[i + 1] << endl;
+	//	cout << "FINAL INDICES " << endl;
+        //      for (int i = 0; i < this->len_indices; i += 2) cout << bad_indices[i] << " " << bad_indices[i + 1] << endl;
     }
 
     virtual  void start_substream(int isubstream, double t0) override
@@ -145,7 +147,14 @@ struct badchannel_mask : public wi_transform {
 
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
     {
-        // Blah 
+        for (int ibad_index=0; ibad_index < this->len_indices; ibad_index+=2)
+        {
+	    for (int ifreq=this->bad_indices[ibad_index+1]; ifreq <= this->bad_indices[ibad_index]; ++ifreq)
+	    {
+	        for (int it=0; it < stride; ++it)
+		    weights[ifreq*stride+it] = 0;
+	    }
+        }
     }
 
     virtual void end_substream() override
