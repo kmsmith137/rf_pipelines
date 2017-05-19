@@ -30,12 +30,15 @@ struct online_mask_filler : public wi_transform {
     // Specified at construction.
     // Note that nt_chunk is a member of the wi_transform base class.
     const int v1_chunk;
-    const int v2_chunk;
+    const float var_weight;
+    const float var_clamp_add;
+    const float var_clamp_mult;
+    const float w_clamp;
     const float w_cutoff;
 
     // More fields can be added here!  ('v1_estimates', 'running_var', etc.)
-    
-    online_mask_filler(int v1_chunk, int v2_chunk, float w_cutoff, int nt_chunk);
+
+    online_mask_filler(int v1_chunk, float var_weight, float var_clamp_add, float var_clamp_mult, float w_clamp, float w_cutoff, int nt_chunk);
 
     // Override pure virtual member functions in the wi_transform base class.
     // The definitions of these functions below will define the behavior of the online_mask_filler.
@@ -46,19 +49,28 @@ struct online_mask_filler : public wi_transform {
 };
 
 
-online_mask_filler::online_mask_filler(int v1_chunk_, int v2_chunk_, float w_cutoff_, int nt_chunk_) :
+online_mask_filler::online_mask_filler(int v1_chunk_, float var_weight_, float var_clamp_add_, float var_clamp_mult_, float w_clamp_, float w_cutoff_, int nt_chunk_) :
     v1_chunk(v1_chunk_),
-    v2_chunk(v2_chunk_),
+    var_weight(var_weight_),
+    var_clamp_add(var_clamp_add_),
+    var_clamp_mult(var_clamp_mult_),
+    w_clamp(w_clamp_),
     w_cutoff(w_cutoff_)
 {
     // Initialize members 'name', 'nt_chunk', which are inherited from wi_transform base class.
 
+    this->nt_chunk = nt_chunk_;
+
     stringstream ss;
-    ss << "online_mask_filler(v1_chunk=" << v1_chunk << ",v2_chunk=" << v2_chunk
-       << ",w_cutoff=" << w_cutoff << ",nt_chunk=" << nt_chunk_ << ",cpp=True)";
+    ss << "online_mask_filler(v1_chunk=" << v1_chunk 
+       << ",var_weight=" << var_weight
+       << ",var_clamp_add=" << var_clamp_add
+       << ",var_clamp_mult=" << var_clamp_mult
+       << ",w_clamp=" << w_clamp
+       << ",w_cutoff=" << w_cutoff 
+       << ",nt_chunk=" << nt_chunk << ")";
 
     this->name = ss.str();
-    this->nt_chunk = nt_chunk_;
 }
 
 
@@ -92,9 +104,9 @@ void online_mask_filler::end_substream()
 // Externally-visible factory function: returns pointer to newly constructed online_mask_filler_object
 
 
-shared_ptr<wi_transform> make_online_mask_filler(int v1_chunk, int v2_chunk, float w_cutoff, int nt_chunk)
+shared_ptr<wi_transform> make_online_mask_filler(int v1_chunk, float var_weight, float var_clamp_add, float var_clamp_mult, float w_clamp, float w_cutoff, int nt_chunk)
 {
-    return make_shared<online_mask_filler> (v1_chunk, v2_chunk, w_cutoff, nt_chunk);
+    return make_shared<online_mask_filler> (v1_chunk, var_weight, var_clamp_add, var_clamp_mult, w_clamp, w_cutoff, nt_chunk);
 }
 
 

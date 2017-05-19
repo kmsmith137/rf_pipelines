@@ -1627,7 +1627,7 @@ static PyObject *make_badchannel_mask(PyObject *self, PyObject *args)
 
 // A python wrapper for the function (declared in rf_pipelines.hpp)
 //
-//   shared_ptr<wi_transform> rf_pipelines::make_online_mask_filler(int v1_chunk, int v2_chunk, float w_cutoff, int nt_chunk)
+//   shared_ptr<wi_transform> rf_piplines::make_online_mask_filler(...)
 //
 // Note the following possibly confusing point!  The following two functions have the
 // same name, but are defined in different C++ namespaces and are different:
@@ -1649,10 +1649,11 @@ static PyObject *make_online_mask_filler(PyObject *self, PyObject *args, PyObjec
 {
     // Step 1: We want to arrange things so that this function is callable from python as
     //
-    //   make_online_mask_filler(v1_chunk, v2_chunk, w_cutoff, nt_chunk)
+    //   make_online_mask_filler(v1_chunk, var_weight, var_clamp_add, 
+    //                           var_clamp_mult, w_clamp, w_cutoff, nt_chunk)
     //
-    // where the arguments are (python integer, python integer, python float, python integer)
-    // respectively.  We want to convert to (C++ int, C++ int, C++ float, C++ int), with a
+    // where the arguments have python types (int, float, float, float, float, float, int).
+    // We want to convert to C++ (int, float, float, float, float, float, int), with a
     // python exception raised if there is an error (like datatype mismatch or wrong number 
     // of arguments).  
     //
@@ -1664,15 +1665,19 @@ static PyObject *make_online_mask_filler(PyObject *self, PyObject *args, PyObjec
     // If you need to do more complicated conversions (e.g. python list-of-integers to
     // C++ std::vector<int>) it can be a real mess, just let me know if this arises!
 
-    static const char *kwlist[] = { "v1_chunk", "v2_chunk", "w_cutoff", "nt_chunk", NULL };
+    static const char *kwlist[] = { "v1_chunk", "var_weight", "var_clamp_add", "var_clamp_mult",
+				    "w_clamp", "w_cutoff", "nt_chunk" };
 
     int v1_chunk = 0;
-    int v2_chunk = 0;
+    float var_weight = 0.0;
+    float var_clamp_add = 0.0;
+    float var_clamp_mult = 0.0;
+    float w_clamp = 0.0;
     float w_cutoff = 0.0;
     int nt_chunk = 0;
 
-    // The "iifi" format string indicates that the C++ data types of the variables which
-    // follow are ().
+    // The "ifffffi" format string indicates that the C++ data types of the variables which
+    // follow are (int, float, float, float, float, float, int).
     //
     // Warning: PyArg_ParseTupleAndKeywords() is "fragile", in the sense that minor errors
     // will cause it to segfault or otherwise behave disastrously!  (E.g. forgetting to
@@ -1682,12 +1687,13 @@ static PyObject *make_online_mask_filler(PyObject *self, PyObject *args, PyObjec
     // If an error occurs (e.g. datatype mismatch, wrong number of arguments) then
     // returning a null pointer from this function will raise an exception in the python caller.
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "iifi", (char **)kwlist, &v1_chunk, &v2_chunk, &w_cutoff, &nt_chunk))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ifffffi", (char **)kwlist, &v1_chunk, &var_weight,
+				     &var_clamp_add, &var_clamp_mult, &w_clamp, &w_cutoff, &nt_chunk))
 	return NULL;
 
     // Step 2: Now that all arguments have been converted, call rf_pipelines::make_online_mask_filler().
-
-    std::shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_online_mask_filler(v1_chunk, v2_chunk, w_cutoff, nt_chunk);
+    // This returns a shared_ptr<rf_pipelines::wi_transform>.
+    auto ret = rf_pipelines::make_online_mask_filler(v1_chunk, var_weight, var_clamp_add, var_clamp_mult, w_clamp, w_cutoff, nt_chunk);
 
     // Step 3: convert the C++ transform to a python object.
     // This is a long convoluted process, but it's all encapsulated in the function
