@@ -134,6 +134,8 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         if stream.nfreq != self.nfreq:
             raise RuntimeError("rf_pipelines: number of frequencies in stream (nfreq=%d) does not match bonsai config file '%s' (nfreq=%d)" 
                                % (stream.nfreq, self.config_filename, self.nfreq))
+        if stream.nfreq % self.img_ndm != 0:
+            raise RuntimeError("bonsai_dedisperser: current implementation requires 'img_ndm' to be a divisor of stream nfreq")
 
 
     def start_substream(self, isubstream, t0):
@@ -142,7 +144,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
         if self.make_plot:
             self.isubstream = isubstream
-            self.plot_groups = [Plotter(self, ntrees=1, iplot=i) for i in xrange(1 + self.plot_all_trees * (self.ntrees-1))]
+            self.plot_groups = [Plotter(self, ny=self.img_ndm/(1 if i==0 else 2), iplot=i) for i in xrange(1 + self.plot_all_trees * (self.ntrees-1))]
             self.json_per_substream["n_plot_groups"] = 1 + self.plot_all_trees * (self.ntrees-1)  # Helpful parameter for the web viewer
 
 
@@ -231,62 +233,59 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
 
 class Plotter():
-    """A plotter object holds all desired zoom levels for a plot. The class supports plotting multiple trees 
-       per plot, but this feature is not currently being used (i.e. ntrees=1)."""
+    """A plotter object holds all desired zoom levels for a plot."""
 
-    def __init__(self, transform, ntrees, iplot):
+    def __init__(self, transform, ny, iplot):
         self.transform = transform       # Access transform parameters
         self.iplot = iplot               # Helpful for establishing plot group
-        self.ntrees = ntrees             # Number of trees being __plotted together__ (different from transform.ntrees)
-        if self.iplot == 0:
-            self.ndm = self.transform.img_ndm / self.ntrees  # Number of y pixels per tree
-        else:
-            self.ndm = self.transform.img_ndm / self.ntrees / 2  # Number of y pixels per tree            
+        self.ny = ny                     # Number of y pixels that will be written
         self.ix = np.zeros(self.transform.n_zoom)   # Keep track of what x position to add chunks to
         self.ifile = np.zeros(self.transform.n_zoom)
-        self.plots = np.zeros((self.transform.n_zoom, self.ndm, self.transform.img_nt))
+        self.plots = np.zeros((self.transform.n_zoom, self.ny, self.transform.img_nt))
 
         assert transform.n_zoom == len(self.transform.nt_chunk_ds)
 
 
-    def process(self, arrs):
+    def process(self, arr):
         # Check that the arrays passed to process contain the expected number of trees
-        assert len(arrs) == self.ntrees
-        shape = [triggers.shape for triggers in arrs]
+        shape = arr.shape
 
         # Zooming only happens in the time axis, so we can reshape the dm axis outside of the loop
-        for i in xrange(self.ntrees):
-            if shape[i][0] > self.ndm:
-                arrs[i] = self.max_ds(arrs[i], self.ndm, shape[i][1])
-            elif shape[i][0] < self.ndm:
-                arrs[i] = rf_pipelines.upsample(arrs[i], self.ndm, shape[i][1])
+        if shape[0] > self.ny:
+            arr = self.max_ds(arr, self.ny, shape[1])
+        elif shape[0] < self.ny:
+            arr = rf_pipelines.upsample(arr, self.ny, shape[1])
 
-        iy = 0  # Keep track of where to add each tree vertically
-        for itree in xrange(self.ntrees):
-            for zoom_level in xrange(self.transform.n_zoom):
-                dm_t = arrs[itree].copy()
-                dm_t_shape = dm_t.shape
-                # In the x (time) axis, we need to transform dm_t_shape[1] to self.nt_chunk_ds[zoom_level] - may need to up/downsample
-                if dm_t_shape[1] > self.transform.nt_chunk_ds[zoom_level]:
-                    dm_t = self.max_ds(dm_t, dm_t_shape[0], self.transform.nt_chunk_ds[zoom_level])
-                elif dm_t_shape[1] < self.transform.nt_chunk_ds[zoom_level]:
-                    dm_t = rf_pipelines.upsample(dm_t, dm_t_shape[0], self.transform.nt_chunk_ds[zoom_level])
-                # Now the array will be scaled properly to stick into the plot accumulator arrays
-                self.plots[zoom_level, iy:iy+self.ndm, self.ix[zoom_level]:self.ix[zoom_level]+self.transform.nt_chunk_ds[zoom_level]] = dm_t
-            iy += self.ndm
-        self.ix += self.transform.nt_chunk_ds  # We can do this here because of the assertion that each chunks evenly divide into plots
-
-        # After adding, check whether we need to write any files
         for zoom_level in xrange(self.transform.n_zoom):
-            if self.ix[zoom_level] >= self.transform.img_nt:
-                self.transform._write_file(self.plots[zoom_level, :, :], 
-                                           zoom_level, 
-                                           self.ifile[zoom_level], 
-                                           self.iplot)
-                self.ifile[zoom_level] += 1
-                self.ix[zoom_level] = 0
-                self.plots[zoom_level, :, :] = 0
-                
+            dm_t = arr.copy()
+            dm_t_shape = dm_t.shape
+            # In the x (time) axis, we need to transform dm_t_shape[1] to self.nt_chunk_ds[zoom_level] - may need to up/downsample
+            if dm_t_shape[1] > self.transform.nt_chunk_ds[zoom_level]:
+                dm_t = self.max_ds(dm_t, dm_t_shape[0], self.transform.nt_chunk_ds[zoom_level])
+            elif dm_t_shape[1] < self.transform.nt_chunk_ds[zoom_level]:
+                dm_t = rf_pipelines.upsample(dm_t, dm_t_shape[0], self.transform.nt_chunk_ds[zoom_level])
+
+
+            ichunk = 0
+            while ichunk < self.transform.nt_chunk_ds[zoom_level]:
+                # Move to end of chunk or end of current plot, whichever comes first.
+                n = min(self.transform.nt_chunk_ds[zoom_level] - ichunk, self.transform.img_nt - self.ix[zoom_level])
+                assert n > 0
+                self.plots[zoom_level, :, self.ix[zoom_level]:self.ix[zoom_level]+n] = dm_t
+
+                self.ix[zoom_level] += n
+                ichunk += n
+
+                # Check whether to write out
+                if self.ix[zoom_level] >= self.transform.img_nt:
+                    self.transform._write_file(self.plots[zoom_level, :, :], 
+                                               zoom_level, 
+                                               self.ifile[zoom_level], 
+                                               self.iplot)
+                    self.ifile[zoom_level] += 1
+                    self.ix[zoom_level] = 0
+                    self.plots[zoom_level, :, :] = 0
+            
 
     def max_ds(self, arr, new_dm, new_t):
         """Takes maxima along axes to downsample"""
