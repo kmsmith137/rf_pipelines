@@ -30,22 +30,25 @@ struct badchannel_mask : public wi_transform {
 
     virtual void set_stream(const wi_stream &stream) override
     {
-	throw runtime_error("oops, C++ badchannel_mask class was requested, but not implemented yet");
+      this->nfreq = stream.nfreq;
+      // throw runtime_error("oops, C++ badchannel_mask class was requested, but not implemented yet");
     }
 
     virtual void start_substream(int isubstream, double t0) override
     {
-	throw runtime_error("oops, C++ badchannel_mask class was requested, but not implemented yet");
+      // throw runtime_error("oops, C++ badchannel_mask class was requested, but not implemented yet");
     }
 
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
     {
-	throw runtime_error("oops, C++ badchannel_mask class was requested, but not implemented yet");
+      //throw runtime_error("oops, C++ badchannel_mask class was requested, but not implemented yet");
+      // get rid of frequency 0-600
+     
     }
 
     virtual void end_substream() override
     {
-	throw runtime_error("oops, C++ badchannel_mask class was requested, but not implemented yet");
+      //throw runtime_error("oops, C++ badchannel_mask class was requested, but not implemented yet");
     }
 };
 
