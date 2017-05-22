@@ -122,9 +122,6 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                     self.nt_chunk_ds += [self.nt_chunk // self.downsample_nt[zoom_level + 1]]
                     self.img_prefix += [img_prefix + "_zoom" + str(zoom_level+1)] 
 
-            print 'downsample_nt', self.downsample_nt
-            print 'nt_chunk_ds', self.nt_chunk_ds
-
             if self.nt_chunk % self.downsample_nt[-1] != 0:
                 raise RuntimeError("bonsai plotter transform: specified nt_chunk(=%d) must be a multiple of downsampling factor at max zoom level (=%d)" 
                                    % (self.nt_chunk, self.downsample_nt[-1]))
@@ -138,7 +135,6 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                 assert all([tup[0] % (self.img_ndm / 2)  == 0 
                             or (self.img_ndm / 2) % tup[0] == 0 for tup in self.trigger_dim[1:]])
             assert all(tup[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % tup[1] == 0 for tup in self.trigger_dim)  # Downsample or upsample t
-            assert self.img_nt % self.nt_chunk_ds[-1] == 0  # Each chunk evenly divides the plots
 
             for i in xrange(self.n_zoom):
                 self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[i], ny=img_ndm)
@@ -299,8 +295,6 @@ class Plotter():
                 dm_t = self.max_ds(dm_t, dm_t_shape[0], self.transform.nt_chunk_ds[zoom_level])
             elif dm_t_shape[1] < self.transform.nt_chunk_ds[zoom_level]:
                 dm_t = rf_pipelines.upsample(dm_t, dm_t_shape[0], self.transform.nt_chunk_ds[zoom_level])
-
-
 
             ichunk = 0
             while ichunk < self.transform.nt_chunk_ds[zoom_level]:
