@@ -278,6 +278,7 @@ static void test_make_bitmask(std::mt19937 &rng, int nfreq, int nt, int in_strid
 
 static void test_make_bitmask(std::mt19937 &rng)
 {
+#ifdef __AVX__
     cerr << "test_make_bitmask()";
 
     for (int iouter = 0; iouter < 1000; iouter++) {
@@ -293,6 +294,9 @@ static void test_make_bitmask(std::mt19937 &rng)
     }
 
     cout << "done\n";
+#else
+    cout << "test_make_bitmask(): skipped on this machine (requires AVX)\n";
+#endif
 }
 
 

@@ -1,9 +1,20 @@
+// FIXME: bitmask_maker currently requires AVX (fixing this would take an hour or two)
+
 #include "rf_pipelines_internals.hpp"
+
+namespace rf_pipelines {
+#if 0
+}; // pacify emacs c-mode
+#endif
+
+using namespace std;
+
+#ifdef __AVX__
+
 #include <simd_helpers.hpp>
 //#include <simd_helpers/simd_float32.hpp>
 //#include <simd_helpers/downsample_bitwise_or.hpp>
 
-using namespace std;
 using namespace simd_helpers;
 
 // Gives compile-time warning if simd_helpers is not recent enough (can be removed at some point)
@@ -13,11 +24,6 @@ inline simd_t<T,S> downsample_bitwise_or(const simd_ntuple<T,S,S> &t)
 {
     static_assert(false, "To compile rf_pipelines v16_devel, you need to upgrade simd_helpers to its current v4_devel branch");
 }
-#endif
-
-namespace rf_pipelines {
-#if 0
-}; // pacify emacs c-mode
 #endif
 
 
@@ -232,5 +238,23 @@ shared_ptr<wi_transform> make_bitmask_saver(const shared_ptr<bitmask_chunk_manag
     return make_shared<bitmask_saver> (mp, nt_chunk);
 }
 
+#else  // !defined(__AVX__)
+
+void make_bitmask_reference(uint8_t *out_bitmask, int nfreq, int nt, const float *in_weights, int in_stride)
+{
+    throw runtime_error("rf_pipelines: AVX is currently required for bitmask kernels/transforms");
+}
+
+void make_bitmask(uint8_t *out_bitmask, int nfreq, int nt, const float *in_weights, int in_stride)
+{
+    throw runtime_error("rf_pipelines: AVX is currently required for bitmask kernels/transforms");
+}
+
+shared_ptr<wi_transform> make_bitmask_saver(const shared_ptr<bitmask_chunk_manager> &mp, ssize_t nt_chunk)
+{
+    throw runtime_error("rf_pipelines: AVX is currently required for bitmask kernels/transforms");    
+}
+
+#endif
 
 }  // namespace rf_pipelines
