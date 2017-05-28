@@ -23,6 +23,7 @@ KERNEL_INCFILES=kernels/downsample.hpp \
 
 # Source files for the core C++ library 'librf_pipelines.so'
 OFILES=badchannel_mask.o \
+	bitmask_maker.o \
 	bonsai_dedisperser.o \
 	chime_file_stream.o \
 	chime_frb_file_stream.o \
