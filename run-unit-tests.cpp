@@ -253,6 +253,50 @@ static void run_pipeline_unit_tests(std::mt19937 &rng)
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// test_make_bitmask(): verifies that make_bitmask_reference() and make_bitmask() are equivalent
+
+
+static void test_make_bitmask(std::mt19937 &rng, int nfreq, int nt, int in_stride)
+{
+    vector<float> in_weights(nfreq*in_stride, 0.0);
+    vector<uint8_t> out_reference(nfreq*(nt/8), 0);
+    vector<uint8_t> out_fast(nfreq*(nt/8), 0);
+
+    for (unsigned int i = 0; i < in_weights.size(); i++)
+	in_weights[i] = (uniform_rand(rng) < 0.25) ? 0.0 : uniform_rand(rng, -1.0, 2.0);
+
+    make_bitmask_reference(&out_reference[0], nfreq, nt, &in_weights[0], in_stride);
+    make_bitmask(&out_fast[0], nfreq, nt, &in_weights[0], in_stride);
+
+    for (unsigned int i = 0; i < out_reference.size(); i++) {
+	if (out_reference[i] != out_fast[i])
+	    throw runtime_error("test_make_bitmask failed: nfreq=" + to_string(nfreq) + ", nt=" + to_string(nt) + ", in_stride=" + to_string(in_stride));
+    }
+}
+
+
+static void test_make_bitmask(std::mt19937 &rng)
+{
+    cerr << "test_make_bitmask()";
+
+    for (int iouter = 0; iouter < 1000; iouter++) {
+	if (iouter % 10 == 0)
+	    cerr << ".";
+
+	// Note: make_bitmask() requires nt to be a multiple of 256.
+	int nfreq = randint(rng,1,100);
+	int nt = randint(rng,1,6) * 256;
+	int stride = randint(rng,nt,2*nt);
+
+	test_make_bitmask(rng, nfreq, nt, stride);
+    }
+
+    cout << "test_make_bitmask: pass\n";
+}
+
+
+// -------------------------------------------------------------------------------------------------
 
 
 int main(int argc, char **argv)
@@ -262,6 +306,7 @@ int main(int argc, char **argv)
 
     wraparound_buf::run_unit_tests(rng);
     run_pipeline_unit_tests(rng);
+    test_make_bitmask(rng);
 
     return 0;
 }
