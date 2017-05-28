@@ -292,7 +292,7 @@ static void test_make_bitmask(std::mt19937 &rng)
 	test_make_bitmask(rng, nfreq, nt, stride);
     }
 
-    cout << "test_make_bitmask: pass\n";
+    cout << "done\n";
 }
 
 
