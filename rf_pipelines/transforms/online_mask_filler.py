@@ -56,7 +56,7 @@ class py_online_mask_filler(rf_pipelines.py_wi_transform):
                 # Check whether the channel has been initialized. If not and a v1 estimate was successfully produced, use that
                 if not self.var_init[frequency] and self.v1_tmp[frequency] != 0:
                     self.var_init[frequency] = True
-                    self.running_var = self.v1_tmp[frequency]
+                    self.running_var[frequency] = self.v1_tmp[frequency]
 
             # Once v1s have been calculated for each frequency, update the weights and running variance
             non_zero_v1 = np.logical_and(self.v1_tmp != 0, self.var_init)
@@ -64,9 +64,10 @@ class py_online_mask_filler(rf_pipelines.py_wi_transform):
 
             # For nonzero (successful) v1s, increase the weights (if possible) and update the running variance
             self.running_weights[non_zero_v1] = np.minimum(2.0, self.running_weights[non_zero_v1] + self.w_clamp)
-            self.v1_tmp[non_zero_v1] = np.minimum(self.v1_tmp[non_zero_v1], self.running_var[non_zero_v1] + self.var_clamp_add + self.running_var[non_zero_v1] * self.var_clamp_mult)
+            self.v1_tmp[non_zero_v1] = np.minimum((1-self.var_weight) * self.running_var[non_zero_v1] + self.var_weight * self.v1_tmp[non_zero_v1], 
+                                                  self.running_var[non_zero_v1] + self.var_clamp_add + self.running_var[non_zero_v1] * self.var_clamp_mult)
             self.v1_tmp[non_zero_v1] = np.maximum(self.v1_tmp[non_zero_v1], self.running_var[non_zero_v1] - self.var_clamp_add - self.running_var[non_zero_v1] * self.var_clamp_mult)
-            self.running_var[non_zero_v1]  = (1-self.var_weight) * self.running_var[non_zero_v1] + self.var_weight * self.v1_tmp[non_zero_v1]
+            self.running_var[non_zero_v1] = self.v1_tmp[non_zero_v1]
 
             # For unsuccessful v1s, decrease the weights (if possible) and do not modify the running variance 
             self.running_weights[zero_v1] = np.maximum(0, self.running_weights[zero_v1] - self.w_clamp)
