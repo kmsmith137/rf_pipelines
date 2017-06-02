@@ -1,5 +1,4 @@
 #include "rf_pipelines_internals.hpp"
-#include <cassert>
 #include <fstream>
 
 using namespace std;
@@ -13,7 +12,7 @@ namespace rf_pipelines {
 struct badchannel_mask : public wi_transform {
     // Note: inherits { nfreq, nt_chunk, nt_prepad, nt_postpad } from base class wi_transform
 
-    vector<float> m_bad_channels;  // holds the bad frequencies, as specified from the input file
+    vector<double> m_bad_channels;  // holds the bad frequencies, as specified from the input file
     vector<int> m_bad_indices;     // holds the final bad indices to be used to mask the weights array
     int m_len_indices;             // the size of bad_indices vector
    
@@ -25,17 +24,18 @@ struct badchannel_mask : public wi_transform {
 	this->nt_prepad = 0;
 	this->nt_postpad = 0;
 	this->nt_chunk = nt_chunk;
+	
+	rf_assert(nt_chunk > 0);
 
         // Extract the channels to be removed into m_bad_channels
 	get_bad_channels(maskpath, m_bad_channels);
     }
 
-    void get_bad_channels(const string &maskpath, vector<float> &bad_channels)
+    void get_bad_channels(const string &maskpath, vector<double> &bad_channels)
     {
         ifstream inf(maskpath);
         string line, freq;
-        int length = 0;
-        float low, high;
+        double low, high;
 
         while (getline(inf, line))
         {
@@ -43,28 +43,18 @@ struct badchannel_mask : public wi_transform {
 
             if (line[0] != '#')
             {
-	        if (length == 0)
-	        {
-	            // Get the number of frequency pairs that will be masked 
-	            length = 2*atoi(line.c_str());
-	            continue;
-	        }
-
 	        getline(linestream, freq, ',');
 	        low = atof(freq.c_str());
 	        getline(linestream, freq, ',');
 	        high = atof(freq.c_str());
-	        assert (low < high && "The lower frequency must be less than the high frequency!");
+	        rf_assert(low < high && "The lower frequency must be less than the high frequency!");
 
 	        bad_channels.push_back(low);
 	        bad_channels.push_back(high);
             }
         }
 
-        inf.close();
-    
-        // cout << "Frequency pairs extracted: " << endl;
-        // for (int i = 0; i < length; i += 2) cout << bad_channels[i] << " " << bad_channels[i + 1] << endl;
+        inf.close();    
     }
 
     // As explaned in rf_pipelines.hpp, the following four virtual functions in the base class
@@ -73,13 +63,13 @@ struct badchannel_mask : public wi_transform {
     virtual void set_stream(const wi_stream &stream) override
     {
         this->nfreq = stream.nfreq;
-	float freq_lo_MHz = stream.freq_lo_MHz;
-	float freq_hi_MHz = stream.freq_hi_MHz;
+	double freq_lo_MHz = stream.freq_lo_MHz;
+	double freq_hi_MHz = stream.freq_hi_MHz;
 
 	// First, make sure all intervals are within the freq
 	int vec_size = m_bad_channels.size();
-	float low, high;
-	vector<float> temp;
+	double low, high;
+	vector<double> temp;
 	for (int ilo=0; ilo < vec_size-1; ilo+=2)
         {
 	    low = m_bad_channels[ilo];
@@ -116,8 +106,8 @@ struct badchannel_mask : public wi_transform {
 	// floor of the second element. Next, we convert them to integers
 	// so they can be fed as indexes into the weights array.
 	// We take the max at the end to ensure no values are below 0.
-	float scale = stream.nfreq / (freq_hi_MHz - freq_lo_MHz);
-	float factor = scale * freq_hi_MHz;
+	double scale = stream.nfreq / (freq_hi_MHz - freq_lo_MHz);
+	double factor = scale * freq_hi_MHz;
 	m_len_indices = temp.size();
 	for (int i = 0; i < m_len_indices; ++i)
 	{
@@ -126,8 +116,6 @@ struct badchannel_mask : public wi_transform {
 	    else
 	        m_bad_indices.push_back(max(int(floor(factor - temp[i]*scale)), 0));
 	}
-	// cout << "Indices extracted: " << endl;
-        // for (int i = 0; i < this->len_indices; i += 2) cout << bad_indices[i] << " " << bad_indices[i + 1] << endl;
     }
 
     virtual  void start_substream(int isubstream, double t0) override
