@@ -38,7 +38,8 @@ struct online_mask_filler : public wi_transform {
   const float var_clamp_mult;
   const float w_clamp;
   const float w_cutoff;
-
+  vector<double> running_weights;
+  vector<double> running_var;
 
   online_mask_filler(int v1_chunk, float var_weight, float var_clamp_add, float var_clamp_mult, float w_clamp, float w_cutoff, int nt_chunk);
 
@@ -48,6 +49,7 @@ struct online_mask_filler : public wi_transform {
   virtual void start_substream(int isubstream, double t0) override;
   virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override;
   virtual void end_substream() override;
+  bool get_v1(vector<float> &intensity, vector<float> &weights, double &v1);
 };
 
 
@@ -94,8 +96,8 @@ void online_mask_filler::set_stream(const wi_stream &stream)
 
 void online_mask_filler::start_substream(int isubstream, double t0)
 {
-  vector<double> running_var(nfreq);
-  vector<double> running_weights(nfreq);
+  running_var.resize(nfreq);
+  running_weights.resize(nfreq);
 
   // Test that the weights were actually initialized to zero
   cout << "*****************Initializing******************" << endl;
@@ -104,7 +106,7 @@ void online_mask_filler::start_substream(int isubstream, double t0)
 }
 
 
-bool online_mask_filler::get_v1(const float *intensity, const float *weights, double &v1)
+bool online_mask_filler::get_v1(vector<float> &intensity, vector<float> &weights, double &v1)
 {
   int zerocount = 0;
   double vsum = 0;
@@ -116,7 +118,7 @@ bool online_mask_filler::get_v1(const float *intensity, const float *weights, do
       if (weights[i] < 1e-7)
 	++zerocount;
       vsum += intensity[i] * intensity[i] * weights[i];
-      wxum += weights[i];
+      wsum += weights[i];
     }
     
   // The variance is returned by reference
@@ -143,34 +145,34 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
     {
       for (int ifreq=0; ifreq < nfreq; ++ifreq)
 	{
-	  for (int isample=0; isample < v1_chumk; ++isample)
+	  for (int isample=0; isample < v1_chunk; ++isample)
 	    {
 	      // Collect samples to make vector
 	      iacc.push_back(intensity[ifreq*stride+isample]);
 	      wacc.push_back(weights[ifreq*stride+isample]);
 	    }
 	  // Get v1_chunk
-	  if (get_c1(vacc, wacc, v1))
+	  if (get_v1(iacc, wacc, v1))
 	    {
 	      // If the v1 was succesful, try to increase the weight, if possible
 	      running_weights[ifreq] = min(2.0, running_weights[ifreq] + w_clamp);
 	      // Then, restrict the change in variance estimate definted by the clamp parameters
-	      v1 = min((1 - var_weight) * running_var[ifreq] + var_weight * v1, running_var[ifreq] + var_clamp add + running_var[ifreq] * var_clamp_mult);
-	      v1 = min(v1, running_var[ifreq] - self.var_clamp add - running_var[ifreq] * var_clamp_mult);
+	      v1 = min((1 - var_weight) * running_var[ifreq] + var_weight * v1, running_var[ifreq] + var_clamp_add + running_var[ifreq] * var_clamp_mult);
+	      v1 = min(v1, running_var[ifreq] - var_clamp_add - running_var[ifreq] * var_clamp_mult);
 	      // Finally, update the running variance
 	      running_var[ifreq] = v1;
 	    }
 	  else
 	    {
 	      // For an unsuccessful v1, we decrease the weight if possible. We do not modify the running variance
-	      running_weights[ifreq] = max(0, running_weights[ifreq] - w_clamp);
+	      running_weights[ifreq] = max(0.0, running_weights[ifreq] - w_clamp);
 	    }
 	      
 	  // Do the mask filling for a particular frequency using our new variance estimate
 	  std::normal_distribution<double> dist(0, sqrt(v1)); // mean 0, stdev sqrt(v1)
 	  for (int i=0; i < v1_chunk; ++i)
 	    {
-	      if (running_weights != 0)
+	      if (running_weights[ifreq] != 0)
 		{
 		  if (weights[i] < w_cutoff)
 		    intensity[i] = dist(mt_rand);
@@ -180,7 +182,7 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	      
 	  // Clear accumulators for reuse
 	  // Check that these are actually cleared here
-	  vacc.clear();
+	  iacc.clear();
 	  wacc.clear();
 	}
     }
