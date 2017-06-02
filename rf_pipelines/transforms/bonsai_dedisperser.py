@@ -301,7 +301,7 @@ class Plotter():
                 # Move to end of chunk or end of current plot, whichever comes first.
                 n = min(self.transform.nt_chunk_ds[zoom_level] - ichunk, self.transform.img_nt - self.ix[zoom_level])
                 assert n > 0
-                self.plots[zoom_level, :, self.ix[zoom_level]:(self.ix[zoom_level]+n)] = dm_t[:, ichunk:(ichunk+n)]
+                self.plots[zoom_level, :, int(self.ix[zoom_level]):(int(self.ix[zoom_level])+n)] = dm_t[:, ichunk:(ichunk+n)]
 
                 self.ix[zoom_level] += n
                 ichunk += n
