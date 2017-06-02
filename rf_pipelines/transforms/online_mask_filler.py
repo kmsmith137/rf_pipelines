@@ -45,7 +45,6 @@ class py_online_mask_filler(rf_pipelines.py_wi_transform):
         self.running_var = np.zeros((self.nfreq))  # holds the current variance estimate for each frequency
         self.v1_tmp = np.zeros((self.nfreq))  # holds the temporary v1 estimates while they are being updated
         self.running_weights = np.zeros((self.nfreq))
-        self.var_init = np.ones((self.nfreq), dtype=bool)
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         # Loop over intensity/weights in chunks of size v1_chunk
@@ -53,14 +52,10 @@ class py_online_mask_filler(rf_pipelines.py_wi_transform):
             for frequency in xrange(self.nfreq):
                 # Calculate the v1 for each frequency
                 self.v1_tmp[frequency] =  self._v1(intensity[frequency, ichunk:ichunk+self.v1_chunk], weights[frequency, ichunk:ichunk+self.v1_chunk])
-                # Check whether the channel has been initialized. If not and a v1 estimate was successfully produced, use that
-                if not self.var_init[frequency] and self.v1_tmp[frequency] != 0:
-                    self.var_init[frequency] = True
-                    self.running_var[frequency] = self.v1_tmp[frequency]
 
             # Once v1s have been calculated for each frequency, update the weights and running variance
-            non_zero_v1 = np.logical_and(self.v1_tmp != 0, self.var_init)
-            zero_v1 = np.logical_and(np.logical_not(non_zero_v1), self.var_init)
+            non_zero_v1 = np.logical_and(self.v1_tmp != 0, self.running_weights != 0)
+            zero_v1 = np.logical_and(np.logical_not(non_zero_v1), self.running_weights != 0)
 
             # For nonzero (successful) v1s, increase the weights (if possible) and update the running variance
             self.running_weights[non_zero_v1] = np.minimum(2.0, self.running_weights[non_zero_v1] + self.w_clamp)
