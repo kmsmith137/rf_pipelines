@@ -112,9 +112,9 @@ struct badchannel_mask : public wi_transform {
 	for (int i = 0; i < m_len_indices; ++i)
 	{
 	    if (i % 2 == 0)
-	        m_bad_indices.push_back(max(int(ceil(factor - temp[i]*scale)), 0));
+	      m_bad_indices.push_back(min(max(int(ceil(factor - temp[i]*scale)), 0), nfreq-1));
 	    else
-	        m_bad_indices.push_back(max(int(floor(factor - temp[i]*scale)), 0));
+	      m_bad_indices.push_back(min(max(int(floor(factor - temp[i]*scale)), 0), nfreq-1));
 	}
     }
 
