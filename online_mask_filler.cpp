@@ -20,10 +20,6 @@ namespace rf_pipelines {
 // function make_online_mask_filler(), which returns a pointer to a new online_mask_filler
 // object.
 //
-// All member functions are currently placeholders!  All that is currently implemented is the
-// bare minimum needed to run the pipeline without failing an assert (for example, we need to
-// initialize online_mask_filler::nfreq).
-//
 // Recommended reading: the declaration of 'struct wi_transform' in rf_pipelines.hpp
 // and comments contained therein.  This will explain (I hope!) what needs to be implemented,
 // for example in online_mask_filler::process_chunk().
