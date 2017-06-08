@@ -156,14 +156,14 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	    }
 	      
 	    // Do the mask filling for a particular frequency using our new variance estimate
-	    std::normal_distribution<double> dist(0, sqrt(running_var[ifreq])); // mean 0, stdev sqrt(v1)
+	    std::uniform_real_distribution<double> dist(-sqrt(3)*sqrt(running_var[ifreq]), sqrt(3)*sqrt(running_var[ifreq]));
 	    for (int i=0; i < v1_chunk; ++i)
 	    {
 	        if (running_weights[ifreq] != 0)
 	        {
-		    if (weights[ifreq*stride+i+ichunk] < w_cutoff)
+	            if (weights[ifreq*stride+i+ichunk] < w_cutoff)
 		        intensity[ifreq*stride+i+ichunk] = dist(mt_rand);
-		}
+	        }
 	        weights[ifreq*stride+i+ichunk] = running_weights[ifreq];
 	    }
 	} // close the frequency loop
