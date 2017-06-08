@@ -36,6 +36,7 @@ struct online_mask_filler : public wi_transform {
     const float w_cutoff;
     vector<double> running_weights;
     vector<double> running_var;
+    std::mt19937 mt_rand;
 
     online_mask_filler(int v1_chunk, float var_weight, float var_clamp_add, float var_clamp_mult, float w_clamp, float w_cutoff, int nt_chunk);
  
@@ -45,7 +46,6 @@ struct online_mask_filler : public wi_transform {
     virtual void start_substream(int isubstream, double t0) override;
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override;
     virtual void end_substream() override;
-    bool get_v1(vector<float> &intensity, vector<float> &weights, double &v1);
 };
 
 
@@ -71,6 +71,9 @@ online_mask_filler::online_mask_filler(int v1_chunk_, float var_weight_, float v
        << ",nt_chunk=" << nt_chunk << ")";
 
     this->name = ss.str();
+
+    std::random_device rd; 
+    std::mt19937 mt_rand(rd());
 
     rf_assert (nt_chunk % v1_chunk == 0);
     rf_assert (nt_chunk > 0);
@@ -98,7 +101,7 @@ void online_mask_filler::start_substream(int isubstream, double t0)
 }
 
 
-bool online_mask_filler::get_v1(vector<float> &intensity, vector<float> &weights, double &v1)
+inline bool get_v1(const float *intensity, const float *weights, double &v1, int v1_chunk)
 {
     int zerocount = 0;
     double vsum = 0;
@@ -126,26 +129,17 @@ bool online_mask_filler::get_v1(vector<float> &intensity, vector<float> &weights
 
 void online_mask_filler::process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
 {
-    vector<float> iacc(v1_chunk); // accumulator vector for v1_chunk of the intensity array
-    vector<float> wacc(v1_chunk); // accumulator vector for v1_chunk of the weights array
-    double v1;   // stores temporary v1 estimate before it is put into running_var
-    
-    // Initialize random_device and mt19937 for mask filling later on
-    std::random_device rd; // generates uniformly distributed rancom integer (for mt seed)
-    std::mt19937 mt_rand(rd()); // random number generator
+    double v1;   // stores temporary v1 estimate before it is put into running_var    
 
     for (int ichunk=0; ichunk < nt_chunk-1; ichunk += v1_chunk)
     {
         for (int ifreq=0; ifreq < nfreq; ++ifreq)
         {
-  	    for (int i=0; i < v1_chunk; ++i)
-	    {
-	        // Collect samples to make vector
-	        iacc.push_back(intensity[ifreq*stride+i+ichunk]);
-	        wacc.push_back(weights[ifreq*stride+i+ichunk]);
-	    }
+	    const float *iacc = &intensity[ifreq*stride + ichunk];
+	    const float *wacc = &weights[ifreq*stride + ichunk];
+
 	    // Get v1_chunk
-	    if (get_v1(iacc, wacc, v1))
+	    if (get_v1(iacc, wacc, v1, v1_chunk))
 	    {
 	        // If the v1 was succesful, try to increase the weight, if possible
 	        running_weights[ifreq] = min(2.0, running_weights[ifreq] + w_clamp);
@@ -172,9 +166,6 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 		}
 	        weights[ifreq*stride+i+ichunk] = running_weights[ifreq];
 	    }
-	    // Clear accumulators for reuse
-	    iacc.clear();
-	    wacc.clear();
 	} // close the frequency loop
     } // close the ichunk loop
 }
