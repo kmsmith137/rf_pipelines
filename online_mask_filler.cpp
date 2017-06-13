@@ -2,6 +2,7 @@
 #include <algorithm> // for max/min
 #include <cmath> // for sqrt
 #include <random> // for random_device, mt_19937, and random_distribution
+#include <sys/time.h>
 
 using namespace std;
 
@@ -24,6 +25,31 @@ namespace rf_pipelines {
 // and comments contained therein.  This will explain (I hope!) what needs to be implemented,
 // for example in online_mask_filler::process_chunk().
 
+struct xorshift_plus {
+  // Initial seed given by arbitrary hardcoded constants.
+  // This is fine for timing, but should come from a std::random_device in production.
+  uint64_t s0 = 3289321;
+  uint64_t s1 = 4328934;
+
+  // Returns a random integer in the range (0, 2^64-1).
+  inline uint64_t gen_u64()
+  {
+    uint64_t x = s0;
+    uint64_t y = s1;
+    s0 = y;
+    x ^= (x << 23);
+    s1 = x ^ y ^ (x >> 17) ^ (y >> 26);
+    return s1 + y;
+  }
+
+  // Returns a random float in the range (0,1).
+  inline float gen_float()
+  {
+    // The prefactor here is 2^(-64).
+    return 5.421010862e-20f * float(gen_u64());
+  }
+};
+
 
 struct online_mask_filler : public wi_transform {
     // Specified at construction.
@@ -36,8 +62,9 @@ struct online_mask_filler : public wi_transform {
     const float w_cutoff;
     vector<double> running_weights;
     vector<double> running_var;
-    std::mt19937 mt_rand;
-
+  //    std::mt19937 mt_rand;
+    xorshift_plus rand_x;
+    
     online_mask_filler(int v1_chunk, float var_weight, float var_clamp_add, float var_clamp_mult, float w_clamp, float w_cutoff, int nt_chunk);
  
     // Override pure virtual member functions in the wi_transform base class.
@@ -72,8 +99,8 @@ online_mask_filler::online_mask_filler(int v1_chunk_, float var_weight_, float v
 
     this->name = ss.str();
 
-    std::random_device rd; 
-    std::mt19937 mt_rand(rd());
+    //std::random_device rd; 
+    //std::mt19937 mt_rand(rd());
 
     rf_assert (nt_chunk % v1_chunk == 0);
     rf_assert (nt_chunk > 0);
@@ -156,14 +183,15 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	    }
 	      
 	    // Do the mask filling for a particular frequency using our new variance estimate
-	    std::uniform_real_distribution<double> dist(-sqrt(3)*sqrt(running_var[ifreq]), sqrt(3)*sqrt(running_var[ifreq]));
+	    //std::uniform_real_distribution<double> dist(-sqrt(3*running_var[ifreq]), sqrt(3*running_var[ifreq]));
+	    //std::normal_distribution<double> dist(0, sqrt(running_var[ifreq]));
 	    for (int i=0; i < v1_chunk; ++i)
 	    {
 	        if (running_weights[ifreq] != 0)
-	        {
-	            if (weights[ifreq*stride+i+ichunk] < w_cutoff)
-		        intensity[ifreq*stride+i+ichunk] = dist(mt_rand);
-	        }
+		{
+		    if (weights[ifreq*stride+i+ichunk] < w_cutoff)
+		      intensity[ifreq*stride+i+ichunk] = rand_x.gen_float() * 2 * (sqrt(3 * running_var[ifreq])) - sqrt(3 * running_var[ifreq]);
+		}
 	        weights[ifreq*stride+i+ichunk] = running_weights[ifreq];
 	    }
 	} // close the frequency loop
