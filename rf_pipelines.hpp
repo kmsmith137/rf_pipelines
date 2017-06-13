@@ -393,6 +393,45 @@ extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::shared_p
 
 // -------------------------------------------------------------------------------------------------
 //
+// bitmask_maker transform, and associated helper functions/classes.
+
+
+// Kernels used by the bitmask_maker.
+extern void make_bitmask(uint8_t *out_bitmask, int nfreq, int nt, const float *in_weights, int in_stride);
+extern void make_bitmask_reference(uint8_t *out_bitmask, int nfreq, int nt, const float *in_weights, int in_stride);
+
+
+// Virtual base class is used to manage memory buffers.  The virtual functions
+// get_chunk() and put_chunk() are called by the bitmask_saver transform, to
+// obtain and release buffers for storing the bitmask as it is computed.
+
+struct bitmask_chunk_manager {
+
+    // get_chunk(): called to request a chunk of memory, to be filled with the bitmask.
+    // Returns a pointer to a uint8_t 'chunk' array of shape (nfreq, nt_chunk/8).
+    //
+    // Currently the chunk is assumed contiguous, but the interface could
+    // be changed to allow a strided array if necessary.
+
+    virtual uint8_t *get_chunk(double t0, ssize_t nfreq, ssize_t nt_chunk) = 0;
+
+    // put_chunk(): called to release a chunk of memory, after it has been filled
+    // with the bitmask.
+    //
+    // Note that calls to get_chunk() and put_chunk() are always "paired", i.e.
+    // each get_chunk() is followed by a matching put_chunk(), before the next
+    // call to get_chunk() occurs.
+
+    virtual void put_chunk() = 0;
+};
+
+
+// Factory function which returns the bitmask_saver transform.
+extern std::shared_ptr<wi_transform> make_bitmask_saver(const std::shared_ptr<bitmask_chunk_manager> &mp, ssize_t nt_chunk);
+
+
+// -------------------------------------------------------------------------------------------------
+//
 // The 'wi_stream' and 'wi_transform' virtual base classes.
 //
 // These define the API that you'll need to implement, in order to make new steams and transforms.

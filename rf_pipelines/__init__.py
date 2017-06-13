@@ -476,4 +476,6 @@ from .transforms.noise_filler import noise_filler
 from .utils import write_png, wi_downsample, upsample, tile_arr, weighted_mean_and_rms
 
 # Grouping code to handle output of bonsai_dedisperser
-from grouper import group_bonsai_output
+from L1b import L1Grouper
+
+

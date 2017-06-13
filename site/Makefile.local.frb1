@@ -2,8 +2,7 @@
 
 HAVE_PSRFITS=n
 HAVE_CH_FRB_IO=y
-#HAVE_BONSAI=y
-HAVE_BONSAI=n
+HAVE_BONSAI=y
 
 # Directory where C++ libraries will be installed
 LIBDIR=$(HOME)/lib
