@@ -12,7 +12,7 @@ namespace rf_pipelines {
 struct badchannel_mask : public wi_transform {
     // Note: inherits { nfreq, nt_chunk, nt_prepad, nt_postpad } from base class wi_transform
 
-    vector<double> m_bad_channels;  // holds the bad frequencies, as specified from the input file
+    vector<double> m_bad_channels; // holds the bad frequencies, as specified from the input file
     vector<int> m_bad_indices;     // holds the final bad indices to be used to mask the weights array
     int m_len_indices;             // the size of bad_indices vector
    
@@ -33,11 +33,10 @@ struct badchannel_mask : public wi_transform {
 
     void get_bad_channels(const string &maskpath, vector<double> &bad_channels)
     {
-        ifstream inf;
-        inf.exceptions ( ifstream::failbit | ifstream::badbit );
-        try 
+        ifstream inf(maskpath);
+
+	if (inf.is_open())
 	{
-	    inf.open (maskpath);
 	    string line, freq;
 	    double low, high;
 	    while (getline(inf, line))
@@ -56,13 +55,10 @@ struct badchannel_mask : public wi_transform {
 		    bad_channels.push_back(high);
 		}
 	    }
-	    inf.close();    
-        }
-        catch (ifstream::failure e) 
-	{
-	    throw runtime_error("badchannel_mask: exception opening/reading/closing file. The maskpath specified likely doesn't exist.\n");
-        }
-
+	    inf.close();
+	}
+	else
+	    throw runtime_error("badchannel_mask: couldn't open file at the maskpath given!");
     }
 
     // As explaned in rf_pipelines.hpp, the following four virtual functions in the base class
@@ -156,6 +152,5 @@ shared_ptr<wi_transform> make_badchannel_mask(const string &maskpath, int nt_chu
 {
     return make_shared<badchannel_mask> (maskpath, nt_chunk);
 }
-
 
 }  // namespace rf_pipelines
