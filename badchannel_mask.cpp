@@ -33,33 +33,40 @@ struct badchannel_mask : public wi_transform {
 
     void get_bad_channels(const string &maskpath, vector<double> &bad_channels)
     {
-        ifstream inf(maskpath);
-        string line, freq;
-        double low, high;
+        ifstream inf;
+        inf.exceptions ( ifstream::failbit | ifstream::badbit );
+        try 
+	{
+	    inf.open (maskpath);
+	    string line, freq;
+	    double low, high;
+	    while (getline(inf, line))
+	    {
+	        stringstream linestream(line);
 
-        while (getline(inf, line))
-        {
-            stringstream linestream(line);
+		if (line[0] != '#')
+		{
+		    getline(linestream, freq, ',');
+		    low = atof(freq.c_str());
+		    getline(linestream, freq, ',');
+		    high = atof(freq.c_str());
+		    rf_assert(low < high && "The lower frequency must be less than the high frequency!");
 
-            if (line[0] != '#')
-            {
-	        getline(linestream, freq, ',');
-	        low = atof(freq.c_str());
-	        getline(linestream, freq, ',');
-	        high = atof(freq.c_str());
-	        rf_assert(low < high && "The lower frequency must be less than the high frequency!");
-
-	        bad_channels.push_back(low);
-	        bad_channels.push_back(high);
-            }
+		    bad_channels.push_back(low);
+		    bad_channels.push_back(high);
+		}
+	    }
+	    inf.close();    
+        }
+        catch (ifstream::failure e) 
+	{
+	    throw runtime_error("badchannel_mask: exception opening/reading/closing file. The maskpath specified likely doesn't exist.\n");
         }
 
-        inf.close();    
     }
 
     // As explaned in rf_pipelines.hpp, the following four virtual functions in the base class
     // must be overridden, in order to define the badchannel_mask subclass.
-
     virtual void set_stream(const wi_stream &stream) override
     {
         this->nfreq = stream.nfreq;
