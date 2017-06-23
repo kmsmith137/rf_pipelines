@@ -11,20 +11,10 @@ using namespace std;
 
 #ifdef __AVX__
 
-#include <simd_helpers.hpp>
-//#include <simd_helpers/simd_float32.hpp>
-//#include <simd_helpers/downsample_bitwise_or.hpp>
+#include <simd_helpers/simd_float32.hpp>
+#include <simd_helpers/downsample_bitwise_or.hpp>
 
 using namespace simd_helpers;
-
-// Gives compile-time warning if simd_helpers is not recent enough (can be removed at some point)
-#ifndef _SIMD_HELPERS_DOWNSAMPLE_BITWISE_OR_HPP
-template<typename T, unsigned int S>
-inline simd_t<T,S> downsample_bitwise_or(const simd_ntuple<T,S,S> &t)
-{
-    static_assert(false, "To compile rf_pipelines v16_devel, you need to upgrade simd_helpers to its current v4_devel branch");
-}
-#endif
 
 
 // -------------------------------------------------------------------------------------------------
