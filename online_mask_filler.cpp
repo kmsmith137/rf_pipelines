@@ -132,16 +132,19 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
   __m256 c = _mm256_set1_ps(w_cutoff);
   __m256 root_three = _mm256_sqrt_ps(_mm256_set1_ps(3)); // handy for later
   __m256 two = _mm256_set1_ps(2);
-  __m256 zero = _m256_set1_ps(0);
+  __m256 zero = _mm256_set1_ps(0);
     
   for (int ifreq=0; ifreq<nfreq; ifreq++)
   {
+    cout << "Begin frequency " << ifreq << endl;
       tmp_var = _mm256_set1_ps(running_var[ifreq]);
       tmp_w = _mm256_set1_ps(running_weights[ifreq]);
       for (int ichunk=0; ichunk<nt_chunk-1; ichunk += 32)
       {
+	cout << "Begin chunk " << ichunk << endl;
 	  // Load intensity and weight arrays
-	  i0 = _mm256_load_ps(intensity + ifreq * stride + ichunk);
+	i0 = _mm256_load_ps((const float*) (intensity + ifreq * stride + ichunk));
+	  cout << "Load literally one thing" << endl;
 	  i1 = _mm256_load_ps(intensity + ifreq * stride + ichunk + 8);
 	  i2 = _mm256_load_ps(intensity + ifreq * stride + ichunk + 16);
 	  i3 = _mm256_load_ps(intensity + ifreq * stride + ichunk + 24);
@@ -149,7 +152,9 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	  w1 = _mm256_load_ps(weights + ifreq * stride + ichunk + 8);
 	  w2 = _mm256_load_ps(weights + ifreq * stride + ichunk + 16);
 	  w3 = _mm256_load_ps(weights + ifreq * stride + ichunk + 24);
-	  
+
+	  cout << "Load the things" << endl;
+ 
 	  // First, we need to see how many of the weights are equal to zero
 	  __m256i nfail = _mm256_add_epi32(_mm256_add_epi32(_mm256_add_epi32(_mm256_castps_si256(_mm256_cmp_ps(w0, zero, _CMP_GT_OS)), 
 									     _mm256_castps_si256(_mm256_cmp_ps(w1, zero, _CMP_GT_OS))), 
@@ -159,47 +164,56 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	  // If nfail is greater than -8, we treat this as a failed v1 case
 	  // To do this, convert nfail to an __m256 and get a constant register with a horizontal sum
 	  // Then, make a mask that is all 1 is the constant register is less than -8 (successful v1) or 0 if not (unsuccessful v1)
-	  __mm256 mask = _mm256_cmp_ps(_mm256_cvtepi32_ps(nfail), _mm256_set1_ps(-8), _CMP_LT_OS);
+	  __m256 mask = _mm256_cmp_ps(_mm256_cvtepi32_ps(nfail), _mm256_set1_ps(-8), _CMP_LT_OS);
 
+	  cout << "Calculate the mask" << endl;
 
-	  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	  // Here, we do the variance computation...
-	  // Compute sum of squares -- THIS DOESN"T YET WORK -- NEED TO MULTIPLY BY WEIGHTS!!!! and check if the sum is 0 to prevent nans
-	  vsum = _mm256_fmadd_ps(i3, i3, _mm256_fmadd_ps(i2, i2, _mm256_fmadd_ps(i1, i1, _mm256_mul_ps(i0, i0))));
+	  // Here, we do the variance computation:
+	  vsum = _mm256_fmadd_ps(_mm256_mul_ps(i3, i3), w3, _mm256_fmadd_ps(_mm256_mul_ps(i2, i2), w2, _mm256_fmadd_ps(_mm256_mul_ps(i1, i1), w1, _mm256_mul_ps(_mm256_mul_ps(i0, i0), w0))));
 	  wsum = hadd(_mm256_add_ps(_mm256_add_ps(_mm256_add_ps(w0, w1), w2), w3));
-	  tmp_var = hadd(vsum);
-	  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	  
+	  wsum = _mm256_min_ps(wsum, _mm256_set1_ps(-0.0001));
+	  tmp_var = hadd(vsum / wsum);
 
+	  cout << "Get the variance estimate" << endl;
 	  // Then, use update rules to update value we'll eventually set as our running variance (prevent it from changing too much)
 	  tmp1 = _mm256_fmadd_ps(vw, tmp_var, _mm256_mul_ps(_mm256_set1_ps(1 - var_weight), tmp_var));
-	  tmp2 = _mm256_add_ps(_mm256_add_ps(tmp_var, var_clamp_add), _mm256_mul_ps(tmp_var, _mm256_set1_ps(var_clamp_mult)));
+	  tmp2 = _mm256_add_ps(_mm256_add_ps(tmp_var, _mm256_set1_ps(var_clamp_add)), _mm256_mul_ps(tmp_var, _mm256_set1_ps(var_clamp_mult)));
 	  tmp_var = _mm256_min_ps(tmp1, tmp2);
 	  tmp_var = _mm256_max_ps(tmp_var, _mm256_set1_ps(running_var[ifreq] - var_clamp_add - running_var[ifreq] * var_clamp_mult));
 	  
+	  cout << "Do the variance update" << endl;
+
 	  // Finally, mask fill with the running variance -- if weights less than cutoff AND the mask says our variance estimate passed, fill
 	  res0 = _mm256_blendv_ps(i0, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_and_ps(_mm256_cmp_ps(w0, c, _CMP_LT_OS), mask));
 	  res1 = _mm256_blendv_ps(i1, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_and_ps(_mm256_cmp_ps(w1, c, _CMP_LT_OS), mask));
 	  res2 = _mm256_blendv_ps(i2, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_and_ps(_mm256_cmp_ps(w2, c, _CMP_LT_OS), mask));
 	  res3 = _mm256_blendv_ps(i3, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_and_ps(_mm256_cmp_ps(w3, c, _CMP_LT_OS), mask));
 	  
+	  cout << "Blend the variance" << endl;
+
 	  // We also need to modify the weight values
-	  __m256 w = blendv(_mm256_set1_ps(wclamp), _mm256_set1_ps(-wclamp), mask);    // either +w_clamp or -w_clamp
+	  __m256 w = _mm256_blendv_ps(_mm256_set1_ps(w_clamp), _mm256_set1_ps(-w_clamp), mask);    // either +w_clamp or -w_clamp
 	  tmp_w = _mm256_add_ps(w, tmp_w);
 	  tmp_w = _mm256_max_ps(tmp_w, zero);
 	  tmp_w = _mm256_min_ps(tmp_w, two);
 
-	  // Finally, store the new intensity values
+	  cout << "Blend the weights" << endl;
+
+	  // Store the new intensity values
 	  _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk), res0);
 	  _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk + 8), res1);
 	  _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk + 16), res2);
 	  _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk + 24), res3);
 	  
+	  cout << "Store the intensities" << endl;
+
 	  // Store the new weight values
 	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk), tmp_w);
 	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 8), tmp_w);
 	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 16), tmp_w);
 	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 24), tmp_w);
+
+	  cout << "Store the weights" << endl;
       }
 
       // Update the (scalar) running variance -- thanks Kendrick!
@@ -215,10 +229,10 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
       // so it's not very useful.  Nevertheless if we just write it to memory as an int32,
       // and read back from the same memory location later as a float32, we'll get the
       // right answer.  This doesn't make much sense and there must be a better way to do it!
-      int *running_var[ifreq] = reinterpret_cast<int *> (&running_var[ifreq]);   // hack: (int *) pointing to same memory location as q[0]
-      *running_var[ifreq] = _mm_extract_ps(y, 0); // write a "fake" int32 to this memory location
-      int *running_weights[ifreq] = reinterpret_cast<int *> (&running_weights[ifreq]);   // hack: (int *) pointing to same memory location as q[0]
-      *running_weights[ifreq] = _mm_extract_ps(z, 0); // write a "fake" int32 to this memory location
+      int *i = reinterpret_cast<int *> (&running_var[ifreq]);   // hack: (int *) pointing to same memory location as q[0]
+      *i = _mm_extract_ps(y, 0); // write a "fake" int32 to this memory location
+      int *j = reinterpret_cast<int *> (&running_weights[ifreq]);   // hack: (int *) pointing to same memory location as q[0]
+      *j = _mm_extract_ps(z, 0); // write a "fake" int32 to this memory location
   }
 }
 
