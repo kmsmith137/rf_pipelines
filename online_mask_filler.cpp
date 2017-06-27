@@ -128,7 +128,7 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 {
   __m256 vw = _mm256_set1_ps(var_weight);
   vec_xorshift_plus rn;
-  __m256 vsum, wsum, tmp_var, tmp1, tmp2, w0, w1, w2, w3, i0, i1, i2, i3, res0, res1, res2, res3;
+  __m256 vsum, wsum, tmp_var, tmp_w, tmp1, tmp2, w0, w1, w2, w3, i0, i1, i2, i3, res0, res1, res2, res3;
   __m256 c = _mm256_set1_ps(w_cutoff);
   __m256 root_three = _mm256_sqrt_ps(_mm256_set1_ps(3)); // handy for later
   __m256 two = _mm256_set1_ps(2);
@@ -136,7 +136,8 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
     
   for (int ifreq=0; ifreq<nfreq; ifreq++)
   {
-      tmp_var = _mm256_set1_ps(running_var[ifreq];
+      tmp_var = _mm256_set1_ps(running_var[ifreq]);
+      tmp_w = _mm256_set1_ps(running_weights[ifreq]);
       for (int ichunk=0; ichunk<nt_chunk-1; ichunk += 32)
       {
 	  // Load intensity and weight arrays
@@ -184,9 +185,9 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	  
 	  // We also need to modify the weight values
 	  __m256 w = blendv(_mm256_set1_ps(wclamp), _mm256_set1_ps(-wclamp), mask);    // either +w_clamp or -w_clamp
-	  running_weights += w;
-	  running_weights = _mm256_max_ps(running_weights, 0.0);
-	  running_weights = _mm256_min_ps(running_weights, 2.0);
+	  tmp_w = _mm256_add_ps(w, tmp_w);
+	  tmp_w = _mm256_max_ps(tmp_w, zero);
+	  tmp_w = _mm256_min_ps(tmp_w, two);
 
 	  // Finally, store the new intensity values
 	  _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk), res0);
@@ -194,18 +195,18 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	  _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk + 16), res2);
 	  _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk + 24), res3);
 	  
-	  // Also, bump all weights up to 2.0 -- there is no "failed" variance estimation option yet
-	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk), two);
-	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 8), two);
-	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 16), two);
-	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 24), two);
+	  // Store the new weight values
+	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk), tmp_w);
+	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 8), tmp_w);
+	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 16), tmp_w);
+	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 24), tmp_w);
       }
 
       // Update the (scalar) running variance -- thanks Kendrick!
       // Convert the constant register 'x' to a scalar, and write to q[0].
       // First step: extract elements 0-3 into a 128-bit register.
       __m128 y = _mm256_extractf128_ps(tmp_var, 0);
-      
+      __m128 z = _mm256_extractf128_ps(tmp_w, 0);
       // The second step is really strange!  The intrinsic _mm_extract_ps()
       // extracts element 0 from the 128-bit register, but it has the wrong
       // return type (int32 instead of float32).  The returned value is a "fake"
@@ -214,8 +215,10 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
       // so it's not very useful.  Nevertheless if we just write it to memory as an int32,
       // and read back from the same memory location later as a float32, we'll get the
       // right answer.  This doesn't make much sense and there must be a better way to do it!
-      int *qi = reinterpret_cast<int *> (&running_var[ifreq]);   // hack: (int *) pointing to same memory location as q[0]
-      *qi = _mm_extract_ps(y, 0); // write a "fake" int32 to this memory location
+      int *running_var[ifreq] = reinterpret_cast<int *> (&running_var[ifreq]);   // hack: (int *) pointing to same memory location as q[0]
+      *running_var[ifreq] = _mm_extract_ps(y, 0); // write a "fake" int32 to this memory location
+      int *running_weights[ifreq] = reinterpret_cast<int *> (&running_weights[ifreq]);   // hack: (int *) pointing to same memory location as q[0]
+      *running_weights[ifreq] = _mm_extract_ps(z, 0); // write a "fake" int32 to this memory location
   }
 }
 
