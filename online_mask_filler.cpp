@@ -1,7 +1,6 @@
 #include "rf_pipelines_internals.hpp"
 #include <sys/time.h>
 #include <random>  // for random_device
-#include "emmintrin.h" // for xor intrinsic
 #include "immintrin.h" // for the rest of the intrinsics
 
 using namespace std;
@@ -117,86 +116,107 @@ void online_mask_filler::start_substream(int isubstream, double t0)
 }
 
 
+inline __m256 hadd(__m256 a)
+{
+    __m256 tmp0 = _mm256_add_ps(_mm256_permute2f128_ps(a, a, 0b00100001), a);
+    __m256 tmp1 = _mm256_add_ps(_mm256_permute_ps(tmp0, 0b00111001), tmp0);
+    return _mm256_add_ps(_mm256_permute_ps(tmp1, 0b01001110), tmp1);
+}
+
+
 void online_mask_filler::process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
 {
-  float running_var[nfreq]{}; // holds the actual running variance for each frequency -- initialized to 0
   __m256 vw = _mm256_set1_ps(var_weight);
   vec_xorshift_plus rn;
-  __m256 vsum, tmp_var, tmp1, tmp2, p0, p1, w0, w1, w2, w3, i0, i1, i2, i3, res0, res1, res2, res3;
+  __m256 vsum, wsum, tmp_var, tmp1, tmp2, w0, w1, w2, w3, i0, i1, i2, i3, res0, res1, res2, res3;
   __m256 c = _mm256_set1_ps(w_cutoff);
-  __m256 x; // for the xor at the end
   __m256 root_three = _mm256_sqrt_ps(_mm256_set1_ps(3)); // handy for later
   __m256 two = _mm256_set1_ps(2);
+  __m256 zero = _m256_set1_ps(0);
     
-  for (int iter=0; iter<niter; iter++)
-    {
-      for (int ifreq=0; ifreq<nfreq; ifreq++)
-	{
-	  for (int ichunk=0; ichunk<nt_chunk-1; ichunk += 32)
-	    {
-	      // Load everything
-	      i0 = _mm256_load_ps(intensity + ifreq * stride + ichunk);
-	      i1 = _mm256_load_ps(intensity + ifreq * stride + ichunk + 8);
-	      i2 = _mm256_load_ps(intensity + ifreq * stride + ichunk + 16);
-	      i3 = _mm256_load_ps(intensity + ifreq * stride + ichunk + 24);
-	          
-	      // Compute sum of squares
-	      vsum = _mm256_fmadd_ps(i3, i3, _mm256_fmadd_ps(i2, i2, _mm256_fmadd_ps(i1, i1, _mm256_mul_ps(i0, i0))));
-	      p0 = _mm256_add_ps(_mm256_permute2f128_ps(vsum, vsum, 0b00100001), vsum);
-	      p1 = _mm256_add_ps(_mm256_permute_ps(p0, 0b00111001), p0);
-	      tmp_var = _mm256_add_ps(_mm256_permute_ps(p1, 0b01001110), p1);
-
-	      // Then, use update rules to update running variance
-	      tmp1 = _mm256_fmadd_ps(vw, tmp_var, _mm256_set1_ps(1 - var_weight * running_var[ifreq]));
-	      tmp2 = _mm256_set1_ps(running_var[ifreq] + var_clamp_add + running_var[ifreq] * var_clamp_mult);
-	      tmp_var = _mm256_min_ps(tmp1, tmp2);
-	      tmp_var = _mm256_max_ps(tmp_var, _mm256_set1_ps(running_var[ifreq] - var_clamp_add - running_var[ifreq] * var_clamp_mult));
-	          
-	      // Finally, mask fill with the running variance
-	      w0 = _mm256_load_ps((const float*) weights + ifreq * stride + ichunk);
-	      w1 = _mm256_load_ps((const float*) weights + ifreq * stride + ichunk + 8);
-	      w2 = _mm256_load_ps((const float*) weights + ifreq * stride + ichunk + 16);
-	      w3 = _mm256_load_ps((const float*) weights + ifreq * stride + ichunk + 24);
-	          
-	      // If weights less than cutoff, fill
-	      res0 = _mm256_blendv_ps(i0, _mm256_mul_ps(rn.gen_floats(), root_three), _mm256_cmp_ps(w0, c, _CMP_LT_OS));
-	      res1 = _mm256_blendv_ps(i1, _mm256_mul_ps(rn.gen_floats(), root_three), _mm256_cmp_ps(w1, c, _CMP_LT_OS));
-	      res2 = _mm256_blendv_ps(i2, _mm256_mul_ps(rn.gen_floats(), root_three), _mm256_cmp_ps(w2, c, _CMP_LT_OS));
-	      res3 = _mm256_blendv_ps(i3, _mm256_mul_ps(rn.gen_floats(), root_three), _mm256_cmp_ps(w3, c, _CMP_LT_OS));
-
-	      // Finally, store the new intensity values
-	      _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk), res0);
-	      _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk + 8), res1);
-	      _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk + 16), res2);
-	      _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk + 24), res3);
-
-	      // Also, bump all weights up to 2.0 -- there is no "failed" variance estimation option yet
-	      _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk), two);
-	      _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 8), two);
-	      _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 16), two);
-	      _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 24), two);
-
-	      // Artificial xor and write to force iterations to execute - I'm not quite sure this covers it (e.g. will the stores be forced?)
-	      x = _mm256_xor_ps(_mm256_xor_ps(_mm256_xor_ps(res0, res1), res2), res3);      
-	    }
-
-	  // Update the (scalar) running variance -- thanks Kendrick!
-	  // Convert the constant register 'x' to a scalar, and write to q[0].
-	  // First step: extract elements 0-3 into a 128-bit register.
-	  __m128 y = _mm256_extractf128_ps(tmp_var, 0);
+  for (int ifreq=0; ifreq<nfreq; ifreq++)
+  {
+      tmp_var = _mm256_set1_ps(running_var[ifreq];
+      for (int ichunk=0; ichunk<nt_chunk-1; ichunk += 32)
+      {
+	  // Load intensity and weight arrays
+	  i0 = _mm256_load_ps(intensity + ifreq * stride + ichunk);
+	  i1 = _mm256_load_ps(intensity + ifreq * stride + ichunk + 8);
+	  i2 = _mm256_load_ps(intensity + ifreq * stride + ichunk + 16);
+	  i3 = _mm256_load_ps(intensity + ifreq * stride + ichunk + 24);
+	  w0 = _mm256_load_ps(weights + ifreq * stride + ichunk);
+	  w1 = _mm256_load_ps(weights + ifreq * stride + ichunk + 8);
+	  w2 = _mm256_load_ps(weights + ifreq * stride + ichunk + 16);
+	  w3 = _mm256_load_ps(weights + ifreq * stride + ichunk + 24);
 	  
-	  // The second step is really strange!  The intrinsic _mm_extract_ps()
-	  // extracts element 0 from the 128-bit register, but it has the wrong
-	  // return type (int32 instead of float32).  The returned value is a "fake"
-	  // int32 obtained by interpreting the bit pattern of the "real" float32
-	  // (in IEEE-754 representation) as an int32 (in twos-complement representation),
-	  // so it's not very useful.  Nevertheless if we just write it to memory as an int32,
-	  // and read back from the same memory location later as a float32, we'll get the
-	  // right answer.  This doesn't make much sense and there must be a better way to do it!
-	  int *qi = reinterpret_cast<int *> (&running_var[ifreq]);   // hack: (int *) pointing to same memory location as q[0]
-	  *qi = _mm_extract_ps(y, 0); // write a "fake" int32 to this memory location
-	}
-    }  
+	  // First, we need to see how many of the weights are equal to zero
+	  __m256i nfail = _mm256_add_epi32(_mm256_add_epi32(_mm256_add_epi32(_mm256_castps_si256(_mm256_cmp_ps(w0, zero, _CMP_GT_OS)), 
+									     _mm256_castps_si256(_mm256_cmp_ps(w1, zero, _CMP_GT_OS))), 
+							    _mm256_castps_si256(_mm256_cmp_ps(w2, zero, _CMP_GT_OS))), 
+					   _mm256_castps_si256(_mm256_cmp_ps(w3, zero, _CMP_GT_OS)));
+
+	  // If nfail is greater than -8, we treat this as a failed v1 case
+	  // To do this, convert nfail to an __m256 and get a constant register with a horizontal sum
+	  // Then, make a mask that is all 1 is the constant register is less than -8 (successful v1) or 0 if not (unsuccessful v1)
+	  __mm256 mask = _mm256_cmp_ps(_mm256_cvtepi32_ps(nfail), _mm256_set1_ps(-8), _CMP_LT_OS);
+
+
+	  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	  // Here, we do the variance computation...
+	  // Compute sum of squares -- THIS DOESN"T YET WORK -- NEED TO MULTIPLY BY WEIGHTS!!!! and check if the sum is 0 to prevent nans
+	  vsum = _mm256_fmadd_ps(i3, i3, _mm256_fmadd_ps(i2, i2, _mm256_fmadd_ps(i1, i1, _mm256_mul_ps(i0, i0))));
+	  wsum = hadd(_mm256_add_ps(_mm256_add_ps(_mm256_add_ps(w0, w1), w2), w3));
+	  tmp_var = hadd(vsum);
+	  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	  
+
+	  // Then, use update rules to update value we'll eventually set as our running variance (prevent it from changing too much)
+	  tmp1 = _mm256_fmadd_ps(vw, tmp_var, _mm256_mul_ps(_mm256_set1_ps(1 - var_weight), tmp_var));
+	  tmp2 = _mm256_add_ps(_mm256_add_ps(tmp_var, var_clamp_add), _mm256_mul_ps(tmp_var, _mm256_set1_ps(var_clamp_mult)));
+	  tmp_var = _mm256_min_ps(tmp1, tmp2);
+	  tmp_var = _mm256_max_ps(tmp_var, _mm256_set1_ps(running_var[ifreq] - var_clamp_add - running_var[ifreq] * var_clamp_mult));
+	  
+	  // Finally, mask fill with the running variance -- if weights less than cutoff AND the mask says our variance estimate passed, fill
+	  res0 = _mm256_blendv_ps(i0, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_and_ps(_mm256_cmp_ps(w0, c, _CMP_LT_OS), mask));
+	  res1 = _mm256_blendv_ps(i1, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_and_ps(_mm256_cmp_ps(w1, c, _CMP_LT_OS), mask));
+	  res2 = _mm256_blendv_ps(i2, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_and_ps(_mm256_cmp_ps(w2, c, _CMP_LT_OS), mask));
+	  res3 = _mm256_blendv_ps(i3, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_and_ps(_mm256_cmp_ps(w3, c, _CMP_LT_OS), mask));
+	  
+	  // We also need to modify the weight values
+	  __m256 w = blendv(_mm256_set1_ps(wclamp), _mm256_set1_ps(-wclamp), mask);    // either +w_clamp or -w_clamp
+	  running_weights += w;
+	  running_weights = _mm256_max_ps(running_weights, 0.0);
+	  running_weights = _mm256_min_ps(running_weights, 2.0);
+
+	  // Finally, store the new intensity values
+	  _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk), res0);
+	  _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk + 8), res1);
+	  _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk + 16), res2);
+	  _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk + 24), res3);
+	  
+	  // Also, bump all weights up to 2.0 -- there is no "failed" variance estimation option yet
+	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk), two);
+	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 8), two);
+	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 16), two);
+	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 24), two);
+      }
+
+      // Update the (scalar) running variance -- thanks Kendrick!
+      // Convert the constant register 'x' to a scalar, and write to q[0].
+      // First step: extract elements 0-3 into a 128-bit register.
+      __m128 y = _mm256_extractf128_ps(tmp_var, 0);
+      
+      // The second step is really strange!  The intrinsic _mm_extract_ps()
+      // extracts element 0 from the 128-bit register, but it has the wrong
+      // return type (int32 instead of float32).  The returned value is a "fake"
+      // int32 obtained by interpreting the bit pattern of the "real" float32
+      // (in IEEE-754 representation) as an int32 (in twos-complement representation),
+      // so it's not very useful.  Nevertheless if we just write it to memory as an int32,
+      // and read back from the same memory location later as a float32, we'll get the
+      // right answer.  This doesn't make much sense and there must be a better way to do it!
+      int *qi = reinterpret_cast<int *> (&running_var[ifreq]);   // hack: (int *) pointing to same memory location as q[0]
+      *qi = _mm_extract_ps(y, 0); // write a "fake" int32 to this memory location
+  }
 }
 
 
