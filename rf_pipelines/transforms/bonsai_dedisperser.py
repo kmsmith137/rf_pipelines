@@ -147,7 +147,8 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         if stream.nfreq != self.nfreq:
             raise RuntimeError("rf_pipelines: number of frequencies in stream (nfreq=%d) does not match bonsai config file '%s' (nfreq=%d)" 
                                % (stream.nfreq, self.config_filename, self.nfreq))
-        if stream.nfreq % self.img_ndm != 0:
+
+        if self.make_plot and (stream.nfreq % self.img_ndm != 0):
             raise RuntimeError("bonsai_dedisperser: current implementation requires 'img_ndm' to be a divisor of stream nfreq")
 
 
