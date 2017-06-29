@@ -52,8 +52,8 @@ struct online_mask_filler : public wi_transform {
     const float var_clamp_mult;
     const float w_clamp;
     const float w_cutoff;
-    vector<double> running_weights;
-    vector<double> running_var;
+    vector<float> running_weights;
+    vector<float> running_var;
     vec_xorshift_plus rand_x;
     
     online_mask_filler(int v1_chunk, float var_weight, float var_clamp_add, float var_clamp_mult, float w_clamp, float w_cutoff, int nt_chunk);
@@ -360,12 +360,15 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
       float *holla1 = new float[8];
       memset(holla1, 0, sizeof(float) * 8);
       _mm256_storeu_ps(holla1, prev_w);
-      running_weights[ifreq] = holla1[0];
+      //running_weights[ifreq] = holla1[0];
 
       float *holla = new float[8];
       memset(holla, 0, sizeof(float) * 8);
       _mm256_storeu_ps(holla, prev_var);
-      running_var[ifreq] = holla[0];
+      //running_var[ifreq] = holla[0];
+
+      cout << "The running weight should be " << holla1[0] << " and is " << running_weights[ifreq] << endl;
+      cout << "The running var should be " << holla[0] << " and is " << running_var[ifreq] << endl;
   }
 }
 
