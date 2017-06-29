@@ -142,7 +142,7 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 {
   __m256 vw = _mm256_set1_ps(var_weight);
   vec_xorshift_plus rn;
-  __m256 vsum, wsum, tmp_var, tmp_w, tmp1, tmp2, w0, w1, w2, w3, i0, i1, i2, i3, res0, res1, res2, res3;
+  __m256 vsum, wsum, tmp_var, tmp_w, tmp1, tmp2, tmp3, tmp4, w0, w1, w2, w3, i0, i1, i2, i3, res0, res1, res2, res3;
   __m256 c = _mm256_set1_ps(w_cutoff);
   __m256 root_three = _mm256_sqrt_ps(_mm256_set1_ps(3)); // handy for later
   __m256 two = _mm256_set1_ps(2);
@@ -166,7 +166,17 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	  w2 = _mm256_loadu_ps(weights + ifreq * stride + ichunk + 16);
 	  w3 = _mm256_loadu_ps(weights + ifreq * stride + ichunk + 24);
 
-	  // First, we need to see how many of the weights are equal to zero
+	  // i0 = _mm256_set_ps(0, 1, 2, 3, 4, 5, 6, 7);
+	  // i1 = _mm256_set_ps(8, 9, 10, 11, 12, 13, 14, 15);
+	  // i2 = _mm256_set_ps(16, 17, 18, 19, 20, 21, 22, 23);
+	  // i3 = _mm256_set_ps(24, 25, 26, 27, 28, 29, 30, 31);
+	  
+	  // w0 = _mm256_set_ps(0, 1, 2, 0, 1, 2, 0, 1);
+	  // w1 = _mm256_set_ps(0, 0, 0, 0, 1, 1, 1, 1);
+	  // w2 = _mm256_set_ps(2, 2, 2, 2, 2, 2, 2, 2);
+	  // w3 = _mm256_set_ps(1, 1, 1, 1, 1, 1, 1, 1);
+
+ 	  // First, we need to see how many of the weights are equal to zero
 	  __m256i npass = _mm256_add_epi32(_mm256_add_epi32(_mm256_add_epi32(_mm256_castps_si256(_mm256_cmp_ps(w0, zero, _CMP_GT_OS)),
 									     _mm256_castps_si256(_mm256_cmp_ps(w1, zero, _CMP_GT_OS))), 
 							    _mm256_castps_si256(_mm256_cmp_ps(w2, zero, _CMP_GT_OS))), 
@@ -188,7 +198,7 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	  //   float *w2s = new float[8];
 	  //   float *w3s = new float[8];
 	  //   int *nfails = new int[8];
-	  //   float *masks = new float[8];
+	  //   int *masks = new int[8];
 	  //   float *hsumnfails = new float[8];
 	  //   memset(i0s, 0, 8 * sizeof(float));
 	  //   memset(i1s, 0, 8 * sizeof(float));
@@ -198,9 +208,9 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	  //   memset(w1s, 0, 8 * sizeof(float));
 	  //   memset(w2s, 0, 8 * sizeof(float));
 	  //   memset(w3s, 0, 8 * sizeof(float));
-	  //   memset(masks, 0, 8 * sizeof(float));
+	  //   memset(masks, 0, 8 * sizeof(int));
 	  //   memset(nfails, 0, 8 * sizeof(int));
-	  //   memset(hsumnfails, 0, 8 * sizeof(int));
+	  //   memset(hsumnfails, 0, 8 * sizeof(float));
 	  //   _mm256_storeu_ps(i0s, i0);
 	  //   _mm256_storeu_ps(i1s, i1);
 	  //   _mm256_storeu_ps(i2s, i2);
@@ -209,7 +219,7 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	  //   _mm256_storeu_ps(w1s, w1);
 	  //   _mm256_storeu_ps(w2s, w2);
 	  //   _mm256_storeu_ps(w3s, w3);
-	  //   _mm256_storeu_ps(masks, mask);
+	  //   _mm256_storeu_si256((__m256i *) masks, _mm256_castps_si256(mask));
 	  //   _mm256_storeu_si256((__m256i *) nfails, npass);
 	  //   _mm256_storeu_ps(hsumnfails, hadd(_mm256_cvtepi32_ps(npass)));
 	  //   cout << "i/w 0: ";
@@ -224,66 +234,83 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	  //   cout << "i/w 3: ";
 	  //   print_arr(i3s);
 	  //   print_arr(w3s);
-	  //   cout << "nfail/hsum/mask: ";
+	  //   cout << "npass/hsum/mask: ";
 	  //   print_arri(nfails);
 	  //   print_arr(hsumnfails);
-	  //   print_arr(masks);
+	  //   print_arri(masks);
 	  // }
+	  // cout << "---" << endl;
 
 	  // Here, we do the variance computation:
 	  vsum = hadd(_mm256_fmadd_ps(_mm256_mul_ps(i3, i3), w3, _mm256_fmadd_ps(_mm256_mul_ps(i2, i2), w2, _mm256_fmadd_ps(_mm256_mul_ps(i1, i1), w1, _mm256_mul_ps(_mm256_mul_ps(i0, i0), w0)))));
 	  wsum = hadd(_mm256_add_ps(_mm256_add_ps(_mm256_add_ps(w0, w1), w2), w3));
 	  wsum = _mm256_max_ps(wsum, _mm256_set1_ps(1.0));
 	  tmp_var = vsum / wsum;
+	  // float *tmp_var_interm = new float[8];
+	  // memset(tmp_var_interm, 0, sizeof(float) * 8);
+	  // _mm256_storeu_ps(tmp_var_interm, tmp_var);
+	  // cout << "TMP VAR!!! ";
+	  // print_arr(tmp_var_interm);
+	  // cout << "------------------" << endl;
+	  
+	  // From testing with fake data, I know everything up to here works. The rest needs to be debugged by staring :/
 
 	  // Then, use update rules to update value we'll eventually set as our running variance (prevent it from changing too much)
 	  tmp1 = _mm256_fmadd_ps(vw, tmp_var, _mm256_mul_ps(_mm256_set1_ps(1 - var_weight), prev_var)); // how we normally update
 	  tmp2 = _mm256_add_ps(_mm256_add_ps(prev_var, _mm256_set1_ps(var_clamp_add)), _mm256_mul_ps(prev_var, _mm256_set1_ps(var_clamp_mult))); // we don't want it to increase by more than this
-	  tmp_var = _mm256_min_ps(tmp1, tmp2);
-	  tmp2 = _mm256_sub_ps(_mm256_sub_ps(prev_var, _mm256_set1_ps(var_clamp_add)), _mm256_mul_ps(prev_var, _mm256_set1_ps(var_clamp_mult))); // we don't want it to DEcrease by more than this
-	  tmp_var = _mm256_max_ps(tmp_var, tmp2);
+	  tmp3 = _mm256_min_ps(tmp1, tmp2);
+	  tmp4 = _mm256_sub_ps(_mm256_sub_ps(prev_var, _mm256_set1_ps(var_clamp_add)), _mm256_mul_ps(prev_var, _mm256_set1_ps(var_clamp_mult))); // we don't want it to DEcrease by more than this
+	  tmp_var = _mm256_max_ps(tmp3, tmp4);
 	  prev_var = tmp_var;
 
 	  // Finally, mask fill with the running variance -- if weights less than cutoff AND the mask says our variance estimate passed, fill
+	  // int *mask1 = new int[8];
+	  // int *mask2 = new int[8];
+	  // int *mask3 = new int[8];
+	  // int *mask4 = new int[8];
+	  // memset(mask1, 0, sizeof(int) * 8);
+	  // memset(mask2, 0, sizeof(int) * 8);
+	  // memset(mask3, 0, sizeof(int) * 8);
+	  // memset(mask4, 0, sizeof(int) * 8);
+	  // _mm256_storeu_si256((__m256i *) mask1, _mm256_castps_si256(_mm256_and_ps(_mm256_cmp_ps(w0, c, _CMP_LT_OS), mask)));
+	  // _mm256_storeu_si256((__m256i *) mask2, _mm256_castps_si256(_mm256_and_ps(_mm256_cmp_ps(w1, c, _CMP_LT_OS), mask)));
+	  // _mm256_storeu_si256((__m256i *) mask3, _mm256_castps_si256(_mm256_and_ps(_mm256_cmp_ps(w2, c, _CMP_LT_OS), mask)));
+	  // _mm256_storeu_si256((__m256i *) mask4, _mm256_castps_si256(_mm256_and_ps(_mm256_cmp_ps(w3, c, _CMP_LT_OS), mask)));
+	  // cout << "Intensity mask 1 ";
+	  // print_arri(mask1);
+  	  // cout << "Intensity mask 2 ";
+	  // print_arri(mask2);
+  	  // cout << "Intensity mask 3 ";
+	  // print_arri(mask3);
+  	  // cout << "Intensity mask 4 ";
+	  // print_arri(mask4);
+  
 	  res0 = _mm256_blendv_ps(i0, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_and_ps(_mm256_cmp_ps(w0, c, _CMP_LT_OS), mask));
 	  res1 = _mm256_blendv_ps(i1, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_and_ps(_mm256_cmp_ps(w1, c, _CMP_LT_OS), mask));
 	  res2 = _mm256_blendv_ps(i2, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_and_ps(_mm256_cmp_ps(w2, c, _CMP_LT_OS), mask));
 	  res3 = _mm256_blendv_ps(i3, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_and_ps(_mm256_cmp_ps(w3, c, _CMP_LT_OS), mask));
 	  
+	  // float *ires0 = new float[8];
+	  // float *ires1 = new float[8];
+	  // float *ires2 = new float[8];
+	  // float *ires3 = new float[8];
+	  // memset(ires0, 0, sizeof(float) * 8);
+	  // memset(ires1, 0, sizeof(float) * 8);
+	  // memset(ires2, 0, sizeof(float) * 8);
+	  // memset(ires3, 0, sizeof(float) * 8);
+	  // _mm256_storeu_ps(ires0, res0);
+	  // _mm256_storeu_ps(ires1, res1);
+	  // _mm256_storeu_ps(ires2, res2);
+	  // _mm256_storeu_ps(ires3, res3);
+	  // print_arr(ires0);
+	  // print_arr(ires1);
+	  // print_arr(ires2);
+	  // print_arr(ires3);
+
 	  // We also need to modify the weight values
-	  float *blah0 = new float[8];
-	  float *blah1 = new float[8];
-	  float *blah2 = new float[8];
-
-	  memset(blah0, 0, sizeof(float) * 8);
-	  memset(blah1, 0, sizeof(float) * 8);
-	  memset(blah2, 0, sizeof(float) * 8);
-
 	  __m256 w = _mm256_blendv_ps(_mm256_set1_ps(-w_clamp), _mm256_set1_ps(w_clamp), mask);    // either +w_clamp or -w_clamp
-	  _mm256_storeu_ps(blah0, w);
-
-	  tmp_w = _mm256_add_ps(w, prev_w);
-	  _mm256_storeu_ps(blah1, tmp_w);
-
-	  tmp_w = _mm256_max_ps(tmp_w, zero);
-	  _mm256_storeu_ps(blah2, tmp_w);
-
-	  tmp_w = _mm256_min_ps(tmp_w, two);
-
-	  // if (ifreq == 450 && ichunk == 3*32)
-	  // {
-	  // for (int i=0; i<8; i++)
-	  //   cout << blah0[i] << " ";
-	  // cout << "\n";
-
-	  // for (int i=0; i<8; i++)
-	  //   cout << blah1[i] << " ";
-	  // cout << "\n";
-
-	  // for (int i=0; i<8; i++)
-	  //   cout << blah2[i] << " ";
-	  // cout << "\n";
-	  // }
+	  w = _mm256_min_ps(_mm256_max_ps(_mm256_add_ps(w, prev_w), zero), two);
+	  prev_w = w;
 
 	  // Store the new intensity values
 	  _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk), res0);
@@ -293,13 +320,14 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	  
 	  // Store the new weight values
 	  // Also, I don't think this is quite right -- need to use mask?x
-	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk), tmp_w);
-	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 8), tmp_w);
-	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 16), tmp_w);
-	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 24), tmp_w);
+	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk), w);
+	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 8), w);
+	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 16), w);
+	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 24), w);
 	  
-	  // if (ifreq == 450 && ichunk == 3*32)
+	  // if (ifreq == 450 && ichunk == 0)
 	  // {
+	  //   cout << "ifreq: " << ifreq << "   ichunk: " << ichunk/32. << endl;
 	  // cout << "i: ";
 	  // for (int i=0; i<32; i++)
 	  //   cout << intensity[ifreq*stride + ichunk + i] << " ";
@@ -314,8 +342,8 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
       // Update the (scalar) running variance -- thanks Kendrick!
       // Convert the constant register 'x' to a scalar, and write to q[0].
       // First step: extract elements 0-3 into a 128-bit register.
-      __m128 y = _mm256_extractf128_ps(tmp_var, 0);
-      __m128 z = _mm256_extractf128_ps(tmp_w, 0);
+      __m128 y = _mm256_extractf128_ps(prev_var, 0);
+      __m128 z = _mm256_extractf128_ps(prev_w, 0);
       // The second step is really strange!  The intrinsic _mm_extract_ps()
       // extracts element 0 from the 128-bit register, but it has the wrong
       // return type (int32 instead of float32).  The returned value is a "fake"
@@ -331,7 +359,7 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 
       float *holla1 = new float[8];
       memset(holla1, 0, sizeof(float) * 8);
-      _mm256_storeu_ps(holla1, tmp_w);
+      _mm256_storeu_ps(holla1, prev_w);
       running_weights[ifreq] = holla1[0];
 
       float *holla = new float[8];
