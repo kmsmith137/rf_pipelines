@@ -10,15 +10,23 @@ namespace rf_pipelines {
 };  // pacify emacs c-mode
 #endif
 
+
 // -------------------------------------------------------------------------------------------------
 // Class for random number generation
 // Generates eight random 32-bit floats using a vectorized implementation of xorshift+
 // between (-1, 1)
-struct vec_xorshift_plus {
-  random_device rd;
-  __m256i s0 = _mm256_setr_epi64x(rd(), rd(), rd(), rd());
-  __m256i s1 = _mm256_setr_epi64x(rd(), rd(), rd(), rd());
-  
+static random_device rd;
+struct vec_xorshift_plus
+{
+  // Seed values
+  __m256i s0; 
+  __m256i s1;
+
+  // Initialize seeds to random device, unless alternate seeds are specified
+  vec_xorshift_plus(__m256i _s0 = _mm256_setr_epi64x(rd(), rd(), rd(), rd()), __m256i _s1 = _mm256_setr_epi64x(rd(), rd(), rd(), rd())) : s0(_s0), s1(_s1) {};
+
+  // Generates 256 random bits (interpreted as 8 signed floats)
+  // Returns an __m256 vector, so bits must be stored using _mm256_storeu_ps() intrinsic!
   inline __m256 gen_floats()
   {
     // x = s0
@@ -34,17 +42,15 @@ struct vec_xorshift_plus {
     s1 = _mm256_xor_si256(s1, _mm256_srli_epi64(x, 17));
     s1 = _mm256_xor_si256(s1, _mm256_srli_epi64(y, 26));
       
-    // Let's convert to 8 signed 32-bit floats and return that
-    // This will give us random numbers centered around 0!
-    // We also need to multiply by a prefactor of 2^(-31) to get
-    // the range to be (-1, 1)
+    // Convert to 8 signed 32-bit floats in range (-1, 1), since we multiply by 
+    // a prefactor of 2^(-31)
     return _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi64(y, s1)), _mm256_set1_ps(4.6566129e-10));
   }
 };
 
 // -------------------------------------------------------------------------------------------------
 // Online mask filler class
-// Does good stuff
+//  
 struct online_mask_filler : public wi_transform {
     const int v1_chunk;
     const float var_weight;
@@ -110,7 +116,6 @@ void online_mask_filler::set_stream(const wi_stream &stream)
 
 void online_mask_filler::start_substream(int isubstream, double t0)
 {
-    // All are initialized to 0 this way
     running_var.resize(nfreq);
     running_weights.resize(nfreq);
 }
@@ -123,6 +128,36 @@ inline __m256 hadd(__m256 a)
     return _mm256_add_ps(_mm256_permute_ps(tmp1, 0b01001110), tmp1);
 }
 
+inline __m256i check_weights(__m256 w0, __m256 w1, __m256 w2, __m256 w3)
+{
+    __m256 zero = _mm256_set1_ps(0.0);
+    __m256i w0_mask = _mm256_castps_si256(_mm256_cmp_ps(w0, zero, _CMP_GT_OS));
+    __m256i w1_mask = _mm256_castps_si256(_mm256_cmp_ps(w1, zero, _CMP_GT_OS));
+    __m256i w2_mask = _mm256_castps_si256(_mm256_cmp_ps(w2, zero, _CMP_GT_OS));
+    __m256i w3_mask = _mm256_castps_si256(_mm256_cmp_ps(w3, zero, _CMP_GT_OS));
+    return _mm256_add_epi32(_mm256_add_epi32(_mm256_add_epi32(w0_mask, w1_mask), w2_mask), w3_mask);
+}
+
+inline __m256 var_est(__m256 w0, __m256 w1, __m256 w2, __m256 w3, __m256 i0, __m256 i1, __m256 i2, __m256 i3)
+{
+    __m256 wi0 = _mm256_mul_ps(_mm256_mul_ps(i0, i0), w0);
+    __m256 wi01 = _mm256_fmadd_ps(_mm256_mul_ps(i1, i1), w1, wi0);
+    __m256 wi012 = _mm256_fmadd_ps(_mm256_mul_ps(i2, i2), w2, wi01);
+    __m256 wi0123 = _mm256_fmadd_ps(_mm256_mul_ps(i3, i3), w3, wi012);
+    __m256 vsum = hadd(wi0123);
+    __m256 wsum = hadd(_mm256_add_ps(_mm256_add_ps(_mm256_add_ps(w0, w1), w2), w3));
+    wsum = _mm256_max_ps(wsum, _mm256_set1_ps(1.0));
+    return _mm256_div_ps(vsum, wsum);
+}
+
+inline __m256 update_var(__m256 tmp_var, __m256 prev_var, float var_weight, float var_clamp_add, float var_clamp_mult)
+{
+    __m256 normal_upd = _mm256_fmadd_ps(_mm256_set1_ps(var_weight), tmp_var, _mm256_mul_ps(_mm256_set1_ps(1 - var_weight), prev_var)); 
+    __m256 high = _mm256_add_ps(_mm256_add_ps(prev_var, _mm256_set1_ps(var_clamp_add)), _mm256_mul_ps(prev_var, _mm256_set1_ps(var_clamp_mult))); 
+    __m256 low = _mm256_sub_ps(_mm256_sub_ps(prev_var, _mm256_set1_ps(var_clamp_add)), _mm256_mul_ps(prev_var, _mm256_set1_ps(var_clamp_mult))); 
+    return _mm256_max_ps(_mm256_min_ps(normal_upd, high), low);
+}
+
 inline void print_arr(__m256 a)
 {
   float arr[8];
@@ -131,6 +166,7 @@ inline void print_arr(__m256 a)
     cout << arr[i] << " ";
   cout << "\n";
 }
+
 
 inline void print_arri(__m256i a)
 {
@@ -144,9 +180,8 @@ inline void print_arri(__m256i a)
 
 void online_mask_filler::process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
 {
-  __m256 vw = _mm256_set1_ps(var_weight);
   vec_xorshift_plus rn;
-  __m256 vsum, wsum, tmp_var, tmp1, tmp2, tmp3, tmp4, w0, w1, w2, w3, i0, i1, i2, i3, res0, res1, res2, res3;
+  __m256 tmp_var, w0, w1, w2, w3, i0, i1, i2, i3, res0, res1, res2, res3;
   __m256 c = _mm256_set1_ps(w_cutoff);
   __m256 root_three = _mm256_sqrt_ps(_mm256_set1_ps(3)); // handy for later
   __m256 two = _mm256_set1_ps(2);
@@ -181,11 +216,7 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	  // w3 = _mm256_set_ps(1, 1, 1, 1, 1, 1, 1, 1);
 
  	  // First, we need to see how many of the weights are equal to zero
-	  __m256i npass = _mm256_add_epi32(_mm256_add_epi32(_mm256_add_epi32(_mm256_castps_si256(_mm256_cmp_ps(w0, zero, _CMP_GT_OS)),
-									     _mm256_castps_si256(_mm256_cmp_ps(w1, zero, _CMP_GT_OS))), 
-							    _mm256_castps_si256(_mm256_cmp_ps(w2, zero, _CMP_GT_OS))), 
-					   _mm256_castps_si256(_mm256_cmp_ps(w3, zero, _CMP_GT_OS)));
-
+	  __m256i npass = check_weights(w0, w1, w2, w3);
 	  // If nfail is greater than -8, we treat this as a failed v1 case
 	  // To do this, convert nfail to an __m256 and get a constant register with a horizontal sum
 	  // Then, make a mask that is all 1 is the constant register is less than -8 (successful v1) or 0 if not (unsuccessful v1)
@@ -213,20 +244,13 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	  // cout << "---" << endl;
 
 	  // Here, we do the variance computation:
-	  vsum = hadd(_mm256_fmadd_ps(_mm256_mul_ps(i3, i3), w3, _mm256_fmadd_ps(_mm256_mul_ps(i2, i2), w2, _mm256_fmadd_ps(_mm256_mul_ps(i1, i1), w1, _mm256_mul_ps(_mm256_mul_ps(i0, i0), w0)))));
-	  wsum = hadd(_mm256_add_ps(_mm256_add_ps(_mm256_add_ps(w0, w1), w2), w3));
-	  wsum = _mm256_max_ps(wsum, _mm256_set1_ps(1.0));
-	  tmp_var = vsum / wsum;
+	  tmp_var = var_est(w0, w1, w2, w3, i0, i1, i2, i3);
 	  // cout << "TMP VAR!!! ";
 	  // print_arr(tmp_var);
 	  // cout << "------------------" << endl;
 	  
 	  // Then, use update rules to update value we'll eventually set as our running variance (prevent it from changing too much)
-	  tmp1 = _mm256_fmadd_ps(vw, tmp_var, _mm256_mul_ps(_mm256_set1_ps(1 - var_weight), prev_var)); // how we normally update
-	  tmp2 = _mm256_add_ps(_mm256_add_ps(prev_var, _mm256_set1_ps(var_clamp_add)), _mm256_mul_ps(prev_var, _mm256_set1_ps(var_clamp_mult))); // we don't want it to increase by more than this
-	  tmp3 = _mm256_min_ps(tmp1, tmp2);
-	  tmp4 = _mm256_sub_ps(_mm256_sub_ps(prev_var, _mm256_set1_ps(var_clamp_add)), _mm256_mul_ps(prev_var, _mm256_set1_ps(var_clamp_mult))); // we don't want it to DEcrease by more than this
-	  tmp_var = _mm256_max_ps(tmp3, tmp4);
+	  tmp_var = update_var(tmp_var, prev_var, var_weight, var_clamp_add, var_clamp_mult);
 	  prev_var = tmp_var;
 
 	  // Finally, mask fill with the running variance -- if weights less than cutoff AND the mask says our variance estimate passed, fill
