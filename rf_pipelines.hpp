@@ -307,6 +307,7 @@ extern std::shared_ptr<wi_transform> make_pulse_adder(ssize_t nt, std::vector<st
 // The online_mask_filler maintains a running estimate of the per-channel intensity 
 // variance, and "fills in" the RFI mask with random noise.
 extern std::shared_ptr<wi_transform> make_online_mask_filler(int v1_chunk, float var_weight, float var_clamp_add, float var_clamp_mult, float w_clamp, float w_cutoff, int nt_chunk);
+extern std::shared_ptr<wi_transform> make_scalar_mask_filler(int v1_chunk, float var_weight, float var_clamp_add, float var_clamp_mult, float w_clamp, float w_cutoff, int nt_chunk);
 
 
 //

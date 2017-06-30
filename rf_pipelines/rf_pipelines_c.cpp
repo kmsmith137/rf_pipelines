@@ -1703,6 +1703,65 @@ static PyObject *make_online_mask_filler(PyObject *self, PyObject *args, PyObjec
 }
 
 
+// Copied and pasted the above for the scalar mask filler! 
+static PyObject *make_scalar_mask_filler(PyObject *self, PyObject *args, PyObject *kwds)
+{
+    // Step 1: We want to arrange things so that this function is callable from python as
+    //
+    //   make_online_mask_filler(v1_chunk, var_weight, var_clamp_add, 
+    //                           var_clamp_mult, w_clamp, w_cutoff, nt_chunk)
+    //
+    // where the arguments have python types (int, float, float, float, float, float, int).
+    // We want to convert to C++ (int, float, float, float, float, float, int), with a
+    // python exception raised if there is an error (like datatype mismatch or wrong number 
+    // of arguments).  
+    //
+    // This kind of simple conversion can be done using the function PyArg_ParseTupleAndKeywords(), 
+    // which is part of the python interpreter.  For documentation see:
+    //
+    //   https://docs.python.org/2/c-api/arg.html
+    //
+    // If you need to do more complicated conversions (e.g. python list-of-integers to
+    // C++ std::vector<int>) it can be a real mess, just let me know if this arises!
+
+    static const char *kwlist[] = { "v1_chunk", "var_weight", "var_clamp_add", "var_clamp_mult",
+				    "w_clamp", "w_cutoff", "nt_chunk" };
+
+    int v1_chunk = 0;
+    float var_weight = 0.0;
+    float var_clamp_add = 0.0;
+    float var_clamp_mult = 0.0;
+    float w_clamp = 0.0;
+    float w_cutoff = 0.0;
+    int nt_chunk = 0;
+
+    // The "ifffffi" format string indicates that the C++ data types of the variables which
+    // follow are (int, float, float, float, float, float, int).
+    //
+    // Warning: PyArg_ParseTupleAndKeywords() is "fragile", in the sense that minor errors
+    // will cause it to segfault or otherwise behave disastrously!  (E.g. forgetting to
+    // terminate 'kwlist' with a null pointer, or mismatch between the format string and
+    // the C++ data types of the variables which follow)
+    //
+    // If an error occurs (e.g. datatype mismatch, wrong number of arguments) then
+    // returning a null pointer from this function will raise an exception in the python caller.
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ifffffi", (char **)kwlist, &v1_chunk, &var_weight,
+				     &var_clamp_add, &var_clamp_mult, &w_clamp, &w_cutoff, &nt_chunk))
+	return NULL;
+
+    // Step 2: Now that all arguments have been converted, call rf_pipelines::make_scalar_mask_filler().
+    // This returns a shared_ptr<rf_pipelines::wi_transform>.
+    auto ret = rf_pipelines::make_scalar_mask_filler(v1_chunk, var_weight, var_clamp_add, var_clamp_mult, w_clamp, w_cutoff, nt_chunk);
+
+    // Step 3: convert the C++ transform to a python object.
+    // This is a long convoluted process, but it's all encapsulated in the function
+    // wi_transform_object::make(), defined elsewhere in this file!
+
+    return wi_transform_object::make(ret);
+}
+
+
 // FIXME improve?
 static constexpr const char *dummy_module_method_docstring = 
     "This is a C++ function in the rf_pipelines_c module.\n"
@@ -1856,6 +1915,9 @@ static constexpr const char *make_badchannel_mask_docstring =
 static constexpr const char *make_online_mask_filler_docstring =
     "For documentation, see docstring for rf_pipelines.online_mask_filler.";
 
+static constexpr const char *make_scalar_mask_filler_docstring =
+    "For documentation, see docstring for rf_pipelines.scalar_mask_filler.";
+
 
 // -------------------------------------------------------------------------------------------------
 
@@ -1874,6 +1936,7 @@ static PyMethodDef module_methods[] = {
     { "make_chime_file_writer", tc_wrap2<make_chime_file_writer>, METH_VARARGS, dummy_module_method_docstring },
     { "make_badchannel_mask", tc_wrap2<make_badchannel_mask>, METH_VARARGS, make_badchannel_mask_docstring },
     { "make_online_mask_filler", (PyCFunction) tc_wrap3<make_online_mask_filler>, METH_VARARGS | METH_KEYWORDS, make_online_mask_filler_docstring },
+    { "make_scalar_mask_filler", (PyCFunction) tc_wrap3<make_scalar_mask_filler>, METH_VARARGS | METH_KEYWORDS, make_scalar_mask_filler_docstring },
     { "apply_polynomial_detrender", (PyCFunction) tc_wrap3<apply_polynomial_detrender>, METH_VARARGS | METH_KEYWORDS, apply_polynomial_detrender_docstring },
     { "apply_intensity_clipper", (PyCFunction) tc_wrap3<apply_intensity_clipper>, METH_VARARGS | METH_KEYWORDS, apply_intensity_clipper_docstring },
     { "apply_std_dev_clipper", (PyCFunction) tc_wrap3<apply_std_dev_clipper>, METH_VARARGS | METH_KEYWORDS, apply_std_dev_clipper_docstring },

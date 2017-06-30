@@ -126,7 +126,7 @@ inline __m256 hadd(__m256 a)
 inline void print_arr(__m256 a)
 {
   float arr[8];
-  _mm256_storeu_ps(&arr, a);
+  _mm256_storeu_ps((float *) &arr, a);
   for (int i=0; i<8; ++i)
     cout << arr[i] << " ";
   cout << "\n";
@@ -146,7 +146,7 @@ void online_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 {
   __m256 vw = _mm256_set1_ps(var_weight);
   vec_xorshift_plus rn;
-  __m256 vsum, wsum, tmp_var, tmp_w, tmp1, tmp2, tmp3, tmp4, w0, w1, w2, w3, i0, i1, i2, i3, res0, res1, res2, res3;
+  __m256 vsum, wsum, tmp_var, tmp1, tmp2, tmp3, tmp4, w0, w1, w2, w3, i0, i1, i2, i3, res0, res1, res2, res3;
   __m256 c = _mm256_set1_ps(w_cutoff);
   __m256 root_three = _mm256_sqrt_ps(_mm256_set1_ps(3)); // handy for later
   __m256 two = _mm256_set1_ps(2);
