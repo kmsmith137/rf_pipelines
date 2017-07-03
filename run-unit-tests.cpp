@@ -255,11 +255,15 @@ static void run_pipeline_unit_tests(std::mt19937 &rng)
 // -------------------------------------------------------------------------------------------------
 
 
+namespace rf_pipelines { extern void run_online_mask_filler_unit_tests(); }
+
+
 int main(int argc, char **argv)
 {
     std::random_device rd;
     std::mt19937 rng(rd());
 
+    run_online_mask_filler_unit_tests();
     wraparound_buf::run_unit_tests(rng);
     run_pipeline_unit_tests(rng);
 

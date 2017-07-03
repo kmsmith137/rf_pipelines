@@ -298,4 +298,11 @@ shared_ptr<wi_transform> make_online_mask_filler(int v1_chunk, float var_weight,
 }
 
 
+// Externally-visible function for unit testing
+void run_online_mask_filler_unit_tests()
+{
+    cout << "run_online_mask_filler_unit_tests: placeholder for now!\n";
+}
+
+
 }  // namespace rf_pipelines
