@@ -1,4 +1,5 @@
 #include "rf_pipelines_internals.hpp"
+#include <algorithm> // for min/max for scalar mask filler
 #include <sys/time.h>
 #include <random>  // for random_device
 #include "immintrin.h" // for the rest of the intrinsics
@@ -47,6 +48,92 @@ struct vec_xorshift_plus
     return _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi64(y, s1)), _mm256_set1_ps(4.6566129e-10));
   }
 };
+
+// -------------------------------------------------------------------------------------------------
+// Class for random number generation
+// Generates eight random 32-bit floats using a vectorized implementation of xorshift+
+// between (-1, 1)
+struct test_xorshift_plus
+{
+  uint64_t s0;
+  uint64_t s1;
+
+  test_xorshift_plus(uint64_t _s0 = rd(), uint64_t _s1 = rd()) : s0{_s0}, s1{_s1} {};
+  
+  inline void gen_floats(float &v1, float &v2)
+  {
+    uint64_t x = s0;
+    uint64_t y = s1;
+
+    s0 = y;
+    x ^= (x << 23);
+    s1 = x ^ y ^ (x >> 17) ^ (y >> 26);
+    
+    uint64_t tmp = s1 + y;
+    uint32_t tmp0 = tmp; // low 32 bits
+    uint32_t tmp1 = tmp >> 32; // high 32
+    
+    v1 = float(int32_t(tmp0)) * 4.6566129e-10;
+    v2 = float(int32_t(tmp1)) * 4.6566129e-10;
+  }
+};
+
+void print_vec(float *a)
+{
+    for (int i=0; i < 8; i++)
+        cout << a[i] << " ";
+    cout << "\n\n";
+}
+
+bool test_xorshift(uint64_t i=3289321, uint64_t j=4328934, int niter=100)
+{
+    float rn1 = rd();
+    float rn2 = rd();
+    float rn3 = rd();
+    float rn4 = rd();
+    float rn5 = rd();
+    float rn6 = rd();
+    float rn7 = rd();
+    float rn8 = rd();
+
+    vec_xorshift_plus a(_mm256_setr_epi64x(rn1, rn3, rn5, rn7), _mm256_setr_epi64x(rn2, rn4, rn6, rn8));
+    float vrn_vec[8];
+
+    test_xorshift_plus b(rn1, rn2);
+    test_xorshift_plus c(rn3, rn4);
+    test_xorshift_plus d(rn5, rn6);
+    test_xorshift_plus e(rn7, rn8);
+    float srn1, srn2, srn3, srn4, srn5, srn6, srn7, srn8;
+    
+
+    for (int iter=0; iter < niter; iter++)
+    {
+        __m256 vrn = a.gen_floats();
+	_mm256_storeu_ps(&vrn_vec[0], vrn);
+	b.gen_floats(srn1, srn2);
+	c.gen_floats(srn3, srn4);
+	d.gen_floats(srn5, srn6);
+	e.gen_floats(srn7, srn8);
+	float srn_vec[8] = {srn1, srn2, srn3, srn4, srn5, srn6, srn7, srn8};
+
+        for (int i=0; i<8; i++)
+	{
+	    if (srn_vec[i] != vrn_vec[i])
+	    {
+  	        cout << "S code outputs: ";
+ 	        print_vec(srn_vec);
+		cout << "V code outputs: ";
+		print_vec(vrn_vec);
+		cout << "rng test failed: scalar and vectorized prngs are out of sync!" << endl;
+		return false;
+	    }
+	}
+    }
+
+    cout << "All rng tests passed." << endl;
+    return true;
+}
+
 
 // -------------------------------------------------------------------------------------------------
 // Online mask filler class
@@ -287,22 +374,227 @@ void online_mask_filler::end_substream()
 }
 
 
+
+
+
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// scalar_mask_filler class
+//
+// Note: the online_mask_filler class declaration, and definitions of member functions
+// are local to this file, but at the end we define the externally-visible factory
+// function make_online_mask_filler(), which returns a pointer to a new online_mask_filler
+// object.
+//
+// Recommended reading: the declaration of 'struct wi_transform' in rf_pipelines.hpp
+// and comments contained therein.  This will explain (I hope!) what needs to be implemented,
+// for example in scalar_mask_filler::process_chunk().
+
+struct xorshift_plus {
+  // Initial seed given by arbitrary hardcoded constants.
+  // This is fine for timing, but should come from a std::random_device in production.
+  uint64_t s0 = 3289321;
+  uint64_t s1 = 4328934;
+
+  // Returns a random integer in the range (0, 2^64-1).
+  inline uint64_t gen_u64()
+  {
+    uint64_t x = s0;
+    uint64_t y = s1;
+    s0 = y;
+    x ^= (x << 23);
+    s1 = x ^ y ^ (x >> 17) ^ (y >> 26);
+    return s1 + y;
+  }
+
+  // Returns a random float in the range (0,1).
+  inline float gen_float()
+  {
+    // The prefactor here is 2^(-64).
+    return 5.421010862e-20f * float(gen_u64());
+  }
+};
+
+
+struct scalar_mask_filler : public wi_transform {
+    // Specified at construction.
+    // Note that nt_chunk is a member of the wi_transform base class.
+    const int v1_chunk;
+    const float var_weight;
+    const float var_clamp_add;
+    const float var_clamp_mult;
+    const float w_clamp;
+    const float w_cutoff;
+    vector<double> running_weights;
+    vector<double> running_var;
+  //    std::mt19937 mt_rand;
+    xorshift_plus rand_x;
+    
+    scalar_mask_filler(int v1_chunk, float var_weight, float var_clamp_add, float var_clamp_mult, float w_clamp, float w_cutoff, int nt_chunk);
+ 
+    // Override pure virtual member functions in the wi_transform base class.
+    // The definitions of these functions below will define the behavior of the online_mask_filler.
+    virtual void set_stream(const wi_stream &stream) override;
+    virtual void start_substream(int isubstream, double t0) override;
+    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override;
+    virtual void end_substream() override;
+};
+
+
+scalar_mask_filler::scalar_mask_filler(int v1_chunk_, float var_weight_, float var_clamp_add_, float var_clamp_mult_, float w_clamp_, float w_cutoff_, int nt_chunk_) :
+    v1_chunk(v1_chunk_),
+    var_weight(var_weight_),
+    var_clamp_add(var_clamp_add_),
+    var_clamp_mult(var_clamp_mult_),
+    w_clamp(w_clamp_),
+    w_cutoff(w_cutoff_)
+{
+    // Initialize members 'name', 'nt_chunk', which are inherited from wi_transform base class.
+
+    this->nt_chunk = nt_chunk_;
+
+    stringstream ss;
+    ss << "scalar_mask_filler(v1_chunk=" << v1_chunk 
+       << ",var_weight=" << var_weight
+       << ",var_clamp_add=" << var_clamp_add
+       << ",var_clamp_mult=" << var_clamp_mult
+       << ",w_clamp=" << w_clamp
+       << ",w_cutoff=" << w_cutoff 
+       << ",nt_chunk=" << nt_chunk << ")";
+
+    this->name = ss.str();
+
+    //std::random_device rd; 
+    //std::mt19937 mt_rand(rd());
+
+    rf_assert (nt_chunk % v1_chunk == 0);
+    rf_assert (nt_chunk > 0);
+    rf_assert (var_weight > 0);
+    rf_assert (var_clamp_add >= 0);
+    rf_assert (var_clamp_mult >= 0);
+    rf_assert (w_clamp > 0);
+    rf_assert (w_cutoff > 0);
+    rf_assert (nt_chunk > 0);
+}
+
+
+void scalar_mask_filler::set_stream(const wi_stream &stream)
+{
+    // Initialize wi_transform::nfreq from wi_stream::nfreq.
+    this->nfreq = stream.nfreq;
+}
+
+
+void scalar_mask_filler::start_substream(int isubstream, double t0)
+{
+    // All are initialized to 0 this way
+    running_var.resize(nfreq);
+    running_weights.resize(nfreq);
+}
+
+
+inline bool get_v1(const float *intensity, const float *weights, double &v1, int v1_chunk)
+{
+    int zerocount = 0;
+    double vsum = 0;
+    double wsum = 0;
+
+    for (int i=0; i < v1_chunk; ++i)
+    {
+        // I assume this is okay for checking whether the weight is 0?
+        if (weights[i] < 1e-7)
+	  ++zerocount;
+        vsum += intensity[i] * intensity[i] * weights[i];
+        wsum += weights[i];
+    }
+
+    // Check whether enough valid values were passed
+    if (zerocount > v1_chunk * 0.75)
+    {  
+	v1 = 0;
+        return false;
+    }
+    v1 = vsum / wsum;
+    return true;
+}
+
+
+void scalar_mask_filler::process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
+{
+    double v1;   // stores temporary v1 estimate before it is put into running_var    
+
+    for (int ichunk=0; ichunk < nt_chunk-1; ichunk += v1_chunk)
+    {
+        for (int ifreq=0; ifreq < nfreq; ++ifreq)
+        {
+	    const float *iacc = &intensity[ifreq*stride + ichunk];
+	    const float *wacc = &weights[ifreq*stride + ichunk];
+
+	    // Get v1_chunk
+	    if (get_v1(iacc, wacc, v1, v1_chunk))
+	    {
+	        // If the v1 was succesful, try to increase the weight, if possible
+	        running_weights[ifreq] = min(2.0, running_weights[ifreq] + w_clamp);
+	        // Then, restrict the change in variance estimate definted by the clamp parameters
+	        v1 = min((1 - var_weight) * running_var[ifreq] + var_weight * v1, running_var[ifreq] + var_clamp_add + running_var[ifreq] * var_clamp_mult);
+	        v1 = max(v1, running_var[ifreq] - var_clamp_add - running_var[ifreq] * var_clamp_mult);
+	        // Finally, update the running variance
+	        running_var[ifreq] = v1;
+	    }
+	    else
+	    {
+	        // For an unsuccessful v1, we decrease the weight if possible. We do not modify the running variance
+	        running_weights[ifreq] = max(0.0, running_weights[ifreq] - w_clamp);
+	    }
+	      
+	    // Do the mask filling for a particular frequency using our new variance estimate
+	    //std::uniform_real_distribution<double> dist(-sqrt(3*running_var[ifreq]), sqrt(3*running_var[ifreq]));
+	    //std::normal_distribution<double> dist(0, sqrt(running_var[ifreq]));
+	    for (int i=0; i < v1_chunk; ++i)
+	    {
+	        if (running_weights[ifreq] != 0)
+		{
+		    if (weights[ifreq*stride+i+ichunk] < w_cutoff)
+		      intensity[ifreq*stride+i+ichunk] = rand_x.gen_float() * 2 * (sqrt(3 * running_var[ifreq])) - sqrt(3 * running_var[ifreq]);
+		}
+	        weights[ifreq*stride+i+ichunk] = running_weights[ifreq];
+	    }
+	} // close the frequency loop
+    } // close the ichunk loop
+}
+
+
+void scalar_mask_filler::end_substream()
+{
+    // Do nothing
+}
+
+
+
 // -------------------------------------------------------------------------------------------------
 //
 // Externally-visible factory function: returns pointer to newly constructed online_mask_filler_object
-
 
 shared_ptr<wi_transform> make_online_mask_filler(int v1_chunk, float var_weight, float var_clamp_add, float var_clamp_mult, float w_clamp, float w_cutoff, int nt_chunk)
 {
     return make_shared<online_mask_filler> (v1_chunk, var_weight, var_clamp_add, var_clamp_mult, w_clamp, w_cutoff, nt_chunk);
 }
 
+shared_ptr<wi_transform> make_scalar_mask_filler(int v1_chunk, float var_weight, float var_clamp_add, float var_clamp_mult, float w_clamp, float w_cutoff, int nt_chunk)
+{
+    return make_shared<scalar_mask_filler> (v1_chunk, var_weight, var_clamp_add, var_clamp_mult, w_clamp, w_cutoff, nt_chunk);
+}
+
+
 
 // Externally-visible function for unit testing
 void run_online_mask_filler_unit_tests()
 {
-    cout << "run_online_mask_filler_unit_tests: placeholder for now!\n";
+  test_xorshift();
 }
 
 
 }  // namespace rf_pipelines
+

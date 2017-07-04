@@ -35,7 +35,6 @@ OFILES=badchannel_mask.o \
 	lexical_cast.o \
 	misc.o \
 	online_mask_filler.o \
-	scalar_mask_filler.o \
 	outdir_manager.o \
 	polynomial_detrenders.o \
 	reverter.o \
