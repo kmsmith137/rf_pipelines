@@ -5,6 +5,7 @@
 #include "immintrin.h" // for the rest of the intrinsics
 
 using namespace std;
+static random_device rd; // accessible to both random number generators
 
 namespace rf_pipelines {
 #if 0
@@ -16,7 +17,6 @@ namespace rf_pipelines {
 // Class for random number generation
 // Generates eight random 32-bit floats using a vectorized implementation of xorshift+
 // between (-1, 1)
-static random_device rd;
 struct vec_xorshift_plus
 {
   // Seed values
@@ -48,91 +48,6 @@ struct vec_xorshift_plus
     return _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_add_epi64(y, s1)), _mm256_set1_ps(4.6566129e-10));
   }
 };
-
-// -------------------------------------------------------------------------------------------------
-// Class for random number generation
-// Generates eight random 32-bit floats using a vectorized implementation of xorshift+
-// between (-1, 1)
-struct test_xorshift_plus
-{
-  uint64_t s0;
-  uint64_t s1;
-
-  test_xorshift_plus(uint64_t _s0 = rd(), uint64_t _s1 = rd()) : s0{_s0}, s1{_s1} {};
-  
-  inline void gen_floats(float &v1, float &v2)
-  {
-    uint64_t x = s0;
-    uint64_t y = s1;
-
-    s0 = y;
-    x ^= (x << 23);
-    s1 = x ^ y ^ (x >> 17) ^ (y >> 26);
-    
-    uint64_t tmp = s1 + y;
-    uint32_t tmp0 = tmp; // low 32 bits
-    uint32_t tmp1 = tmp >> 32; // high 32
-    
-    v1 = float(int32_t(tmp0)) * 4.6566129e-10;
-    v2 = float(int32_t(tmp1)) * 4.6566129e-10;
-  }
-};
-
-void print_vec(float *a)
-{
-    for (int i=0; i < 8; i++)
-        cout << a[i] << " ";
-    cout << "\n\n";
-}
-
-bool test_xorshift(uint64_t i=3289321, uint64_t j=4328934, int niter=100)
-{
-    float rn1 = rd();
-    float rn2 = rd();
-    float rn3 = rd();
-    float rn4 = rd();
-    float rn5 = rd();
-    float rn6 = rd();
-    float rn7 = rd();
-    float rn8 = rd();
-
-    vec_xorshift_plus a(_mm256_setr_epi64x(rn1, rn3, rn5, rn7), _mm256_setr_epi64x(rn2, rn4, rn6, rn8));
-    float vrn_vec[8];
-
-    test_xorshift_plus b(rn1, rn2);
-    test_xorshift_plus c(rn3, rn4);
-    test_xorshift_plus d(rn5, rn6);
-    test_xorshift_plus e(rn7, rn8);
-    float srn1, srn2, srn3, srn4, srn5, srn6, srn7, srn8;
-    
-
-    for (int iter=0; iter < niter; iter++)
-    {
-        __m256 vrn = a.gen_floats();
-	_mm256_storeu_ps(&vrn_vec[0], vrn);
-	b.gen_floats(srn1, srn2);
-	c.gen_floats(srn3, srn4);
-	d.gen_floats(srn5, srn6);
-	e.gen_floats(srn7, srn8);
-	float srn_vec[8] = {srn1, srn2, srn3, srn4, srn5, srn6, srn7, srn8};
-
-        for (int i=0; i<8; i++)
-	{
-	    if (srn_vec[i] != vrn_vec[i])
-	    {
-  	        cout << "S code outputs: ";
- 	        print_vec(srn_vec);
-		cout << "V code outputs: ";
-		print_vec(vrn_vec);
-		cout << "rng test failed: scalar and vectorized prngs are out of sync!" << endl;
-		return false;
-	    }
-	}
-    }
-
-    cout << "All rng tests passed." << endl;
-    return true;
-}
 
 
 // -------------------------------------------------------------------------------------------------
@@ -375,10 +290,8 @@ void online_mask_filler::end_substream()
 
 
 
-
-
-
-
+// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // -------------------------------------------------------------------------------------------------
 //
 // scalar_mask_filler class
@@ -392,31 +305,41 @@ void online_mask_filler::end_substream()
 // and comments contained therein.  This will explain (I hope!) what needs to be implemented,
 // for example in scalar_mask_filler::process_chunk().
 
-struct xorshift_plus {
-  // Initial seed given by arbitrary hardcoded constants.
-  // This is fine for timing, but should come from a std::random_device in production.
-  uint64_t s0 = 3289321;
-  uint64_t s1 = 4328934;
 
-  // Returns a random integer in the range (0, 2^64-1).
-  inline uint64_t gen_u64()
-  {
-    uint64_t x = s0;
-    uint64_t y = s1;
-    s0 = y;
-    x ^= (x << 23);
-    s1 = x ^ y ^ (x >> 17) ^ (y >> 26);
-    return s1 + y;
-  }
+// -------------------------------------------------------------------------------------------------
+// Class for random number generation
+// Generates eight random 32-bit floats using a vectorized implementation of xorshift+
+// between (-1, 1)
+struct xorshift_plus
+{
+    vector<uint64_t> seeds;
 
-  // Returns a random float in the range (0,1).
-  inline float gen_float()
-  {
-    // The prefactor here is 2^(-64).
-    return 5.421010862e-20f * float(gen_u64());
-  }
+    xorshift_plus(uint64_t _s0 = rd(), uint64_t _s1 = rd(), 
+		  uint64_t _s2 = rd(), uint64_t _s3 = rd(), 
+		  uint64_t _s4 = rd(), uint64_t _s5 = rd(), 
+		  uint64_t _s6 = rd(), uint64_t _s7 = rd())
+      : seeds{_s0, _s1, _s2, _s3, _s4, _s5, _s6, _s7} {};
+  
+    inline void gen_floats(float *rn)
+    {
+        for (int i=0; i<8; i+=2)
+	{
+	    uint64_t x = seeds[i];
+	    uint64_t y = seeds[i+1];
+	
+	    seeds[i] = y;
+	    x ^= (x << 23);
+	    seeds[i+1] = x ^ y ^ (x >> 17) ^ (y >> 26);
+	    
+	    uint64_t tmp = seeds[i+1] + y;
+	    uint32_t tmp0 = tmp; // low 32 bits
+	    uint32_t tmp1 = tmp >> 32; // high 32
+	    
+	    rn[i] = float(int32_t(tmp0)) * 4.6566129e-10;
+	    rn[i+1] = float(int32_t(tmp1)) * 4.6566129e-10;
+	}
+    }
 };
-
 
 struct scalar_mask_filler : public wi_transform {
     // Specified at construction.
@@ -429,7 +352,6 @@ struct scalar_mask_filler : public wi_transform {
     const float w_cutoff;
     vector<double> running_weights;
     vector<double> running_var;
-  //    std::mt19937 mt_rand;
     xorshift_plus rand_x;
     
     scalar_mask_filler(int v1_chunk, float var_weight, float var_clamp_add, float var_clamp_mult, float w_clamp, float w_cutoff, int nt_chunk);
@@ -552,15 +474,17 @@ void scalar_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	    // Do the mask filling for a particular frequency using our new variance estimate
 	    //std::uniform_real_distribution<double> dist(-sqrt(3*running_var[ifreq]), sqrt(3*running_var[ifreq]));
 	    //std::normal_distribution<double> dist(0, sqrt(running_var[ifreq]));
-	    for (int i=0; i < v1_chunk; ++i)
-	    {
-	        if (running_weights[ifreq] != 0)
-		{
-		    if (weights[ifreq*stride+i+ichunk] < w_cutoff)
-		      intensity[ifreq*stride+i+ichunk] = rand_x.gen_float() * 2 * (sqrt(3 * running_var[ifreq])) - sqrt(3 * running_var[ifreq]);
-		}
-	        weights[ifreq*stride+i+ichunk] = running_weights[ifreq];
-	    }
+
+	    // TEMPORARILY COMMENT WHILE CHANGING RNG INTERFACE!!!!
+	    // for (int i=0; i < v1_chunk; ++i)
+	    // {
+	    //     if (running_weights[ifreq] != 0)
+	    // 	{
+	    // 	    if (weights[ifreq*stride+i+ichunk] < w_cutoff)
+	    // 	      intensity[ifreq*stride+i+ichunk] = rand_x.gen_float() * 2 * (sqrt(3 * running_var[ifreq])) - sqrt(3 * running_var[ifreq]);
+	    // 	}
+	    //     weights[ifreq*stride+i+ichunk] = running_weights[ifreq];
+	    // }
 	} // close the frequency loop
     } // close the ichunk loop
 }
@@ -570,6 +494,7 @@ void scalar_mask_filler::end_substream()
 {
     // Do nothing
 }
+
 
 
 
@@ -589,10 +514,62 @@ shared_ptr<wi_transform> make_scalar_mask_filler(int v1_chunk, float var_weight,
 
 
 
-// Externally-visible function for unit testing
+
+// -------------------------------------------------------------------------------------------------
+//
+// Unit test code! 
+void print_vec(float *a)
+{
+    for (int i=0; i < 8; i++)
+        cout << a[i] << " ";
+    cout << "\n\n";
+}
+
+bool test_xorshift(uint64_t i=3289321, uint64_t j=4328934, int niter=100)
+{
+    float rn1 = rd();
+    float rn2 = rd();
+    float rn3 = rd();
+    float rn4 = rd();
+    float rn5 = rd();
+    float rn6 = rd();
+    float rn7 = rd();
+    float rn8 = rd();
+
+    vec_xorshift_plus a(_mm256_setr_epi64x(rn1, rn3, rn5, rn7), _mm256_setr_epi64x(rn2, rn4, rn6, rn8));
+    float vrn_vec[8];
+
+    xorshift_plus b(rn1, rn2, rn3, rn4, rn5, rn6, rn7, rn8);
+    float srn_vec[8];
+
+    for (int iter=0; iter < niter; iter++)
+    {
+        __m256 vrn = a.gen_floats();
+	_mm256_storeu_ps(&vrn_vec[0], vrn);
+	b.gen_floats(srn_vec);
+
+        for (int i=0; i<8; i++)
+	{
+	    if (srn_vec[i] != vrn_vec[i])
+	    {
+  	        cout << "S code outputs: ";
+ 	        print_vec(srn_vec);
+		cout << "V code outputs: ";
+		print_vec(vrn_vec);
+		cout << "rng test failed: scalar and vectorized prngs are out of sync!" << endl;
+		return false;
+	    }
+	}
+    }
+
+    cout << "All rng tests passed." << endl;
+    return true;
+}
+
 void run_online_mask_filler_unit_tests()
 {
-  test_xorshift();
+    // Externally-visible function for unit testing
+    test_xorshift();
 }
 
 
