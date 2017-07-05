@@ -339,6 +339,37 @@ struct xorshift_plus
 	    rn[i+1] = float(int32_t(tmp1)) * 4.6566129e-10;
 	}
     }
+  
+    inline void gen_weights(float *weights, float pfailv1, float pallzero)
+    {
+        // This exists solely for the unit test of the online mask filler!
+        // Just gen_floats + 1!
+        // Not any more! 
+        // To make the pfailv1 and pallzero work, we need to generate all 32 random
+        // numbers at once!
+        // If the first random number generated is less than pallzero * 2, we make it all zero
+        // If the first randon number generated is less than pallzero * 2 + pfailv1 * 2 but
+        // greater than pallzero * 2, we make sure the v1 fails by distributing at least 
+        // 24 zeros throughout the vector
+        // Else, we just fill weights randomly!
+        
+        for (int i=0; i<32; i+=2)
+	{
+	    uint64_t x = seeds[i];
+	    uint64_t y = seeds[i+1];
+	
+	    seeds[i] = y;
+	    x ^= (x << 23);
+	    seeds[i+1] = x ^ y ^ (x >> 17) ^ (y >> 26);
+	    
+	    uint64_t tmp = seeds[i+1] + y;
+	    uint32_t tmp0 = tmp; // low 32 bits
+	    uint32_t tmp1 = tmp >> 32; // high 32
+	    
+	    weights[i] = float(int32_t(tmp0)) * 4.6566129e-10 + 1;
+	    weights[i+1] = float(int32_t(tmp1)) * 4.6566129e-10 + 1;
+	}
+    }
 };
 
 struct scalar_mask_filler : public wi_transform {
@@ -479,6 +510,7 @@ void scalar_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	    	{
 	    	    if (weights[ifreq*stride+i+ichunk] < w_cutoff)
 	    	      intensity[ifreq*stride+i+ichunk] = rn[i % 8] * sqrt(3 * running_var[ifreq]);
+		    cout << intensity[ifreq*stride+i+ichunk] << endl;
 	    	}
 	        weights[ifreq*stride+i+ichunk] = running_weights[ifreq];
 	    }
@@ -521,6 +553,34 @@ void print_vec(float *a)
         cout << a[i] << " ";
     cout << "\n\n";
 }
+
+
+bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero)
+{
+    // First, make an intensity array of dimensions nfreq x nt_chunk
+    // Just fill with random values
+    // For now, let's fill the weights with random values between (0, 2)
+    rf_assert (nfreq * nt_chunk % 8 == 0);
+    rf_assert (pfailv1 < 1);
+    rf_assert (pfailv1 >=0);
+    rf_assert (pallzero < 1);
+    rf_assert (pallzero >=0);
+
+    xorshift_plus rn;
+    float intensity[nfreq * nt_chunk];
+    float weights[nfreq * nt_chunk];
+
+    for (int i=0; i < nfreq * nt_chunk; i += 8)
+    {
+        rn.gen_floats(intensity + i);
+	rn.gen_weights(weights + i, pfailv1, pallzero);
+    }
+
+    // Define the chance of a series of 32 elements being zero-filled
+    // Define the chance of a v1 failing
+    return true;
+}
+
 
 bool test_xorshift(uint64_t i=3289321, uint64_t j=4328934, int niter=100)
 {
@@ -568,6 +628,7 @@ void run_online_mask_filler_unit_tests()
 {
     // Externally-visible function for unit testing
     test_xorshift();
+    test_filler(8, 8);
 }
 
 
