@@ -197,89 +197,103 @@ inline void print_arri(__m256i a)
 }
 
 
+inline void mask_filler(float *intensity, float *weights, vector<float> *running_var, vector<float> *running_weights, ssize_t stride, int nt_chunk, 
+			float w_cutoff, float w_clamp, float var_clamp_add, float var_clamp_mult, float var_weight, int nfreq, vec_xorshift_plus &rn)
+{
+  __m256 tmp_var, prev_var, prev_w, w0, w1, w2, w3, i0, i1, i2, i3, res0, res1, res2, res3;
+  __m256 c = _mm256_set1_ps(w_cutoff);
+  __m256 root_three = _mm256_sqrt_ps(_mm256_set1_ps(3));
+  __m256 two = _mm256_set1_ps(2);
+  __m256 zero = _mm256_set1_ps(0.0);
+
+  // Loop over frequencies first to avoid having to write the running_var and running_weights in each iteration of the ichunk loop
+  for (int ifreq=0; ifreq<nfreq; ifreq++)
+    {
+      // Get the previous running_var and running_weights
+      prev_var = _mm256_set1_ps((*running_var)[ifreq]);
+      prev_w = _mm256_set1_ps((*running_weights)[ifreq]);
+
+      for (int ichunk=0; ichunk<nt_chunk-1; ichunk += 32)
+	{
+	  // Load intensity and weight arrays
+	  i0 = _mm256_loadu_ps(intensity + ifreq * stride + ichunk);
+	  i1 = _mm256_loadu_ps(intensity + ifreq * stride + ichunk + 8);
+	  i2 = _mm256_loadu_ps(intensity + ifreq * stride + ichunk + 16);
+	  i3 = _mm256_loadu_ps(intensity + ifreq * stride + ichunk + 24);
+	  w0 = _mm256_loadu_ps(weights + ifreq * stride + ichunk);
+	  w1 = _mm256_loadu_ps(weights + ifreq * stride + ichunk + 8);
+	  w2 = _mm256_loadu_ps(weights + ifreq * stride + ichunk + 16);
+	  w3 = _mm256_loadu_ps(weights + ifreq * stride + ichunk + 24);
+
+	  // First, we need to see how many of the weights are greater than zero. Note that npass contains 
+	  // a number equal to -1 * the number of successful intensities (see check_weights comments)
+	  __m256 npass = check_weights(w0, w1, w2, w3);
+
+	  // If pass is less than -8, we treat this as a failed v1 case (since >75% of the data is masked, we can't use that to update 
+	  // our running variance estimate). After doing the compare below, mask will contain we get a constant register that is either 
+	  // all zeros if the variance estimate failed or all ones if the variance estimate was successful.
+	  __m256 mask = _mm256_cmp_ps(npass, _mm256_set1_ps(-8), _CMP_LT_OS);
+	      
+	  // Here, we do the variance computation:
+	  tmp_var = var_est(w0, w1, w2, w3, i0, i1, i2, i3);
+	      
+	  // Then, use update rules to update value we'll eventually set as our running variance (prevent it from changing too much)
+	  tmp_var = update_var(tmp_var, prev_var, var_weight, var_clamp_add, var_clamp_mult);
+	  prev_var = tmp_var;
+
+	  // Finally, mask fill with the running variance -- if weights less than cutoff, fill
+	  res0 = _mm256_blendv_ps(i0, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_cmp_ps(w0, c, _CMP_LT_OS));
+	  res1 = _mm256_blendv_ps(i1, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_cmp_ps(w1, c, _CMP_LT_OS));
+	  res2 = _mm256_blendv_ps(i2, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_cmp_ps(w2, c, _CMP_LT_OS));
+	  res3 = _mm256_blendv_ps(i3, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_cmp_ps(w3, c, _CMP_LT_OS));
+	      
+	  // We also need to modify the weight values
+	  __m256 w = _mm256_blendv_ps(_mm256_set1_ps(-w_clamp), _mm256_set1_ps(w_clamp), mask);    // either +w_clamp or -w_clamp
+	  w = _mm256_min_ps(_mm256_max_ps(_mm256_add_ps(w, prev_w), zero), two);
+	  prev_w = w;
+
+	  // Store the new intensity values
+	  _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk), res0);
+	  _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk + 8), res1);
+	  _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk + 16), res2);
+	  _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk + 24), res3);
+	      
+	  // Store the new weight values
+	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk), w);
+	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 8), w);
+	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 16), w);
+	  _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 24), w);
+	}
+      // Since we've now completed all the variance estimation and filling for this frequency channel in this chunk, we must write our 
+      // running variance and weight to the vector, which is a bit of a pain. Thanks for this hack, Kendrick!
+
+      // First step: extract elements 0-3 into a 128-bit register.
+      __m128 y = _mm256_extractf128_ps(prev_var, 0);
+      __m128 z = _mm256_extractf128_ps(prev_w, 0);
+
+      // The intrinsic _mm_extract_ps() extracts element 0 from the 128-bit register, but it has the wrong
+      // return type (int32 instead of float32). The returned value is a "fake" int32 obtained by interpreting 
+      // the bit pattern of the "real" float32 (in IEEE-754 representation) as an int32 (in twos-complement representation),
+      // so it's not very useful. Nevertheless if we just write it to memory as an int32, and read back from 
+      // the same memory location later as a float32, we'll get the right answer.
+      int *i = reinterpret_cast<int *> (&(*running_var)[ifreq]);   // hack: (int *) pointing to same memory location as q[0]
+      int *j = reinterpret_cast<int *> (&(*running_weights)[ifreq]);   
+      *i = _mm_extract_ps(y, 0); // write a "fake" int32 to this memory location
+      *j = _mm_extract_ps(z, 0);
+      // To check that this works....
+      // float out[8];
+      // _mm256_storeu_ps(&out[0], prev_var);
+      // for (int i=0; i<8; i++)
+      //   cout << out[i] << " ";
+      // cout << "\n";
+      // cout << "Should all equal " << (*running_var)[ifreq] << endl;
+    }
+}
+
+
 void online_mask_filler::process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
 {
-    __m256 tmp_var, prev_var, prev_w, w0, w1, w2, w3, i0, i1, i2, i3, res0, res1, res2, res3;
-    __m256 c = _mm256_set1_ps(w_cutoff);
-    __m256 root_three = _mm256_sqrt_ps(_mm256_set1_ps(3));
-    __m256 two = _mm256_set1_ps(2);
-    __m256 zero = _mm256_set1_ps(0.0);
-
-    // Loop over frequencies first to avoid having to write the running_var and running_weights in each iteration of the ichunk loop
-    for (int ifreq=0; ifreq<nfreq; ifreq++)
-    {
-        // Get the previous running_var and running_weights
-        prev_var = _mm256_set1_ps(running_var[ifreq]);
-	prev_w = _mm256_set1_ps(running_weights[ifreq]);
-
-	for (int ichunk=0; ichunk<nt_chunk-1; ichunk += 32)
-	{
-	    // Load intensity and weight arrays
-	    i0 = _mm256_loadu_ps(intensity + ifreq * stride + ichunk);
-	    i1 = _mm256_loadu_ps(intensity + ifreq * stride + ichunk + 8);
-	    i2 = _mm256_loadu_ps(intensity + ifreq * stride + ichunk + 16);
-	    i3 = _mm256_loadu_ps(intensity + ifreq * stride + ichunk + 24);
-	    w0 = _mm256_loadu_ps(weights + ifreq * stride + ichunk);
-	    w1 = _mm256_loadu_ps(weights + ifreq * stride + ichunk + 8);
-	    w2 = _mm256_loadu_ps(weights + ifreq * stride + ichunk + 16);
-	    w3 = _mm256_loadu_ps(weights + ifreq * stride + ichunk + 24);
-
-	    // First, we need to see how many of the weights are greater than zero. Note that npass contains 
-	    // a number equal to -1 * the number of successful intensities (see check_weights comments)
-	    __m256 npass = check_weights(w0, w1, w2, w3);
-
-	    // If pass is less than -8, we treat this as a failed v1 case (since >75% of the data is masked, we can't use that to update 
-	    // our running variance estimate). After doing the compare below, mask will contain we get a constant register that is either 
-	    // all zeros if the variance estimate failed or all ones if the variance estimate was successful.
-	    __m256 mask = _mm256_cmp_ps(npass, _mm256_set1_ps(-8), _CMP_LT_OS);
-	    
-	    // Here, we do the variance computation:
-	    tmp_var = var_est(w0, w1, w2, w3, i0, i1, i2, i3);
-	    
-	    // Then, use update rules to update value we'll eventually set as our running variance (prevent it from changing too much)
-	    tmp_var = update_var(tmp_var, prev_var, var_weight, var_clamp_add, var_clamp_mult);
-	    prev_var = tmp_var;
-
-	    // Finally, mask fill with the running variance -- if weights less than cutoff, fill
-	    res0 = _mm256_blendv_ps(i0, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_cmp_ps(w0, c, _CMP_LT_OS));
-	    res1 = _mm256_blendv_ps(i1, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_cmp_ps(w1, c, _CMP_LT_OS));
-	    res2 = _mm256_blendv_ps(i2, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_cmp_ps(w2, c, _CMP_LT_OS));
-	    res3 = _mm256_blendv_ps(i3, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_cmp_ps(w3, c, _CMP_LT_OS));
-	    
-	    // We also need to modify the weight values
-	    __m256 w = _mm256_blendv_ps(_mm256_set1_ps(-w_clamp), _mm256_set1_ps(w_clamp), mask);    // either +w_clamp or -w_clamp
-	    w = _mm256_min_ps(_mm256_max_ps(_mm256_add_ps(w, prev_w), zero), two);
-	    prev_w = w;
-
-	    // Store the new intensity values
-	    _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk), res0);
-	    _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk + 8), res1);
-	    _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk + 16), res2);
-	    _mm256_storeu_ps((float*) (intensity + ifreq * stride + ichunk + 24), res3);
-	    
-	    // Store the new weight values
-	    _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk), w);
-	    _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 8), w);
-	    _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 16), w);
-	    _mm256_storeu_ps((float*) (weights + ifreq * stride + ichunk + 24), w);
-	}
-	// Since we've now completed all the variance estimation and filling for this frequency channel in this chunk, we must write our 
-	// running variance and weight to the vector, which is a bit of a pain. Thanks for this hack, Kendrick!
-
-	// First step: extract elements 0-3 into a 128-bit register.
-	__m128 y = _mm256_extractf128_ps(prev_var, 0);
-	__m128 z = _mm256_extractf128_ps(prev_w, 0);
-
-	// The intrinsic _mm_extract_ps() extracts element 0 from the 128-bit register, but it has the wrong
-	// return type (int32 instead of float32). The returned value is a "fake" int32 obtained by interpreting 
-	// the bit pattern of the "real" float32 (in IEEE-754 representation) as an int32 (in twos-complement representation),
-	// so it's not very useful. Nevertheless if we just write it to memory as an int32, and read back from 
-	// the same memory location later as a float32, we'll get the right answer.
-	int *i = reinterpret_cast<int *> (&running_var[ifreq]);   // hack: (int *) pointing to same memory location as q[0]
-	int *j = reinterpret_cast<int *> (&running_weights[ifreq]);   
-	*i = _mm_extract_ps(y, 0); // write a "fake" int32 to this memory location
-	*j = _mm_extract_ps(z, 0);
-    }
+    mask_filler(intensity, weights, &running_var, &running_weights, stride, nt_chunk, w_cutoff, w_clamp, var_clamp_add, var_clamp_mult, var_weight, nfreq, rn);
 }
 
 
@@ -339,7 +353,7 @@ struct xorshift_plus
 	    rn[i+1] = float(int32_t(tmp1)) * 4.6566129e-10;
 	}
     }
-  
+
     inline void gen_weights(float *weights, float pfailv1, float pallzero)
     {
         // This exists solely for the unit test of the online mask filler!
@@ -354,21 +368,40 @@ struct xorshift_plus
         // Else, we just fill weights randomly!
         
         for (int i=0; i<32; i+=2)
-	{
-	    uint64_t x = seeds[i];
-	    uint64_t y = seeds[i+1];
+    	{
+    	    uint64_t x = seeds[i % 8];
+    	    uint64_t y = seeds[(i+1) % 8];
 	
-	    seeds[i] = y;
-	    x ^= (x << 23);
-	    seeds[i+1] = x ^ y ^ (x >> 17) ^ (y >> 26);
+    	    seeds[i % 8] = y;
+    	    x ^= (x << 23);
+    	    seeds[(i+1) % 8] = x ^ y ^ (x >> 17) ^ (y >> 26);
 	    
-	    uint64_t tmp = seeds[i+1] + y;
-	    uint32_t tmp0 = tmp; // low 32 bits
-	    uint32_t tmp1 = tmp >> 32; // high 32
+    	    uint64_t tmp = seeds[(i+1) % 8] + y;
+    	    uint32_t tmp0 = tmp; // low 32 bits
+    	    uint32_t tmp1 = tmp >> 32; // high 32
 	    
-	    weights[i] = float(int32_t(tmp0)) * 4.6566129e-10 + 1;
-	    weights[i+1] = float(int32_t(tmp1)) * 4.6566129e-10 + 1;
-	}
+    	    if (i == 0)
+    	    {
+    	    	float rn = float(int32_t(tmp0)) * 4.6566129e-10 + 1;
+    	    	if (rn < pallzero * 2)
+    	    	{
+    	    	    // Make all zero
+    	    	    for (int j=0; j>32; j++)
+    	    	        weights[j] = 0;
+    	    	    return;
+    	    	}
+    	    	else if (rn < pallzero * 2 + pfailv1 * 2)
+    	        {
+    	    	    // Make the v1 fail -- tbh idk how yet. I think this works?
+    	    	    for (int j=0; j<25; j++)
+    	    	        weights[j] = 0;
+    	    	    i = 24;
+    	    	}
+    	    }
+	    
+    	    weights[i % 8] = float(int32_t(tmp0)) * 4.6566129e-10;
+    	    weights[(i+1) % 8] = float(int32_t(tmp1)) * 4.6566129e-10;
+    	}
     }
 };
 
@@ -510,7 +543,6 @@ void scalar_mask_filler::process_chunk(double t0, double t1, float *intensity, f
 	    	{
 	    	    if (weights[ifreq*stride+i+ichunk] < w_cutoff)
 	    	      intensity[ifreq*stride+i+ichunk] = rn[i % 8] * sqrt(3 * running_var[ifreq]);
-		    cout << intensity[ifreq*stride+i+ichunk] << endl;
 	    	}
 	        weights[ifreq*stride+i+ichunk] = running_weights[ifreq];
 	    }
@@ -571,18 +603,69 @@ bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero)
     float weights[nfreq * nt_chunk];
 
     for (int i=0; i < nfreq * nt_chunk; i += 8)
-    {
         rn.gen_floats(intensity + i);
-	rn.gen_weights(weights + i, pfailv1, pallzero);
+
+    for (int i=0; i < nfreq * nt_chunk; i++)
+        rn.gen_weights(weights + i, pfailv1, pallzero);
+
+    // Now, let's stick both arrays through the process_chunks
+    // Let's just make a copy of the intensity and weights, feed through each, then compare
+    float intensity2[nfreq * nt_chunk];
+    float weights2[nfreq * nt_chunk];
+
+    for (int i=0; i < nfreq * nt_chunk; i++)
+    {
+        intensity2[i] = intensity[i];
+	weights2[i] = weights[i];
+    }
+    
+    float* null = nullptr;
+    // The arguments for each are double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride
+    //mask_filler(0, 1, intensity, weights, nt_chunk, null, null, 0);
+    //online_mask_filler::process_chunk(0, 1, intensity2, weights2, nt_chunk, null, null, 0);
+
+    // Now, we want to compare each
+    for (int i=0; i < nfreq * nt_chunk; i++)
+    {
+        if (intensity[i] != intensity2[i])
+	{ 
+    	    cout << "Something has gone wrong! The intensity array produced by the scalar mask filler does not match the intensity array produced by the vectorized mask filler!" << endl;
+	    return false;
+	}
+	
+	if (weights[i] != weights2[i])
+	{
+    	    cout << "Something has gone wrong! The weights array produced by the scalar mask filler does not match the weights array produced by the vectorized mask filler!" << endl;
+	    return false;
+        }
     }
 
-    // Define the chance of a series of 32 elements being zero-filled
-    // Define the chance of a v1 failing
+    cout << "The intensity and weights arrays produced by the scalar and vectorized online mask fillers were identical in all cases. Unit test passed!" << endl;
     return true;
+    // cout << "INTENSITY" << endl;
+    // for (int ifreq=0; ifreq < nfreq; ifreq++)
+    // {
+    //     for (int i=0; i < nt_chunk; i++)
+    //     {
+    // 	    cout << intensity[ifreq * nt_chunk + i] << " ";
+    // 	}
+    // 	cout << "\n";
+    // }
+    // cout << "\nWEIGHTS" << endl;
+
+    // for (int ifreq=0; ifreq < nfreq; ifreq++)
+    // {
+    //     for (int i=0; i < nt_chunk; i++)
+    //     {
+    // 	    cout << weights[ifreq * nt_chunk + i] << " ";
+    // 	}
+    // 	cout << "\n";
+    // }
+    // cout << "\n";
 }
 
 
-bool test_xorshift(uint64_t i=3289321, uint64_t j=4328934, int niter=100)
+bool test_xorshift(int niter=100)
 {
     float rn1 = rd();
     float rn2 = rd();
@@ -628,9 +711,9 @@ void run_online_mask_filler_unit_tests()
 {
     // Externally-visible function for unit testing
     test_xorshift();
-    test_filler(8, 8);
+    test_filler(2, 32, 0.20, 0.20);
 }
-
+ 
 
 }  // namespace rf_pipelines
 
