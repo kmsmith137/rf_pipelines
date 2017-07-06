@@ -715,6 +715,10 @@ struct wi_transform {
 
 extern std::shared_ptr<wi_transform> deserialize_transform_from_json(const Json::Value &x);
 
+extern std::vector<std::shared_ptr<wi_transform>> deserialize_transform_chain_from_json(const Json::Value &x);
+
+extern Json::Value serialize_transform_chain_to_json(const std::vector<std::shared_ptr<wi_transform>> &v);
+
 
 // -------------------------------------------------------------------------------------------------
 //

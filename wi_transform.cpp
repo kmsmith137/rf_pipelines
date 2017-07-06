@@ -166,7 +166,7 @@ static axis_type _get_axis(const Json::Value &x, const string &k)
 shared_ptr<wi_transform> deserialize_transform_from_json(const Json::Value &x)
 {
     if (!x.isObject())
-	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): argument is not a json object as expected");
+	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): expected json object");
 
     string transform_name = _get_string(x, "transform_name");
 
@@ -178,6 +178,31 @@ shared_ptr<wi_transform> deserialize_transform_from_json(const Json::Value &x)
     }
 
     throw runtime_error("rf_pipelines::deserialize_transform_from_json(): transform_name='" + transform_name + "' not recognized");
+}
+
+
+vector<shared_ptr<wi_transform>> deserialize_transform_chain_from_json(const Json::Value &x)
+{
+    if (!x.isArray())
+	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): expected json array");
+
+    int n = x.size();
+    vector<shared_ptr<wi_transform>> ret(n);
+
+    for (int i = 0; i < n; i++)
+	ret[i] = deserialize_transform_from_json(x[i]);
+
+    return ret;
+}
+
+
+Json::Value serialize_transform_chain_to_json(const vector<shared_ptr<wi_transform>> &v)
+{
+    Json::Value ret;
+    for (const auto &t: v)
+	ret.append(t->serialize_to_json());
+
+    return ret;
 }
 
 
