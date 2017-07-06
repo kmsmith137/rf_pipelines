@@ -3,6 +3,7 @@
 #include <sys/time.h>
 #include <random>  // for random_device
 #include "immintrin.h" // for the rest of the intrinsics
+#include <cmath> // for floor
 
 using namespace std;
 static random_device rd; // accessible to both random number generators
@@ -347,7 +348,18 @@ struct xorshift_plus
 	}
     }
 
-    inline void gen_weights(float *weights, float pfailv1, float pallzero)
+    inline void gen_positive_floats(float *rn, int ngen)
+    {
+        // Calls gen_floats, then squares
+        // Really awful form, I know
+        rf_assert(ngen % 8 == 0);
+	for (int i=0; i<ngen; i += 8)
+	    gen_floats(rn + i);
+	for (int i=0; i<ngen; i++)
+	    rn[i] = rn[i] * rn[i];
+    }
+
+    inline void gen_weights(float *weights, float pfailv1, float pallzero, int ngen)
     {
         // This exists solely for the unit test of the online mask filler!
         // Just gen_floats + 1!
@@ -360,7 +372,9 @@ struct xorshift_plus
         // 24 zeros throughout the vector
         // Else, we just fill weights randomly!
         
-        for (int i=0; i<32; i+=2)
+        rf_assert(ngen % 8 == 0);
+
+        for (int i=0; i<ngen; i+=2)
     	{
     	    uint64_t x = seeds[i % 8];
     	    uint64_t y = seeds[(i+1) % 8];
@@ -373,7 +387,7 @@ struct xorshift_plus
     	    uint32_t tmp0 = tmp; // low 32 bits
     	    uint32_t tmp1 = tmp >> 32; // high 32
 	    
-    	    if (i == 0)
+    	    if (i == 0 && ngen == 32)
     	    {
     	    	float rn = float(int32_t(tmp0)) * 4.6566129e-10 + 1;
     	    	if (rn < pallzero * 2)
@@ -594,12 +608,17 @@ bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero)
     // Just fill with random values
     // For now, let's fill the weights with random values between (0, 2)
     rf_assert (nfreq * nt_chunk % 8 == 0);
+    rf_assert (nfreq % 8 == 0);
     rf_assert (pfailv1 < 1);
     rf_assert (pfailv1 >=0);
     rf_assert (pallzero < 1);
     rf_assert (pallzero >=0);
 
     xorshift_plus rn;
+    mt19937 gen (rd());
+    uniform_real_distribution<float> w_dis(0.0, 2.0);
+    uniform_real_distribution<float> var_dis(0.0, 0.02);
+    
     float intensity[nfreq * nt_chunk];
     float weights[nfreq * nt_chunk];
 
@@ -607,7 +626,7 @@ bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero)
         rn.gen_floats(intensity + i);
 
     for (int i=0; i < nfreq * nt_chunk; i++)
-        rn.gen_weights(weights + i, pfailv1, pallzero);
+        rn.gen_weights(weights + i, pfailv1, pallzero, 32);
 
     // Now, let's stick both arrays through the process_chunks
     // Let's just make a copy of the intensity and weights, feed through each, then compare
@@ -619,11 +638,74 @@ bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero)
         intensity2[i] = intensity[i];
 	weights2[i] = weights[i];
     }
+ 
+    // Randomize running weights and running variance
+    vector<float> running_var(nfreq);
+    vector<float> running_weights(nfreq);
     
-    float* null = nullptr;
-    // The arguments for each are double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride
-    //mask_filler(0, 1, intensity, weights, nt_chunk, null, null, 0);
-    //online_mask_filler::process_chunk(0, 1, intensity2, weights2, nt_chunk, null, null, 0);
+    for (int i=0; i<nfreq; i++)
+    {
+        running_var[i] = var_dis(gen);
+	running_weights[i] = w_dis(gen);
+    }
+    
+    int stride = nt_chunk;
+    float w_cutoff = 0.5;
+    float w_clamp = 3e-3;
+    float var_clamp_add = 3e-3;
+    float var_clamp_mult = 3e-3;
+    float var_weight = 2e-3;
+    vec_xorshift_plus vec_rn;
+    xorshift_plus sca_rn;
+    
+    mask_filler(intensity, weights, &running_var, &running_weights, stride, nt_chunk, w_cutoff, w_clamp, var_clamp_add, var_clamp_mult, var_weight, nfreq, vec_rn);
+    scalar_mask_fill(32, intensity, weights, running_var, running_weights, nt_chunk, nfreq, stride, w_cutoff, w_clamp, var_clamp_add, var_clamp_mult, var_weight, sca_rn);
+
+    cout << "INTENSITY V" << endl;
+    for (int ifreq=0; ifreq < nfreq; ifreq++)
+    {
+        for (int i=0; i < nt_chunk; i++)
+        {
+    	    cout << intensity[ifreq * nt_chunk + i] << " ";
+    	}
+    	cout << "\n";
+    }
+    cout << "\n" << endl;
+
+    cout << "INTENSITY S" << endl;
+    for (int ifreq=0; ifreq < nfreq; ifreq++)
+    {
+        for (int i=0; i < nt_chunk; i++)
+        {
+    	    cout << intensity2[ifreq * nt_chunk + i] << " ";
+    	}
+    	cout << "\n";
+    }
+    cout << "\n" << endl;
+
+    cout << "WEIGHTS V" << endl;
+    for (int ifreq=0; ifreq < nfreq; ifreq++)
+    {
+        for (int i=0; i < nt_chunk; i++)
+        {
+    	    cout << weights[ifreq * nt_chunk + i] << " ";
+    	}
+    	cout << "\n";
+    }
+    cout << "\n";
+
+    cout << "WEIGHTS S" << endl;
+    for (int ifreq=0; ifreq < nfreq; ifreq++)
+    {
+        for (int i=0; i < nt_chunk; i++)
+        {
+    	    cout << weights2[ifreq * nt_chunk + i] << " ";
+    	}
+    	cout << "\n";
+    }
+    cout << "\n";
+
+
 
     // Now, we want to compare each
     for (int i=0; i < nfreq * nt_chunk; i++)
@@ -631,38 +713,20 @@ bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero)
         if (intensity[i] != intensity2[i])
 	{ 
     	    cout << "Something has gone wrong! The intensity array produced by the scalar mask filler does not match the intensity array produced by the vectorized mask filler!" << endl;
+	    cout << "Output terminated at time index " << i % nt_chunk << " and frequency " << floor(i / nt_chunk) << "(that is, i=" << i << ")" <<  endl;
 	    return false;
 	}
 	
 	if (weights[i] != weights2[i])
 	{
     	    cout << "Something has gone wrong! The weights array produced by the scalar mask filler does not match the weights array produced by the vectorized mask filler!" << endl;
+	    cout << "Output terminated at time index " << i % nt_chunk << " and frequency " << floor(i / nt_chunk) << "(that is, i=" << i << ")" <<  endl;
 	    return false;
         }
     }
 
     cout << "The intensity and weights arrays produced by the scalar and vectorized online mask fillers were identical in all cases. Unit test passed!" << endl;
     return true;
-    // cout << "INTENSITY" << endl;
-    // for (int ifreq=0; ifreq < nfreq; ifreq++)
-    // {
-    //     for (int i=0; i < nt_chunk; i++)
-    //     {
-    // 	    cout << intensity[ifreq * nt_chunk + i] << " ";
-    // 	}
-    // 	cout << "\n";
-    // }
-    // cout << "\nWEIGHTS" << endl;
-
-    // for (int ifreq=0; ifreq < nfreq; ifreq++)
-    // {
-    //     for (int i=0; i < nt_chunk; i++)
-    //     {
-    // 	    cout << weights[ifreq * nt_chunk + i] << " ";
-    // 	}
-    // 	cout << "\n";
-    // }
-    // cout << "\n";
 }
 
 
@@ -712,7 +776,7 @@ void run_online_mask_filler_unit_tests()
 {
     // Externally-visible function for unit testing
     test_xorshift();
-    test_filler(2, 32, 0.20, 0.20);
+    test_filler(16, 32, 0.20, 0.20);
 }
  
 
