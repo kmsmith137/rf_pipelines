@@ -192,6 +192,7 @@ enum axis_type {
 
 // In misc.cpp
 extern std::ostream &operator<<(std::ostream &os, axis_type axis);
+extern std::string axis_type_to_string(int axis);
 
 //
 // polynomial_detrender: detrends along either the time or frequency axis,

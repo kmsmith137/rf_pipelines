@@ -16,16 +16,21 @@ namespace rf_pipelines {
 
 ostream &operator<<(ostream &os, axis_type axis)
 {
-    if (axis == AXIS_FREQ)
-	os << "AXIS_FREQ";
-    else if (axis == AXIS_TIME)
-	os << "AXIS_TIME";
-    else if (axis == AXIS_NONE)
-	os << "AXIS_NONE";
-    else
-	os << int(axis);
-
+    os << to_string(axis);
     return os;
+}
+
+
+string axis_type_to_string(int axis)
+{
+    if (axis == AXIS_FREQ)
+	return "AXIS_FREQ";
+    else if (axis == AXIS_TIME)
+	return "AXIS_TIME";
+    else if (axis == AXIS_NONE)
+	return "AXIS_NONE";
+
+    throw runtime_error("rf_pipelines: internal error: bad argument to axis_type_to_string()");
 }
 
 
