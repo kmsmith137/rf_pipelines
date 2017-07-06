@@ -113,6 +113,12 @@ def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False
     else:
         weights = np.array(weights, dtype=np.float)
         assert weights.shape == arr.shape
+
+    # Note: PIL's conventions are reversed relative to ours in both cases:
+    #   - PIL axis ordering is (y,x)
+    #   - PIL y-axis direction is top-to-bottom
+    #
+    # so both instances of "not" below are intentional!
     
     if not transpose:
         arr = np.transpose(arr)
