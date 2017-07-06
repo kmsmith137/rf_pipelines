@@ -156,7 +156,6 @@ extern std::shared_ptr<wi_stream> make_chime_frb_stream_from_filename_list(const
 //
 
 // Assumes the ch_frb_io::intensity_network_stream object is already constructed (but not started).
-// The assembler_id is an index satisfying 0 <= assembler_ix < num_beams_in_assembler (not a beam_id).
 extern std::shared_ptr<wi_stream> make_chime_network_stream(const std::shared_ptr<ch_frb_io::intensity_network_stream> &stream, int beam_id);
 
 // A higher-level interface which constructs a ch_frb_io::intensity_network_stream expecting a single beam_id.  
