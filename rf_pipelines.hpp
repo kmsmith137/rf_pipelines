@@ -703,6 +703,14 @@ struct wi_transform {
     // There's normally no need to override them (we only do so in the python-wrapping code).
     virtual void _get_json(Json::Value &dst) const;
     virtual void _clear_json(bool substream_only);
+
+    // By default, this virtual function throws an exception ("serialize_to_json() unimplemented...")
+    //
+    // Transforms which support serialization-to-json should override this function, and also add
+    // deserialization code to wi_transform::deserialize_from_json().
+    virtual Json::Value serialize_to_json() const;
+
+    static std::shared_ptr<wi_transform> deserialize_from_json(const Json::Value &value);
 };
 
 

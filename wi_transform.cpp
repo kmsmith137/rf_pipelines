@@ -96,4 +96,37 @@ void wi_transform::_clear_json(bool substream_only)
 }
 
 
+// Default implementation of virtual
+Json::Value wi_transform::serialize_to_json() const
+{
+    throw runtime_error("rf_pipelines: serialization-to-json not implemeted for transform '" + this->name + "'");
+}
+
+
+// Helper for wi_transform::deserialize_from_json()
+static string _get_string(const Json::Value &x, const std::string &k)
+{
+    if (!x.isMember(k))
+	throw runtime_error("rf_pipelines: wi_transform::deserialize_from_json(): member '" + k + "' was expected but not found");
+    
+    const Json::Value &v = x[k];
+    if (!v.isString())
+	throw runtime_error("rf_pipelines: wi_transform::deserialize_from_json(): member '" + k + "' was not a string as expected");
+
+    return v.asString();
+}
+
+
+// static member function
+shared_ptr<wi_transform> wi_transform::deserialize_from_json(const Json::Value &x)
+{
+    if (!x.isObject())
+	throw runtime_error("rf_pipelines: wi_transform::deserialize_from_json(): argument is not a json object as expected");
+
+    string transform_name = _get_string(x, "transform_name");
+
+    throw runtime_error("rf_pipelines::deserialize_from_json(): transform_name='" + transform_name + "' not recognized");
+}
+
+
 }  // namespace rf_pipelines
