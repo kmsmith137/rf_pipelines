@@ -103,46 +103,51 @@ Json::Value wi_transform::serialize_to_json() const
 }
 
 
-// Helper for wi_transform::deserialize_from_json()
+// -------------------------------------------------------------------------------------------------
+//
+// More json serialization/deserialization
+
+
+// Helper for deserialize_transform_from_json()
 static string _get_string(const Json::Value &x, const string &k)
 {
     if (!x.isMember(k))
-	throw runtime_error("rf_pipelines: wi_transform::deserialize_from_json(): member '" + k + "' was expected but not found");
+	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was expected but not found");
     
     const Json::Value &v = x[k];
     if (!v.isString())
-	throw runtime_error("rf_pipelines: wi_transform::deserialize_from_json(): member '" + k + "' was not a string as expected");
+	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was not a string as expected");
 
     return v.asString();
 }
 
-// Helper for wi_transform::deserialize_from_json()
+// Helper for deserialize_transform_from_json()
 static int _get_int(const Json::Value &x, const string &k)
 {
     if (!x.isMember(k))
-	throw runtime_error("rf_pipelines: wi_transform::deserialize_from_json(): member '" + k + "' was expected but not found");
+	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was expected but not found");
     
     const Json::Value &v = x[k];
     if (!v.isInt())
-	throw runtime_error("rf_pipelines: wi_transform::deserialize_from_json(): member '" + k + "' was not an int as expected");
+	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was not an int as expected");
 
     return v.asInt();
 }
 
-// Helper for wi_transform::deserialize_from_json()
+// Helper for deserialize_transform_from_json()
 static double _get_double(const Json::Value &x, const string &k)
 {
     if (!x.isMember(k))
-	throw runtime_error("rf_pipelines: wi_transform::deserialize_from_json(): member '" + k + "' was expected but not found");
+	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was expected but not found");
     
     const Json::Value &v = x[k];
     if (!v.isDouble())
-	throw runtime_error("rf_pipelines: wi_transform::deserialize_from_json(): member '" + k + "' was not a floating-point number as expected");
+	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was not a floating-point number as expected");
 
     return v.asDouble();
 }
 
-// Helper for wi_transform::deserialize_from_json()
+// Helper for deserialize_transform_from_json()
 static axis_type _get_axis(const Json::Value &x, const string &k)
 {
     string s = _get_string(x, k);
@@ -154,15 +159,14 @@ static axis_type _get_axis(const Json::Value &x, const string &k)
     if (s == "AXIS_NONE")
 	return AXIS_NONE;
 
-    throw runtime_error("rf_pipelines: wi_transform::deserialize_from_json(): member '" + k + "' was not an axis_type as expected");
+    throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was not an axis_type as expected");
 }
 
 
-// static member function
-shared_ptr<wi_transform> wi_transform::deserialize_from_json(const Json::Value &x)
+shared_ptr<wi_transform> deserialize_transform_from_json(const Json::Value &x)
 {
     if (!x.isObject())
-	throw runtime_error("rf_pipelines: wi_transform::deserialize_from_json(): argument is not a json object as expected");
+	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): argument is not a json object as expected");
 
     string transform_name = _get_string(x, "transform_name");
 
@@ -173,7 +177,7 @@ shared_ptr<wi_transform> wi_transform::deserialize_from_json(const Json::Value &
 					 _get_double(x, "epsilon"));
     }
 
-    throw runtime_error("rf_pipelines::deserialize_from_json(): transform_name='" + transform_name + "' not recognized");
+    throw runtime_error("rf_pipelines::deserialize_transform_from_json(): transform_name='" + transform_name + "' not recognized");
 }
 
 

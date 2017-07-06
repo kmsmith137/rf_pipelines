@@ -708,11 +708,12 @@ struct wi_transform {
     // By default, this virtual function throws an exception ("serialize_to_json() unimplemented...")
     //
     // Transforms which support serialization-to-json should override this function, and also add
-    // deserialization code to wi_transform::deserialize_from_json().
+    // deserialization code to rf_pipelines::deserialize_transform_from_json().
     virtual Json::Value serialize_to_json() const;
-
-    static std::shared_ptr<wi_transform> deserialize_from_json(const Json::Value &value);
 };
+
+
+extern std::shared_ptr<wi_transform> deserialize_transform_from_json(const Json::Value &x);
 
 
 // -------------------------------------------------------------------------------------------------
