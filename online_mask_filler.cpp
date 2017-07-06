@@ -124,6 +124,28 @@ void online_mask_filler::start_substream(int isubstream, double t0)
 }
 
 
+inline void print_arr(__m256 a)
+{
+    // Helper function to print __m256 register (float[8])
+    float arr[8];
+    _mm256_storeu_ps((float *) &arr, a);
+    for (int i=0; i<8; ++i)
+        cout << arr[i] << " ";
+    cout << "\n";
+}
+
+
+inline void print_arri(__m256i a)
+{
+    // Helper function to print __m256i register (int[8])
+    int arr[8];
+    _mm256_storeu_si256((__m256i *) &arr, a);
+    for (int i=0; i<8; ++i)
+        cout << arr[i] << " ";
+    cout << "\n";
+}
+
+
 inline __m256 hadd(__m256 a)
 {
     // Does a horizontal add of a __m256 register
@@ -176,28 +198,6 @@ inline __m256 update_var(__m256 tmp_var, __m256 prev_var, float var_weight, floa
 }
 
 
-inline void print_arr(__m256 a)
-{
-    // Helper function to print __m256 register (float[8])
-    float arr[8];
-    _mm256_storeu_ps((float *) &arr, a);
-    for (int i=0; i<8; ++i)
-        cout << arr[i] << " ";
-    cout << "\n";
-}
-
-
-inline void print_arri(__m256i a)
-{
-    // Helper function to print __m256i register (int[8])
-    int arr[8];
-    _mm256_storeu_si256((__m256i *) &arr, a);
-    for (int i=0; i<8; ++i)
-        cout << arr[i] << " ";
-    cout << "\n";
-}
-
-
 inline void mask_filler(float *intensity, float *weights, vector<float> *running_var, vector<float> *running_weights, ssize_t stride, int nt_chunk, 
 			float w_cutoff, float w_clamp, float var_clamp_add, float var_clamp_mult, float var_weight, int nfreq, vec_xorshift_plus &rn)
 {
@@ -206,6 +206,11 @@ inline void mask_filler(float *intensity, float *weights, vector<float> *running
   __m256 root_three = _mm256_sqrt_ps(_mm256_set1_ps(3));
   __m256 two = _mm256_set1_ps(2);
   __m256 zero = _mm256_set1_ps(0.0);
+
+  // for (int i = 0; i < 10; i++)
+  //   cout << intensity[i] << " ";
+  // cout << "\n";
+
 
   // Loop over frequencies first to avoid having to write the running_var and running_weights in each iteration of the ichunk loop
   for (int ifreq=0; ifreq<nfreq; ifreq++)
@@ -237,6 +242,12 @@ inline void mask_filler(float *intensity, float *weights, vector<float> *running
 	      
 	  // Here, we do the variance computation:
 	  tmp_var = var_est(w0, w1, w2, w3, i0, i1, i2, i3);
+	  if (ifreq > 10)
+	  {
+	    cout << "Tmp var" << endl;
+	    cout << "var: ";
+	    print_arr(tmp_var);
+	  }
 	      
 	  // Then, use update rules to update value we'll eventually set as our running variance (prevent it from changing too much)
 	  tmp_var = update_var(tmp_var, prev_var, var_weight, var_clamp_add, var_clamp_mult);
@@ -406,8 +417,8 @@ struct xorshift_plus
     	    	}
     	    }
 	    
-    	    weights[i % 8] = float(int32_t(tmp0)) * 4.6566129e-10;
-    	    weights[(i+1) % 8] = float(int32_t(tmp1)) * 4.6566129e-10;
+    	    weights[i % 8] = float(int32_t(tmp0)) * 4.6566129e-10 + 1;
+    	    weights[(i+1) % 8] = float(int32_t(tmp1)) * 4.6566129e-10 + 1;
     	}
     }
 };
@@ -500,6 +511,8 @@ inline bool get_v1(const float *intensity, const float *weights, float &v1, int 
         wsum += weights[i];
     }
 
+    wsum = max(wsum, 1.0f);
+
     // Check whether enough valid values were passed
     if (zerocount > v1_chunk * 0.75)
     {  
@@ -514,19 +527,29 @@ inline bool get_v1(const float *intensity, const float *weights, float &v1, int 
 inline void scalar_mask_fill(int v1_chunk, float *intensity, float *weights, vector<float> &running_var, vector<float> &running_weights, int nt_chunk, int nfreq, ssize_t stride,
 			     float w_cutoff, float w_clamp, float var_clamp_add, float var_clamp_mult, float var_weight, xorshift_plus &rand_x)
 {
+  // for (int i = 0; i < 10; i++)
+  //   cout << intensity[i] << " ";
+  // cout << "\n";
+ 
+
     float v1;   // stores temporary v1 estimate before it is put into running_var    
     float rn[8];
 
-    for (int ichunk=0; ichunk < nt_chunk-1; ichunk += v1_chunk)
+    for (int ifreq=0; ifreq < nfreq; ++ifreq)
     {
-        for (int ifreq=0; ifreq < nfreq; ++ifreq)
-        {
+        for (int ichunk=0; ichunk < nt_chunk-1; ichunk += v1_chunk)
+	{
 	    const float *iacc = &intensity[ifreq*stride + ichunk];
 	    const float *wacc = &weights[ifreq*stride + ichunk];
 
 	    // Get v1_chunk
 	    if (get_v1(iacc, wacc, v1, v1_chunk))
 	    {
+	      if (ifreq > 10)
+		{
+		  cout << "Tmp v1" << endl;
+		  cout << "v1: " << v1 << endl;
+		}
 	        // If the v1 was succesful, try to increase the weight, if possible
 	        running_weights[ifreq] = min(2.0f, running_weights[ifreq] + w_clamp);
 	        // Then, restrict the change in variance estimate definted by the clamp parameters
@@ -608,7 +631,7 @@ bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero)
     // Just fill with random values
     // For now, let's fill the weights with random values between (0, 2)
     rf_assert (nfreq * nt_chunk % 8 == 0);
-    rf_assert (nfreq % 8 == 0);
+    rf_assert (nt_chunk % 8 == 0);
     rf_assert (pfailv1 < 1);
     rf_assert (pfailv1 >=0);
     rf_assert (pallzero < 1);
@@ -638,15 +661,19 @@ bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero)
         intensity2[i] = intensity[i];
 	weights2[i] = weights[i];
     }
- 
+
     // Randomize running weights and running variance
     vector<float> running_var(nfreq);
+    vector<float> running_var2(nfreq);
     vector<float> running_weights(nfreq);
-    
+    vector<float> running_weights2(nfreq);
+
     for (int i=0; i<nfreq; i++)
     {
         running_var[i] = var_dis(gen);
+	running_var2[i] = running_var[i];
 	running_weights[i] = w_dis(gen);
+	running_weights2[i] = running_weights[i];
     }
     
     int stride = nt_chunk;
@@ -659,8 +686,9 @@ bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero)
     xorshift_plus sca_rn;
     
     mask_filler(intensity, weights, &running_var, &running_weights, stride, nt_chunk, w_cutoff, w_clamp, var_clamp_add, var_clamp_mult, var_weight, nfreq, vec_rn);
-    scalar_mask_fill(32, intensity, weights, running_var, running_weights, nt_chunk, nfreq, stride, w_cutoff, w_clamp, var_clamp_add, var_clamp_mult, var_weight, sca_rn);
+    scalar_mask_fill(32, intensity2, weights2, running_var2, running_weights2, nt_chunk, nfreq, stride, w_cutoff, w_clamp, var_clamp_add, var_clamp_mult, var_weight, sca_rn);
 
+    cout << "-------------------------------------------------------------" << endl;
     cout << "INTENSITY V" << endl;
     for (int ifreq=0; ifreq < nfreq; ifreq++)
     {
@@ -704,7 +732,6 @@ bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero)
     	cout << "\n";
     }
     cout << "\n";
-
 
 
     // Now, we want to compare each
