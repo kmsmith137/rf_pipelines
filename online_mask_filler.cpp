@@ -3,7 +3,7 @@
 #include <sys/time.h>
 #include <random>  // for random_device
 #include "immintrin.h" // for the rest of the intrinsics
-#include <cmath> // for floor
+#include <cmath>
 
 using namespace std;
 static random_device rd; // accessible to both random number generators
@@ -243,30 +243,11 @@ inline void mask_filler(float *intensity, float *weights, vector<float> *running
 	  tmp_var = update_var(tmp_var, prev_var, var_weight, var_clamp_add, var_clamp_mult);
 	  prev_var = tmp_var;
 
-	  // if (ifreq > 10)
-	  // {
-	  //   cout << "Final var: ";
-	  //   print_arr(tmp_var);
-	  // }
-
 	  // Finally, mask fill with the running variance -- if weights less than cutoff, fill
-	  __m256 a, b, ci, d;
-	  a = rn.gen_floats();
-	  b = rn.gen_floats();
-	  ci = rn.gen_floats();
-	  d = rn.gen_floats();
-	  if (ifreq == 1)
-	  {
-	    cout << "Random numbers" << endl;
-	    print_arr(a);
-	    print_arr(b);
-	    print_arr(ci);
-	    print_arr(d);
-	  }
-	  res0 = _mm256_blendv_ps(i0, _mm256_mul_ps(a, _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_cmp_ps(w0, c, _CMP_LT_OS));
-	  res1 = _mm256_blendv_ps(i1, _mm256_mul_ps(b, _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_cmp_ps(w1, c, _CMP_LT_OS));
-	  res2 = _mm256_blendv_ps(i2, _mm256_mul_ps(ci, _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_cmp_ps(w2, c, _CMP_LT_OS));
-	  res3 = _mm256_blendv_ps(i3, _mm256_mul_ps(d, _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_cmp_ps(w3, c, _CMP_LT_OS));
+	  res0 = _mm256_blendv_ps(i0, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_cmp_ps(w0, c, _CMP_LT_OS));
+	  res1 = _mm256_blendv_ps(i1, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_cmp_ps(w1, c, _CMP_LT_OS));
+	  res2 = _mm256_blendv_ps(i2, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_cmp_ps(w2, c, _CMP_LT_OS));
+	  res3 = _mm256_blendv_ps(i3, _mm256_mul_ps(rn.gen_floats(), _mm256_mul_ps(root_three, _mm256_sqrt_ps(tmp_var))), _mm256_cmp_ps(w3, c, _CMP_LT_OS));
 	      
 	  // We also need to modify the weight values
 	  __m256 w = _mm256_blendv_ps(_mm256_set1_ps(-w_clamp), _mm256_set1_ps(w_clamp), mask);    // either +w_clamp or -w_clamp
@@ -323,16 +304,7 @@ void online_mask_filler::end_substream()
 // -------------------------------------------------------------------------------------------------
 //
 // scalar_mask_filler class
-//
-// Note: the online_mask_filler class declaration, and definitions of member functions
-// are local to this file, but at the end we define the externally-visible factory
-// function make_online_mask_filler(), which returns a pointer to a new online_mask_filler
-// object.
-//
-// Recommended reading: the declaration of 'struct wi_transform' in rf_pipelines.hpp
-// and comments contained therein.  This will explain (I hope!) what needs to be implemented,
-// for example in scalar_mask_filler::process_chunk().
-
+// Everything below exists for the purpose of unit testing everything above! 
 
 // -------------------------------------------------------------------------------------------------
 // Class for random number generation
@@ -350,6 +322,7 @@ struct xorshift_plus
   
     inline void gen_floats(float *rn)
     {
+        // Generates 8 random floats and stores in rn
         for (int i=0; i<8; i+=2)
 	{
 	    uint64_t x = seeds[i];
@@ -368,33 +341,23 @@ struct xorshift_plus
 	}
     }
 
-    inline void gen_positive_floats(float *rn, int ngen)
-    {
-        // Calls gen_floats, then squares
-        // Really awful form, I know
-        rf_assert(ngen % 8 == 0);
-	for (int i=0; i<ngen; i += 8)
-	    gen_floats(rn + i);
-	for (int i=0; i<ngen; i++)
-	    rn[i] = rn[i] * rn[i];
-    }
-
-    inline void gen_weights(float *weights, float pfailv1, float pallzero, int ngen)
+    inline void gen_weights(float *weights, float pfailv1, float pallzero)
     {
         // This exists solely for the unit test of the online mask filler!
-        // Just gen_floats + 1!
-        // Not any more! 
-        // To make the pfailv1 and pallzero work, we need to generate all 32 random
-        // numbers at once!
+        // Essentially, this is gen_floats + 1 (to get the range right for weights)
+        // with extra pfailv1 and pallzero parameters that dictate whether a group of 
+        // 32 random numbers (it generates 32 random numbers at once) should result
+        // in a failed v1 estimate (i.e. >=24 weights less than the cutoff) or whether
+        // all weight values should be zero. Currently, the implementation is a little 
+        // boneheaded and can definitely be imporved...
+      
         // If the first random number generated is less than pallzero * 2, we make it all zero
         // If the first randon number generated is less than pallzero * 2 + pfailv1 * 2 but
         // greater than pallzero * 2, we make sure the v1 fails by distributing at least 
         // 24 zeros throughout the vector
         // Else, we just fill weights randomly!
         
-        rf_assert(ngen % 8 == 0);
-
-        for (int i=0; i<ngen; i+=2)
+        for (int i=0; i<32; i+=2)
     	{
     	    uint64_t x = seeds[i % 8];
     	    uint64_t y = seeds[(i+1) % 8];
@@ -407,7 +370,7 @@ struct xorshift_plus
     	    uint32_t tmp0 = tmp; // low 32 bits
     	    uint32_t tmp1 = tmp >> 32; // high 32
 	    
-    	    if (i == 0 && ngen == 32)
+    	    if (i == 0)
     	    {
     	    	float rn = float(int32_t(tmp0)) * 4.6566129e-10 + 1;
     	    	if (rn < pallzero * 2)
@@ -419,18 +382,19 @@ struct xorshift_plus
     	    	}
     	    	else if (rn < pallzero * 2 + pfailv1 * 2)
     	        {
-    	    	    // Make the v1 fail -- tbh idk how yet. I think this works?
+    	    	    // Make the v1 fail -- this is not super good and can be improved! 
     	    	    for (int j=0; j<25; j++)
     	    	        weights[j] = 0;
     	    	    i = 24;
     	    	}
     	    }
 	    
-    	    weights[i % 8] = float(int32_t(tmp0)) * 4.6566129e-10 + 1;
-    	    weights[(i+1) % 8] = float(int32_t(tmp1)) * 4.6566129e-10 + 1;
+    	    weights[i] = float(int32_t(tmp0)) * 4.6566129e-10 + 1;
+    	    weights[i+1] = float(int32_t(tmp1)) * 4.6566129e-10 + 1;
     	}
     }
 };
+
 
 struct scalar_mask_filler : public wi_transform {
     // Specified at construction.
@@ -556,10 +520,6 @@ inline void scalar_mask_fill(int v1_chunk, float *intensity, float *weights, vec
 	        v1 = max(v1, running_var[ifreq] - var_clamp_add - running_var[ifreq] * var_clamp_mult);
 	        // Finally, update the running variance
 	        running_var[ifreq] = v1;
-		// if (ifreq > 10)
-		// {
-		//     cout << "Final v1: " << v1 << endl;
-		// }
 	    }
 	    else
 	    {
@@ -571,13 +531,9 @@ inline void scalar_mask_fill(int v1_chunk, float *intensity, float *weights, vec
 	    for (int i=0; i < v1_chunk; ++i)
 	    {
 	        if (i % 8 == 0)
-		  {
 		    rand_x.gen_floats(rn);
-		  }
-		if (ifreq == 1)
-		  cout << rn[i % 8] << " ";
 		if (running_weights[ifreq] != 0)
-		  {
+		{
 	    	    if (weights[ifreq*stride+i+ichunk] < w_cutoff)
 	    	      intensity[ifreq*stride+i+ichunk] = rn[i % 8] * sqrt(3 * running_var[ifreq]);
 	    	}
@@ -630,19 +586,15 @@ void print_vec(float *a)
     cout << "\n\n";
 }
 
-inline bool equality_checker(float a, float b, float epsilon, bool verbose=false)
+inline bool equality_checker(float a, float b, float epsilon)
 {
-  // I know this isn't great, but I think it should be sufficient
-  if (verbose)
-    cout << "Comparing " << a << " and " << b << endl;
-  return abs(a-b) < epsilon;
+    // I know this isn't great, but I think it should be sufficient
+    return abs(a-b) < epsilon;
 }
 
-bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero)
+inline bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero, float w_cutoff=0.5, float w_clamp=3e-3, float var_clamp_add=3e-3, 
+			float var_clamp_mult=3e-3, float var_weight=2e-3, int niter=100)
 {
-    // First, make an intensity array of dimensions nfreq x nt_chunk
-    // Just fill with random values
-    // For now, let's fill the weights with random values between (0, 2)
     rf_assert (nfreq * nt_chunk % 8 == 0);
     rf_assert (nt_chunk % 8 == 0);
     rf_assert (pfailv1 < 1);
@@ -650,37 +602,45 @@ bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero)
     rf_assert (pallzero < 1);
     rf_assert (pallzero >=0);
 
+    // First, we randomize the weights and intensity values
+    // We need two copies to put through each processing function and compare
     xorshift_plus rn;
-    mt19937 gen (rd());
-    uniform_real_distribution<float> w_dis(0.0, 2.0);
-    uniform_real_distribution<float> var_dis(0.0, 0.02);
     
     float intensity[nfreq * nt_chunk];
     float weights[nfreq * nt_chunk];
-
-    for (int i=0; i < nfreq * nt_chunk; i += 8)
-        rn.gen_floats(intensity + i);
-
-    for (int i=0; i < nfreq * nt_chunk; i++)
-        rn.gen_weights(weights + i, pfailv1, pallzero, 32);
-
-    // Now, let's stick both arrays through the process_chunks
-    // Let's just make a copy of the intensity and weights, feed through each, then compare
     float intensity2[nfreq * nt_chunk];
     float weights2[nfreq * nt_chunk];
 
+    // Generate intensities 8 at a time using vanilla prng
+    for (int i=0; i < nfreq * nt_chunk; i+=8)
+        rn.gen_floats(intensity + i);
+
+    // Use custom function to generate weights 
+    for (int i=0; i < nfreq * nt_chunk; i+=32)
+      rn.gen_weights(weights + i, pfailv1, pallzero);
+
+    // Copy
     for (int i=0; i < nfreq * nt_chunk; i++)
     {
         intensity2[i] = intensity[i];
 	weights2[i] = weights[i];
     }
 
-    // Randomize running weights and running variance
+    // Now, we generate random values for the running variance and running weights
+    // Using the vec_xorshift_plus functions was too much of a hassle due to vector issues
+    // so I've opted to use the C++ rng suite
+    mt19937 gen (rd());
+    // Weights between 0 and 2
+    uniform_real_distribution<float> w_dis(0.0, 2.0);
+    // Variance between 0.0 and 0.02
+    uniform_real_distribution<float> var_dis(0.0, 0.02);
+    
     vector<float> running_var(nfreq);
     vector<float> running_var2(nfreq);
     vector<float> running_weights(nfreq);
     vector<float> running_weights2(nfreq);
 
+    // Make two copies
     for (int i=0; i<nfreq; i++)
     {
         running_var[i] = var_dis(gen);
@@ -689,14 +649,7 @@ bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero)
 	running_weights2[i] = running_weights[i];
     }
     
-    int stride = nt_chunk;
-    float w_cutoff = 0.5;
-    float w_clamp = 3e-3;
-    float var_clamp_add = 3e-3;
-    float var_clamp_mult = 3e-3;
-    float var_weight = 2e-3;
-
-    // Wowowow I am dumb
+    // As in the prng unit test, we need to ensure both random number generators are initialized with the same seed values!
     float rn1 = rd();
     float rn2 = rd();
     float rn3 = rd();
@@ -705,35 +658,19 @@ bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero)
     float rn6 = rd();
     float rn7 = rd();
     float rn8 = rd();
-
     vec_xorshift_plus vec_rn(_mm256_setr_epi64x(rn1, rn3, rn5, rn7), _mm256_setr_epi64x(rn2, rn4, rn6, rn8));
     xorshift_plus sca_rn(rn1, rn2, rn3, rn4, rn5, rn6, rn7, rn8);
     
-    mask_filler(intensity, weights, &running_var, &running_weights, stride, nt_chunk, w_cutoff, w_clamp, var_clamp_add, var_clamp_mult, var_weight, nfreq, vec_rn);
-    scalar_mask_fill(32, intensity2, weights2, running_var2, running_weights2, nt_chunk, nfreq, stride, w_cutoff, w_clamp, var_clamp_add, var_clamp_mult, var_weight, sca_rn);
+    for (int i=0; i<nfreq*nt_chunk; i++)
+      cout << weights[i] << " ";
+    cout << '\n';
 
-    cout << "\n\n\nINTENSITY V" << endl;
-    for (int ifreq=0; ifreq < nfreq; ifreq++)
-    {
-        for (int i=0; i < nt_chunk; i++)
-        {
-    	    cout << intensity[ifreq * nt_chunk + i] << " ";
-    	}
-    	cout << "\n";
-    }
-    cout << "\n" << endl;
 
-    cout << "INTENSITY S" << endl;
-    for (int ifreq=0; ifreq < nfreq; ifreq++)
-    {
-        for (int i=0; i < nt_chunk; i++)
-        {
-    	    cout << intensity2[ifreq * nt_chunk + i] << " ";
-    	}
-    	cout << "\n";
-    }
-    cout << "\n" << endl;
-    
+    // Process away! Note that the double instances of nt_chunk are for the "stride" parameter which is equal to nt_chunk for this test
+    mask_filler(intensity, weights, &running_var, &running_weights, nt_chunk, nt_chunk, w_cutoff, w_clamp, var_clamp_add, var_clamp_mult, var_weight, nfreq, vec_rn);
+    scalar_mask_fill(32, intensity2, weights2, running_var2, running_weights2, nt_chunk, nfreq, nt_chunk, w_cutoff, w_clamp, var_clamp_add, var_clamp_mult, var_weight, sca_rn);
+
+
     // First, let's compare the running variance and runnign weights
     for (int i=0; i<nfreq; i++)
     {
@@ -778,7 +715,7 @@ bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero)
 }
 
 
-bool test_xorshift(int niter=100)
+inline bool test_xorshift(int niter=100)
 {
     for (int iter=0; iter < niter; iter++)
     {
