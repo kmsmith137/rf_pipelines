@@ -234,7 +234,7 @@ inline void mask_filler(float *intensity, float *weights, vector<float> *running
 	  // If pass is less than -8, we treat this as a failed v1 case (since >75% of the data is masked, we can't use that to update 
 	  // our running variance estimate). After doing the compare below, mask will contain we get a constant register that is either 
 	  // all zeros if the variance estimate failed or all ones if the variance estimate was successful.
-	  __m256 mask = _mm256_cmp_ps(npass, _mm256_set1_ps(-8), _CMP_LT_OS);
+	  __m256 mask = _mm256_cmp_ps(npass, _mm256_set1_ps(-8.1), _CMP_LT_OS);
 	      
 	  // Here, we do the variance computation:
 	  tmp_var = var_est(w0, w1, w2, w3, i0, i1, i2, i3);
@@ -469,13 +469,13 @@ void scalar_mask_filler::start_substream(int isubstream, double t0)
 }
 
 
-inline bool get_v1(const float *intensity, const float *weights, float &v1, int v1_chunk)
+inline bool get_v1(const float *intensity, const float *weights, float &v1)
 {
     int zerocount = 0;
     float vsum = 0;
     float wsum = 0;
 
-    for (int i=0; i < v1_chunk; ++i)
+    for (int i=0; i < 32; ++i)
     {
         // I assume this is okay for checking whether the weight is 0?
         if (weights[i] < 1e-7)
@@ -487,7 +487,7 @@ inline bool get_v1(const float *intensity, const float *weights, float &v1, int 
     wsum = max(wsum, 1.0f);
 
     // Check whether enough valid values were passed
-    if (zerocount >= v1_chunk * 0.75)
+    if (zerocount >= 23.9)
     {  
 	v1 = 0;
         return false;
@@ -503,6 +503,8 @@ inline void scalar_mask_fill(int v1_chunk, float *intensity, float *weights, vec
     float v1;   // stores temporary v1 estimate before it is put into running_var    
     float rn[8];
 
+    rf_assert (v1_chunk == 32);
+
     for (int ifreq=0; ifreq < nfreq; ++ifreq)
     {
         for (int ichunk=0; ichunk < nt_chunk-1; ichunk += v1_chunk)
@@ -511,7 +513,7 @@ inline void scalar_mask_fill(int v1_chunk, float *intensity, float *weights, vec
 	    const float *wacc = &weights[ifreq*stride + ichunk];
 
 	    // Get v1_chunk
-	    if (get_v1(iacc, wacc, v1, v1_chunk))
+	    if (get_v1(iacc, wacc, v1))
 	    {
 	        // If the v1 was succesful, try to increase the weight, if possible
 	        running_weights[ifreq] = min(2.0f, running_weights[ifreq] + w_clamp);
@@ -602,6 +604,8 @@ inline bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero, 
     rf_assert (pallzero < 1);
     rf_assert (pallzero >=0);
     
+    for (int iter=0; iter<niter; iter++)
+    {
     // First, we randomize the weights and intensity values
     // We need two copies to put through each processing function and compare
     xorshift_plus rn;
@@ -672,7 +676,7 @@ inline bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero, 
         // Check running variance
         if (!equality_checker(running_var[ifreq], running_var2[ifreq], 10e-8))
 	{
-	    cout << "Something's gone wrong! The running variances at frequency " << ifreq << " are unequal!" << endl;
+    	    cout << "Something's gone wrong! The running variances at frequency " << ifreq << " on iteration " << iter << " are unequal!" << endl;
 	    cout << "Scalar output: " << running_var2[ifreq] << "\t\t Vectorized output: " << running_var[ifreq] << endl;
 	    return false;
 	}
@@ -680,7 +684,7 @@ inline bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero, 
 	// Check running weights
 	if (!equality_checker(running_weights[ifreq], running_weights2[ifreq], 10e-8))
 	{
-	    cout << "Something's gone wrong! The running weights at frequency " << ifreq << " are unequal!" << endl;
+	    cout << "Something's gone wrong! The running weights at frequency " << ifreq << " on iteration " << iter << " are unequal!" << endl;
 	    cout << "Scalar output: " << running_weights2[ifreq] << "\t\t Vectorized output: " << running_weights[ifreq] << endl;
 	    return false;
 	}
@@ -691,7 +695,7 @@ inline bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero, 
 	    if (!equality_checker(intensity[ifreq * nt_chunk + i], intensity2[ifreq * nt_chunk + i], 10e-5))
 	    { 
 		cout << "Something has gone wrong! The intensity array produced by the scalar mask filler does not match the intensity array produced by the vectorized mask filler!" << endl;
-		cout << "Output terminated at time index " << i << " and frequency " << ifreq << endl;
+		cout << "Output terminated at time index " << i << " and frequency " << ifreq << " on iteration " << iter << endl;
 		cout << "Scalar output: " << intensity2[ifreq * nt_chunk + i] << "\t\t Vectorized output: " << intensity[ifreq * nt_chunk + i] << endl;
 		return false;
 	    }
@@ -700,19 +704,19 @@ inline bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero, 
 	    if (!equality_checker(weights[ifreq * nt_chunk + i], weights2[ifreq * nt_chunk + i], 10e-5))
 	    {
 		cout << "Something has gone wrong! The weights array produced by the scalar mask filler does not match the weights array produced by the vectorized mask filler!" << endl;
-		cout << "Output terminated at time index " << i << " and frequency " << ifreq << endl;
+		cout << "Output terminated at time index " << i << " and frequency " << ifreq << " on iteration " << iter << endl;
 		cout << "Scalar output: " << weights2[ifreq * nt_chunk + i] << "\t\t Vectorized output: " << weights[ifreq * nt_chunk + i] << endl;
 		return false;
 	    }
 	}
     }
-
+    }
     cout << "***online_mask_filler unit test passed!" << endl;
     return true;
 }
 
 
-inline bool test_xorshift(int niter=100)
+inline bool test_xorshift(int niter=10000)
 {
     for (int iter=0; iter < niter; iter++)
     {
