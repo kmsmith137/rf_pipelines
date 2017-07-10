@@ -534,11 +534,8 @@ inline void scalar_mask_fill(int v1_chunk, float *intensity, float *weights, vec
 	    {
 	        if (i % 8 == 0)
 		    rand_x.gen_floats(rn);
-		if (running_weights[ifreq] != 0)
-		{
-	    	    if (weights[ifreq*stride+i+ichunk] < w_cutoff)
-	    	      intensity[ifreq*stride+i+ichunk] = rn[i % 8] * sqrt(3 * running_var[ifreq]);
-	    	}
+		if (weights[ifreq*stride+i+ichunk] < w_cutoff)
+		  intensity[ifreq*stride+i+ichunk] = rn[i % 8] * sqrt(3 * running_var[ifreq]);
 	        weights[ifreq*stride+i+ichunk] = running_weights[ifreq];
 	    }
 	} // close the frequency loop
@@ -595,7 +592,7 @@ inline bool equality_checker(float a, float b, float epsilon)
 }
 
 inline bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero, float w_cutoff=0.5, float w_clamp=3e-3, float var_clamp_add=3e-3, 
-			float var_clamp_mult=3e-3, float var_weight=2e-3, int niter=1000)
+			float var_clamp_mult=3e-3, float var_weight=2e-3, int niter=10000)
 {
     rf_assert (nfreq * nt_chunk % 8 == 0);
     rf_assert (nt_chunk % 8 == 0);
@@ -654,14 +651,14 @@ inline bool test_filler(int nfreq, int nt_chunk, float pfailv1, float pallzero, 
     }
     
     // As in the prng unit test, we need to ensure both random number generators are initialized with the same seed values!
-    float rn1 = rd();
-    float rn2 = rd();
-    float rn3 = rd();
-    float rn4 = rd();
-    float rn5 = rd();
-    float rn6 = rd();
-    float rn7 = rd();
-    float rn8 = rd();
+    unsigned int rn1 = rd();
+    unsigned int rn2 = rd();
+    unsigned int rn3 = rd();
+    unsigned int rn4 = rd();
+    unsigned int rn5 = rd();
+    unsigned int rn6 = rd();
+    unsigned int rn7 = rd();
+    unsigned int rn8 = rd();
     vec_xorshift_plus vec_rn(_mm256_setr_epi64x(rn1, rn3, rn5, rn7), _mm256_setr_epi64x(rn2, rn4, rn6, rn8));
     xorshift_plus sca_rn(rn1, rn2, rn3, rn4, rn5, rn6, rn7, rn8);
     
@@ -721,14 +718,14 @@ inline bool test_xorshift(int niter=10000)
     for (int iter=0; iter < niter; iter++)
     {
         // Make sure both prngs are initialized with the same random seeds
-        float rn1 = rd();
-	float rn2 = rd();
-	float rn3 = rd();
-	float rn4 = rd();
-	float rn5 = rd();
-	float rn6 = rd();
-	float rn7 = rd();
-	float rn8 = rd();
+        unsigned int rn1 = rd();
+	unsigned int rn2 = rd();
+	unsigned int rn3 = rd();
+	unsigned int rn4 = rd();
+	unsigned int rn5 = rd();
+	unsigned int rn6 = rd();
+	unsigned int rn7 = rd();
+	unsigned int rn8 = rd();
 
 	vec_xorshift_plus a(_mm256_setr_epi64x(rn1, rn3, rn5, rn7), _mm256_setr_epi64x(rn2, rn4, rn6, rn8));
 	float vrn_vec[8];
