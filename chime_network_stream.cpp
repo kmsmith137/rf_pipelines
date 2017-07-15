@@ -127,6 +127,10 @@ void chime_network_stream::stream_body(wi_run_state &run_state)
 
 	run_state.setup_write(nt_maxwrite, dst_intensity, dst_weights, dst_stride, zero_flag, t0);
 	chunk->decode(dst_intensity, dst_weights, dst_stride);
+
+	// Drop reference to the chunk as soon as possible, so that its memory_slab can be returned to the pool.
+	chunk = shared_ptr<ch_frb_io::assembled_chunk> ();
+
 	run_state.finalize_write(nt_maxwrite);
     }
     
