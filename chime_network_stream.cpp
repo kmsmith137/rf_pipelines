@@ -50,12 +50,7 @@ chime_network_stream::chime_network_stream(const shared_ptr<ch_frb_io::intensity
     if (!stream)
 	throw runtime_error("rf_pipelines: empty stream pointer passed to chime_network_stream constructor");
 
-    // Hmm, it would be nice to check that the stream is in the "not-yet-started" state,
-    // but there is no public member function of intensity_network_stream which returns 
-    // this information.  The check will still be done, but not until stream->start_stream()
-    // gets called in chime_network_stream::stream_start().
-
-    vector<int> beam_ids = stream->get_initializer().beam_ids;
+    const vector<int> &beam_ids = stream->ini_params.beam_ids;
     
     for (unsigned int i = 0; i < beam_ids.size(); i++) {
 	if (beam_ids[i] == beam_id) {
@@ -69,13 +64,14 @@ chime_network_stream::chime_network_stream(const shared_ptr<ch_frb_io::intensity
 			    + " not found in stream beam_id list " + stringify(beam_ids));
     }
 
+    this->nfreq = ch_frb_io::constants::nfreq_coarse_tot * stream->ini_params.nupfreq;
+    this->dt_sample = constants::chime_seconds_per_fpga_count * stream->ini_params.fpga_counts_per_sample;
+    this->nt_maxwrite = ch_frb_io::constants::nt_per_assembled_chunk;
+    
     // The frequency band is not currently part of the L0-L1 packet format, so we just use hardcoded values.
     // If we ever want to reuse the packet format in a different experiment, this should be fixed by updating the protocol.
     this->freq_lo_MHz = 400.0;
     this->freq_hi_MHz = 800.0;
-    this->nt_maxwrite = ch_frb_io::constants::nt_per_assembled_chunk;
-    
-    // Initialization of base class members {nfreq, dt_sample} is deferred to stream_start().
 }
 
 
@@ -83,21 +79,6 @@ void chime_network_stream::stream_start()
 {
     // tells network thread to start reading packets, returns immediately
     stream->start_stream();
-    
-    int nupfreq;
-    int nt_per_packet;
-    uint64_t fpga_counts_per_sample;
-    uint64_t fpga_count0;
-
-    // block until first packet is received
-    bool alive = stream->get_first_packet_params(nupfreq, nt_per_packet, fpga_counts_per_sample, fpga_count0);
-
-    if (!alive)
-	throw runtime_error("chime_network_stream: no packets received");
-
-    // now we can initialize {nfreq, dt_sample}
-    this->nfreq = ch_frb_io::constants::nfreq_coarse_tot * nupfreq;
-    this->dt_sample = constants::chime_seconds_per_fpga_count * fpga_counts_per_sample;
 }
 
 
