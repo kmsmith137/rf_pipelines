@@ -96,4 +96,114 @@ void wi_transform::_clear_json(bool substream_only)
 }
 
 
+// Default implementation of virtual
+Json::Value wi_transform::serialize_to_json() const
+{
+    throw runtime_error("rf_pipelines: serialization-to-json not implemeted for transform '" + this->name + "'");
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// More json serialization/deserialization
+
+
+// Helper for deserialize_transform_from_json()
+static string _get_string(const Json::Value &x, const string &k)
+{
+    if (!x.isMember(k))
+	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was expected but not found");
+    
+    const Json::Value &v = x[k];
+    if (!v.isString())
+	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was not a string as expected");
+
+    return v.asString();
+}
+
+// Helper for deserialize_transform_from_json()
+static int _get_int(const Json::Value &x, const string &k)
+{
+    if (!x.isMember(k))
+	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was expected but not found");
+    
+    const Json::Value &v = x[k];
+    if (!v.isInt())
+	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was not an int as expected");
+
+    return v.asInt();
+}
+
+// Helper for deserialize_transform_from_json()
+static double _get_double(const Json::Value &x, const string &k)
+{
+    if (!x.isMember(k))
+	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was expected but not found");
+    
+    const Json::Value &v = x[k];
+    if (!v.isDouble())
+	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was not a floating-point number as expected");
+
+    return v.asDouble();
+}
+
+// Helper for deserialize_transform_from_json()
+static axis_type _get_axis(const Json::Value &x, const string &k)
+{
+    string s = _get_string(x, k);
+
+    if (s == "AXIS_FREQ")
+	return AXIS_FREQ;
+    if (s == "AXIS_TIME")
+	return AXIS_TIME;
+    if (s == "AXIS_NONE")
+	return AXIS_NONE;
+
+    throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was not an axis_type as expected");
+}
+
+
+shared_ptr<wi_transform> deserialize_transform_from_json(const Json::Value &x)
+{
+    if (!x.isObject())
+	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): expected json object");
+
+    string transform_name = _get_string(x, "transform_name");
+
+    if (transform_name == "polynomial_detrender") {
+	return make_polynomial_detrender(_get_int(x, "nt_chunk"),
+					 _get_axis(x, "axis"),
+					 _get_int(x, "polydeg"),
+					 _get_double(x, "epsilon"));
+    }
+
+    throw runtime_error("rf_pipelines::deserialize_transform_from_json(): transform_name='" + transform_name + "' not recognized");
+}
+
+
+vector<shared_ptr<wi_transform>> deserialize_transform_chain_from_json(const Json::Value &x)
+{
+    if (!x.isArray())
+	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): expected json array");
+
+    int n = x.size();
+    vector<shared_ptr<wi_transform>> ret(n);
+
+    for (int i = 0; i < n; i++)
+	ret[i] = deserialize_transform_from_json(x[i]);
+
+    return ret;
+}
+
+
+Json::Value serialize_transform_chain_to_json(const vector<shared_ptr<wi_transform>> &v)
+{
+    Json::Value ret;
+    for (const auto &t: v)
+	ret.append(t->serialize_to_json());
+
+    return ret;
+}
+
+
 }  // namespace rf_pipelines

@@ -27,18 +27,20 @@ This code is under construction!  A current to do list is in [TODO.md](./TODO.md
 
   - jsoncpp (https://github.com/open-source-parsers/jsoncpp)
 
-    On osx, you can probably install with: `brew install jsoncpp`
+      - osx one-liner: `brew install jsoncpp`
 
-    In linux, you can probably install with `yum install jsoncpp-devel`
+      - centos one-liner: `yum install jsoncpp-devel`
 
-    Building jsoncpp from scratch is a pain, but the following procedure worked for me:
-    ```
-    git clone https://github.com/open-source-parsers/jsoncpp
-    mkdir -p build/debug
-    cd build/debug
-    cmake -DCMAKE_INSTALL_PREFIX:PATH=$HOME -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_C_FLAGS=-fPIC -DCMAKE_BUILD_TYPE=debug -G "Unix Makefiles" ../..
-    make install
-    ```
+      - ubuntu one-liner: `apt-get install libjsoncpp-dev`
+
+      - Building from scratch is a pain, but the following procedure worked for me:
+        ```
+        git clone https://github.com/open-source-parsers/jsoncpp
+        mkdir -p build/debug
+        cd build/debug
+        cmake -DCMAKE_INSTALL_PREFIX:PATH=$HOME -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_C_FLAGS=-fPIC -DCMAKE_BUILD_TYPE=debug -G "Unix Makefiles" ../..
+        make install
+        ```
 
   - Optional but recommended: The 'PIL' python imaging library (you can test whether you have 
     it with 'import PIL' from python).  If you need to install it, I recommend the 'Pillow' 

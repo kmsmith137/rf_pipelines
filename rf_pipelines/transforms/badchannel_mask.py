@@ -1,7 +1,10 @@
 import numpy as np
-import rf_pipelines
 
-class badchannel_mask(rf_pipelines.py_wi_transform):
+import rf_pipelines
+from rf_pipelines import rf_pipelines_c
+
+
+def badchannel_mask(maskpath=None, nt_chunk=1024, mask=None, cpp=True):
     """
     This transform sets bad freq channels of a weights array to 0.
 
@@ -16,10 +19,21 @@ class badchannel_mask(rf_pipelines.py_wi_transform):
        value in a chain of transforms.
 
       'mask=None' is a list of user-supplied freq pairs for (additional) masking.
+         (only meaningful if cpp=False) 
+      
+      'cpp=True' will use fast C++ transforms.
+      'cpp=False' will use reference python transforms.
     """
 
+    if cpp:
+        return rf_pipelines_c.make_badchannel_mask(maskpath, nt_chunk)
+    else:
+        return badchannel_mask_python(maskpath, nt_chunk, mask)
+
+
+class badchannel_mask_python(rf_pipelines.py_wi_transform):
     def __init__(self, maskpath=None, nt_chunk=1024, mask=None):
-        name = 'badchannel_mask(maskpath=%s, mask=%s)' % (maskpath, mask)
+        name = 'badchannel_mask_python(maskpath=%s, nt_chunk=%d, mask=%s)' % (maskpath, nt_chunk, mask)
         rf_pipelines.py_wi_transform.__init__(self, name)
 
         self.maskpath = maskpath 
@@ -83,12 +97,6 @@ class badchannel_mask(rf_pipelines.py_wi_transform):
         # numbers beyond the maximum index -- so no need to constrain
         # the upper bound.
         self.index_mask[self.index_mask < 0.] = int(0)
-
-        # The following is a private method for testing the class.
-        self._badchannel_mask__test()
-
-    def __test(self):
-        pass
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         

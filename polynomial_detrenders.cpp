@@ -52,6 +52,20 @@ struct polynomial_detrender : public wi_transform
 
     virtual void start_substream(int isubstream, double t0) override { }
     virtual void end_substream() override { }
+
+
+    virtual Json::Value serialize_to_json() const override
+    {
+	Json::Value ret;
+
+	ret["transform_name"] = "polynomial_detrender";
+	ret["nt_chunk"] = int(this->nt_chunk);
+	ret["axis"] = axis_type_to_string(this->axis);
+	ret["polydeg"] = this->polydeg;
+	ret["epsilon"] = this->epsilon;
+
+	return ret;
+    }
 };
 
 

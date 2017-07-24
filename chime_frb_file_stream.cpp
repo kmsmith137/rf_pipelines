@@ -76,8 +76,8 @@ void chime_frb_file_stream::set_params_from_file() {
     this->freq_hi_MHz = 800.0;
     double fpga_t = rf_pipelines::constants::chime_seconds_per_fpga_count;
     this->dt_sample = fpga_t * chunk->fpga_counts_per_sample;
-    this->time_lo = fpga_t * chunk->fpgacounts_begin();
-    this->time_hi = fpga_t * chunk->fpgacounts_end();
+    this->time_lo = fpga_t * chunk->fpga_begin;
+    this->time_hi = fpga_t * chunk->fpga_end;
     this->nt = ch_frb_io::constants::nt_per_assembled_chunk;
     this->frequencies_are_increasing = false;
 }

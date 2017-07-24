@@ -156,7 +156,6 @@ extern std::shared_ptr<wi_stream> make_chime_frb_stream_from_filename_list(const
 //
 
 // Assumes the ch_frb_io::intensity_network_stream object is already constructed (but not started).
-// The assembler_id is an index satisfying 0 <= assembler_ix < num_beams_in_assembler (not a beam_id).
 extern std::shared_ptr<wi_stream> make_chime_network_stream(const std::shared_ptr<ch_frb_io::intensity_network_stream> &stream, int beam_id);
 
 // A higher-level interface which constructs a ch_frb_io::intensity_network_stream expecting a single beam_id.  
@@ -192,6 +191,7 @@ enum axis_type {
 
 // In misc.cpp
 extern std::ostream &operator<<(std::ostream &os, axis_type axis);
+extern std::string axis_type_to_string(int axis);
 
 //
 // polynomial_detrender: detrends along either the time or frequency axis,
@@ -399,6 +399,45 @@ extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &
 
 // This interface may be more suitable for low-level use.
 extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::shared_ptr<bonsai::dedisperser> &d);
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// bitmask_maker transform, and associated helper functions/classes.
+
+
+// Kernels used by the bitmask_maker.
+extern void make_bitmask(uint8_t *out_bitmask, int nfreq, int nt, const float *in_weights, int in_stride);
+extern void make_bitmask_reference(uint8_t *out_bitmask, int nfreq, int nt, const float *in_weights, int in_stride);
+
+
+// Virtual base class is used to manage memory buffers.  The virtual functions
+// get_chunk() and put_chunk() are called by the bitmask_saver transform, to
+// obtain and release buffers for storing the bitmask as it is computed.
+
+struct bitmask_chunk_manager {
+
+    // get_chunk(): called to request a chunk of memory, to be filled with the bitmask.
+    // Returns a pointer to a uint8_t 'chunk' array of shape (nfreq, nt_chunk/8).
+    //
+    // Currently the chunk is assumed contiguous, but the interface could
+    // be changed to allow a strided array if necessary.
+
+    virtual uint8_t *get_chunk(double t0, ssize_t nfreq, ssize_t nt_chunk) = 0;
+
+    // put_chunk(): called to release a chunk of memory, after it has been filled
+    // with the bitmask.
+    //
+    // Note that calls to get_chunk() and put_chunk() are always "paired", i.e.
+    // each get_chunk() is followed by a matching put_chunk(), before the next
+    // call to get_chunk() occurs.
+
+    virtual void put_chunk() = 0;
+};
+
+
+// Factory function which returns the bitmask_saver transform.
+extern std::shared_ptr<wi_transform> make_bitmask_saver(const std::shared_ptr<bitmask_chunk_manager> &mp, ssize_t nt_chunk);
 
 
 // -------------------------------------------------------------------------------------------------
@@ -674,7 +713,20 @@ struct wi_transform {
     // There's normally no need to override them (we only do so in the python-wrapping code).
     virtual void _get_json(Json::Value &dst) const;
     virtual void _clear_json(bool substream_only);
+
+    // By default, this virtual function throws an exception ("serialize_to_json() unimplemented...")
+    //
+    // Transforms which support serialization-to-json should override this function, and also add
+    // deserialization code to rf_pipelines::deserialize_transform_from_json().
+    virtual Json::Value serialize_to_json() const;
 };
+
+
+extern std::shared_ptr<wi_transform> deserialize_transform_from_json(const Json::Value &x);
+
+extern std::vector<std::shared_ptr<wi_transform>> deserialize_transform_chain_from_json(const Json::Value &x);
+
+extern Json::Value serialize_transform_chain_to_json(const std::vector<std::shared_ptr<wi_transform>> &v);
 
 
 // -------------------------------------------------------------------------------------------------
