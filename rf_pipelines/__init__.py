@@ -455,6 +455,7 @@ from .streams.gaussian_noise_stream import gaussian_noise_stream
 
 # Transforms (some implemented in C++, others in python)
 
+from .transforms.adversarial_masker import adversarial_masker
 from .transforms.chime_packetizer import chime_packetizer
 from .transforms.chime_transforms import chime_file_writer
 from .transforms.plotter_transform import plotter_transform
