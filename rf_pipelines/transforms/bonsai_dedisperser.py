@@ -58,7 +58,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                  track_global_max=False, dm_min=None, dm_max=None, hdf5_output_filename=None, nt_per_hdf5_file=0,
                  deallocate_between_substreams=False, use_analytic_normalization=False, dynamic_plotter=False,
                  plot_threshold1=6, plot_threshold2=10, event_outfile=None, L1Grouper_thr=7, L1Grouper_beam=0, 
-                 L1Grouper_addr=None, plot_all_trees=False):
+                 L1Grouper_addr=None, plot_all_trees=False, grouper_plotter=True):
 
         # We import the bonsai module here, rather than at the top of the file, so that bonsai isn't
         # required to import rf_pipelines (but is required when you try to construct a bonsai_dedisperser).
@@ -95,6 +95,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         if self.event_outfile is not None:
             self.grouper = rf_pipelines.L1Grouper(self.dedisperser, L1Grouper_thr, L1Grouper_beam, L1Grouper_addr)
             self.detected_events = []
+            print 'This is running'
 
         # Note that 'nfreq' is determined by the config file.  If the stream's 'nfreq' differs,
         # then an exception will be thrown.  The 'nt_chunk' parameter is also determined by the
@@ -105,6 +106,11 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         self.nt_postpad = 0
 
         # Set plotting parameters
+        if grouper_plotter:
+            assert self.make_plot
+            assert self.event_outfile
+            self.grouper_plotter = grouper_plotter
+
         if self.make_plot:
             self.dynamic_plotter = dynamic_plotter
             self.plot_threshold1 = plot_threshold1
@@ -142,6 +148,11 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                 for i in (self.ntrees-1) * range(self.n_zoom):
                     self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[i], ny=img_ndm/2)
 
+            # Add a single set of plot groups (one for each zoom level, regardless of the number of trees being plotted) for the grouper plots
+            if self.grouper_plotter:
+                self.grouper_height = 3
+                for i in xrange(self.n_zoom):
+                    self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[i], ny=self.grouper_height)
 
     def set_stream(self, stream):
         if stream.nfreq != self.nfreq:
@@ -159,7 +170,9 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         if self.make_plot:
             self.isubstream = isubstream
             self.plot_groups = [Plotter(self, ny=self.img_ndm/(1 if i==0 else 2), iplot=i) for i in xrange(1 + self.plot_all_trees * (self.ntrees-1))]
-            self.json_per_substream["n_plot_groups"] = 1 + self.plot_all_trees * (self.ntrees-1)  # Helpful parameter for the web viewer
+            self.grouper_plot_groups = [Plotter(self, ny=self.grouper_height, iplot=i) for i in xrange(1 + self.plot_all_trees * (self.ntrees-1), 
+                                                                                                       1 + self.plot_all_trees * (self.ntrees-1) + self.n_zoom)]
+            self.json_per_substream["n_plot_groups"] = 1 + self.plot_all_trees * (self.ntrees-1) + self.grouper_plotter * self.n_zoom # Helpful parameter for the web viewer
 
 
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
@@ -205,6 +218,11 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             events = self.grouper.process_triggers()
             if events is not None:
                 self.detected_events.append(events) 
+            if self.grouper_plotter:
+                grouper_arr = np.zeroes((self.grouper_height, self.nt_chunk))
+                for event in events:
+                    grouper_arr[:, (event['time'] - t0) * self.nt_chunk / (t1 - t0)] = 10
+                self.grouper_plot_groups[0].process(grouper_arr, True)
  
 
     def end_substream(self):
@@ -216,6 +234,15 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                                      zoom_level,
                                      self.plot_groups[i].ifile[zoom_level],
                                      self.plot_groups[i].iplot)
+
+            if self.grouper_plotter:
+                # Write grouper plots! 
+                for i in xrange(self.n_zoom):
+                    self._write_file(self.grouper_plot_groups[i].plots[zoom_level], 
+                                     zoom_level,
+                                     self.grouper_plot_groups[i].ifile[zoom_level],
+                                     self.grouper_plot_groups[i].iplot, 
+                                     True)
 
         self.dedisperser.end_dedispersion()
         
@@ -241,8 +268,11 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                     f.write("%d \t %.2f \t %.2f \t %.4f\n" % (i+1, event['dm'], event['snr'], event['time'].astype(float)/1e6))
 
 
-    def _write_file(self, arr, zoom_level, ifile, iplot):
-        basename = self.img_prefix[zoom_level] + '_tree' + str(iplot)
+    def _write_file(self, arr, zoom_level, ifile, iplot, grouper):
+        if grouper:
+            basename = self.img_prefix[zoom_level] + '_grouper' + str(iplot)
+        else:
+            basename = self.img_prefix[zoom_level] + '_tree' + str(iplot)
         if self.isubstream > 0:
             basename += str(isubstream+1)
         basename += ('_%s.png' % ifile)
@@ -267,13 +297,14 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 class Plotter():
     """A plotter object holds all desired zoom levels for a plot."""
 
-    def __init__(self, transform, ny, iplot):
+    def __init__(self, transform, ny, iplot, grouper=False):
         self.transform = transform       # Access transform parameters
         self.iplot = iplot               # Helpful for establishing plot group
         self.ny = ny                     # Number of y pixels that will be written
         self.ix = np.zeros(self.transform.n_zoom)   # Keep track of what x position to add chunks to
         self.ifile = np.zeros(self.transform.n_zoom)
         self.plots = np.zeros((self.transform.n_zoom, self.ny, self.transform.img_nt))
+        self.grouper = True
 
         assert transform.n_zoom == len(self.transform.nt_chunk_ds)
 
@@ -312,7 +343,8 @@ class Plotter():
                     self.transform._write_file(self.plots[zoom_level, :, :], 
                                                zoom_level, 
                                                self.ifile[zoom_level], 
-                                               self.iplot)
+                                               self.iplot, 
+                                               self.grouper)
                     self.ifile[zoom_level] += 1
                     self.ix[zoom_level] = 0
                     self.plots[zoom_level, :, :] = 0
