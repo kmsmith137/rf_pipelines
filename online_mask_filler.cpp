@@ -564,7 +564,10 @@ void scalar_mask_filler::end_substream()
 
 shared_ptr<wi_transform> make_online_mask_filler(int v1_chunk, float var_weight, float var_clamp_add, float var_clamp_mult, float w_clamp, float w_cutoff, int nt_chunk)
 {
-    return make_shared<online_mask_filler> (v1_chunk, var_weight, var_clamp_add, var_clamp_mult, w_clamp, w_cutoff, nt_chunk);
+    // Important note!  We allocate the online_mask_filler with shared_ptr<> (new ...)
+    // instead of make_shared<>(...), in order to ensure that the constituent
+    // vec_xorshift_plus gets the proper alignment.
+    return shared_ptr<online_mask_filler> (new online_mask_filler(v1_chunk, var_weight, var_clamp_add, var_clamp_mult, w_clamp, w_cutoff, nt_chunk));
 }
 
 shared_ptr<wi_transform> make_scalar_mask_filler(int v1_chunk, float var_weight, float var_clamp_add, float var_clamp_mult, float w_clamp, float w_cutoff, int nt_chunk)
