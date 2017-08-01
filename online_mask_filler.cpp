@@ -13,6 +13,14 @@ namespace rf_pipelines {
 #endif
 
 
+inline bool is_aligned(const void *ptr, uintptr_t nbytes)
+{
+    // According to C++11 spec, "uintptr_t" is an unsigned integer type
+    // which is guaranteed large enough to represent a pointer.
+    return (uintptr_t(ptr) % nbytes) == 0;
+}
+
+
 // -------------------------------------------------------------------------------------------------
 // Class for random number generation
 // Generates eight random 32-bit floats using a vectorized implementation of xorshift+
@@ -24,7 +32,14 @@ struct vec_xorshift_plus
   __m256i s1;
 
   // Initialize seeds to random device, unless alternate seeds are specified
-  vec_xorshift_plus(__m256i _s0 = _mm256_setr_epi64x(rd(), rd(), rd(), rd()), __m256i _s1 = _mm256_setr_epi64x(rd(), rd(), rd(), rd())) : s0(_s0), s1(_s1) {};
+  vec_xorshift_plus(__m256i _s0 = _mm256_setr_epi64x(rd(), rd(), rd(), rd()), __m256i _s1 = _mm256_setr_epi64x(rd(), rd(), rd(), rd()))
+  {
+    if (!is_aligned(&s0,32) || !is_aligned(&s1,32))
+      throw std::runtime_error("Fatal: unaligned vec_xorshift_plus in rf_pipelines (not rf_kernels)");
+
+    s0 = _s0;
+    s1 = _s1;
+  }    
 
   // Generates 256 random bits (interpreted as 8 signed floats)
   // Returns an __m256 vector, so bits must be stored using _mm256_storeu_ps() intrinsic!
