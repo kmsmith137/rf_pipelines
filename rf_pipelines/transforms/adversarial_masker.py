@@ -39,7 +39,7 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
         self.rectangles = [ ]
         self.nt_max = self.nt_reset 
         self.nt_processed = 0
-
+        
         # We place timestream gaps of a few different sizes, separated by 'nt_reset' samples.
         for i in xrange(8):
             nt_rect = self.nt_reset // 2**i    # gap size
@@ -77,7 +77,7 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
         #     self.nt_max = self.nt_max + nt_rect + self.nt_reset
 
 
-        # Try masking groups of adjacent frequencies
+        #  Try masking groups of adjacent frequencies
         for i in xrange(8):
             nt_rect = self.nt_reset // 2**i
 
@@ -109,6 +109,23 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
             stripe_end = self.nt_max
             for i in xrange(4):
                 self.rectangles += [ (0, self.nfreq, stripe_end, stripe_end + stripe_width) ]
+                stripe_end += 2 * stripe_width
+                
+            self.nt_max = self.nt_max + nt_rect + self.nt_reset
+            
+
+        # Horizontal stripes! These are kind of lame at present and can be made more interesting. 
+        for i in xrange(8):
+            nt_rect = self.nt_reset // 2**i
+            
+            # Make each stripe 1/8 of a rectangle (this is totally arbitrary and should be changed to something
+            # more sensible!)
+            stripe_width = self.nfreq // 8
+            
+            # Mask! 
+            stripe_end = 0
+            for i in xrange(4):
+                self.rectangles += [ (stripe_end, stripe_end + stripe_width, self.nt_max, self.nt_max + nt_rect) ]
                 stripe_end += 2 * stripe_width
                 
             self.nt_max = self.nt_max + nt_rect + self.nt_reset
