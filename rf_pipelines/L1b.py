@@ -72,7 +72,7 @@ class L1Grouper(object):
             for i in 0, 1, 2:
                 np.fill_diagonal(B[:, i:], True)
             return B
-        self.bowties = [bowtie(ndm) for ndm in 8, 4, 2, 1, 1]
+        self.bowties = [bowtie(ndm) for ndm in 8, 4, 2, 1, 1, 1, 1]
 
     def _init_trigger_buffers(self):
         """Create buffers necessary to accommodate local max neighborhoods"""

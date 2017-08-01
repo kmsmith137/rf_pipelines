@@ -90,7 +90,7 @@ TESTBINFILES=run-unit-tests \
 CLEANDIRS=. site rf_pipelines rf_pipelines/streams rf_pipelines/transforms \
 	examples/example1_toy examples/example2_gbncc examples/example3_chime
 
-LIBS=-ljsoncpp
+LIBS=-lrf_kernels -ljsoncpp
 
 
 ####################################################################################################
