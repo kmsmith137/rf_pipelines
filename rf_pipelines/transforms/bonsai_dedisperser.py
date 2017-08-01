@@ -109,7 +109,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         if grouper_plotter:
             assert self.make_plot
             assert self.event_outfile
-
+        
         if self.make_plot:
             self.dynamic_plotter = dynamic_plotter
             self.plot_threshold1 = plot_threshold1
@@ -152,6 +152,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                 self.grouper_height = 3
                 for i in xrange(self.n_zoom):
                     self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[i], ny=self.grouper_height)
+
 
     def set_stream(self, stream):
         if stream.nfreq != self.nfreq:
@@ -220,8 +221,9 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                 self.detected_events.append(events) 
             if self.grouper_plotter:
                 grouper_arr = np.zeros((self.grouper_height, self.nt_chunk))
-                for event in events:
-                    grouper_arr[:, (event['time'] - t0) * self.nt_chunk / (t1 - t0)] = 10
+                for event in self.detected_events:
+                    if event['time'] >= t0:
+                        grouper_arr[:, (event['time'] - t0) * self.nt_chunk / (t1 - t0)] = 10
                 self.grouper_plot_groups[0].process(grouper_arr)
  
 
