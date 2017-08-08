@@ -43,84 +43,84 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
         self.nt_processed = 0
         
 
-        # # # We place timestream gaps of a few different sizes, separated by 'nt_reset' samples.
-        # for i in xrange(8):
-        #     nt_rect = self.nt_reset // 2**i    # gap size
-        #     self.rectangles += [ (0, self.nfreq, self.nt_max, self.nt_max + nt_rect) ]
-        #     self.nt_max += nt_rect + self.nt_reset
+        # # We place timestream gaps of a few different sizes, separated by 'nt_reset' samples.
+        for i in xrange(8):
+            nt_rect = self.nt_reset // 2**i    # gap size
+            self.rectangles += [ (0, self.nfreq, self.nt_max, self.nt_max + nt_rect) ]
+            self.nt_max += nt_rect + self.nt_reset
 
 
-        # # Let's try masking random frequency channels within each of our rectangles
-        # for i in xrange(8):
-        #     nt_rect = self.nt_reset // 2**i
+        # Let's try masking random frequency channels within each of our rectangles
+        for i in xrange(8):
+            nt_rect = self.nt_reset // 2**i
 
-        #     # Number of channels masked (force at least 25% to be masked):
-        #     n_masked = random.randint(self.nfreq // 4, self.nfreq-1)
-        #     print "Adversarial masker, rand. rectangle " + str(i) + ": Masking " + str(n_masked) + " of " + str(self.nfreq) + " channels."
+            # Number of channels masked (force at least 25% to be masked):
+            n_masked = random.randint(self.nfreq // 4, self.nfreq-1)
+            print "Adversarial masker, rand. rectangle " + str(i) + ": Masking " + str(n_masked) + " of " + str(self.nfreq) + " channels."
 
-        #     n = 0
-        #     while n < n_masked:
-        #         # Get a random number between [0, nfreq-1]
-        #         masked = random.randint(0, self.nfreq-1)
-        #         self.rectangles += [ (masked, masked+1, self.nt_max, self.nt_max + nt_rect) ]
-        #         n += 1
+            n = 0
+            while n < n_masked:
+                # Get a random number between [0, nfreq-1]
+                masked = random.randint(0, self.nfreq-1)
+                self.rectangles += [ (masked, masked+1, self.nt_max, self.nt_max + nt_rect) ]
+                n += 1
 
-        #     self.nt_max += nt_rect + self.nt_reset
+            self.nt_max += nt_rect + self.nt_reset
 
 
-        # #  Try masking groups of adjacent frequencies
-        # for i in xrange(8):
-        #     nt_rect = self.nt_reset // 2**i
+        #  Try masking groups of adjacent frequencies
+        for i in xrange(8):
+            nt_rect = self.nt_reset // 2**i
 
-        #     # Decide what number of frequencies to mask
-        #     n_masked = random.randint(self.nfreq // 4, self.nfreq-1)
+            # Decide what number of frequencies to mask
+            n_masked = random.randint(self.nfreq // 4, self.nfreq-1)
 
-        #     # Pick a start point for masking
-        #     start = random.randint(0, self.nfreq)
+            # Pick a start point for masking
+            start = random.randint(0, self.nfreq)
             
-        #     # See if we need to wrap around to mask
-        #     if start + n_masked > self.nfreq - start:
-        #         self.rectangles += [ (0, n_masked - (self.nfreq - start), self.nt_max, self.nt_max + nt_rect) ]
+            # See if we need to wrap around to mask
+            if start + n_masked > self.nfreq - start:
+                self.rectangles += [ (0, n_masked - (self.nfreq - start), self.nt_max, self.nt_max + nt_rect) ]
 
-        #     # Mask from start -> end or nfreq
-        #     self.rectangles += [ (start, min(self.nfreq, start + n_masked), self.nt_max, self.nt_max + nt_rect) ]
+            # Mask from start -> end or nfreq
+            self.rectangles += [ (start, min(self.nfreq, start + n_masked), self.nt_max, self.nt_max + nt_rect) ]
             
-        #     self.nt_max += nt_rect + self.nt_reset
+            self.nt_max += nt_rect + self.nt_reset
 
 
-        # # Vertical stripes!
-        # for i in xrange(8):
-        #     nt_rect = self.nt_reset // 2**i
+        # Vertical stripes!
+        for i in xrange(8):
+            nt_rect = self.nt_reset // 2**i
             
-        #     # Make each stripe 1/8 of a rectangle (this is totally arbitrary and should be changed to something
-        #     # more sensible!)
-        #     stripe_width = nt_rect // 8
+            # Make each stripe 1/8 of a rectangle (this is totally arbitrary and should be changed to something
+            # more sensible!)
+            stripe_width = nt_rect // 8
             
-        #     # Mask! 
-        #     stripe_end = self.nt_max
-        #     for i in xrange(4):
-        #         self.rectangles += [ (0, self.nfreq, stripe_end, stripe_end + stripe_width) ]
-        #         stripe_end += 2 * stripe_width
+            # Mask! 
+            stripe_end = self.nt_max
+            for i in xrange(4):
+                self.rectangles += [ (0, self.nfreq, stripe_end, stripe_end + stripe_width) ]
+                stripe_end += 2 * stripe_width
                 
-        #     self.nt_max += nt_rect + self.nt_reset
+            self.nt_max += nt_rect + self.nt_reset
             
   
-        # # Horizontal stripes!
-        # n_stripes = 40
-        # for i in xrange(8):
-        #     nt_rect = self.nt_reset // 2**i
+        # Horizontal stripes!
+        n_stripes = 40
+        for i in xrange(8):
+            nt_rect = self.nt_reset // 2**i
             
-        #     # Make each stripe 1/40 of a rectangle (this is totally arbitrary and should be changed to something
-        #     # more sensible!)
-        #     stripe_width = self.nfreq // (2 * n_stripes)
+            # Make each stripe 1/40 of a rectangle (this is totally arbitrary and should be changed to something
+            # more sensible!)
+            stripe_width = self.nfreq // (2 * n_stripes)
             
-        #     # Mask! 
-        #     stripe_end = 0
-        #     for i in xrange(n_stripes):
-        #         self.rectangles += [ (stripe_end, stripe_end + stripe_width, self.nt_max, self.nt_max + nt_rect) ]
-        #         stripe_end += 2 * stripe_width
+            # Mask! 
+            stripe_end = 0
+            for i in xrange(n_stripes):
+                self.rectangles += [ (stripe_end, stripe_end + stripe_width, self.nt_max, self.nt_max + nt_rect) ]
+                stripe_end += 2 * stripe_width
                 
-        #     self.nt_max += nt_rect + self.nt_reset
+            self.nt_max += nt_rect + self.nt_reset
             
 
         # Finally, let's make some new rectangles within which we will randomly mask things in process_chunk
