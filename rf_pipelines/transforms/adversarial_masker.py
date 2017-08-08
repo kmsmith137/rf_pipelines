@@ -33,18 +33,21 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
 
         # Initialize:
         #   self.rectangles: list of (freq_lo, freq_hi, t_lo, t_hi) quadruples to be masked.
+        #   self.mask: list of (t_lo, t_hi) to be masked
         #   self.nt_max: nominal timestream size, expressed as number of samples.
         #   self.nt_processed: samples processed so far (this counter is incremented in process_chunk())
   
         self.rectangles = [ ]
+        self.mask = [ ]
         self.nt_max = self.nt_reset 
         self.nt_processed = 0
         
-        # We place timestream gaps of a few different sizes, separated by 'nt_reset' samples.
+
+        # # We place timestream gaps of a few different sizes, separated by 'nt_reset' samples.
         for i in xrange(8):
             nt_rect = self.nt_reset // 2**i    # gap size
             self.rectangles += [ (0, self.nfreq, self.nt_max, self.nt_max + nt_rect) ]
-            self.nt_max = self.nt_max + nt_rect + self.nt_reset
+            self.nt_max += nt_rect + self.nt_reset
 
 
         # Let's try masking random frequency channels within each of our rectangles
@@ -53,7 +56,7 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
 
             # Number of channels masked (force at least 25% to be masked):
             n_masked = random.randint(self.nfreq // 4, self.nfreq-1)
-            print "Adversarial masker, rectangle " + str(i) + ": Masking " + str(n_masked) + " of " + str(self.nfreq) + " channels."
+            print "Adversarial masker, rand. rectangle " + str(i) + ": Masking " + str(n_masked) + " of " + str(self.nfreq) + " channels."
 
             n = 0
             while n < n_masked:
@@ -62,19 +65,7 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
                 self.rectangles += [ (masked, masked+1, self.nt_max, self.nt_max + nt_rect) ]
                 n += 1
 
-            self.nt_max = self.nt_max + nt_rect + self.nt_reset
-
-
-        # Try randomly masking individual samples -- oops this didn't work out; much too slow!! Maybe make a new "mask" member 
-        # variable than can be more effeciently applied in process_chunk?
-        # for i in xrange(8):
-        #     nt_rect = self.nt_reset // 2**i
-        #     # Generate random times to mask between self.nt_max and self.nt_mask + nt_rect -- mask 50% of samples
-        #     masked_t = np.random.random_integers(self.nt_max, self.nt_max + nt_rect, size=(nt_rect * self.nfreq // 2))
-        #     masked_f = np.random.random_integers(0, self.nfreq, size=(nt_rect * self.nfreq // 2))
-        #     for j in xrange(nt_rect * self.nfreq // 2):
-        #         self.rectangles += [ (masked_f[j], masked_f[j] + 1, masked_t[j], masked_t[j] + 1) ]
-        #     self.nt_max = self.nt_max + nt_rect + self.nt_reset
+            self.nt_max += nt_rect + self.nt_reset
 
 
         #  Try masking groups of adjacent frequencies
@@ -94,7 +85,7 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
             # Mask from start -> end or nfreq
             self.rectangles += [ (start, min(self.nfreq, start + n_masked), self.nt_max, self.nt_max + nt_rect) ]
             
-            self.nt_max = self.nt_max + nt_rect + self.nt_reset
+            self.nt_max += nt_rect + self.nt_reset
 
 
         # Vertical stripes!
@@ -111,29 +102,33 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
                 self.rectangles += [ (0, self.nfreq, stripe_end, stripe_end + stripe_width) ]
                 stripe_end += 2 * stripe_width
                 
-            self.nt_max = self.nt_max + nt_rect + self.nt_reset
+            self.nt_max += nt_rect + self.nt_reset
             
-
-        # Horizontal stripes! These are kind of lame at present and can be made more interesting. 
+  
+        # Horizontal stripes!
+        n_stripes = 40
         for i in xrange(8):
             nt_rect = self.nt_reset // 2**i
             
-            # Make each stripe 1/8 of a rectangle (this is totally arbitrary and should be changed to something
+            # Make each stripe 1/40 of a rectangle (this is totally arbitrary and should be changed to something
             # more sensible!)
-            stripe_width = self.nfreq // 8
+            stripe_width = self.nfreq // (2 * n_stripes)
             
             # Mask! 
             stripe_end = 0
-            for i in xrange(4):
+            for i in xrange(n_stripes):
                 self.rectangles += [ (stripe_end, stripe_end + stripe_width, self.nt_max, self.nt_max + nt_rect) ]
                 stripe_end += 2 * stripe_width
                 
-            self.nt_max = self.nt_max + nt_rect + self.nt_reset
+            self.nt_max += nt_rect + self.nt_reset
             
 
-        # Debug
-        # for rect in self.rectangles:
-        #     print rect
+        # Finally, let's make some new rectangles within which we will randomly mask things in process_chunk
+        for i in xrange(8):
+            nt_rect = self.nt_reset // 2**i
+            self.mask += [ (self.nt_max, self.nt_max + nt_rect) ]
+            self.nt_max += nt_rect + self.nt_reset
+    
 
     
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
@@ -146,5 +141,17 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
             # If there is an overlap, then mask (by setting weights to zero)
             if it0 < it1:
                 weights[ifreq0:ifreq1,it0:it1] = 0.0
+
+        # Loop over mask
+        for (it0, it1) in self.mask:
+            # Range of indices in current chunk which overlap with the rectangle
+            it0 = max(0, min(self.nt_chunk, it0 - self.nt_processed))
+            it1 = max(0, min(self.nt_chunk, it1 - self.nt_processed))
+
+            # If there is an overlap, then mask randomly
+            if it0 < it1:
+                p = 0.50
+                a = np.random.choice(a=[False, True], size=weights[:, it0:it1].shape, p=[p, 1-p])
+                weights[a] = 0
 
         self.nt_processed += self.nt_chunk
