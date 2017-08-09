@@ -95,7 +95,7 @@ class py_online_mask_filler(rf_pipelines.py_wi_transform):
 # either a C++ transform object or a python transform object, depending on the
 # value of its 'cpp' argument.
 
-def online_mask_filler(v1_chunk=32, var_weight=2e-3, var_clamp_add=3.3e-3, var_clamp_mult=3.3e-3, w_clamp=3.3e-3, w_cutoff=0.5, nt_chunk=1024, cpp=False):
+def online_mask_filler(v1_chunk=32, var_weight=2e-3, var_clamp_add=3.3e-3, var_clamp_mult=3.3e-3, w_clamp=3.3e-3, w_cutoff=0.5, nt_chunk=1024, overwrite_on_wt0=True, cpp=True):
     """
     Variance estimates are calculated independently for each frequency. A variance value is computed for each v1_chunk 
     samples. Then, an "exponential average" variance is computed, in which the new variance estimate for a frequency is 
@@ -123,13 +123,13 @@ def online_mask_filler(v1_chunk=32, var_weight=2e-3, var_clamp_add=3.3e-3, var_c
     w_cutoff - Weight threshold below which the corresponding intensity will be replaced with gaussian random noise
     cpp - If True, then the fast "production" C++ implementation of the transform will be used.
           If False, then the python reference implementation will be used.
-          Currently, the C++ implementation is a placeholder that doesn't do anything!
     """
 
     if cpp:
         # Return C++ transform.
         print >>sys.stderr, "Warning: the C++ online_mask_filler is currently a placeholder that doesn't do anything!"
-        return rf_pipelines.rf_pipelines_c.make_online_mask_filler(v1_chunk, v2_chunk, w_cutoff, nt_chunk)
+        return rf_pipelines.rf_pipelines_c.make_online_mask_filler(v1_chunk, var_weight, var_clamp_add, var_clamp_mult,
+                                                                   w_clamp, w_cutoff, nt_chunk, overwrite_on_wt0)
 
     # Return instance of the py_online_mask_filler class above.
     return py_online_mask_filler(v1_chunk, var_weight, var_clamp_add, var_clamp_mult, w_clamp, w_cutoff, nt_chunk)
