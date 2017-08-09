@@ -1664,9 +1664,12 @@ static PyObject *make_online_mask_filler(PyObject *self, PyObject *args, PyObjec
     //
     // If you need to do more complicated conversions (e.g. python list-of-integers to
     // C++ std::vector<int>) it can be a real mess, just let me know if this arises!
+    //
+    // Warning: the last entry in 'kwlist' should be a null pointer, otherwise cryptic
+    // error messages or segfaults can result!
 
     static const char *kwlist[] = { "v1_chunk", "var_weight", "var_clamp_add", "var_clamp_mult",
-				    "w_clamp", "w_cutoff", "nt_chunk", "overwrite_on_wt0" };
+				    "w_clamp", "w_cutoff", "nt_chunk", "overwrite_on_wt0", NULL };
 
     int v1_chunk = 0;
     float var_weight = 0.0;
