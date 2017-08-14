@@ -5,6 +5,11 @@ import random
 import rf_pipelines
 
 
+def round_up(m, n):
+    """Rounds up 'm' to a multiple of 'n'."""
+    return ((m+n-1)//n) * n
+
+
 class adversarial_masker(rf_pipelines.py_wi_transform):
     """
     A half-finished transform, intended to stress-test the online variance estimation logic
@@ -42,21 +47,31 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
         self.nt_max = self.nt_reset 
         self.nt_processed = 0
         
+        print 'adversarial_masker (nt=%d): timestream gaps of different sizes, with all frequencies masked' % self.nt_max
 
-        # # We place timestream gaps of a few different sizes, separated by 'nt_reset' samples.
         for i in xrange(8):
             nt_rect = self.nt_reset // 2**i    # gap size
             self.rectangles += [ (0, self.nfreq, self.nt_max, self.nt_max + nt_rect) ]
             self.nt_max += nt_rect + self.nt_reset
 
+        print 'adversarial_masker (nt=%d): long stretches with (3/4) of the frequency band masked' % self.nt_max
 
-        # Let's try masking random frequency channels within each of our rectangles
+        self.nt_max = round_up(self.nt_max, 2048)
+        self.rectangles += [ (self.nfreq//4, self.nfreq, self.nt_max, self.nt_max + self.nt_reset) ]
+        self.nt_max += 2 * self.nt_reset
+
+        self.nt_max = round_up(self.nt_max, 2048)
+        self.rectangles += [ (0, (3*self.nfreq)//4, self.nt_max, self.nt_max + self.nt_reset) ]
+        self.nt_max += 2 * self.nt_reset
+        
+        print 'adversarial_masker (nt=%d): masking random frequency channels within each of our rectangles' % self.nt_max
+
         for i in xrange(8):
             nt_rect = self.nt_reset // 2**i
 
             # Number of channels masked (force at least 25% to be masked):
             n_masked = random.randint(self.nfreq // 4, self.nfreq-1)
-            print "Adversarial masker, rand. rectangle " + str(i) + ": Masking " + str(n_masked) + " of " + str(self.nfreq) + " channels."
+            print "    Adversarial masker, rand. rectangle " + str(i) + ": Masking " + str(n_masked) + " of " + str(self.nfreq) + " channels."
 
             n = 0
             while n < n_masked:
@@ -67,8 +82,8 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
 
             self.nt_max += nt_rect + self.nt_reset
 
+        print 'adversarial_masker (nt=%d): masking groups of adjacent frequencies' % self.nt_max
 
-        #  Try masking groups of adjacent frequencies
         for i in xrange(8):
             nt_rect = self.nt_reset // 2**i
 
@@ -87,8 +102,8 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
             
             self.nt_max += nt_rect + self.nt_reset
 
+        print 'adversarial_masker (nt=%d): vertical stripes!' % self.nt_max
 
-        # Vertical stripes!
         for i in xrange(8):
             nt_rect = self.nt_reset // 2**i
             
@@ -104,8 +119,8 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
                 
             self.nt_max += nt_rect + self.nt_reset
             
-  
-        # Horizontal stripes!
+        print 'adversarial_masker (nt=%d): horizontal stripes!' % self.nt_max
+
         n_stripes = 40
         for i in xrange(8):
             nt_rect = self.nt_reset // 2**i
@@ -122,13 +137,15 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
                 
             self.nt_max += nt_rect + self.nt_reset
             
+        print 'adversarial_masker (nt=%d): rectangles with randomly masked samples' % self.nt_max
 
-        # Finally, let's make some new rectangles within which we will randomly mask things in process_chunk
         for i in xrange(8):
             nt_rect = self.nt_reset // 2**i
             self.mask += [ (self.nt_max, self.nt_max + nt_rect) ]
             self.nt_max += nt_rect + self.nt_reset
     
+        print 'adversarial_masker (nt=%d): all done!' % self.nt_max
+
 
     
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
