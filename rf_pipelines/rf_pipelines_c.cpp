@@ -1669,7 +1669,8 @@ static PyObject *make_online_mask_filler(PyObject *self, PyObject *args, PyObjec
     // error messages or segfaults can result!
 
     static const char *kwlist[] = { "v1_chunk", "var_weight", "var_clamp_add", "var_clamp_mult",
-				    "w_clamp", "w_cutoff", "nt_chunk", "overwrite_on_wt0", NULL };
+				    "w_clamp", "w_cutoff", "nt_chunk", "overwrite_on_wt0", 
+				    "modify_weughts", NULL };
 
     int v1_chunk = 0;
     float var_weight = 0.0;
@@ -1679,6 +1680,7 @@ static PyObject *make_online_mask_filler(PyObject *self, PyObject *args, PyObjec
     float w_cutoff = 0.0;
     int nt_chunk = 0;
     int overwrite_on_wt0 = 0;
+    int modify_weights = 0;
 
     // The "ifffffi" format string indicates that the C++ data types of the variables which
     // follow are (int, float, float, float, float, float, int).
@@ -1691,13 +1693,14 @@ static PyObject *make_online_mask_filler(PyObject *self, PyObject *args, PyObjec
     // If an error occurs (e.g. datatype mismatch, wrong number of arguments) then
     // returning a null pointer from this function will raise an exception in the python caller.
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ifffffii", (char **)kwlist, &v1_chunk, &var_weight,
-				     &var_clamp_add, &var_clamp_mult, &w_clamp, &w_cutoff, &nt_chunk, &overwrite_on_wt0))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ifffffiii", (char **)kwlist, &v1_chunk, &var_weight,
+				     &var_clamp_add, &var_clamp_mult, &w_clamp, &w_cutoff, &nt_chunk, 
+				     &overwrite_on_wt0, &modify_weights))
 	return NULL;
 
     // Step 2: Now that all arguments have been converted, call rf_pipelines::make_online_mask_filler().
     // This returns a shared_ptr<rf_pipelines::wi_transform>.
-    auto ret = rf_pipelines::make_online_mask_filler(v1_chunk, var_weight, var_clamp_add, var_clamp_mult, w_clamp, w_cutoff, nt_chunk, overwrite_on_wt0);
+    auto ret = rf_pipelines::make_online_mask_filler(v1_chunk, var_weight, var_clamp_add, var_clamp_mult, w_clamp, w_cutoff, nt_chunk, overwrite_on_wt0, modify_weights);
 
     // Step 3: convert the C++ transform to a python object.
     // This is a long convoluted process, but it's all encapsulated in the function
@@ -1729,7 +1732,7 @@ static PyObject *make_scalar_mask_filler(PyObject *self, PyObject *args, PyObjec
     // C++ std::vector<int>) it can be a real mess, just let me know if this arises!
 
     static const char *kwlist[] = { "v1_chunk", "var_weight", "var_clamp_add", "var_clamp_mult",
-				    "w_clamp", "w_cutoff", "nt_chunk" };
+				    "w_clamp", "w_cutoff", "nt_chunk" , "overwrite_on_wt0", "modify_weights", NULL };
 
     int v1_chunk = 0;
     float var_weight = 0.0;
@@ -1738,6 +1741,8 @@ static PyObject *make_scalar_mask_filler(PyObject *self, PyObject *args, PyObjec
     float w_clamp = 0.0;
     float w_cutoff = 0.0;
     int nt_chunk = 0;
+    int overwrite_on_wt0 = 0;
+    int modify_weights = 0;
 
     // The "ifffffi" format string indicates that the C++ data types of the variables which
     // follow are (int, float, float, float, float, float, int).
@@ -1750,13 +1755,14 @@ static PyObject *make_scalar_mask_filler(PyObject *self, PyObject *args, PyObjec
     // If an error occurs (e.g. datatype mismatch, wrong number of arguments) then
     // returning a null pointer from this function will raise an exception in the python caller.
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ifffffi", (char **)kwlist, &v1_chunk, &var_weight,
-				     &var_clamp_add, &var_clamp_mult, &w_clamp, &w_cutoff, &nt_chunk))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ifffffiii", (char **)kwlist, &v1_chunk, &var_weight,
+				     &var_clamp_add, &var_clamp_mult, &w_clamp, &w_cutoff, &nt_chunk, 
+				     &overwrite_on_wt0, &modify_weights))
 	return NULL;
 
     // Step 2: Now that all arguments have been converted, call rf_pipelines::make_scalar_mask_filler().
     // This returns a shared_ptr<rf_pipelines::wi_transform>.
-    auto ret = rf_pipelines::make_scalar_mask_filler(v1_chunk, var_weight, var_clamp_add, var_clamp_mult, w_clamp, w_cutoff, nt_chunk);
+    auto ret = rf_pipelines::make_scalar_mask_filler(v1_chunk, var_weight, var_clamp_add, var_clamp_mult, w_clamp, w_cutoff, nt_chunk, overwrite_on_wt0, modify_weights);
 
     // Step 3: convert the C++ transform to a python object.
     // This is a long convoluted process, but it's all encapsulated in the function
