@@ -90,8 +90,6 @@ TESTBINFILES=run-unit-tests \
 CLEANDIRS=. site rf_pipelines rf_pipelines/streams rf_pipelines/transforms \
 	examples/example1_toy examples/example2_gbncc examples/example3_chime
 
-LIBS=-ljsoncpp
-
 
 ####################################################################################################
 
@@ -112,6 +110,12 @@ ifndef PYDIR
 $(error Fatal: Makefile.local must define PYDIR variable)
 endif
 
+
+####################################################################################################
+
+
+LIBS=
+
 ifeq ($(HAVE_BONSAI),y)
 	CPP += -DHAVE_BONSAI
 	LIBS += -lbonsai -lhdf5
@@ -131,6 +135,8 @@ endif
 #	CPP += -DHAVE_CH_FRB_IO
 	LIBS += -lsimpulse
 #endif
+
+LIBS += -lrf_kernels -ljsoncpp
 
 
 ####################################################################################################
