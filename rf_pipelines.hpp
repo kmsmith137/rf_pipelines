@@ -381,13 +381,14 @@ extern std::shared_ptr<wi_transform> make_badchannel_mask(const std::string &mas
 
 
 struct bonsai_initializer {
-    std::string file_type;                       // Allowed values are { txt, hdf5 }.  Empty string means "infer from filename".
-    int verbosity = 1;                           // Print some informational output (in constructor only)
+    bool fill_rfi_mask = true;                   // If true, then online_mask_filler will be run (this makes a big difference!)
     bool deallocate_between_substreams = false;  // Infrequently used, but useful in frb_olympics
     bool use_analytic_normalization = false;     // If true, then unit-variance toy model is assumed (not suitable for real data!)
     bool track_global_max = false;               // If true, then global max trigger info will be written to pipeline json file
+    int verbosity = 1;                           // Print some informational output (in constructor only)
     int dm_min = 0.0;                            // Only meaningful if track_global_max = True
     int dm_max = 0.0;                            // Only meaningful if track_global_max = True.  Zero means "no max DM".
+    std::string file_type;                       // Allowed values are { txt, hdf5 }.  Empty string means "infer from filename".
     std::string hdf5_output_filename;            // If this string is nonempty, then trigger HDF5 files will be written.
     int nt_per_hdf5_file = 0;                    // Only meaningful if hdf5_output_filename is nonempty.  Zero means "one big file".
 

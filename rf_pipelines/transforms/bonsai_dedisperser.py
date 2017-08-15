@@ -14,6 +14,8 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
        - config_filename:  The configuration file used to initialize the dedisperser.  
 
+       - fill_rfi_mask: Determines whether the online_mask_filler will be run.
+
        - img_prefix: Determines output filenames, using a similar convention to the plotter_transform.
            If img_prefix=None (the default), then no plots are generated.
 
@@ -54,8 +56,8 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
     """
 
-    def __init__(self, config_filename, img_prefix=None, img_ndm=256, img_nt=256, downsample_nt=1, n_zoom=1, 
-                 track_global_max=False, dm_min=None, dm_max=None, hdf5_output_filename=None, nt_per_hdf5_file=0,
+    def __init__(self, config_filename, fill_rfi_mask, img_prefix=None, img_ndm=256, img_nt=256, downsample_nt=1,
+                 n_zoom=1, track_global_max=False, dm_min=None, dm_max=None, hdf5_output_filename=None, nt_per_hdf5_file=0,
                  deallocate_between_substreams=False, use_analytic_normalization=False, dynamic_plotter=False,
                  plot_threshold1=6, plot_threshold2=10, event_outfile=None, L1Grouper_thr=7, L1Grouper_beam=0, 
                  L1Grouper_addr=None, plot_all_trees=False):
@@ -79,7 +81,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         self.deallocate_between_substreams = deallocate_between_substreams
         
         initially_allocated = not deallocate_between_substreams
-        self.dedisperser = bonsai.Dedisperser(config_filename, allocate=initially_allocated, use_analytic_normalization=use_analytic_normalization)
+        self.dedisperser = bonsai.Dedisperser(config_filename, fill_rfi_mask=fill_rfi_mask, allocate=initially_allocated, use_analytic_normalization=use_analytic_normalization)
         self.global_max_tracker = None
 
         if track_global_max:

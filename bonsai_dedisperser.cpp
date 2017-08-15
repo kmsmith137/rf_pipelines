@@ -123,6 +123,7 @@ shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_filen
 {
     bonsai::dedisperser::initializer ini2;
 
+    ini2.fill_rfi_mask = ini_params.fill_rfi_mask;
     ini2.file_type = ini_params.file_type;
     ini2.verbosity = ini_params.verbosity;
     ini2.allocate = !ini_params.deallocate_between_substreams;
