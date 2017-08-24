@@ -233,6 +233,7 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         # For grouper code
         if self.event_outfile is not None and self.detected_events:
             self.detected_events = np.hstack(self.detected_events)
+            np.save(self.event_outfile, self.detected_events)
             with open(self.event_outfile, 'w') as f:
                 for i, event in enumerate(self.detected_events):
                     print ("--- Recovered Pulse --- # %d, DM: %.2f,  SNR: %.2f, Arrival Time: %.4f sec"

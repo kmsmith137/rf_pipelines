@@ -72,7 +72,7 @@ class L1Grouper(object):
             for i in 0, 1, 2:
                 np.fill_diagonal(B[:, i:], True)
             return B
-        self.bowties = [bowtie(ndm) for ndm in 8, 4, 2, 1, 1]
+        self.bowties = [bowtie(ndm) for ndm in 8, 4, 2, 1, 1, 1, 1]
 
     def _init_trigger_buffers(self):
         """Create buffers necessary to accommodate local max neighborhoods"""
@@ -134,11 +134,11 @@ class L1Grouper(object):
             for sm, beta in sm_beta:
                 img = snrs[:, sm, beta, :]
                 peaks = img_peaks(img, self.bowties[itree])
-                snrs = img[peaks[:, 0], peaks[:, 1]]
+                img_snrs = img[peaks[:, 0], peaks[:, 1]]
                 peaks[:, 0] *= self.dm_scale[itree]
                 peaks[:, 1] -= self.bufs[itree].shape[-1]
                 peaks[:, 1] *= self.t_scale[itree]
-                for snr, (dm, t) in zip(snrs, peaks):
+                for snr, (dm, t) in zip(img_snrs, peaks):
                     e = np.array((itree, dm, sm, beta, t, snr), simple_dtype)
                     self._insert_event(e.view(np.recarray))
 
@@ -239,10 +239,10 @@ class L1Grouper(object):
                                         best['beta'], it+t_offs]
         event.snr_vs_dm[0, :len(bowtie)] = bowtie.max(1)
 
-        if self.dedisp.nsm[best['itree']] > 1:
+        if self.dedisp.nbeta[best['itree']] > 1:
             event.snr_vs_sm = self.chunk[best['itree']][idm, :, event.beta[0], it]
 
-        if self.dedisp.nbeta[best['itree']] > 1:
+        if self.dedisp.nsm[best['itree']] > 1:
             event.snr_vs_beta = self.chunk[best['itree']][idm, event.sm[0], :, it]
 
         if self.dedisp.ntrees > 1:

@@ -29,9 +29,11 @@ def get_dtypes(src):
         compact.append(('snr_vs_itree', np.float32, config['ntrees']))
 
     if max(config['nbeta']) > 1:
+        compact.append(('beta', np.uint8))
         compact.append(('snr_vs_beta', np.float32, max(config['nbeta'])))
 
     if max(config['nsm']) > 1:
+        compact.append(('sm', np.uint8))
         compact.append(('snr_vs_sm', np.float32, max(config['nsm'])))
 
     extended = compact + [('rajd', np.float32),
