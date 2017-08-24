@@ -41,6 +41,7 @@ OFILES=badchannel_mask.o \
 	reverter.o \
 	pulse_adder.o \
 	psrfits_stream.o \
+	spline_detrenders.o \
 	std_dev_clippers.o \
 	timing_thread.o \
 	udsample.o \

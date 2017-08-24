@@ -207,6 +207,11 @@ extern std::string axis_type_to_string(int axis);
 extern std::shared_ptr<wi_transform> make_polynomial_detrender(int nt_chunk, axis_type axis, int polydeg, double epsilon=1.0e-2);
 
 
+// Experimental: spline_detrender.
+// I suspect this will work better than the polynomial_detrender, and it will definitely be faster!
+extern std::shared_ptr<wi_transform> make_spline_detrender(int nt_chunk, axis_type axis, int nbins, double epsilon=3.0e-4);
+
+
 // A "simple detrender" is a time-axis polynomial fitter with degree zero.
 // FIXME: this will be removed soon, in favor of calling make_polynomial_detrender() directly.
 inline std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend)
