@@ -25,12 +25,13 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
     as many weird cases as possible!
     """
 
-    def __init__(self, nt_chunk=1024, nt_reset=65536):
-        rf_pipelines.py_wi_transform.__init__(self, 'adversarial_masker(nt_chunk=%d, nt_reset=%d)' % (nt_chunk, nt_reset))
+    def __init__(self, nt_chunk=1024, nt_reset=65536, nt_minefield=4096*1024):
+        rf_pipelines.py_wi_transform.__init__(self, 'adversarial_masker(nt_chunk=%d, nt_reset=%d, nt_minefield=%d)' % (nt_chunk, nt_reset, nt_minefield))
         self.nt_prepad = 0
         self.nt_postpad = 0
         self.nt_chunk = nt_chunk
         self.nt_reset = nt_reset
+        self.nt_minefield = nt_minefield
 
 
     def set_stream(self, s):
@@ -143,8 +144,30 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
             nt_rect = self.nt_reset // 2**i
             self.mask += [ (self.nt_max, self.nt_max + nt_rect) ]
             self.nt_max += nt_rect + self.nt_reset
-    
-        print 'adversarial_masker (nt=%d): all done!' % self.nt_max
+
+        print 'adversarial_masker (nt=%d): "minefield" of randomly placed rectangles' % self.nt_max
+
+        for i in xrange(self.nt_minefield // 3000):
+            freq0 = random.randint(-int(0.2*self.nfreq), self.nfreq-1)
+            freq1 = random.randint(0, int(1.2*self.nfreq))
+            freq_lo = min(freq0,freq1)
+            freq_hi = max(freq0,freq1) + 1
+            freq_lo = max(freq_lo, 0)
+            freq_hi = min(freq_hi, self.nfreq)
+            assert 0 <= freq_lo < freq_hi <= self.nfreq
+            
+            # cube root
+            t = random.uniform(-1.,1.)
+            t = t**(1/3.) if (t >= 0.) else -(-t)**(1/3.)
+            it0 = self.nt_max + int((t+1)/2. * self.nt_minefield)
+
+            nt = int(np.exp(random.uniform(np.log(100.), np.log(10000.))))
+
+            self.rectangles += [ (freq_lo, freq_hi, it0, it0+nt) ]
+
+        self.nt_max += self.nt_minefield
+
+        print 'adversarial_masker (nt=%d): all done!  (nrect=%d)' % (self.nt_max, len(self.rectangles))
 
 
     
