@@ -1334,9 +1334,29 @@ static PyObject *make_polynomial_detrender(PyObject *self, PyObject *args, PyObj
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "iOi|d", (char **)kwlist, &nt_chunk, &axis_ptr, &polydeg, &epsilon))
 	return NULL;
 
-    rf_pipelines::axis_type axis = axis_type_from_python("make_intensity_clipper()", axis_ptr);
+    rf_pipelines::axis_type axis = axis_type_from_python("make_polynomial_detrender()", axis_ptr);
 
     shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_polynomial_detrender(nt_chunk, axis, polydeg, epsilon);
+    return wi_transform_object::make(ret);
+}
+
+
+static PyObject *make_spline_detrender(PyObject *self, PyObject *args, PyObject *kwds)
+{
+    static const char *kwlist[] = { "nt_chunk", "axis", "nbins", "epsilon", NULL };
+
+    int nt_chunk = 0;
+    PyObject *axis_ptr = Py_None;
+    int nbins = 0;
+    double epsilon = 3.0e-4;   // meaningful default value
+
+    // Note: the object pointers will be borrowed references
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "iOi|d", (char **)kwlist, &nt_chunk, &axis_ptr, &nbins, &epsilon))
+	return NULL;
+
+    rf_pipelines::axis_type axis = axis_type_from_python("make_spline_detrender()", axis_ptr);
+
+    shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_spline_detrender(nt_chunk, axis, nbins, epsilon);
     return wi_transform_object::make(ret);
 }
 
@@ -1763,6 +1783,13 @@ static constexpr const char *make_polynomial_detrender_docstring =
     "experimented systematically.\n";
 
 
+static constexpr const char *spline_detrender_docstring =
+    "spline_detrender(nt_chunk, axis, nbins, epsilon = 3.0e-4)\n"
+    "\n"
+    "Experimental: spline_detrender.\n"
+    "I suspect this will work better than the polynomial_detrender, and it will definitely be faster!\n";
+
+
 static constexpr const char *make_intensity_clipper_docstring =
     "make_intensity_clipper(nt_chunk, axis, sigma, niter=1, iter_sigma=0, Df=1, Dt=1)\n"
     "\n"
@@ -1902,6 +1929,7 @@ static PyMethodDef module_methods[] = {
     { "make_gaussian_noise_stream", tc_wrap2<make_gaussian_noise_stream>, METH_VARARGS, make_gaussian_noise_stream_docstring },
     { "make_chime_packetizer", tc_wrap2<make_chime_packetizer>, METH_VARARGS, dummy_module_method_docstring },
     { "make_polynomial_detrender", (PyCFunction) tc_wrap3<make_polynomial_detrender>, METH_VARARGS, make_polynomial_detrender_docstring },
+    { "spline_detrender", (PyCFunction) tc_wrap3<make_spline_detrender>, METH_VARARGS, spline_detrender_docstring },
     { "make_intensity_clipper", (PyCFunction) tc_wrap3<make_intensity_clipper>, METH_VARARGS, make_intensity_clipper_docstring },
     { "make_std_dev_clipper", (PyCFunction) tc_wrap3<make_std_dev_clipper>, METH_VARARGS, make_std_dev_clipper_docstring },
     { "make_chime_file_writer", tc_wrap2<make_chime_file_writer>, METH_VARARGS, dummy_module_method_docstring },

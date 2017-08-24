@@ -474,6 +474,9 @@ from .transforms.mask_filler import mask_filler
 from .transforms.noise_filler import noise_filler
 from .transforms.online_mask_filler import online_mask_filler
 
+# Imported directly from rf_pipelines_c
+from .rf_pipelines_c import spline_detrender
+
 # Helper routines for implementing new transforms in python.
 
 from .utils import write_png, wi_downsample, upsample, tile_arr, weighted_mean_and_rms
