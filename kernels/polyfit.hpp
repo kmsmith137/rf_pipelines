@@ -17,9 +17,9 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
-template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
-template<typename T, unsigned int S, unsigned int D> using simd_ntuple = simd_helpers::simd_ntuple<T,S,D>;
-template<typename T, unsigned int S, unsigned int N> using simd_trimatrix = simd_helpers::simd_trimatrix<T,S,N>;
+template<typename T, int S> using simd_t = simd_helpers::simd_t<T,S>;
+template<typename T, int S, int D> using simd_ntuple = simd_helpers::simd_ntuple<T,S,D>;
+template<typename T, int S, int N> using simd_trimatrix = simd_helpers::simd_trimatrix<T,S,N>;
 
 
 // -------------------------------------------------------------------------------------------------
@@ -29,20 +29,20 @@ template<typename T, unsigned int S, unsigned int N> using simd_trimatrix = simd
 // Evaluates Legendre polynomials P_0(z) ... P_{N-1}(z).
 
 
-template<typename T, unsigned int S>
+template<typename T, int S>
 inline void _kernel_legpoly_eval(simd_ntuple<T,S,1> &pl, simd_t<T,S> z)
 {
     pl.x = 1.0;
 }
 
-template<typename T, unsigned int S>
+template<typename T, int S>
 inline void _kernel_legpoly_eval(simd_ntuple<T,S,2> &pl, simd_t<T,S> z)
 {
     pl.v.x = 1.0;
     pl.x = z;
 }
 
-template<typename T, unsigned int S, unsigned int N, typename std::enable_if<(N > 2),int>::type = 0>
+template<typename T, int S, int N, typename std::enable_if<(N > 2),int>::type = 0>
 inline void _kernel_legpoly_eval(simd_ntuple<T,S,N> &pl, simd_t<T,S> z)
 {
      // P_N(z) = a z P_{N-1}(z) + b P_{N-2}(z)
@@ -62,10 +62,10 @@ inline void _kernel_legpoly_eval(simd_ntuple<T,S,N> &pl, simd_t<T,S> z)
 // accumulate contribution to matrix 'outm' and vector 'outv'.
 
 
-template<typename T, unsigned int S>
+template<typename T, int S>
 inline void _kernel_detrend_accum_mv(simd_trimatrix<T,S,0> &outm, simd_ntuple<T,S,0> &outv, const simd_ntuple<T,S,0> &pl, simd_t<T,S> ival, simd_t<T,S> wval) { }
 
-template<typename T, unsigned int S, unsigned int N, typename std::enable_if<(N>0),int>::type = 0>
+template<typename T, int S, int N, typename std::enable_if<(N>0),int>::type = 0>
 inline void _kernel_detrend_accum_mv(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S,N> &outv, const simd_ntuple<T,S,N> &pvec, simd_t<T,S> ival, simd_t<T,S> wval)
 {
     _kernel_detrend_accum_mv(outm.m, outv.v, pvec.v, ival, wval);
@@ -85,7 +85,7 @@ inline void _kernel_detrend_accum_mv(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,
 // Note: the degree of the polynomial fit is (N-1), not N!
 
 
-template<typename T, unsigned int S, unsigned int N>
+template<typename T, int S, int N>
 inline void _kernel_detrend_t_pass1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S,N> &outv, int nt, const T *ivec, const T *wvec)
 {
     outm.setzero();
@@ -114,7 +114,7 @@ inline void _kernel_detrend_t_pass1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S
 }
 
 
-template<typename T, unsigned int S, unsigned int N>
+template<typename T, int S, int N>
 inline void _kernel_detrend_t_pass2(T *ivec, int nt, const simd_ntuple<T,S,N> &coeffs)
 {
     simd_t<T,S> z0 = simd_t<T,S>::range();
@@ -137,7 +137,7 @@ inline void _kernel_detrend_t_pass2(T *ivec, int nt, const simd_ntuple<T,S,N> &c
 }
 
 
-template<typename T, unsigned int S, unsigned int N>
+template<typename T, int S, int N>
 inline void _kernel_detrend_t(int nfreq, int nt, T *intensity, T *weights, int stride, double epsilon=1.0e-2)
 {
     // Caller should have asserted this already, but rechecking here should have negligible overhead
@@ -178,7 +178,7 @@ inline void _kernel_detrend_t(int nfreq, int nt, T *intensity, T *weights, int s
 // Note: the degree of the polynomial fit is (N-1), not N!
 
 
-template<typename T, unsigned int S, unsigned int N>
+template<typename T, int S, int N>
 inline void _kernel_detrend_f_pass1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S,N> &outv, int nfreq, const T *ivec, const T *wvec, int stride)
 {
     outm.setzero();
@@ -199,7 +199,7 @@ inline void _kernel_detrend_f_pass1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S
     }
 }
 
-template<typename T, unsigned int S, unsigned int N>
+template<typename T, int S, int N>
 inline void _kernel_detrend_f_pass2(T *ivec, int nfreq, const simd_ntuple<T,S,N> &coeffs, int stride)
 {
     T z0 = -(nfreq-1) / T(nfreq);
@@ -220,7 +220,7 @@ inline void _kernel_detrend_f_pass2(T *ivec, int nfreq, const simd_ntuple<T,S,N>
 
 
 // Zeros a complete block of S columns in the 'weights' array.
-template<typename T, unsigned int S>
+template<typename T, int S>
 inline void _kernel_colzero_full(T *weights, int nfreq, int stride)
 {
     simd_t<T,S> z = simd_t<T,S>::zero();
@@ -232,7 +232,7 @@ inline void _kernel_colzero_full(T *weights, int nfreq, int stride)
 
 // Zeros a partial block of S columns in the 'weights' array.
 // Each word in the 'mask' array should be either 0 or -1=0xff..
-template<typename T, unsigned int S>
+template<typename T, int S>
 inline void _kernel_colzero_partial(T *weights, int nfreq, int stride, simd_t<int,S> mask)
 {
     for (int i = 0; i < nfreq; i++) {
@@ -243,7 +243,7 @@ inline void _kernel_colzero_partial(T *weights, int nfreq, int stride, simd_t<in
 }
 
 
-template<typename T, unsigned int S, unsigned int N>
+template<typename T, int S, int N>
 inline void _kernel_detrend_f(int nfreq, int nt, T *intensity, T *weights, int stride, double epsilon=1.0e-2)
 {
     // Caller should have asserted this already, but rechecking here should have negligible overhead

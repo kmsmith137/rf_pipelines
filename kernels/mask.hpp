@@ -11,10 +11,10 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
-template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
-template<typename T, unsigned int S> using smask_t = simd_helpers::smask_t<T,S>;
-template<typename T, unsigned int S, unsigned int D> using simd_ntuple = simd_helpers::simd_ntuple<T,S,D>;
-template<typename T, unsigned int S, unsigned int D> using smask_ntuple = simd_helpers::smask_ntuple<T,S,D>;
+template<typename T, int S> using simd_t = simd_helpers::simd_t<T,S>;
+template<typename T, int S> using smask_t = simd_helpers::smask_t<T,S>;
+template<typename T, int S, int D> using simd_ntuple = simd_helpers::simd_ntuple<T,S,D>;
+template<typename T, int S, int D> using smask_ntuple = simd_helpers::smask_ntuple<T,S,D>;
 
 
 // -------------------------------------------------------------------------------------------------
@@ -24,14 +24,14 @@ template<typename T, unsigned int S, unsigned int D> using smask_ntuple = simd_h
 // Masks a strided array of shape (R,N*S), by repeating a single simd_t<T,S>.
 
 
-template<typename T, unsigned int S, unsigned int R, unsigned int N, typename std::enable_if<(R==0 || N==0),int>::type = 0>
+template<typename T, int S, int R, int N, typename std::enable_if<(R==0 || N==0),int>::type = 0>
 inline void _kernel_mask1(T *weights, smask_t<T,S> mask, int stride)
 {
     return;
 }
 
 
-template<typename T, unsigned int S, unsigned int R, unsigned int N, typename std::enable_if<(R>0 && N>0),int>::type = 0>
+template<typename T, int S, int R, int N, typename std::enable_if<(R>0 && N>0),int>::type = 0>
 inline void _kernel_mask1(T *weights, smask_t<T,S> mask, int stride)
 {
     simd_t<T,S> wval = simd_helpers::simd_load<T,S> (weights);
@@ -50,14 +50,14 @@ inline void _kernel_mask1(T *weights, smask_t<T,S> mask, int stride)
 // Masks a strided array of shape (R,D*N*S), by repeating the mask over the (r,n) axes.
 
 
-template<typename T, unsigned int S, unsigned int R, unsigned int D, unsigned int N, typename std::enable_if<(D==0),int>::type = 0>
+template<typename T, int S, int R, int D, int N, typename std::enable_if<(D==0),int>::type = 0>
 inline void _kernel_mask2(T *weights, const smask_ntuple<T,S,D> &mask, int stride)
 {
     return;
 }
 
 
-template<typename T, unsigned int S, unsigned int R, unsigned int D, unsigned int N, typename std::enable_if<(D>0),int>::type = 0>
+template<typename T, int S, int R, int D, int N, typename std::enable_if<(D>0),int>::type = 0>
 inline void _kernel_mask2(T *weights, const smask_ntuple<T,S,D> &mask, int stride)
 {
     _kernel_mask2<T,S,R,D-1,N> (weights, mask.v, stride);
@@ -73,14 +73,14 @@ inline void _kernel_mask2(T *weights, const smask_ntuple<T,S,D> &mask, int strid
 // strided array based at 'weights'.
 
 
-template<typename T, unsigned int S, unsigned int R, unsigned int D, typename std::enable_if<(D==1),int>::type = 0>
+template<typename T, int S, int R, int D, typename std::enable_if<(D==1),int>::type = 0>
 inline void _kernel_mask(T *weights, smask_t<T,S> mask, int stride)
 {
     _kernel_mask1<T,S,R,1> (weights, mask, stride);
 }
 
 
-template<typename T, unsigned int S, unsigned int R, unsigned int D, typename std::enable_if<(D>1 && D<=S),int>::type = 0>
+template<typename T, int S, int R, int D, typename std::enable_if<(D>1 && D<=S),int>::type = 0>
 inline void _kernel_mask(T *weights, smask_t<T,S> mask, int stride)
 {
     smask_ntuple<T,S,D> masku;
@@ -90,7 +90,7 @@ inline void _kernel_mask(T *weights, smask_t<T,S> mask, int stride)
 }
 
 
-template<typename T, unsigned int S, unsigned int R, unsigned int D, typename std::enable_if<(D>S),int>::type = 0>
+template<typename T, int S, int R, int D, typename std::enable_if<(D>S),int>::type = 0>
 inline void _kernel_mask(T *weights, smask_t<T,S> mask, int stride)
 {
     smask_ntuple<T,S,S> masku;
@@ -109,7 +109,7 @@ inline void _kernel_mask(T *weights, smask_t<T,S> mask, int stride)
 // Caller must check that nt % (Dt*S) == 0.
 
 
-template<typename T, unsigned int S, unsigned int Dt>
+template<typename T, int S, int Dt>
 inline void _kernel_mask_columns(T *weights, const smask_t<T,1> *mask, int nfreq, int nt, int stride)
 {
     for (int ifreq = 0; ifreq < nfreq; ifreq++) {

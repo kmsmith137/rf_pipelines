@@ -11,8 +11,8 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
-template<typename T, unsigned int S> using simd_t = simd_helpers::simd_t<T,S>;
-template<typename T, unsigned int S, unsigned int D> using simd_ntuple = simd_helpers::simd_ntuple<T,S,D>;
+template<typename T, int S> using simd_t = simd_helpers::simd_t<T,S>;
+template<typename T, int S, int D> using simd_ntuple = simd_helpers::simd_ntuple<T,S,D>;
 
 
 // -------------------------------------------------------------------------------------------------
@@ -24,14 +24,14 @@ template<typename T, unsigned int S, unsigned int D> using simd_ntuple = simd_he
 
 
 // The "1a" variant accumulates its result
-template<typename T, unsigned int S, unsigned int R, unsigned int N, typename std::enable_if<(R==0 || N==0),int>::type = 0>
+template<typename T, int S, int R, int N, typename std::enable_if<(R==0 || N==0),int>::type = 0>
 inline void _kernel_downsample1a(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T *intensity, const T *weights, int stride)
 {
     return;
 }
 
 
-template<typename T, unsigned int S, unsigned int R, unsigned int N, typename std::enable_if<(R > 0 && N > 0),int>::type = 0>
+template<typename T, int S, int R, int N, typename std::enable_if<(R > 0 && N > 0),int>::type = 0>
 inline void _kernel_downsample1a(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T *intensity, const T *weights, int stride)
 {
     simd_t<T,S> ival = simd_helpers::simd_load<T,S> (intensity);
@@ -45,7 +45,7 @@ inline void _kernel_downsample1a(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T 
 }
 
 
-template<typename T, unsigned int S, unsigned int R, unsigned int N, typename std::enable_if<(R > 0 && N > 0),int>::type = 0>
+template<typename T, int S, int R, int N, typename std::enable_if<(R > 0 && N > 0),int>::type = 0>
 inline void _kernel_downsample1(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T *intensity, const T *weights, int stride)
 {
     simd_t<T,S> ival = simd_helpers::simd_load<T,S> (intensity);
@@ -67,14 +67,14 @@ inline void _kernel_downsample1(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T *
 // and middle index n, returning a simd_ntuple<T,S,D>.
 
 
-template<typename T, unsigned int S, unsigned int R, unsigned int D, unsigned int N, typename std::enable_if<(D==0),int>::type = 0>
+template<typename T, int S, int R, int D, int N, typename std::enable_if<(D==0),int>::type = 0>
 inline void _kernel_downsample2(simd_ntuple<T,S,D> &ds_wi, simd_ntuple<T,S,D> &ds_w, const T *intensity, const T *weights, int stride)
 {
     return;
 }
 
 
-template<typename T, unsigned int S, unsigned int R, unsigned int D, unsigned int N, typename std::enable_if<(D>0),int>::type = 0>
+template<typename T, int S, int R, int D, int N, typename std::enable_if<(D>0),int>::type = 0>
 inline void _kernel_downsample2(simd_ntuple<T,S,D> &ds_wi, simd_ntuple<T,S,D> &ds_w, const T *intensity, const T *weights, int stride)
 {
     _kernel_downsample2<T,S,R,D-1,N> (ds_wi.v, ds_w.v, intensity, weights, stride);
@@ -90,14 +90,14 @@ inline void _kernel_downsample2(simd_ntuple<T,S,D> &ds_wi, simd_ntuple<T,S,D> &d
 // returning a simd_t<T,S>.
 
  
-template<typename T, unsigned int S, unsigned int R, unsigned int D, typename std::enable_if<(D==1),int>::type = 0>
+template<typename T, int S, int R, int D, typename std::enable_if<(D==1),int>::type = 0>
 inline void _kernel_downsample(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T *intensity, const T *weights, int stride)
 {
     _kernel_downsample1<T,S,R,1> (ds_wi, ds_w, intensity, weights, stride);
 }
 
 
-template<typename T, unsigned int S, unsigned int R, unsigned int D, typename std::enable_if<(D>1 && D<=S),int>::type = 0>
+template<typename T, int S, int R, int D, typename std::enable_if<(D>1 && D<=S),int>::type = 0>
 inline void _kernel_downsample(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T *intensity, const T *weights, int stride)
 {
     simd_ntuple<T,S,D> dsn_wi, dsn_w;
@@ -108,7 +108,7 @@ inline void _kernel_downsample(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T *i
 }
 
 
-template<typename T, unsigned int S, unsigned int R, unsigned int D, typename std::enable_if<(D>S),int>::type = 0>
+template<typename T, int S, int R, int D, typename std::enable_if<(D>S),int>::type = 0>
 inline void _kernel_downsample(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T *intensity, const T *weights, int stride)
 {
     simd_ntuple<T,S,S> dsn_wi, dsn_w;
@@ -128,7 +128,7 @@ inline void _kernel_downsample(simd_t<T,S> &ds_wi, simd_t<T,S> &ds_w, const T *i
 // This is the kernel which gets called in the externally visible function wi_downsample().
 
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt>
+template<typename T, int S, int Df, int Dt>
 inline void _kernel_downsample_2d(T *out_intensity, T *out_weights, int out_stride, const T *in_intensity, const T *in_weights, int in_nfreq, int in_nt, int in_stride)
 {
     const simd_t<T,S> zero = simd_t<T,S>::zero();

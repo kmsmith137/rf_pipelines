@@ -47,7 +47,7 @@ struct std_dev_clipper_buffers {
 // There is no requirement that (nfreq % (Df*S)) == 0.
 
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool TwoPass>
+template<typename T, int S, int Df, int Dt, bool TwoPass>
 inline void _kernel_std_dev_t(const std_dev_clipper_buffers<T> &buf, const T *intensity, const T *weights, int nfreq, int nt, int stride)
 {
     T *out_sd = buf.sd;
@@ -68,7 +68,7 @@ inline void _kernel_std_dev_t(const std_dev_clipper_buffers<T> &buf, const T *in
 }
 
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool TwoPass>
+template<typename T, int S, int Df, int Dt, bool TwoPass>
 inline void _kernel_std_dev_clip_time_axis(const std_dev_clipper_buffers<T> &buf, const T *intensity, T *weights, int nfreq, int nt, int stride, double sigma)
 {
     _kernel_std_dev_t<T,S,Df,Dt,TwoPass> (buf, intensity, weights, nfreq, nt, stride);
@@ -95,7 +95,7 @@ inline void _kernel_std_dev_clip_time_axis(const std_dev_clipper_buffers<T> &buf
 // There is no requirement that (nfreq % (Df*S)) == 0.
 
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool TwoPass>
+template<typename T, int S, int Df, int Dt, bool TwoPass>
 inline void _kernel_std_dev_f(const std_dev_clipper_buffers<T> &buf, const T *intensity, const T *weights, int nfreq, int nt, int stride)
 {
     const simd_t<T,S> zero = simd_t<T,S>::zero();
@@ -121,7 +121,7 @@ inline void _kernel_std_dev_f(const std_dev_clipper_buffers<T> &buf, const T *in
 }
 
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, bool TwoPass>
+template<typename T, int S, int Df, int Dt, bool TwoPass>
 inline void _kernel_std_dev_clip_freq_axis(const std_dev_clipper_buffers<T> &buf, const T *intensity, T *weights, int nfreq, int nt, int stride, double sigma)
 {
     _kernel_std_dev_f<T,S,Df,Dt,TwoPass> (buf, intensity, weights, nfreq, nt, stride);

@@ -99,19 +99,19 @@ inline bool is_all_positive(const T *vec, int n, int stride)
 // "Horizontally constant" means "constant within each simd_t".
 
 
-template<typename T, unsigned int S, unsigned int N, typename std::enable_if<(N==0),int>::type = 0>
+template<typename T, int S, int N, typename std::enable_if<(N==0),int>::type = 0>
 inline simd_ntuple<T,S,N> hconst_simd_ntuple(const T *p) { return simd_ntuple<T,S,0> (); }
 
-template<typename T, unsigned int S, unsigned int N, typename std::enable_if<(N==0),int>::type = 0>
+template<typename T, int S, int N, typename std::enable_if<(N==0),int>::type = 0>
 inline simd_trimatrix<T,S,N> hconst_simd_trimatrix(const T *p) { return simd_trimatrix<T,S,0> (); }
 
-template<typename T, unsigned int S, unsigned int N, typename std::enable_if<(N>0),int>::type = 0>
+template<typename T, int S, int N, typename std::enable_if<(N>0),int>::type = 0>
 inline simd_ntuple<T,S,N> hconst_simd_ntuple(const T *p)
 { 
     return simd_ntuple<T,S,N> (hconst_simd_ntuple<T,S,N-1>(p), simd_t<T,S>(p[N-1]));
 }
 
-template<typename T, unsigned int S, unsigned int N, typename std::enable_if<(N>0),int>::type = 0>
+template<typename T, int S, int N, typename std::enable_if<(N>0),int>::type = 0>
 inline simd_trimatrix<T,S,N> hconst_simd_trimatrix(const T *p) 
 {
     return simd_trimatrix<T,S,N> (hconst_simd_trimatrix<T,S,N-1>(p), hconst_simd_ntuple<T,S,N>(p + (N*(N-1))/2));
@@ -206,7 +206,7 @@ static vector<T> reference_legpoly_eval(int npl, const vector<T> &zvec)
 }
 
 
-template<typename T, unsigned int S, unsigned int N>
+template<typename T, int S, int N>
 static void test_legpoly_eval(std::mt19937 &rng)
 {
     simd_t<T,S> z = simd_helpers::uniform_random_simd_t<T,S> (rng, -1.0, 1.0);
@@ -267,7 +267,7 @@ static void reference_detrend_t_pass1(T *outm, T *outv, int npl, int nt, const T
 }
 
 
-template<typename T, unsigned int S, unsigned int N>
+template<typename T, int S, int N>
 static void test_detrend_t_pass1(std::mt19937 &rng, int nt)
 {
     constexpr int NN = (N*(N+1))/2;
@@ -317,7 +317,7 @@ static void reference_detrend_t_pass2(T *ivec, int npl, int nt, const T *coeffs)
 }
 
 
-template<typename T, unsigned int S, unsigned int N>
+template<typename T, int S, int N>
 static void test_detrend_t_pass2(std::mt19937 &rng, int nt)
 {
     vector<T> coeffs = simd_helpers::gaussian_randvec<T> (rng, N);
@@ -342,7 +342,7 @@ static void test_detrend_t_pass2(std::mt19937 &rng, int nt)
 // rows to make badly conditioned.
 
 
-template<typename T, unsigned int S, unsigned int N>
+template<typename T, int S, int N>
 static void test_detrend_t_nulling(std::mt19937 &rng, int nfreq, int nt, int stride)
 {
     vector<T> intensity(nfreq * stride, 0.0);
@@ -362,7 +362,7 @@ static void test_detrend_t_nulling(std::mt19937 &rng, int nfreq, int nt, int str
 }
 
 
-template<typename T, unsigned int S, unsigned int N>
+template<typename T, int S, int N>
 static void test_detrend_t_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride)
 {
     vector<T> intensity = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
@@ -411,7 +411,7 @@ static void test_detrend_t_idempotency(std::mt19937 &rng, int nfreq, int nt, int
 // rows to make badly conditioned.
 
 
-template<typename T, unsigned int S, unsigned int N>
+template<typename T, int S, int N>
 static void test_detrend_f_nulling(std::mt19937 &rng, int nfreq, int nt, int stride)
 {
     vector<T> intensity(nfreq * stride, 0.0);
@@ -431,7 +431,7 @@ static void test_detrend_f_nulling(std::mt19937 &rng, int nfreq, int nt, int str
 }
 
 
-template<typename T, unsigned int S, unsigned int N>
+template<typename T, int S, int N>
 static void test_detrend_f_idempotency(std::mt19937 &rng, int nfreq, int nt, int stride)
 {
     vector<T> intensity = simd_helpers::uniform_randvec<T> (rng, nfreq * stride, 0.0, 1.0);
@@ -485,7 +485,7 @@ static void test_detrend_f_idempotency(std::mt19937 &rng, int nfreq, int nt, int
 // -------------------------------------------------------------------------------------------------
 
 
-template<typename T, unsigned int S, unsigned int N>
+template<typename T, int S, int N>
 static void test_detrend_transpose(std::mt19937 &rng, int n1, int n2, int stride1, int stride2)
 {
     vector<T> intensity12(n1 * stride2, 0.0);
@@ -528,14 +528,14 @@ static void test_detrend_transpose(std::mt19937 &rng, int n1, int n2, int stride
 // -------------------------------------------------------------------------------------------------
 
 
-template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<(Nmax==0),int>::type = 0>
+template<typename T, int S, int Nmax, typename std::enable_if<(Nmax==0),int>::type = 0>
 static void run_all_polynomial_detrender_tests(std::mt19937 &rng)
 {
     return;
 }
 
 
-template<typename T, unsigned int S, unsigned int Nmax, typename std::enable_if<(Nmax>0),int>::type = 0>
+template<typename T, int S, int Nmax, typename std::enable_if<(Nmax>0),int>::type = 0>
 static void run_all_polynomial_detrender_tests(std::mt19937 &rng)
 {
     run_all_polynomial_detrender_tests<T,S,(Nmax-1)> (rng);
@@ -572,13 +572,13 @@ static void run_all_polynomial_detrender_tests(std::mt19937 &rng)
 
 template<typename T>
 struct clipper_ops_base {
-    const unsigned int S;
-    const unsigned int Df;
-    const unsigned int Dt;
+    const int S;
+    const int Df;
+    const int Dt;
     const bool Iflag;
     const bool Wflag;
     
-    clipper_ops_base(unsigned int S_, unsigned int Df_, unsigned int Dt_, bool Iflag_, bool Wflag_) :
+    clipper_ops_base(int S_, int Df_, int Dt_, bool Iflag_, bool Wflag_) :
 	S(S_), Df(Df_), Dt(Dt_), Iflag(Iflag_), Wflag(Wflag_) { }
 
     virtual ~clipper_ops_base() { }
@@ -672,7 +672,7 @@ template<typename T>
 void clipper_ops_base<T>::apply_reference_wrms_kernel_1d_f(T *mean, T *rms, const T *intensity, const T *weights, int nfreq, int stride, T *ds_int, T *ds_wt)
 {
     // Call _reference_wrms_kernel_helper() S times, with nt=Dt and ds_stride=S.
-    for (unsigned int s = 0; s < S; s++)
+    for (int s = 0; s < S; s++)
 	_reference_wrms_kernel_helper(mean[s], rms[s], intensity + s*Dt, weights + s*Dt, nfreq, Dt, stride, ds_int+s, ds_wt+s, S);
 }
 
@@ -910,7 +910,7 @@ void clipper_ops_base<T>::test_mask_kernel_1d_f(std::mt19937 &rng, int nfreq, in
     vector<T> ds_intensity(nfreq_ds * ds_stride, 0.0);
 
     for (int ifreq_ds = 0; ifreq_ds < nfreq_ds; ifreq_ds++)
-	for (unsigned int s = 0; s < S; s++)
+	for (int s = 0; s < S; s++)
 	    ds_intensity[ifreq_ds*ds_stride + s] = mean + thresh * clip_rand(rng);
 
     apply_reference_mask_kernel_1d_f(&weights[0], &ds_intensity[0], mean, thresh, nfreq, stride, ds_stride);
@@ -990,10 +990,10 @@ void clipper_ops_base<T>::run_tests(std::mt19937 &rng)
 // -------------------------------------------------------------------------------------------------
 
 
-template<typename T, unsigned int S_>
+template<typename T, int S_>
 struct clipper_ops_base2 : public clipper_ops_base<T>
 {
-    clipper_ops_base2(unsigned int Df_, unsigned int Dt_, bool Iflag_, bool Wflag_)
+    clipper_ops_base2(int Df_, int Dt_, bool Iflag_, bool Wflag_)
 	: clipper_ops_base<T> (S_, Df_, Dt_, Iflag_, Wflag_) { }
 
     // FIXME: this test was designed for a different version of the kernel API, and
@@ -1012,7 +1012,7 @@ struct clipper_ops_base2 : public clipper_ops_base<T>
 };
 
 
-template<typename T, unsigned int S_, unsigned int Df_, unsigned int Dt_>
+template<typename T, int S_, int Df_, int Dt_>
 struct clipper_ops_base3 : public clipper_ops_base2<T,S_>
 {
     clipper_ops_base3(bool Iflag_, bool Wflag_) : clipper_ops_base2<T,S_>(Df_, Dt_, Iflag_, Wflag_) { }
@@ -1029,7 +1029,7 @@ struct clipper_ops_base3 : public clipper_ops_base2<T,S_>
 };
 
 
-template<typename T, unsigned int S_, unsigned int Df_, unsigned int Dt_, bool Iflag_, bool Wflag_>
+template<typename T, int S_, int Df_, int Dt_, bool Iflag_, bool Wflag_>
 struct clipper_ops : clipper_ops_base3<T,S_,Df_,Dt_>
 {
     clipper_ops() : clipper_ops_base3<T,S_,Df_,Dt_> (Iflag_, Wflag_) { }
@@ -1060,7 +1060,7 @@ struct clipper_ops : clipper_ops_base3<T,S_,Df_,Dt_>
 };
 
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, typename enable_if<((Df>1) || (Dt>1)),int>::type = 0>
+template<typename T, int S, int Df, int Dt, typename enable_if<((Df>1) || (Dt>1)),int>::type = 0>
 inline void populate3(vector<shared_ptr<clipper_ops_base<T>>> &testsuite)
 {
     testsuite.push_back(make_shared<clipper_ops<T,S,Df,Dt,false,false>> ());
@@ -1069,16 +1069,16 @@ inline void populate3(vector<shared_ptr<clipper_ops_base<T>>> &testsuite)
     testsuite.push_back(make_shared<clipper_ops<T,S,Df,Dt,true,true>> ());    
 }
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int Dt, typename enable_if<((Df==1) && (Dt==1)),int>::type = 0>
+template<typename T, int S, int Df, int Dt, typename enable_if<((Df==1) && (Dt==1)),int>::type = 0>
 inline void populate3(vector<shared_ptr<clipper_ops_base<T>>> &testsuite)
 {
     testsuite.push_back(make_shared<clipper_ops<T,S,Df,Dt,false,false>> ());
 }
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt==0),int>::type = 0>
+template<typename T, int S, int Df, int MaxDt, typename std::enable_if<(MaxDt==0),int>::type = 0>
 inline void populate2(vector<shared_ptr<clipper_ops_base<T>>> &testsuite) { return; }
 
-template<typename T, unsigned int S, unsigned int Df, unsigned int MaxDt, typename std::enable_if<(MaxDt > 0),int>::type = 0>
+template<typename T, int S, int Df, int MaxDt, typename std::enable_if<(MaxDt > 0),int>::type = 0>
 inline void populate2(vector<shared_ptr<clipper_ops_base<T>>> &testsuite)
 {
     populate2<T,S,Df,(MaxDt/2)> (testsuite);
@@ -1086,10 +1086,10 @@ inline void populate2(vector<shared_ptr<clipper_ops_base<T>>> &testsuite)
 }
 
 
-template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf==0),int>::type = 0>
+template<typename T, int S, int MaxDf, int MaxDt, typename std::enable_if<(MaxDf==0),int>::type = 0>
 inline void populate(vector<shared_ptr<clipper_ops_base<T>>> &testsuite) { return; }
 
-template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt, typename std::enable_if<(MaxDf > 0),int>::type = 0>
+template<typename T, int S, int MaxDf, int MaxDt, typename std::enable_if<(MaxDf > 0),int>::type = 0>
 inline void populate(vector<shared_ptr<clipper_ops_base<T>>> &testsuite)
 {
     populate<T,S,(MaxDf/2),MaxDt> (testsuite);
@@ -1097,7 +1097,7 @@ inline void populate(vector<shared_ptr<clipper_ops_base<T>>> &testsuite)
 }
 
 
-template<typename T, unsigned int S, unsigned int MaxDf, unsigned int MaxDt>
+template<typename T, int S, int MaxDf, int MaxDt>
 inline void run_all_clipper_tests(std::mt19937 &rng)
 {
     vector<shared_ptr<clipper_ops_base<T>>> testsuite;

@@ -12,7 +12,7 @@
 //  from an array, rather than computing them on-the-fly.
 
 
-template<typename T, unsigned int S, unsigned int N>
+template<typename T, int S, int N>
 inline void _kernel_detrend_xt_pass1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S,N> &outv, int nt, const T *ivec, const T *wvec, const T *tmp)
 {
     outm.setzero();
@@ -47,20 +47,20 @@ inline void _kernel_detrend_xt_pass1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,
 
 
 
-template<typename T, unsigned int S, unsigned int I, unsigned int J, unsigned int K, typename std::enable_if<(J==I),int>::type = 0>
+template<typename T, int S, int I, int J, int K, typename std::enable_if<(J==I),int>::type = 0>
 inline void _kernel_merge(simd_ntuple<T,S,I> &dst, const simd_ntuple<T,S,J> &src1, const simd_ntuple<T,S,K> &src2)
 {
     dst = src1;
 }
 
-template<typename T, unsigned int S, unsigned int I, unsigned int J, unsigned int K, typename std::enable_if<(J<I && I==J+K),int>::type = 0>
+template<typename T, int S, int I, int J, int K, typename std::enable_if<(J<I && I==J+K),int>::type = 0>
 inline void _kernel_merge(simd_ntuple<T,S,I> &dst, const simd_ntuple<T,S,J> &src1, const simd_ntuple<T,S,K> &src2)
 {
     _kernel_merge(dst.v, src1, src2.v);
     dst.x = src2.x;
 }
 
-template<typename T, unsigned int S, unsigned int I, unsigned int J, unsigned int K, typename std::enable_if<(J<I && I<J+K),int>::type = 0>
+template<typename T, int S, int I, int J, int K, typename std::enable_if<(J<I && I<J+K),int>::type = 0>
 inline void _kernel_merge(simd_ntuple<T,S,I> &dst, const simd_ntuple<T,S,J> &src1, const simd_ntuple<T,S,K> &src2)
 {
     _kernel_merge(dst, src1, src2.v);
@@ -75,16 +75,16 @@ inline void _kernel_merge(simd_ntuple<T,S,I> &dst, const simd_ntuple<T,S,J> &src
 // vector in the tuple to 1, and the remaining vectors to appropriate constant values.
 
 
-template<typename T, unsigned int S, unsigned int N, typename std::enable_if<(N==1),int>::type = 0>
+template<typename T, int S, int N, typename std::enable_if<(N==1),int>::type = 0>
 inline void _kernel_unpack_legpoly(simd_ntuple<T,S,N> &dst, const T *p)
 {
     dst.x = 1.0;
 }
 
-template<typename T, unsigned int S, unsigned int N, typename std::enable_if<(N>1),int>::type = 0>
+template<typename T, int S, int N, typename std::enable_if<(N>1),int>::type = 0>
 inline void _kernel_unpack_legpoly(simd_ntuple<T,S,N> &dst, const T *p)
 {
-    constexpr unsigned int M = N - (((N-2) % S) + 1);
+    constexpr int M = N - (((N-2) % S) + 1);
 
     simd_ntuple<T,S,M> tmp;
     _kernel_unpack_legpoly(tmp, p);
@@ -103,10 +103,10 @@ inline void _kernel_unpack_legpoly(simd_ntuple<T,S,N> &dst, const T *p)
 //  from an array, rather than computing them on-the-fly.
 
 
-template<typename T, unsigned int S, unsigned int N>
+template<typename T, int S, int N>
 inline void _kernel_detrend_xf_pass1(simd_trimatrix<T,S,N> &outm, simd_ntuple<T,S,N> &outv, int nfreq, const T *ivec, const T *wvec, int stride, const T *tmp)
 {
-    constexpr unsigned int NP = N - 1 + (S+1 - (N%S)) % S;
+    constexpr int NP = N - 1 + (S+1 - (N%S)) % S;
 
     outm.setzero();
     outv.setzero();

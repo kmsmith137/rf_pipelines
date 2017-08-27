@@ -71,7 +71,7 @@ using intensity_clipper_kernel_t = void (*)(const float *, float *, int, int, in
 
 
 // Fills shape-(3,2) array indexed by (axis, two_pass)
-template<unsigned int S, unsigned int Df, unsigned int Dt>
+template<int S, int Df, int Dt>
 inline void fill_2d_intensity_clipper_kernel_table(intensity_clipper_kernel_t *out)
 {
     static_assert(AXIS_FREQ == 0, "expected AXIS_FREQ==0");
@@ -90,10 +90,10 @@ inline void fill_2d_intensity_clipper_kernel_table(intensity_clipper_kernel_t *o
 
 
 // Fills shape-(NDt,3,2) array indexed by (Dt, axis, two_pass)
-template<unsigned int S, unsigned int Df, unsigned int NDt, typename enable_if<(NDt==0),int>::type = 0>
+template<int S, int Df, int NDt, typename enable_if<(NDt==0),int>::type = 0>
 inline void fill_3d_intensity_clipper_kernel_table(intensity_clipper_kernel_t *out) { }
 
-template<unsigned int S, unsigned int Df, unsigned int NDt, typename enable_if<(NDt>0),int>::type = 0>
+template<int S, int Df, int NDt, typename enable_if<(NDt>0),int>::type = 0>
 inline void fill_3d_intensity_clipper_kernel_table(intensity_clipper_kernel_t *out) 
 { 
     fill_3d_intensity_clipper_kernel_table<S,Df,(NDt-1)> (out);
@@ -102,10 +102,10 @@ inline void fill_3d_intensity_clipper_kernel_table(intensity_clipper_kernel_t *o
 
 
 // Fills shape-(NDf,NDt,3,2) array indexed by (Df, Dt, axis, two_pass)
-template<unsigned int S, unsigned int NDf, unsigned int NDt, typename enable_if<(NDf==0),int>::type = 0>
+template<int S, int NDf, int NDt, typename enable_if<(NDf==0),int>::type = 0>
 inline void fill_4d_intensity_clipper_kernel_table(intensity_clipper_kernel_t *out) { }
 
-template<unsigned int S, unsigned int NDf, unsigned int NDt, typename enable_if<(NDf>0),int>::type = 0>
+template<int S, int NDf, int NDt, typename enable_if<(NDf>0),int>::type = 0>
 inline void fill_4d_intensity_clipper_kernel_table(intensity_clipper_kernel_t *out)
 {
     fill_4d_intensity_clipper_kernel_table<S,(NDf-1),NDt> (out);
@@ -308,7 +308,7 @@ void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, 
 }
 
 
-template<typename T, unsigned int S>
+template<typename T, int S>
 inline void _weighted_mean_and_rms(simd_t<T,S> &mean, simd_t<T,S> &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, int niter, double sigma, bool two_pass)
 {
     check_params("rf_pipelines: weighted_mean_and_rms()", 1, 1, AXIS_NONE, nfreq, nt, stride, sigma, niter, sigma);
