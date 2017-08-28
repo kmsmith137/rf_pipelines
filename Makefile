@@ -84,8 +84,7 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 TESTBINFILES=run-unit-tests \
 	test-kernels \
 	test-file-stream-base \
-	time-clippers \
-	time-detrenders
+	time-clippers
 
 # Used in 'make clean'
 CLEANDIRS=. site rf_pipelines rf_pipelines/streams rf_pipelines/transforms \
@@ -180,7 +179,3 @@ test-file-stream-base: test-file-stream-base.cpp $(INCFILES) $(KERNEL_INCFILES) 
 
 time-clippers: time-clippers.cpp $(INCFILES) $(KERNEL_INCFILES) librf_pipelines.so
 	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines $(LIBS)
-
-time-detrenders: time-detrenders.cpp $(INCFILES) $(KERNEL_INCFILES) librf_pipelines.so
-	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines $(LIBS)
-
