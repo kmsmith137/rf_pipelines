@@ -9,18 +9,12 @@ namespace rf_pipelines {
 #endif
 
 
-// Just being pedantic, since rf_pipelines defines enum { AXIS_FREQ, AXIS_TIME, ... },
-// whereas rf_kernels uses axis=0,1 for frequency,time respectively.
-static_assert(AXIS_FREQ==0, "This implementation assumes AXIS_FREQ==0");
-static_assert(AXIS_TIME==1, "This implementation assumes AXIS_TIME==1");
-
-
 struct polynomial_detrender : public wi_transform
 {
     rf_kernels::polynomial_detrender kernel;
     const double epsilon;
 
-    polynomial_detrender(int axis, int nt_chunk_, int polydeg, double epsilon_) :
+    polynomial_detrender(rf_kernels::axis_type axis, int nt_chunk_, int polydeg, double epsilon_) :
 	kernel(axis, polydeg),
 	epsilon(epsilon_)
     {
@@ -53,7 +47,7 @@ struct polynomial_detrender : public wi_transform
 
 	ret["transform_name"] = "polynomial_detrender";
 	ret["nt_chunk"] = int(this->nt_chunk);
-	ret["axis"] = axis_type_to_string(this->kernel.axis);
+	ret["axis"] = rf_kernels::axis_type_to_string(this->kernel.axis);
 	ret["polydeg"] = this->kernel.polydeg;
 	ret["epsilon"] = this->epsilon;
 
@@ -63,13 +57,13 @@ struct polynomial_detrender : public wi_transform
 
 
 // Externally callable factory function
-shared_ptr<wi_transform> make_polynomial_detrender(int nt_chunk, axis_type axis, int polydeg, double epsilon)
+shared_ptr<wi_transform> make_polynomial_detrender(int nt_chunk, rf_kernels::axis_type axis, int polydeg, double epsilon)
 {
     return make_shared<polynomial_detrender> (axis, nt_chunk, polydeg, epsilon);
 }
 
 
-void apply_polynomial_detrender(float *intensity, float *weights, int nfreq, int nt, int stride, axis_type axis, int polydeg, double epsilon)
+void apply_polynomial_detrender(float *intensity, float *weights, int nfreq, int nt, int stride, rf_kernels::axis_type axis, int polydeg, double epsilon)
 {
     rf_kernels::polynomial_detrender kernel(axis, polydeg);
     kernel.detrend(nfreq, nt, intensity, weights, stride, epsilon);

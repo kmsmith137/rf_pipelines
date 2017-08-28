@@ -50,7 +50,7 @@ struct spline_detrender : public wi_transform
 
 	ret["transform_name"] = "spline_detrender";
 	ret["nt_chunk"] = int(this->nt_chunk);
-	ret["axis"] = axis_type_to_string(AXIS_FREQ);
+	ret["axis"] = rf_kernels::axis_type_to_string(rf_kernels::AXIS_FREQ);
 	ret["nbins"] = this->nbins;
 	ret["epsilon"] = this->epsilon;
 
@@ -60,9 +60,9 @@ struct spline_detrender : public wi_transform
 
 
 // Externally callable factory function
-shared_ptr<wi_transform> make_spline_detrender(int nt_chunk, axis_type axis, int nbins, double epsilon)
+shared_ptr<wi_transform> make_spline_detrender(int nt_chunk, rf_kernels::axis_type axis, int nbins, double epsilon)
 {
-    if (axis != AXIS_FREQ)
+    if (axis != rf_kernels::AXIS_FREQ)
 	throw runtime_error("rf_pipelines::spline_detrender: only AXIS_FREQ is currently implemented");
 
     return make_shared<spline_detrender> (nt_chunk, nbins, epsilon);

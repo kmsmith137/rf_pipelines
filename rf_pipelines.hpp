@@ -73,6 +73,8 @@
 #include <iostream>
 #include <json/json.h>
 
+#include <rf_kernels/core.hpp>
+
 namespace bonsai { class dedisperser; }
 namespace ch_frb_io { class intensity_network_stream; }
 
@@ -182,17 +184,6 @@ extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssiz
 //
 // Factory functions returning wi_transforms
 
-
-enum axis_type {
-    AXIS_FREQ = 0,
-    AXIS_TIME = 1,
-    AXIS_NONE = 2
-};
-
-// In misc.cpp
-extern std::ostream &operator<<(std::ostream &os, axis_type axis);
-extern std::string axis_type_to_string(int axis);
-
 //
 // polynomial_detrender: detrends along either the time or frequency axis,
 // by subtracting a best-fit polynomial.  The detrending is independent in
@@ -204,12 +195,17 @@ extern std::string axis_type_to_string(int axis);
 // 'epsilon'.  I think that 1.0e-2 is a reasonable default here, but haven't
 // experimented systematically.
 //
-extern std::shared_ptr<wi_transform> make_polynomial_detrender(int nt_chunk, axis_type axis, int polydeg, double epsilon=1.0e-2);
+// Note: the 'axis' argument should be one of
+//   rf_kernels::AXIS_FREQ
+//   rf_kernels::AXIS_TIME
+//
+extern std::shared_ptr<wi_transform> make_polynomial_detrender(int nt_chunk, rf_kernels::axis_type axis, int polydeg, double epsilon=1.0e-2);
 
 
 // Experimental: spline_detrender.
 // I suspect this will work better than the polynomial_detrender, and it will definitely be faster!
-extern std::shared_ptr<wi_transform> make_spline_detrender(int nt_chunk, axis_type axis, int nbins, double epsilon=3.0e-4);
+// Currently, the only allowed axis type is rf_kernels::AXIS_FREQ.
+extern std::shared_ptr<wi_transform> make_spline_detrender(int nt_chunk, rf_kernels::axis_type axis, int nbins, double epsilon=3.0e-4);
 
 
 // A "simple detrender" is a time-axis polynomial fitter with degree zero.
@@ -217,7 +213,7 @@ extern std::shared_ptr<wi_transform> make_spline_detrender(int nt_chunk, axis_ty
 inline std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend)
 {
     std::cerr << "make_simple_detrender(): this function is now deprecated in favor of make_polynomial_detrender()\n";
-    return make_polynomial_detrender(nt_detrend, AXIS_TIME, 0);   // polydeg=0
+    return make_polynomial_detrender(nt_detrend, rf_kernels::AXIS_TIME, 0);   // polydeg=0
 }
 
 
@@ -232,9 +228,9 @@ inline std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend)
 // If no downsampling is desired, set Df=Dt=1.
 //
 // The 'axis' argument has the following meaning:
-//   axis=AXIS_FREQ   clip along frequency axis, with an outer loop over time samples
-//   axis=AXIS_TIME   clip along time axis, with an outer loop over frequency samples
-//   axis=AXIS_NONE   2-d clipper
+//   axis=rf_kernels::AXIS_FREQ   clip along frequency axis, with an outer loop over time samples
+//   axis=rf_kernels::AXIS_TIME   clip along time axis, with an outer loop over frequency samples
+//   axis=rf_kernels::AXIS_NONE   2-d clipper
 //
 // If niter > 1, then the mean/rms intensity will be computed using iterated clipping,
 // with threshold 'iter_sigma'.  If the 'iter_sigma' argument is zero, then it defaults
@@ -243,7 +239,7 @@ inline std::shared_ptr<wi_transform> make_simple_detrender(ssize_t nt_detrend)
 // If the 'two_pass' flag is set, a more numerically stable but slightly slower algorithm will be used.
 //
 
-extern std::shared_ptr<wi_transform> make_intensity_clipper(int nt_chunk, axis_type axis, double sigma, int niter=1, 
+extern std::shared_ptr<wi_transform> make_intensity_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, int niter=1, 
 							    double iter_sigma=0.0, int Df=1, int Dt=1, bool two_pass=false);
 
 
@@ -251,8 +247,8 @@ extern std::shared_ptr<wi_transform> make_intensity_clipper(int nt_chunk, axis_t
 // std_dev_clipper: this "clips" an array by masking rows/columns whose standard deviation is an outlier.
 //
 // The 'axis' argument has the following meaning:
-//   axis=AXIS_FREQ   clip time samples whose variance in frequency is high
-//   axis=AXIS_TIME   clip frequency channels whose variance in time is high
+//   axis=rf_kernels::AXIS_FREQ   clip time samples whose variance in frequency is high
+//   axis=rf_kernels::AXIS_TIME   clip frequency channels whose variance in time is high
 //
 // The (Df,Dt) args are downsampling factors on the frequency/time axes.
 // If no downsampling is desired, set Df=Dt=1.
@@ -261,7 +257,7 @@ extern std::shared_ptr<wi_transform> make_intensity_clipper(int nt_chunk, axis_t
 //
 // If the 'two_pass' flag is set, a more numerically stable but slightly slower algorithm will be used.
 //
-std::shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, axis_type axis, double sigma, int Df=1, int Dt=1, bool two_pass=false);
+std::shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, int Df=1, int Dt=1, bool two_pass=false);
 
 
 // Standalone functions with the equivalent functionality to the polynomial_detrender,
@@ -273,14 +269,14 @@ std::shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, axis_type axis,
 
 
 extern void apply_polynomial_detrender(float *intensity, float *weights, int nfreq, int nt, 
-				       int stride, axis_type axis, int polydeg, double epsilon);
+				       int stride, rf_kernels::axis_type axis, int polydeg, double epsilon);
 
 extern void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, int nt, 
-				    int stride, axis_type axis, double sigma, int niter=1, 
+				    int stride, rf_kernels::axis_type axis, double sigma, int niter=1, 
 				    double iter_sigma=0.0, int Df=1, int Dt=1, bool two_pass=false);
 
 extern void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride,
-				  axis_type axis, double sigma, int Df=1, int Dt=1, bool two_pass=false);
+				  rf_kernels::axis_type, double sigma, int Df=1, int Dt=1, bool two_pass=false);
 
 
 // Helper routines for the RFI transforms above, factored out as standalone functions.

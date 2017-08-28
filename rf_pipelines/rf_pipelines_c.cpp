@@ -1299,10 +1299,10 @@ static PyObject *make_chime_packetizer(PyObject *self, PyObject *args)
 }
 
 
-static rf_pipelines::axis_type axis_type_from_python(const char *function_name, PyObject *obj)
+static rf_kernels::axis_type axis_type_from_python(const char *function_name, PyObject *obj)
 {
     if (obj == Py_None)
-	return rf_pipelines::AXIS_NONE;
+	return rf_kernels::AXIS_NONE;
 
     if (!PyInt_Check(obj))
 	throw runtime_error(string(function_name) + ": bad 'axis' parameter");
@@ -1310,9 +1310,9 @@ static rf_pipelines::axis_type axis_type_from_python(const char *function_name, 
     ssize_t ret = PyInt_AsSsize_t(obj);
 
     if (ret == 0)
-	return rf_pipelines::AXIS_FREQ;
+	return rf_kernels::AXIS_FREQ;
     if (ret == 1)
-	return rf_pipelines::AXIS_TIME;
+	return rf_kernels::AXIS_TIME;
 
     if ((ret == -1) && PyErr_Occurred())
 	throw python_exception();
@@ -1334,7 +1334,7 @@ static PyObject *make_polynomial_detrender(PyObject *self, PyObject *args, PyObj
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "iOi|d", (char **)kwlist, &nt_chunk, &axis_ptr, &polydeg, &epsilon))
 	return NULL;
 
-    rf_pipelines::axis_type axis = axis_type_from_python("make_polynomial_detrender()", axis_ptr);
+    rf_kernels::axis_type axis = axis_type_from_python("make_polynomial_detrender()", axis_ptr);
 
     shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_polynomial_detrender(nt_chunk, axis, polydeg, epsilon);
     return wi_transform_object::make(ret);
@@ -1354,7 +1354,7 @@ static PyObject *make_spline_detrender(PyObject *self, PyObject *args, PyObject 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "iOi|d", (char **)kwlist, &nt_chunk, &axis_ptr, &nbins, &epsilon))
 	return NULL;
 
-    rf_pipelines::axis_type axis = axis_type_from_python("make_spline_detrender()", axis_ptr);
+    rf_kernels::axis_type axis = axis_type_from_python("make_spline_detrender()", axis_ptr);
 
     shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_spline_detrender(nt_chunk, axis, nbins, epsilon);
     return wi_transform_object::make(ret);
@@ -1378,7 +1378,7 @@ static PyObject *make_intensity_clipper(PyObject *self, PyObject *args, PyObject
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "iOd|idiii", (char **)kwlist, &nt_chunk, &axis_ptr, &sigma, &niter, &iter_sigma, &Df, &Dt, &two_pass))
 	return NULL;
 
-    rf_pipelines::axis_type axis = axis_type_from_python("make_intensity_clipper()", axis_ptr);
+    rf_kernels::axis_type axis = axis_type_from_python("make_intensity_clipper()", axis_ptr);
 
     shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_intensity_clipper(nt_chunk, axis, sigma, niter, iter_sigma, Df, Dt, two_pass);
     return wi_transform_object::make(ret);
@@ -1400,7 +1400,7 @@ static PyObject *make_std_dev_clipper(PyObject *self, PyObject *args, PyObject *
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "iOd|iii", (char **)kwlist, &nt_chunk, &axis_ptr, &sigma, &Df, &Dt, &two_pass))
 	return NULL;
 
-    rf_pipelines::axis_type axis = axis_type_from_python("make_std_dev_clipper()", axis_ptr);
+    rf_kernels::axis_type axis = axis_type_from_python("make_std_dev_clipper()", axis_ptr);
 
     shared_ptr<rf_pipelines::wi_transform> ret = rf_pipelines::make_std_dev_clipper(nt_chunk, axis, sigma, Df, Dt, two_pass);
     return wi_transform_object::make(ret);
@@ -1425,7 +1425,7 @@ static PyObject *apply_polynomial_detrender(PyObject *self, PyObject *args, PyOb
     // Note that the weights can be updated if the fit is poorly conditioned.
     arr_wi_helper wi(intensity_obj, weights_obj, true, true); 
 
-    rf_pipelines::axis_type axis = axis_type_from_python("apply_polynomial_detrender", axis_ptr);
+    rf_kernels::axis_type axis = axis_type_from_python("apply_polynomial_detrender", axis_ptr);
 
     rf_pipelines::apply_polynomial_detrender(wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, axis, polydeg, epsilon);
 
@@ -1454,7 +1454,7 @@ static PyObject *apply_intensity_clipper(PyObject *self, PyObject *args, PyObjec
 
     arr_wi_helper wi(intensity_obj, weights_obj, false, true);   // (intensity_writeback, weights_writeback) = (false, true)
 
-    rf_pipelines::axis_type axis = axis_type_from_python("apply_intensity_clipper", axis_ptr);
+    rf_kernels::axis_type axis = axis_type_from_python("apply_intensity_clipper", axis_ptr);
 
     rf_pipelines::apply_intensity_clipper(wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, axis, sigma, niter, iter_sigma, Df, Dt, two_pass);
 
@@ -1481,7 +1481,7 @@ static PyObject *apply_std_dev_clipper(PyObject *self, PyObject *args, PyObject 
 
     arr_wi_helper wi(intensity_obj, weights_obj, false, true);   // (intensity_writeback, weights_writeback) = (false, true)
 
-    rf_pipelines::axis_type axis = axis_type_from_python("apply_std_dev_clipper", axis_ptr);
+    rf_kernels::axis_type axis = axis_type_from_python("apply_std_dev_clipper", axis_ptr);
 
     rf_pipelines::apply_std_dev_clipper(wi.intensity.data, wi.weights.data, wi.nfreq, wi.nt, wi.stride, axis, sigma, Df, Dt, two_pass);
 

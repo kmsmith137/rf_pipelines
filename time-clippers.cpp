@@ -19,11 +19,11 @@ struct clipper_timing_thread : public transform_timing_thread
 
     clipper_timing_thread(const shared_ptr<timing_thread_pool> &pool_, int nfreq_, int nt_chunk_, int stride_, int Df_, int Dt_, int niter_, bool twopass_) :
 	transform_timing_thread{ pool_, nfreq_, nt_chunk_, stride_,
-	    { make_intensity_clipper(nt_chunk_, AXIS_FREQ, 1.0e10, niter_, 1.0e10, Df_, Dt_, twopass_),
-	      make_intensity_clipper(nt_chunk_, AXIS_TIME, 1.0e10, niter_, 1.0e10, Df_, Dt_, twopass_),
-	      make_intensity_clipper(nt_chunk_, AXIS_NONE, 1.0e10, niter_, 1.0e10, Df_, Dt_, twopass_),
-	      make_std_dev_clipper(nt_chunk_, AXIS_FREQ, 1.0e10, Df_, Dt_, twopass_),
-	      make_std_dev_clipper(nt_chunk_, AXIS_TIME, 1.0e10, Df_, Dt_, twopass_)
+	    { make_intensity_clipper(nt_chunk_, rf_kernels::AXIS_FREQ, 1.0e10, niter_, 1.0e10, Df_, Dt_, twopass_),
+	      make_intensity_clipper(nt_chunk_, rf_kernels::AXIS_TIME, 1.0e10, niter_, 1.0e10, Df_, Dt_, twopass_),
+	      make_intensity_clipper(nt_chunk_, rf_kernels::AXIS_NONE, 1.0e10, niter_, 1.0e10, Df_, Dt_, twopass_),
+	      make_std_dev_clipper(nt_chunk_, rf_kernels::AXIS_FREQ, 1.0e10, Df_, Dt_, twopass_),
+	      make_std_dev_clipper(nt_chunk_, rf_kernels::AXIS_TIME, 1.0e10, Df_, Dt_, twopass_)
 	    }
         },
 	Df(Df_), 

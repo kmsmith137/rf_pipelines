@@ -148,16 +148,16 @@ static double _get_double(const Json::Value &x, const string &k)
 }
 
 // Helper for deserialize_transform_from_json()
-static axis_type _get_axis(const Json::Value &x, const string &k)
+static rf_kernels::axis_type _get_axis(const Json::Value &x, const string &k)
 {
     string s = _get_string(x, k);
 
     if (s == "AXIS_FREQ")
-	return AXIS_FREQ;
+	return rf_kernels::AXIS_FREQ;
     if (s == "AXIS_TIME")
-	return AXIS_TIME;
+	return rf_kernels::AXIS_TIME;
     if (s == "AXIS_NONE")
-	return AXIS_NONE;
+	return rf_kernels::AXIS_NONE;
 
     throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was not an axis_type as expected");
 }

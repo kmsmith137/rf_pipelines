@@ -80,9 +80,9 @@ void clip_1d(int n, float *tmp_sd, mask_t *tmp_valid, double sigma)
 
 
 template<typename T>
-inline void allocate_buffers(std_dev_clipper_buffers<T> &buf, int nfreq, int nt, axis_type axis, int Df, int Dt, bool two_pass)
+inline void allocate_buffers(std_dev_clipper_buffers<T> &buf, int nfreq, int nt, rf_kernels::axis_type axis, int Df, int Dt, bool two_pass)
 {
-    int sd_nalloc = (axis == AXIS_FREQ) ? (nt/Dt) : (nfreq/Df);
+    int sd_nalloc = (axis == rf_kernels::AXIS_FREQ) ? (nt/Dt) : (nfreq/Df);
 
     buf.sd = aligned_alloc<T> (sd_nalloc);
     buf.sd_valid = aligned_alloc<smask_t<T,1>> (sd_nalloc);
@@ -110,16 +110,16 @@ inline void fill_3d_std_dev_clipper_kernel_table(std_dev_clipper_kernel_t *out) 
 template<unsigned int S, unsigned int Df, unsigned int NDt, typename enable_if<(NDt>0),int>::type = 0>
 inline void fill_3d_std_dev_clipper_kernel_table(std_dev_clipper_kernel_t *out) 
 { 
-    static_assert(AXIS_FREQ == 0, "expected AXIS_FREQ==0");
-    static_assert(AXIS_TIME == 1, "expected AXIS_TIME==1");
+    static_assert(rf_kernels::AXIS_FREQ == 0, "expected AXIS_FREQ==0");
+    static_assert(rf_kernels::AXIS_TIME == 1, "expected AXIS_TIME==1");
 
     fill_3d_std_dev_clipper_kernel_table<S,Df,NDt-1> (out);
 
     constexpr unsigned int Dt = 1 << (NDt-1);
-    out[4*(NDt-1) + 2*AXIS_FREQ] = _kernel_std_dev_clip_freq_axis<float,S,Df,Dt,false>;
-    out[4*(NDt-1) + 2*AXIS_FREQ+1] = _kernel_std_dev_clip_freq_axis<float,S,Df,Dt,true>;
-    out[4*(NDt-1) + 2*AXIS_TIME] = _kernel_std_dev_clip_time_axis<float,S,Df,Dt,false>;
-    out[4*(NDt-1) + 2*AXIS_TIME+1] = _kernel_std_dev_clip_time_axis<float,S,Df,Dt,true>;
+    out[4*(NDt-1) + 2*rf_kernels::AXIS_FREQ] = _kernel_std_dev_clip_freq_axis<float,S,Df,Dt,false>;
+    out[4*(NDt-1) + 2*rf_kernels::AXIS_FREQ+1] = _kernel_std_dev_clip_freq_axis<float,S,Df,Dt,true>;
+    out[4*(NDt-1) + 2*rf_kernels::AXIS_TIME] = _kernel_std_dev_clip_time_axis<float,S,Df,Dt,false>;
+    out[4*(NDt-1) + 2*rf_kernels::AXIS_TIME+1] = _kernel_std_dev_clip_time_axis<float,S,Df,Dt,true>;
 }
 
 // Fills shape-(NDf,NDt,2,2) array indexed by (Df,Dt,axis,two_pass)
@@ -155,7 +155,7 @@ struct std_dev_clipper_kernel_table {
     }
 
     // Caller must call check_params()!
-    inline std_dev_clipper_kernel_t get_kernel(axis_type axis, int Df, int Dt, bool two_pass)
+    inline std_dev_clipper_kernel_t get_kernel(rf_kernels::axis_type axis, int Df, int Dt, bool two_pass)
     {
 	int idf = ilog2_lookup(Df);
 	int idt = ilog2_lookup(Dt);
@@ -178,7 +178,7 @@ struct std_dev_clipper_transform : public wi_transform
     // (Frequency, time) downsampling factors and axis.
     const int nds_f;
     const int nds_t;
-    const axis_type axis;
+    const rf_kernels::axis_type axis;
     const bool two_pass;
     
     // Clipping threshold.
@@ -191,7 +191,7 @@ struct std_dev_clipper_transform : public wi_transform
     std_dev_clipper_transform(const std_dev_clipper_transform &) = delete;
     std_dev_clipper_transform &operator=(const std_dev_clipper_transform &) = delete;
 
-    std_dev_clipper_transform(int nds_f_, int nds_t_, axis_type axis_, int nt_chunk_, double sigma_, bool two_pass_, std_dev_clipper_kernel_t(kernel_))
+    std_dev_clipper_transform(int nds_f_, int nds_t_, rf_kernels::axis_type axis_, int nt_chunk_, double sigma_, bool two_pass_, std_dev_clipper_kernel_t(kernel_))
 	: nds_f(nds_f_), nds_t(nds_t_), axis(axis_), two_pass(two_pass_), sigma(sigma_), kernel(kernel_)
     {
 	stringstream ss;
@@ -228,7 +228,7 @@ struct std_dev_clipper_transform : public wi_transform
 // -------------------------------------------------------------------------------------------------
 
 
-static void check_params(int Df, int Dt, axis_type axis, int nfreq, int nt, int stride, double sigma)
+static void check_params(int Df, int Dt, rf_kernels::axis_type axis, int nfreq, int nt, int stride, double sigma)
 {
     static constexpr int S = constants::single_precision_simd_length;
     static constexpr int MaxDf = constants::max_frequency_downsampling;
@@ -240,7 +240,7 @@ static void check_params(int Df, int Dt, axis_type axis, int nfreq, int nt, int 
     if (_unlikely((Dt <= 0) || !is_power_of_two(Dt)))
 	throw runtime_error("rf_pipelines std_dev clipper: Dt=" + to_string(Dt) + " must be a power of two");
 
-    if (_unlikely((axis != AXIS_FREQ) && (axis != AXIS_TIME)))
+    if (_unlikely((axis != rf_kernels::AXIS_FREQ) && (axis != rf_kernels::AXIS_TIME)))
 	throw runtime_error("rf_pipelines std_dev clipper: axis=" + stringify(axis) + " is not defined for this transform");
 
     if (_unlikely(nfreq <= 0))
@@ -271,7 +271,7 @@ static void check_params(int Df, int Dt, axis_type axis, int nfreq, int nt, int 
 
 
 // Externally callable
-shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, axis_type axis, double sigma, int Df, int Dt, bool two_pass)
+shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, int Df, int Dt, bool two_pass)
 {
     int dummy_nfreq = Df;         // arbitrary
     int dummy_stride = nt_chunk;  // arbitrary
@@ -283,7 +283,7 @@ shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, axis_type axis, doub
 
 
 // Externally callable
-void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, axis_type axis, double sigma, int Df, int Dt, bool two_pass)
+void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, rf_kernels::axis_type axis, double sigma, int Df, int Dt, bool two_pass)
 {
     check_params(Df, Dt, axis, nfreq, nt, stride, sigma);
 

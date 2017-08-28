@@ -27,18 +27,18 @@ inline int get_nds(int nfreq, int nt, int axis, int Df, int Dt)
 {
     static constexpr int S = constants::single_precision_simd_length;
 
-    if (axis == AXIS_FREQ)
+    if (axis == rf_kernels::AXIS_FREQ)
 	return (nfreq/Df) * S;
-    if (axis == AXIS_TIME)
+    if (axis == rf_kernels::AXIS_TIME)
 	return (nt/Dt);
-    if (axis == AXIS_NONE)
+    if (axis == rf_kernels::AXIS_NONE)
 	return (nfreq*nt) / (Df*Dt);
 
     throw std::runtime_error("rf_pipelines internal error: bad axis in _intensity_clipper_alloc()");
 }
 
 
-inline float *alloc_ds_intensity(int nfreq, int nt, axis_type axis, int niter, int Df, int Dt, bool two_pass)
+inline float *alloc_ds_intensity(int nfreq, int nt, rf_kernels::axis_type axis, int niter, int Df, int Dt, bool two_pass)
 {
     if ((Df==1) && (Dt==1))
 	return nullptr;
@@ -48,7 +48,7 @@ inline float *alloc_ds_intensity(int nfreq, int nt, axis_type axis, int niter, i
 }
 
 
-inline float *alloc_ds_weights(int nfreq, int nt, axis_type axis, int niter, int Df, int Dt, bool two_pass)
+inline float *alloc_ds_weights(int nfreq, int nt, rf_kernels::axis_type axis, int niter, int Df, int Dt, bool two_pass)
 {
     if ((Df==1) && (Dt==1))
 	return nullptr;
@@ -74,18 +74,18 @@ using intensity_clipper_kernel_t = void (*)(const float *, float *, int, int, in
 template<int S, int Df, int Dt>
 inline void fill_2d_intensity_clipper_kernel_table(intensity_clipper_kernel_t *out)
 {
-    static_assert(AXIS_FREQ == 0, "expected AXIS_FREQ==0");
-    static_assert(AXIS_TIME == 1, "expected AXIS_TIME==1");
-    static_assert(AXIS_NONE == 2, "expected AXIS_NONE==2");
+    static_assert(rf_kernels::AXIS_FREQ == 0, "expected rf_kernels::AXIS_FREQ==0");
+    static_assert(rf_kernels::AXIS_TIME == 1, "expected rf_kernels::AXIS_TIME==1");
+    static_assert(rf_kernels::AXIS_NONE == 2, "expected rf_kernels::AXIS_NONE==2");
 
-    out[2*AXIS_FREQ] = _kernel_clip_1d_f<float,S,Df,Dt,false>;
-    out[2*AXIS_FREQ + 1] = _kernel_clip_1d_f<float,S,Df,Dt,true>;
+    out[2*rf_kernels::AXIS_FREQ] = _kernel_clip_1d_f<float,S,Df,Dt,false>;
+    out[2*rf_kernels::AXIS_FREQ + 1] = _kernel_clip_1d_f<float,S,Df,Dt,true>;
 
-    out[2*AXIS_TIME] = _kernel_clip_1d_t<float,S,Df,Dt,false>;
-    out[2*AXIS_TIME + 1] = _kernel_clip_1d_t<float,S,Df,Dt,true>;
+    out[2*rf_kernels::AXIS_TIME] = _kernel_clip_1d_t<float,S,Df,Dt,false>;
+    out[2*rf_kernels::AXIS_TIME + 1] = _kernel_clip_1d_t<float,S,Df,Dt,true>;
 
-    out[2*AXIS_NONE] = _kernel_clip_2d<float,S,Df,Dt,false>;
-    out[2*AXIS_NONE + 1] = _kernel_clip_2d<float,S,Df,Dt,true>;
+    out[2*rf_kernels::AXIS_NONE] = _kernel_clip_2d<float,S,Df,Dt,false>;
+    out[2*rf_kernels::AXIS_NONE + 1] = _kernel_clip_2d<float,S,Df,Dt,true>;
 }
 
 
@@ -135,7 +135,7 @@ struct intensity_clipper_kernel_table {
     }
 
     // Caller must call check_params()!
-    inline intensity_clipper_kernel_t get_kernel(axis_type axis, int Df, int Dt, bool two_pass)
+    inline intensity_clipper_kernel_t get_kernel(rf_kernels::axis_type axis, int Df, int Dt, bool two_pass)
     {
 	int idf = ilog2_lookup(Df);
 	int idt = ilog2_lookup(Dt);
@@ -158,7 +158,7 @@ struct clipper_transform : public wi_transform
     // (Frequency, time) downsampling factors and axis.
     const int nds_f;
     const int nds_t;
-    const axis_type axis;
+    const rf_kernels::axis_type axis;
     const bool two_pass;
     
     // Clipping thresholds.
@@ -177,7 +177,7 @@ struct clipper_transform : public wi_transform
     clipper_transform(const clipper_transform &) = delete;
     clipper_transform &operator=(const clipper_transform &) = delete;
 
-    clipper_transform(int nds_f_, int nds_t_, axis_type axis_, int nt_chunk_, double sigma_, int niter_, double iter_sigma_, bool two_pass_, intensity_clipper_kernel_t kernel_)
+    clipper_transform(int nds_f_, int nds_t_, rf_kernels::axis_type axis_, int nt_chunk_, double sigma_, int niter_, double iter_sigma_, bool two_pass_, intensity_clipper_kernel_t kernel_)
 	: nds_f(nds_f_), nds_t(nds_t_), axis(axis_), two_pass(two_pass_), niter(niter_), sigma(sigma_), iter_sigma(iter_sigma_ ? iter_sigma_ : sigma_), kernel(kernel_)
     {
 	stringstream ss;
@@ -228,7 +228,7 @@ struct clipper_transform : public wi_transform
 // -------------------------------------------------------------------------------------------------
 
 
-static void check_params(const char *name, int Df, int Dt, axis_type axis, int nfreq, int nt, int stride, double sigma, int niter, double iter_sigma)
+static void check_params(const char *name, int Df, int Dt, rf_kernels::axis_type axis, int nfreq, int nt, int stride, double sigma, int niter, double iter_sigma)
 {
     static constexpr int S = constants::single_precision_simd_length;
     static constexpr int MaxDf = constants::max_frequency_downsampling;
@@ -240,7 +240,7 @@ static void check_params(const char *name, int Df, int Dt, axis_type axis, int n
     if (_unlikely((Dt <= 0) || !is_power_of_two(Dt)))
 	throw runtime_error(string(name) + ": Dt=" + to_string(Dt) + " must be a power of two");
 
-    if (_unlikely((axis != AXIS_FREQ) && (axis != AXIS_TIME) && (axis != AXIS_NONE)))
+    if (_unlikely((axis != rf_kernels::AXIS_FREQ) && (axis != rf_kernels::AXIS_TIME) && (axis != rf_kernels::AXIS_NONE)))
 	throw runtime_error(string(name) + ": axis=" + stringify(axis) + " is not defined for this transform");
 
     if (_unlikely(nfreq <= 0))
@@ -274,7 +274,7 @@ static void check_params(const char *name, int Df, int Dt, axis_type axis, int n
 
 
 // externally visible
-shared_ptr<wi_transform> make_intensity_clipper(int nt_chunk, axis_type axis, double sigma, int niter, double iter_sigma, int Df, int Dt, bool two_pass)
+shared_ptr<wi_transform> make_intensity_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, int niter, double iter_sigma, int Df, int Dt, bool two_pass)
 {
     int dummy_nfreq = Df;         // arbitrary
     int dummy_stride = nt_chunk;  // arbitrary
@@ -287,7 +287,7 @@ shared_ptr<wi_transform> make_intensity_clipper(int nt_chunk, axis_type axis, do
 
 
 // externally visible
-void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, axis_type axis, double sigma, int niter, double iter_sigma, int Df, int Dt, bool two_pass)
+void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, rf_kernels::axis_type axis, double sigma, int niter, double iter_sigma, int Df, int Dt, bool two_pass)
 {
     check_params("rf_pipeliens: apply_intensity_clipper()", Df, Dt, axis, nfreq, nt, stride, sigma, niter, iter_sigma);
 
@@ -311,7 +311,7 @@ void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, 
 template<typename T, int S>
 inline void _weighted_mean_and_rms(simd_t<T,S> &mean, simd_t<T,S> &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, int niter, double sigma, bool two_pass)
 {
-    check_params("rf_pipelines: weighted_mean_and_rms()", 1, 1, AXIS_NONE, nfreq, nt, stride, sigma, niter, sigma);
+    check_params("rf_pipelines: weighted_mean_and_rms()", 1, 1, rf_kernels::AXIS_NONE, nfreq, nt, stride, sigma, niter, sigma);
 
     if (two_pass)
 	_kernel_noniterative_wrms_2d<T,S,1,1,false,false,true> (mean, rms, intensity, weights, nfreq, nt, stride, NULL, NULL);
