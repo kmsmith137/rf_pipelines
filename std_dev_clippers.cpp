@@ -2,8 +2,8 @@
 // Df,Dt are the frequency/time downsampling factors.  Eventually I'd like to 
 // improve this by having special kernels to handle the large-Df and large-Dt cases.
 
-#include <cassert>
 #include <rf_kernels/std_dev_clipper.hpp>
+
 #include "rf_pipelines_internals.hpp"
 
 using namespace std;
@@ -29,18 +29,23 @@ struct std_dev_clipper_transform : public wi_transform
 
     std_dev_clipper_transform(int Df_, int Dt_, rf_kernels::axis_type axis_, int nt_chunk_, double sigma_, bool two_pass_)
 	: Df(Df_), Dt(Dt_), axis(axis_), two_pass(two_pass_), sigma(sigma_)
-    {
+    {	
 	stringstream ss;
         ss << "std_dev_clipper_transform_cpp(nt_chunk=" << nt_chunk_ << ", axis=" << axis
            << ", sigma=" << sigma << ", Df=" << Df << ", Dt=" << Dt << ", two_pass=" << two_pass << ")";
-
-	// FIXME more argument checking would be good here
 	
         this->name = ss.str();
 	this->nt_chunk = nt_chunk_;
 	this->nt_prepad = 0;
 	this->nt_postpad = 0;
+	
+	// Can't construct the kernel yet, since 'nfreq' is not known until set_stream()
+	// However, for argument checking purposes, we construct a dummy kernel with Df=nfreq.
+	// FIXME eventaully there will be a constructor argument 'allocate=false' that will make sense here.
+	rf_kernels::std_dev_clipper dummy(Df, nt_chunk, axis, Df, Dt, sigma, two_pass);
     }
+
+    virtual ~std_dev_clipper_transform() { }
 
     virtual void set_stream(const wi_stream &stream) override
     {
