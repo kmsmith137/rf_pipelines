@@ -12,7 +12,7 @@ using namespace std;
 #ifdef __AVX__
 
 #include <simd_helpers/simd_float32.hpp>
-#include <simd_helpers/downsample_bitwise_or.hpp>
+#include <simd_helpers/downsample.hpp>
 
 using namespace simd_helpers;
 
@@ -95,20 +95,21 @@ struct make_bitmask_helper {
 	return b0.bitwise_or(b2);
     }
 
+       
     inline void process256(int *out, const float *p)
     {
-	simd_ntuple<int,8,8> t;
-	t.template extract<0>() = process32(p);
-	t.template extract<1>() = process32(p+32);
-	t.template extract<2>() = process32(p+64);
-	t.template extract<3>() = process32(p+96);
-	t.template extract<4>() = process32(p+128);
-	t.template extract<5>() = process32(p+160);
-	t.template extract<6>() = process32(p+192);
-	t.template extract<7>() = process32(p+224);
+	simd_downsampler<int,8,8,simd_bitwise_or<int,8>> ds;
+	
+	ds.template put<0> (process32(p));
+	ds.template put<1> (process32(p+32));
+	ds.template put<2> (process32(p+64));
+	ds.template put<3> (process32(p+96));
+	ds.template put<4> (process32(p+128));
+	ds.template put<5> (process32(p+160));
+	ds.template put<6> (process32(p+192));
+	ds.template put<7> (process32(p+224));
 
-	simd_t<int,8> u = downsample_bitwise_or(t);
-	simd_store(out, u);
+	simd_store(out, ds.get());
     }
 };
 
