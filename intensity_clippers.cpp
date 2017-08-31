@@ -1,11 +1,7 @@
 #include <rf_kernels/intensity_clipper.hpp>
+#include <rf_kernels/mean_rms.hpp>
 
 #include "rf_pipelines_internals.hpp"
-#include "kernels/downsample.hpp"
-#include "kernels/mean_variance.hpp"
-
-// _kernel_noniterative_wrms, maybe other things?
-#include "kernels/intensity_clippers.hpp"
 
 
 using namespace std;
@@ -83,51 +79,6 @@ struct intensity_clipper_transform : public wi_transform
 // -------------------------------------------------------------------------------------------------
 
 
-static void check_params(const char *name, int Df, int Dt, rf_kernels::axis_type axis, int nfreq, int nt, int stride, double sigma, int niter, double iter_sigma)
-{
-    static constexpr int S = constants::single_precision_simd_length;
-    static constexpr int MaxDf = constants::max_frequency_downsampling;
-    static constexpr int MaxDt = constants::max_time_downsampling;
-
-    if (_unlikely((Df <= 0) || !is_power_of_two(Df)))
-	throw runtime_error(string(name) + ": Df=" + to_string(Df) + " must be a power of two");
-
-    if (_unlikely((Dt <= 0) || !is_power_of_two(Dt)))
-	throw runtime_error(string(name) + ": Dt=" + to_string(Dt) + " must be a power of two");
-
-    if (_unlikely((axis != rf_kernels::AXIS_FREQ) && (axis != rf_kernels::AXIS_TIME) && (axis != rf_kernels::AXIS_NONE)))
-	throw runtime_error(string(name) + ": axis=" + stringify(axis) + " is not defined for this transform");
-
-    if (_unlikely(nfreq <= 0))
-	throw runtime_error(string(name) + ": nfreq=" + to_string(nfreq) + ", positive value was expected");
-
-    if (_unlikely(nt <= 0))
-	throw runtime_error(string(name) + ": nt=" + to_string(nt) + ", positive value was expected");
-
-    if (_unlikely(abs(stride) < nt))
-	throw runtime_error(string(name) + ": stride=" + to_string(stride) + " must be >= nt");
-
-    if (_unlikely(sigma < 1.0))
-	throw runtime_error(string(name) + ": sigma=" + to_string(sigma) + " must be >= 1.0");
-
-    if (_unlikely(niter < 1))
-	throw runtime_error(string(name) + ": niter=" + to_string(niter) + " must be >= 1");
-
-    if (_unlikely((nfreq % Df) != 0))
-	throw runtime_error(string(name) + ": nfreq=" + to_string(nfreq)
-			    + " must be a multiple of the downsampling factor Df=" + to_string(Df));
-    
-    if (_unlikely((nt % (Dt*S)) != 0))
-	throw runtime_error(string(name) + ": nt=" + to_string(nt)
-			    + " must be a multiple of the downsampling factor Dt=" + to_string(Dt)
-			    + " multiplied by constants::single_precision_simd_length=" + to_string(S));
-
-    if (_unlikely((Df > MaxDf) || (Dt > MaxDt)))
-	throw runtime_error(string(name) + ": (Df,Dt)=(" + to_string(Df) + "," + to_string(Dt) + ")"
-			    + " exceeds compile time limits; to fix this see 'constants' in rf_pipelines.hpp");
-}
-
-
 // Externally visible
 shared_ptr<wi_transform> make_intensity_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, int niter, double iter_sigma, int Df, int Dt, bool two_pass)
 {
@@ -143,34 +94,11 @@ void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, 
 }
 
 
-template<typename T, int S>
-inline void _weighted_mean_and_rms(simd_t<T,S> &mean, simd_t<T,S> &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, int niter, double sigma, bool two_pass)
-{
-    check_params("rf_pipelines: weighted_mean_and_rms()", 1, 1, rf_kernels::AXIS_NONE, nfreq, nt, stride, sigma, niter, sigma);
-
-    if (two_pass)
-	_kernel_noniterative_wrms_2d<T,S,1,1,false,false,true> (mean, rms, intensity, weights, nfreq, nt, stride, NULL, NULL);
-    else
-	_kernel_noniterative_wrms_2d<T,S,1,1,false,false,false> (mean, rms, intensity, weights, nfreq, nt, stride, NULL, NULL);
-
-    _kernel_wrms_iterate_2d<T,S> (mean, rms, intensity, weights, nfreq, nt, stride, niter, sigma);
-}
-
 // Externally visible
 void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, int niter, double sigma, bool two_pass)
 {
-    static constexpr int S = constants::single_precision_simd_length;
-
-    if (_unlikely(!intensity))
-	throw runtime_error("rf_pipelines: weighted_mean_and_rms(): NULL intensity pointer");
-    if (_unlikely(!weights))
-	throw runtime_error("rf_pipelines: weighted_mean_and_rms(): NULL weights pointer");
-
-    simd_t<float,S> mean_x, rms_x;
-    _weighted_mean_and_rms(mean_x, rms_x, intensity, weights, nfreq, nt, stride, niter, sigma, two_pass);
-
-    rms = rms_x.template extract<0> ();
-    mean = (rms > 0.0) ? (mean_x.template extract<0> ()) : 0.0;
+    rf_kernels::weighted_mean_rms w(nfreq, nt, niter, sigma, two_pass);
+    w.compute_wrms(mean, rms, intensity, weights, stride);
 }
 
 
