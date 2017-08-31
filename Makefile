@@ -14,11 +14,7 @@ include Makefile.local
 
 INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp chime_packetizer.hpp chime_file_stream_base.hpp reverter.hpp
 
-KERNEL_INCFILES=kernels/downsample.hpp \
-	kernels/intensity_clippers.hpp \
-	kernels/mask.hpp \
-	kernels/mean_variance.hpp \
-	kernels/polyfit.hpp
+KERNEL_INCFILES=kernels/polyfit.hpp
 
 # Source files for the core C++ library 'librf_pipelines.so'
 OFILES=badchannel_mask.o \
