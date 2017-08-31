@@ -81,8 +81,6 @@ def filter_stdv(intensity, weights, thr=3, axis=1, dsample_nfreq=None, dsample_n
     # Pass 2: Compute the mean and rms of the 'sd' array, and clip based on it.
     # The result is a 2D boolean array 'mask' (clipped values are represented by True).
     #
-    # Code cleanup: compute the mean/rms by calling weighted_mean_and_rms().
-    #
     # Note: it would be trivial to implement iterated clipping, since
     # weighted_mean_and_rms() already has a 'niter' argument.  If this
     # turns out to be useful, then it would have tiny computational cost,

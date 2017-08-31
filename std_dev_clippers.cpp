@@ -42,7 +42,7 @@ struct std_dev_clipper_transform : public wi_transform
 	// Can't construct the kernel yet, since 'nfreq' is not known until set_stream()
 	// However, for argument checking purposes, we construct a dummy kernel with Df=nfreq.
 	// FIXME eventaully there will be a constructor argument 'allocate=false' that will make sense here.
-	rf_kernels::std_dev_clipper dummy(Df, nt_chunk, axis, Df, Dt, sigma, two_pass);
+	rf_kernels::std_dev_clipper dummy(Df, nt_chunk, axis, sigma, Df, Dt, two_pass);
     }
 
     virtual ~std_dev_clipper_transform() { }
@@ -54,7 +54,7 @@ struct std_dev_clipper_transform : public wi_transform
 				+ ") is not divisible by frequency downsampling factor Df=" + to_string(Df));
 
 	this->nfreq = stream.nfreq;
-	this->kernel = make_unique<rf_kernels::std_dev_clipper> (nfreq, nt_chunk, axis, Df, Dt, sigma, two_pass);
+	this->kernel = make_unique<rf_kernels::std_dev_clipper> (nfreq, nt_chunk, axis, sigma, Df, Dt, two_pass);
     }
 
     virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
@@ -77,7 +77,7 @@ shared_ptr<wi_transform> make_std_dev_clipper(int nt_chunk, rf_kernels::axis_typ
 // Externally callable
 void apply_std_dev_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, rf_kernels::axis_type axis, double sigma, int Df, int Dt, bool two_pass)
 {
-    rf_kernels::std_dev_clipper sd(nfreq, nt, axis, Df, Dt, sigma, two_pass);
+    rf_kernels::std_dev_clipper sd(nfreq, nt, axis, sigma, Df, Dt, two_pass);
     sd.clip(intensity, weights, stride);
 }
 
