@@ -7,8 +7,5 @@ run-unit-tests
 Makefile.local
 TODO
 
-time-kernels
-time-clippers
-time-detrenders
 test-kernels
 test-file-stream-base
