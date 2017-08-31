@@ -128,14 +128,14 @@ static void check_params(const char *name, int Df, int Dt, rf_kernels::axis_type
 }
 
 
-// externally visible
+// Externally visible
 shared_ptr<wi_transform> make_intensity_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, int niter, double iter_sigma, int Df, int Dt, bool two_pass)
 {
     return make_shared<intensity_clipper_transform> (Df, Dt, axis, nt_chunk, sigma, niter, iter_sigma, two_pass);
 }
 
 
-// externally visible
+// Externally visible
 void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, rf_kernels::axis_type axis, double sigma, int niter, double iter_sigma, int Df, int Dt, bool two_pass)
 {
     rf_kernels::intensity_clipper ic(nfreq, nt, axis, sigma, Df, Dt, niter, iter_sigma, two_pass);
@@ -156,7 +156,7 @@ inline void _weighted_mean_and_rms(simd_t<T,S> &mean, simd_t<T,S> &rms, const fl
     _kernel_wrms_iterate_2d<T,S> (mean, rms, intensity, weights, nfreq, nt, stride, niter, sigma);
 }
 
-
+// Externally visible
 void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, int niter, double sigma, bool two_pass)
 {
     static constexpr int S = constants::single_precision_simd_length;
@@ -169,42 +169,10 @@ void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, cons
     simd_t<float,S> mean_x, rms_x;
     _weighted_mean_and_rms(mean_x, rms_x, intensity, weights, nfreq, nt, stride, niter, sigma, two_pass);
 
-    mean = mean_x.template extract<0> ();
     rms = rms_x.template extract<0> ();
+    mean = (rms > 0.0) ? (mean_x.template extract<0> ()) : 0.0;
 }
 
-
-// The "wrms_hack_for_testing" is explained in test-cpp-python-equivalence.py
-
-void _wrms_hack_for_testing1(vector<float> &mean_hint, const float *intensity, const float *weights, int nfreq, int nt, int stride, int niter, double sigma, bool two_pass)
-{
-    static constexpr int S = constants::single_precision_simd_length;
-
-    simd_t<float,S> mean_x, rms_x;
-    _weighted_mean_and_rms(mean_x, rms_x, intensity, weights, nfreq, nt, stride, niter, sigma, two_pass);
-
-    mean_hint.resize(S);
-    mean_x.storeu(&mean_hint[0]);
-}
-
-
-void _wrms_hack_for_testing2(float &mean, float &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, const vector<float> &mean_hint)
-{
-    static constexpr int S = constants::single_precision_simd_length;
-
-    if (mean_hint.size() != S)
-	throw runtime_error("rf_pipelines: wrong mean_hint size in _wrms_hack_for_testing2()");
-
-    simd_t<float,S> mh = simd_helpers::simd_load<float,S> (&mean_hint[0]);
-    _mean_variance_iterator<float,S> v(mh, simd_t<float,S>(1.0e10));
-    _kernel_visit_2d<1,1> (v, intensity, weights, nfreq, nt, stride);
-
-    simd_t<float,S> mean_x, rms_x;
-    v.get_mean_rms(mean_x, rms_x);
-
-    mean = mean_x.template extract<0> ();
-    rms = rms_x.template extract<0> ();
-}
 
 
 }  // namespace rf_pipelines
