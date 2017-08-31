@@ -14,8 +14,6 @@ include Makefile.local
 
 INCFILES=rf_pipelines.hpp rf_pipelines_internals.hpp chime_packetizer.hpp chime_file_stream_base.hpp reverter.hpp
 
-KERNEL_INCFILES=kernels/polyfit.hpp
-
 # Source files for the core C++ library 'librf_pipelines.so'
 OFILES=badchannel_mask.o \
 	bitmask_maker.o \
@@ -77,7 +75,6 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/online_mask_filler.py
 
 TESTBINFILES=run-unit-tests \
-	test-kernels \
 	test-file-stream-base
 
 # Used in 'make clean'
@@ -153,7 +150,7 @@ clean:
 	rm -f $(TESTBINFILES)
 	for d in $(CLEANDIRS); do rm -f $$d/*~ $$d/*.o $$d/*.so $$d/*.pyc; done
 
-%.o: %.cpp $(INCFILES) $(KERNEL_INCFILES)
+%.o: %.cpp $(INCFILES)
 	$(CPP) -c -o $@ $<
 
 librf_pipelines.so: $(OFILES)
@@ -165,8 +162,5 @@ rf_pipelines/rf_pipelines_c.so: rf_pipelines/rf_pipelines_c.cpp $(INCFILES) rf_p
 run-unit-tests: run-unit-tests.o librf_pipelines.so
 	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines $(LIBS)
 
-test-kernels: test-kernels.cpp $(INCFILES) $(KERNEL_INCFILES)
-	$(CPP) -o $@ $<
-
-test-file-stream-base: test-file-stream-base.cpp $(INCFILES) $(KERNEL_INCFILES) librf_pipelines.so
+test-file-stream-base: test-file-stream-base.cpp $(INCFILES) librf_pipelines.so
 	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines $(LIBS)
