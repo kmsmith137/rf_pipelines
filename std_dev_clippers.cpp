@@ -40,9 +40,11 @@ struct std_dev_clipper_transform : public wi_transform
 	this->nt_postpad = 0;
 	
 	// Can't construct the kernel yet, since 'nfreq' is not known until set_stream()
-	// However, for argument checking purposes, we construct a dummy kernel with Df=nfreq.
+	// However, for argument checking purposes, we construct a dummy kernel with nfreq=max(Df,8).
 	// FIXME eventaully there will be a constructor argument 'allocate=false' that will make sense here.
-	rf_kernels::std_dev_clipper dummy(Df, nt_chunk, axis, sigma, Df, Dt, two_pass);
+
+	int nfreq_dummy = max(Df,8);
+	rf_kernels::std_dev_clipper dummy(nfreq_dummy, nt_chunk, axis, sigma, Df, Dt, two_pass);
     }
 
     virtual ~std_dev_clipper_transform() { }

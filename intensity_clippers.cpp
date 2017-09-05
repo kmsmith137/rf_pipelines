@@ -97,8 +97,11 @@ void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, 
 // Externally visible
 void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, int niter, double sigma, bool two_pass)
 {
-    rf_kernels::weighted_mean_rms w(nfreq, nt, niter, sigma, two_pass);
-    w.compute_wrms(mean, rms, intensity, weights, stride);
+    rf_kernels::weighted_mean_rms w(nfreq, nt, rf_kernels::AXIS_NONE, 1, 1, niter, sigma, two_pass);
+    w.compute_wrms(intensity, weights, stride);
+
+    mean = w.out_mean[0];
+    rms = w.out_rms[0];
 }
 
 

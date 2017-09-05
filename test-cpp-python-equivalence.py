@@ -313,6 +313,9 @@ def test_clippers():
         thresh = rand.uniform(1.1, 1.3)
         two_pass = rand.randint(0,2)
 
+        # Round nfreq up to multiple of 8 (now assumed by std_dev_clipper)
+        nfreq = ((nfreq + 7) // 8) * 8
+
         # Debug
         # print >>sys.stderr, '(Df,Dt,axis,nfreq,nt,two_pass,thresh)=(%d,%d,%s,%d,%d,%d,%s)' % (Df,Dt,axis,nfreq,nt,two_pass,thresh)
         
