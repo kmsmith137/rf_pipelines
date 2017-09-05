@@ -7,5 +7,4 @@ run-unit-tests
 Makefile.local
 TODO
 
-test-kernels
 test-file-stream-base
