@@ -1,5 +1,7 @@
 rf_pipelines: A plugin-based framework for processing channelized intensity data in radio astronomy.
 
+Some day, there will be documentation in [MANUAL.md](./MANUAL.md).
+
 For a high-level overview, here are some slides from CHIME telecons:
 
   - June 20 proposal:

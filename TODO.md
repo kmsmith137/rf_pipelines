@@ -1,23 +1,8 @@
 ### High-priority missing features
 
-- Make the bonsai trigger array inspectable from python.
-  (This is next on my todo list.)
-
-- Normalize the bonsai triggers.  This may prove to be a long-term effort which needs a lot of tweaking!
-  (This is #2 on my todo list.)
-
-- Write a transform which makes a running estimate of the variance in each channel, and writes it to a file,
-  which can be read and used in other transforms.  This is a prerequisite for correctly normalizing the
-  frb_injector transform.  It may also help with normalizing the bonsai triggers.
-
 - Low-level pipeline logic for saving the intensity/weights arrays for later use.
 
 - Low-level pipeline logic for downsampling/upsampling the pipeline.
-
-- Correctly normalize the frb_injector_transform (needed eventually for end-to-end testing.)
-
-- There should be a way for python transforms to set arbitrary json output.
-  (Right now, they can add plot_groups and plots to the json, but that's all.)
 
 ### Low-priority missing features
 
