@@ -1728,7 +1728,18 @@ static constexpr const char *spline_detrender_docstring =
     "spline_detrender(nt_chunk, axis, nbins, epsilon = 3.0e-4)\n"
     "\n"
     "Experimental: spline_detrender.\n"
-    "I suspect this will work better than the polynomial_detrender, and it will definitely be faster!\n";
+    "I suspect this will work better than the polynomial_detrender, and it will definitely be faster!\n"
+    "\n"
+    "A spline_detrender with N bins should be roughly equivalent to a polynomial_detrender with\n"
+    "degree (2N+2).\n"
+    "\n"
+    "The 'epsilon' parameter regulates the spline fit by penalizing large time derivatives.\n"
+    "If epsilon is too small, then overfitting may occur in regions with sparse weights.\n"
+    "If epsilon is too large, then the fitter may have difficulty \"keeping up\" with rapid\n"
+    "variations in the data.  I think that 3.0e-4 (the default) is a reasonable choice of\n"
+    "epsilon, but I haven't experimented systematically.\n"
+    "\n"
+    "FIXME: currently, the only allowed axis type is AXIS_FREQ (=1).\n";
 
 
 static constexpr const char *make_intensity_clipper_docstring =
