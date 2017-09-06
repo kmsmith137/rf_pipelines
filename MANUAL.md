@@ -18,6 +18,6 @@ or have been changed recently:
    variations in the data.  I think that 3.0e-4 (the default) is a reasonable choice of
    epsilon, but I haven't experimented systematically.
     
-   FIXME: currently, the only allowed axis type is AXIS_FREQ (=1).
-   I propose that we experiment with replacing the polynomial_detrender(AXIS_FREQ),
-   and if this looks good, then I'll implement AXIS_TIME and AXIS_NONE.
+   FIXME: currently, the only allowed axis type is AXIS_FREQ (=0).
+   I propose that we experiment with replacing the polynomial_detrender in the
+   AXIS_FREQ case, and if this looks good, then I'll implement AXIS_TIME and AXIS_NONE.

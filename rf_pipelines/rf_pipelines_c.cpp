@@ -1739,7 +1739,7 @@ static constexpr const char *spline_detrender_docstring =
     "variations in the data.  I think that 3.0e-4 (the default) is a reasonable choice of\n"
     "epsilon, but I haven't experimented systematically.\n"
     "\n"
-    "FIXME: currently, the only allowed axis type is AXIS_FREQ (=1).\n";
+    "FIXME: currently, the only allowed axis type is AXIS_FREQ (=0).\n";
 
 
 static constexpr const char *make_intensity_clipper_docstring =
