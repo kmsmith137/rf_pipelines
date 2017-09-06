@@ -1731,7 +1731,7 @@ static constexpr const char *spline_detrender_docstring =
     "I suspect this will work better than the polynomial_detrender, and it will definitely be faster!\n"
     "\n"
     "A spline_detrender with N bins should be roughly equivalent to a polynomial_detrender with\n"
-    "degree (2N+2).\n"
+    "degree (2N+1).\n"
     "\n"
     "The 'epsilon' parameter regulates the spline fit by penalizing large time derivatives.\n"
     "If epsilon is too small, then overfitting may occur in regions with sparse weights.\n"

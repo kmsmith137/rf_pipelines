@@ -9,7 +9,7 @@ or have been changed recently:
    computational cost of the polynomial_detrender.
    
    A spline_detrender with N bins should be roughly equivalent to a
-   polynomial_detrender with degree (2N+2), but its computational cost
+   polynomial_detrender with degree (2N+1), but its computational cost
    should be independent of N.
     
    The 'epsilon' parameter regulates the spline fit by penalizing large time derivatives.

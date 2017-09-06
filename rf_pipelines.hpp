@@ -206,7 +206,7 @@ extern std::shared_ptr<wi_transform> make_polynomial_detrender(int nt_chunk, rf_
 // I suspect this will work better than the polynomial_detrender, and it will definitely be faster!
 //
 // A spline_detrender with N bins should be roughly equivalent to a polynomial_detrender with
-// degree (2N+2).
+// degree (2N+1).
 //
 // The 'epsilon' parameter regulates the spline fit by penalizing large time derivatives.
 // If epsilon is too small, then overfitting may occur in regions with sparse weights.
