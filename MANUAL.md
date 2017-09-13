@@ -14,7 +14,7 @@ ch_frb_rfi    master
 or the "sept7 branch everywhere" setup:
 ```
 simd_helpers  sept7
-rf_kernels    master
+rf_kernels    sept7
 bonsai        sept7
 rf_pipelines  sept7
 ch_frb_rfi    sept7
@@ -79,4 +79,3 @@ Here are some recent changes to rf_pipelines transforms:
    shows how to use the spline_detrender and the fill_rfi_mask features.
    By comparing with `ch_frb_rfi/scripts/s1.py`, you can see what needs
    to be changed.
-  
