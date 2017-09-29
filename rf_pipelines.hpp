@@ -204,7 +204,18 @@ extern std::shared_ptr<wi_transform> make_polynomial_detrender(int nt_chunk, rf_
 
 // Experimental: spline_detrender.
 // I suspect this will work better than the polynomial_detrender, and it will definitely be faster!
-// Currently, the only allowed axis type is rf_kernels::AXIS_FREQ.
+//
+// A spline_detrender with N bins should be roughly equivalent to a polynomial_detrender with
+// degree (2N+1).
+//
+// The 'epsilon' parameter regulates the spline fit by penalizing large time derivatives.
+// If epsilon is too small, then overfitting may occur in regions with sparse weights.
+// If epsilon is too large, then the fitter may have difficulty "keeping up" with rapid
+// variations in the data.  I think that 3.0e-4 (the default) is a reasonable choice of
+// epsilon, but I haven't experimented systematically.
+//
+// FIXME: currently, the only allowed axis type is rf_kernels::AXIS_FREQ.
+
 extern std::shared_ptr<wi_transform> make_spline_detrender(int nt_chunk, rf_kernels::axis_type axis, int nbins, double epsilon=3.0e-4);
 
 
