@@ -8,10 +8,10 @@ import numpy as np
 import numpy.random as rand
 
 import rf_pipelines
+import rf_pipelines.retirement_home
 
 from rf_pipelines import rf_pipelines_c
-from rf_pipelines.transforms.intensity_clipper import clip_fx
-from rf_pipelines.transforms.std_dev_clipper import filter_stdv
+from rf_pipelines.retirement_home import clip_fx, filter_stdv
 
 # It's useful for debugging to have the same random data realizations every time.
 rand.seed(1)
@@ -94,7 +94,7 @@ def test_utils():
         Dt = 2**rand.randint(0,6)
         nfreq = Df * rand.randint(8,16)
         nt = Dt * 8 * rand.randint(1,8)
-        two_pass = rand.randint(0,2)
+        two_pass = True if rand.randint(0,2) else False
 
         sys.stderr.write('.')
         # print >>sys.stderr, '(Df,Dt,nfreq,nt,two_pass)=(%d,%d,%d,%d,%d)' % (Df,Dt,nfreq,nt,two_pass)
@@ -102,9 +102,9 @@ def test_utils():
         intensity = rand.uniform(size=(nfreq,nt))
         weights = rand.uniform(size=(nfreq,nt))
 
-        # Test 1: compare rf_pipelines.wi_downsample() and rf_pipelines_c.wi_downsample()
+        # Test 1: compare rf_pipelines.utils.wi_downsample() and rf_pipelines_c.wi_downsample()
 
-        (ds_int, ds_wt) = rf_pipelines.wi_downsample(intensity, weights, nfreq//Df, nt//Dt)
+        (ds_int, ds_wt) = rf_pipelines.utils.wi_downsample(intensity, weights, nfreq//Df, nt//Dt)
         (ds_int2, ds_wt2) = rf_pipelines_c.wi_downsample(copy_array(intensity), copy_array(weights), Df, Dt)
 
         # Different weights convention used in python/C++ wi_downsample().
@@ -116,10 +116,10 @@ def test_utils():
         assert epsilon_w < 1.0e-3
         assert epsilon_i < 1.0e-3
 
-        # Test 2: compare rf_pipelines.weighted_mean_and_rms() and rf_pipelines_c.weighted_mean_and_rms(),
+        # Test 2: compare rf_pipelines.utils.weighted_mean_and_rms() and rf_pipelines_c.weighted_mean_and_rms(),
         # with (niter, Df, Dt, axis) = (1, 1, 1, None).
 
-        (mean1, rms1) = rf_pipelines.weighted_mean_and_rms(intensity, weights)
+        (mean1, rms1) = rf_pipelines.utils.weighted_mean_and_rms(intensity, weights)
         (mean2, rms2) = rf_pipelines_c.weighted_mean_and_rms(copy_array(intensity), copy_array(weights), two_pass=two_pass)
 
         epsilon_m = np.abs(mean1-mean2)
@@ -150,9 +150,10 @@ def apply_reference_detrender(intensity, weights, axis, polydeg):
         def __init__(self, nfreq):
             self.nfreq = nfreq
 
-    t = rf_pipelines.polynomial_detrender(deg=polydeg, axis=axis, nt_chunk=nt, cpp=False)
-    t.set_stream(fake_stream(nfreq))
-    t.process_chunk(0, 0, intensity, weights, None, None)
+    t = rf_pipelines.retirement_home.polynomial_detrender(deg=polydeg, axis=axis, nt_chunk=nt)
+    t.nfreq = nfreq
+    t._bind_transform({})
+    t._process_chunk(intensity, weights, 0)
 
 
 def random_sparse_vector(num_elts, num_nonzero):
@@ -311,7 +312,7 @@ def test_clippers():
         nfreq = Df * rand.randint(8,16)
         nt = Dt * 8 * rand.randint(1,8)
         thresh = rand.uniform(1.1, 1.3)
-        two_pass = rand.randint(0,2)
+        two_pass = True if rand.randint(0,2) else False
 
         # Round nfreq up to multiple of 8 (now assumed by std_dev_clipper)
         nfreq = ((nfreq + 7) // 8) * 8
@@ -387,7 +388,7 @@ def test_iterated_intensity_clippers():
         sigma = rand.uniform(1.1, 1.3)
         niter = rand.randint(1, 6)
         iter_sigma = rand.uniform(1.1, 1.3)
-        two_pass = rand.randint(0,2)
+        two_pass = True if rand.randint(0,2) else False
         
         sys.stderr.write('.')
         # print >>sys.stderr, 'iteration %d: (Df,Dt,nfreq,nt,sigma,niter,iter_sigma,two_pass) = %s' % (iter, (Df,Dt,nfreq,nt,sigma,niter,iter_sigma,two_pass))
@@ -454,7 +455,7 @@ def test_iterated_intensity_clippers():
         rf_pipelines_c.apply_intensity_clipper(ds_int, ds_wt, None, sigma, niter=niter, iter_sigma=iter_sigma, Df=1, Dt=1, two_pass=two_pass)
 
         # Apply upsampled mask to weights2
-        t = rf_pipelines.upsample(ds_wt, nfreq, nt)
+        t = rf_pipelines.utils.upsample(ds_wt, nfreq, nt)
         weights2 = np.where(t > 0, weights2, 0)
 
         assert np.array_equal(weights1, weights2)
@@ -544,7 +545,7 @@ def make_random_transform():
         epsilon = rand.uniform(0.01, 0.1)
         nt_chunk = 8 * rand.randint(polydeg+2, 2*polydeg+4)
 
-        t = rf_pipelines_c.make_polynomial_detrender(nt_chunk, axis, polydeg, epsilon)
+        t = rf_pipelines_c.polynomial_detrender(nt_chunk, axis, polydeg, epsilon)
         f = lambda intensity, weights: rf_pipelines_c.apply_polynomial_detrender(intensity, weights, axis, polydeg, epsilon)
 
     elif transform_type == 1:
@@ -556,9 +557,9 @@ def make_random_transform():
         niter = rand.randint(1,5)
         iter_sigma = rand.uniform(1.8, 2.0)
         nt_chunk = Dt * 8 * rand.randint(1,8)
-        two_pass = rand.randint(0,2)
+        two_pass = True if rand.randint(0,2) else False
 
-        t = rf_pipelines_c.make_intensity_clipper(nt_chunk, axis, sigma, niter, iter_sigma, Df, Dt, two_pass)
+        t = rf_pipelines_c.intensity_clipper(nt_chunk, axis, sigma, niter, iter_sigma, Df, Dt, two_pass)
         f = lambda intensity, weights: rf_pipelines_c.apply_intensity_clipper(intensity, weights, axis, sigma, niter=niter, iter_sigma=iter_sigma, Df=Df, Dt=Dt, two_pass=two_pass)
 
     else:
@@ -568,36 +569,26 @@ def make_random_transform():
         Dt = 2**rand.randint(0,6)
         sigma = rand.uniform(1.1, 1.3)
         nt_chunk = Dt * 8 * rand.randint(1,8)
-        two_pass = rand.randint(0,2)
+        two_pass = True if rand.randint(0,2) else False
 
-        t = rf_pipelines_c.make_std_dev_clipper(nt_chunk, axis, sigma, Df, Dt, two_pass)
+        t = rf_pipelines_c.std_dev_clipper(nt_chunk, axis, sigma, Df, Dt, two_pass)
         f = lambda intensity, weights: rf_pipelines_c.apply_std_dev_clipper(intensity, weights, axis, sigma, Df=Df, Dt=Dt, two_pass=two_pass)
 
     assert t.nt_chunk == nt_chunk
-    assert t.nt_prepad == 0
-    assert t.nt_postpad == 0
-
     return (t, f)
 
 
-class test_initializer(rf_pipelines.py_wi_transform):
+class test_initializer(rf_pipelines_c.wi_transform):
     def __init__(self, f_apply, nt_chunk):
-        rf_pipelines.py_wi_transform.__init__(self)
+        rf_pipelines_c.wi_transform.__init__(self, 'test_initializer')
 
         self.f_apply = f_apply
         self.nt_chunk = nt_chunk
-        self.nt_prepad = 0
-        self.nt_postpad = 0
-
         self.expected_intensity = [ ]
         self.expected_weights = [ ]
 
 
-    def set_stream(self, s):
-        self.nfreq = s.nfreq
-
-
-    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
+    def _process_chunk(self, intensity, weights, pos):
         (intensity0, weights0) = make_weird_data(self.nfreq, self.nt_chunk)
 
         intensity[:,:] = intensity0[:,:]
@@ -609,20 +600,16 @@ class test_initializer(rf_pipelines.py_wi_transform):
         self.f_apply(self.expected_intensity[-1], self.expected_weights[-1])
 
 
-class test_finalizer(rf_pipelines.py_wi_transform):
+class test_finalizer(rf_pipelines_c.wi_transform):
     def __init__(self, initializer):
-        rf_pipelines.py_wi_transform.__init__(self)
+        rf_pipelines_c.wi_transform.__init__(self, 'test_finalizer')
 
         self.initializer = initializer
         self.nt_chunk = initializer.nt_chunk
-        self.nt_prepad = 0
-        self.nt_postpad = 0
         self.ichunk = 0
 
-    def set_stream(self, s):
-        self.nfreq = s.nfreq
-
-    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
+        
+    def _process_chunk(self, intensity, weights, pos):
         expected_intensity = self.initializer.expected_intensity[self.ichunk]
         expected_weights = self.initializer.expected_weights[self.ichunk]
         
@@ -655,7 +642,8 @@ def test_transforms():
         dt_sample = 1.0e-3
         stream = rf_pipelines.gaussian_noise_stream(nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample)
 
-        stream.run(transform_chain, outdir=None, verbosity=0)
+        p = rf_pipelines_c.pipeline([stream] + transform_chain)
+        p.run(outdir=None, verbosity=0)
 
     print >>sys.stderr, 'test_transforms: pass'
 
@@ -663,8 +651,8 @@ def test_transforms():
 ####################################################################################################
 
 
-test_utils()
-test_polynomial_detrenders()
-test_clippers()
-test_iterated_intensity_clippers()
+#test_utils()
+#test_polynomial_detrenders()
+#test_clippers()
+#test_iterated_intensity_clippers()
 test_transforms()
