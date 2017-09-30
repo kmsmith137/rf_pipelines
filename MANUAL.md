@@ -3,21 +3,35 @@ In the meantime, here are some notes on things that have changed recently.
 
 The "sept7" branches contain some new features, which we want to
 merge to master branches soon.  In the meantime, you should either
-use the "master branch everywhere setup":
+use the "master" setup:
 ```
 simd_helpers  master
+pyclops        [ not needed ]
 rf_kernels     [ not needed ]
+ch_frb_io     master (or sept7)
 bonsai        master
 rf_pipelines  master
 ch_frb_rfi    master
 ```
-or the "sept7 branch everywhere" setup:
+or the "sept7" setup:
 ```
-simd_helpers  sept7
+simd_helpers  sept7 (or sept30)
+pyclops        [ not needed ]
+ch_frb_io     sept7 (or master)
 rf_kernels    sept7
 bonsai        sept7
 rf_pipelines  sept7
 ch_frb_rfi    sept7
+```
+or the "sept30" setup:
+```
+simd_helpers  sept30 (or sept7)
+pyclops       master
+ch_frb_io     sept30
+rf_kernels    sept30
+bonsai        sept30
+rf_pipelines  sept30
+ch_frb_rfi    sept30
 ```
 Note that when switching between these two setups, you'll
 want to rebuild every package from scratch (make clean; make -j all install)
