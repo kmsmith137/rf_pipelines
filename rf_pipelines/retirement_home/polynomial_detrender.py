@@ -1,10 +1,10 @@
 import numpy as np
 
-import rf_pipelines
-from rf_pipelines import rf_pipelines_c
+from rf_pipelines.rf_pipelines_c import wi_transform
+from rf_pipelines.utils import tile_arr
 
 
-def polynomial_detrender(nt_chunk=1024, deg=0, axis=0, cpp=True, epsilon=0.01, test=False):
+class polynomial_detrender(wi_transform):
     """
     This transform removes a degree-d weighted-fit legendre 
     polynomial from the intensity along a specified axis. 
@@ -26,40 +26,27 @@ def polynomial_detrender(nt_chunk=1024, deg=0, axis=0, cpp=True, epsilon=0.01, t
         0: along freq; constant time.
         1: along time; constant freq.
 
-      'cpp=True' will use fast C++ transforms
-      'cpp=False' will use reference python transforms
+      'test=False' enables a test mode
 
-      'epsilon' controls the threshold for a polynomial fit being poorly conditioned
-         (only meaningful if cpp=True)
-
-      'test=False' enables a test mode (only meaningful if cpp=False)
+      'epsilon' is ignored in the python reference implementation, but is included
+       as a dummy argument, so that the C++ and python syntax will be the same.
     """
 
-    if cpp:
-        return rf_pipelines_c.make_polynomial_detrender(nt_chunk, axis, deg, epsilon)
-    else:
-        return polynomial_detrender_python(nt_chunk, deg, axis, test)
-
-
-class polynomial_detrender_python(rf_pipelines.py_wi_transform):
-    def __init__(self, nt_chunk=1024, deg=0, axis=0, test=False):
+    def __init__(self, nt_chunk=1024, deg=0, axis=0, epsilon=0.01, test=False):
         
         assert (deg >= 0 and type(deg) == int), "degree must be an integer >= 0"
         assert axis in (0, 1), "axis must be 0 (along freq; constant time) or 1 (along time; constant freq)."
         
         name = 'polynomial_detrender_python(nt_chunk=%d, deg=%d, axis=%d)' % (nt_chunk, deg, axis)
-        rf_pipelines.py_wi_transform.__init__(self, name)
+        wi_transform.__init__(self, name)
 
         self.nt_chunk = nt_chunk
         self.deg = deg
         self.axis = axis
-        self.nt_prepad = 0
-        self.nt_postpad = 0
         self.test = test
 
-    def set_stream(self, stream):
         
-        self.nfreq = stream.nfreq
+    def _bind_transform(self, json_attrs):
         
         # The following statement prepares the code for
         # looping over the unselected axis. self.N is 
@@ -76,8 +63,9 @@ class polynomial_detrender_python(rf_pipelines.py_wi_transform):
         self.P = np.zeros([self.deg+1, self.N])
         for d in xrange(self.deg+1):
             self.P[d,:] = np.polynomial.Legendre(np.eye(self.deg+1)[d,:])(self.x) 
-    
-    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
+
+            
+    def _process_chunk(self, intensity, weights, pos):
         
         # The test mode replaces the weights and intensity with
         # simulated chunks (see __test below).
@@ -106,6 +94,7 @@ class polynomial_detrender_python(rf_pipelines.py_wi_transform):
             stdv = np.sqrt(np.sum(weights*(intensity-mean)**2)/np.sum(weights))
             print (self.deg, mean, stdv), "= (deg, mean, stdv)"
             print "#####################################################"
+
 
     def leg_fit(self, w, i):
         """
@@ -185,9 +174,8 @@ class polynomial_detrender_python(rf_pipelines.py_wi_transform):
             
             # Replace all intensity values by the 2D-tiled
             # simulated chunk.
-            intensity[:] = rf_pipelines.tile_arr(\
-                    np.dot(rc, self.P), tile_axis,\
-                    self.nfreq, self.nt_chunk)
+            intensity[:] = tile_arr(np.dot(rc,self.P), tile_axis, self.nfreq, self.nt_chunk)
+
         
         # Simulated weights and intensity arrays.
         return weights, intensity
