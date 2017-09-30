@@ -590,8 +590,8 @@ struct py_wi_stream : wi_stream {
 	npy_intp py_shape[2] = { nfreq, nt_chunk };
 	npy_intp py_istrides[2] = { istride * sf, sf };
 	npy_intp py_wstrides[2] = { wstride * sf, sf };
-	py_array py_intensity = py_array::from_pointer(2, py_shape, py_istrides, sizeof(float), intensity, NPY_FLOAT, NPY_ARRAY_NOTSWAPPED);
-	py_array py_weights = py_array::from_pointer(2, py_shape, py_wstrides, sizeof(float), weights, NPY_FLOAT, NPY_ARRAY_NOTSWAPPED);
+	py_array py_intensity = py_array::from_pointer(2, py_shape, py_istrides, sizeof(float), intensity, NPY_FLOAT, NPY_ARRAY_WRITEABLE);
+	py_array py_weights = py_array::from_pointer(2, py_shape, py_wstrides, sizeof(float), weights, NPY_FLOAT, NPY_ARRAY_WRITEABLE);
 
 	bool ret = vf.upcall(py_intensity, py_weights, pos);
 
@@ -673,8 +673,8 @@ struct py_wi_transform : wi_transform {
 	npy_intp py_shape[2] = { nfreq, nt_chunk };
 	npy_intp py_istrides[2] = { istride * sf, sf };
 	npy_intp py_wstrides[2] = { wstride * sf, sf };
-	py_array py_intensity = py_array::from_pointer(2, py_shape, py_istrides, sizeof(float), intensity, NPY_FLOAT, NPY_ARRAY_NOTSWAPPED);
-	py_array py_weights = py_array::from_pointer(2, py_shape, py_wstrides, sizeof(float), weights, NPY_FLOAT, NPY_ARRAY_NOTSWAPPED);
+	py_array py_intensity = py_array::from_pointer(2, py_shape, py_istrides, sizeof(float), intensity, NPY_FLOAT, NPY_ARRAY_WRITEABLE);
+	py_array py_weights = py_array::from_pointer(2, py_shape, py_wstrides, sizeof(float), weights, NPY_FLOAT, NPY_ARRAY_WRITEABLE);
 
 	vf.upcall(py_intensity, py_weights, pos);
 
