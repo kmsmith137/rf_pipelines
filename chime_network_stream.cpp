@@ -35,15 +35,25 @@ struct chime_network_stream : public wi_stream
 
     int assembler_id = -1;
 
+    // FIXME these fields will move into a json object soon (I think!)
+    double dt_sample = 0.0;
+    double freq_lo_MHz = 0.0;
+    double freq_hi_MHz = 0.0;
+
+    // FIXME this is a hack that should be removed, see below.
+    shared_ptr<ch_frb_io::assembled_chunk> first_chunk;
+
     chime_network_stream(const shared_ptr<ch_frb_io::intensity_network_stream> &stream_, int beam_id_);
     virtual ~chime_network_stream() { }
 
-    virtual void stream_start();
-    virtual void stream_body(wi_run_state &run_state);
+    virtual bool _fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual void _start_pipeline(Json::Value &j) override;
+    virtual void _end_pipeline(Json::Value &j) override;
 };
 
 
 chime_network_stream::chime_network_stream(const shared_ptr<ch_frb_io::intensity_network_stream> &stream_, int beam_id_) :
+    wi_stream("chime_network_stream"),
     stream(stream_), 
     beam_id(beam_id_)
 { 
@@ -65,59 +75,66 @@ chime_network_stream::chime_network_stream(const shared_ptr<ch_frb_io::intensity
     }
 
     this->nfreq = ch_frb_io::constants::nfreq_coarse_tot * stream->ini_params.nupfreq;
-    this->dt_sample = constants::chime_seconds_per_fpga_count * stream->ini_params.fpga_counts_per_sample;
-    this->nt_maxwrite = ch_frb_io::constants::nt_per_assembled_chunk;
+    this->nt_chunk = ch_frb_io::constants::nt_per_assembled_chunk;
     
     // The frequency band is not currently part of the L0-L1 packet format, so we just use hardcoded values.
     // If we ever want to reuse the packet format in a different experiment, this should be fixed by updating the protocol.
     this->freq_lo_MHz = 400.0;
     this->freq_hi_MHz = 800.0;
+    this->dt_sample = chime_file_stream_base::chime_seconds_per_fpga_count * stream->ini_params.fpga_counts_per_sample;
 }
 
 
-void chime_network_stream::stream_start()
+void chime_network_stream::_start_pipeline(Json::Value &j)
 {
     // tells network thread to start reading packets, returns immediately
     stream->start_stream();
-}
 
+    // FIXME this is awkward: we want to initialize 'initial_fpga_count' in _start_pipeline(), but the
+    // only way to do this is by getting the first chunk, which we save until _fill_chunk() is called later.
+    // This could be improved by defining a member function of ch_frb_io::intensity_network_stream which
+    // returns the initial FPGA count as soon as the first packet is received (rather than waiting until the
+    // first chunk is finalized).
 
-void chime_network_stream::stream_body(wi_run_state &run_state)
-{
-    bool startflag = false;
+    this->first_chunk = stream->get_assembled_chunk(assembler_id);
 
-    for (;;) {
-	shared_ptr<ch_frb_io::assembled_chunk> chunk = stream->get_assembled_chunk(assembler_id);
+    if (!first_chunk)
+	_throw("no data could be processed");
 
-	if (!chunk)
-	    break;
-
-	rf_assert(this->nfreq == ch_frb_io::constants::nfreq_coarse_tot * chunk->nupfreq);
-
-	double t0 = chunk->isample * chunk->fpga_counts_per_sample * constants::chime_seconds_per_fpga_count;
-
-	if (!startflag) {
-	    run_state.start_substream(t0);
-	    startflag = true;
-	}
-
-	float *dst_intensity = nullptr;
-	float *dst_weights = nullptr;
-	ssize_t dst_stride = 0;
-	bool zero_flag = false;
-
-	run_state.setup_write(nt_maxwrite, dst_intensity, dst_weights, dst_stride, zero_flag, t0);
-	chunk->decode(dst_intensity, dst_weights, dst_stride);
-
-	// Drop reference to the chunk as soon as possible, so that its memory_slab can be returned to the pool.
-	chunk = shared_ptr<ch_frb_io::assembled_chunk> ();
-
-	run_state.finalize_write(nt_maxwrite);
-    }
+    uint64_t fpga0 = uint64_t(first_chunk->isample) * uint64_t(first_chunk->fpga_counts_per_sample);
     
-    stream->join_threads();
-    run_state.end_substream();
+    j["initial_fpga_count"] = Json::UInt64(fpga0);
+    j["fpga_counts_per_sample"] = first_chunk->fpga_counts_per_sample;
 }
+
+
+bool chime_network_stream::_fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
+{
+    if (first_chunk) {
+	first_chunk->decode(intensity, weights, istride, wstride);
+	first_chunk.reset();
+	return true;
+    }
+
+    shared_ptr<ch_frb_io::assembled_chunk> chunk = stream->get_assembled_chunk(assembler_id);
+
+    if (!chunk)
+	return false;
+
+    rf_assert(this->nfreq == ch_frb_io::constants::nfreq_coarse_tot * chunk->nupfreq);
+    chunk->decode(intensity, weights, istride, wstride);
+    return true;
+}
+
+
+void chime_network_stream::_end_pipeline(Json::Value &j)
+{
+    first_chunk.reset();
+    stream->join_threads();
+}
+
+
+// -------------------------------------------------------------------------------------------------
 
 
 shared_ptr<wi_stream> make_chime_network_stream(const shared_ptr<ch_frb_io::intensity_network_stream> &stream, int beam_id)

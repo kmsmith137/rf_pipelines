@@ -2,7 +2,7 @@ import numpy as np
 import numpy.random
 import random
 
-import rf_pipelines
+from rf_pipelines.rf_pipelines_c import pipeline_object, wi_transform
 
 
 def round_up(m, n):
@@ -10,7 +10,7 @@ def round_up(m, n):
     return ((m+n-1)//n) * n
 
 
-class adversarial_masker(rf_pipelines.py_wi_transform):
+class adversarial_masker(wi_transform):
     """
     A half-finished transform, intended to stress-test the online variance estimation logic
     by masking a bunch of rectangle-shaped regions of the input array.  If the online variance
@@ -19,34 +19,31 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
     The constructor argument 'nt_reset' is not very well thought-out, but is vaguely intended
     to be the timescale (expressed as a number of samples) over which the variance estimation
     logic resets itself.
-
-    TODO: right now, this isn't very "adversarial", since all it does is mask a few large
-    rectangles which correspond to timestream gaps of different sizes.  Let's try to test
-    as many weird cases as possible!
     """
 
     def __init__(self, nt_chunk=1024, nt_reset=65536, nt_minefield=4096*1024):
-        rf_pipelines.py_wi_transform.__init__(self, 'adversarial_masker(nt_chunk=%d, nt_reset=%d, nt_minefield=%d)' % (nt_chunk, nt_reset, nt_minefield))
-        self.nt_prepad = 0
-        self.nt_postpad = 0
+        wi_transform.__init__(self, 'adversarial_masker')
+
+        self.name = 'adversarial_masker(nt_chunk=%d, nt_reset=%d, nt_minefield=%d)' % (nt_chunk, nt_reset, nt_minefield)
         self.nt_chunk = nt_chunk
         self.nt_reset = nt_reset
         self.nt_minefield = nt_minefield
 
+    
+    def _bind_transform(self, json_data):
+        """
+        Called when self.nfreq and self.nds are initialized.
+        The 'json_data' argument also contains some auxiliary data (freq_lo_MHz, freq_hi_MHz, dt_sample).
 
-    def set_stream(self, s):
-        self.nfreq = s.nfreq
-
-        # Initialize:
-        #   self.rectangles: list of (freq_lo, freq_hi, t_lo, t_hi) quadruples to be masked.
-        #   self.mask: list of (t_lo, t_hi) to be masked
-        #   self.nt_max: nominal timestream size, expressed as number of samples.
-        #   self.nt_processed: samples processed so far (this counter is incremented in process_chunk())
+        Contains the following initializations:
+            self.rectangles: list of (freq_lo, freq_hi, t_lo, t_hi) quadruples to be masked.
+            self.mask: list of (t_lo, t_hi) to be masked
+            self.nt_max: nominal timestream size, expressed as number of samples.
+        """
   
         self.rectangles = [ ]
         self.mask = [ ]
         self.nt_max = self.nt_reset 
-        self.nt_processed = 0
         
         print 'adversarial_masker (nt=%d): timestream gaps of different sizes, with all frequencies masked' % self.nt_max
 
@@ -169,14 +166,13 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
 
         print 'adversarial_masker (nt=%d): all done!  (nrect=%d)' % (self.nt_max, len(self.rectangles))
 
-
     
-    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
+    def _process_chunk(self, intensity, weights, pos):
         # Loop over rectangles
         for (ifreq0, ifreq1, it0, it1) in self.rectangles:
             # Range of indices in current chunk which overlap with the rectangle
-            it0 = max(0, min(self.nt_chunk, it0 - self.nt_processed))
-            it1 = max(0, min(self.nt_chunk, it1 - self.nt_processed))
+            it0 = max(0, min(self.nt_chunk, it0 - pos))
+            it1 = max(0, min(self.nt_chunk, it1 - pos))
 
             # If there is an overlap, then mask (by setting weights to zero)
             if it0 < it1:
@@ -185,8 +181,8 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
         # Loop over mask
         for (it0, it1) in self.mask:
             # Range of indices in current chunk which overlap with the rectangle
-            it0 = max(0, min(self.nt_chunk, it0 - self.nt_processed))
-            it1 = max(0, min(self.nt_chunk, it1 - self.nt_processed))
+            it0 = max(0, min(self.nt_chunk, it0 - pos))
+            it1 = max(0, min(self.nt_chunk, it1 - pos))
 
             # If there is an overlap, then mask randomly
             if it0 < it1:
@@ -194,4 +190,18 @@ class adversarial_masker(rf_pipelines.py_wi_transform):
                 a = np.random.choice(a=[False, True], size=weights[:, it0:it1].shape, p=[p, 1-p])
                 weights[a] = 0
 
-        self.nt_processed += self.nt_chunk
+                
+    def jsonize(self):
+        return { 'class_name': 'adversarial_masker',
+                 'nt_chunk': self.nt_chunk,
+                 'nt_reset': self.nt_reset,
+                 'nt_minefield': self.nt_minefield }
+
+    @staticmethod
+    def from_json(j):
+        return adversarial_masker(nt_chunk = int(j['nt_chunk']),
+                                  nt_reset = int(j['nt_reset']),
+                                  nt_minefield = int(j['nt_minefield']))
+
+
+pipeline_object.register_json_constructor('adversarial_masker', adversarial_masker.from_json)

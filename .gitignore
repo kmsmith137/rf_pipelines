@@ -3,8 +3,9 @@
 *.so
 *.pyc
 *.py.swp
-run-unit-tests
 Makefile.local
-TODO
 
+test-core-pipeline-logic
 test-file-stream-base
+test-ring-buffer
+

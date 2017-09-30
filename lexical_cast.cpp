@@ -1,3 +1,4 @@
+//
 // This file defines
 //
 //   template<typename T> T lexical_cast(const std::string &x);
@@ -13,15 +14,15 @@
 //
 // Note that a more general implementation of lexical_cast is already defined in boost, and considered 
 // for inclusion in C++ TR2, but it's not in C++11, so we're forced to define it here!
+//
 
-#include <climits>
 #include "rf_pipelines_internals.hpp"
 
 using namespace std;
 
 namespace rf_pipelines {
 #if 0
-}; // pacify emacs c-mode
+}  // emacs pacifier
 #endif
 
 

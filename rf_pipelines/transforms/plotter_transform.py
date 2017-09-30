@@ -1,9 +1,11 @@
 import sys
 import numpy as np
-import rf_pipelines
+
+from rf_pipelines.rf_pipelines_c import pipeline_object, wi_transform, wi_downsample
+from rf_pipelines.utils import write_png
 
 
-class plotter_transform(rf_pipelines.py_wi_transform):
+class plotter_transform(wi_transform):
     """
     This is a pseudo-transform (meaning that it does not actually modify its input)
     which makes waterfall plots.  It's primitive so please feel free to improve it!
@@ -49,7 +51,7 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         name += ')'
 
         # Call base class constructor
-        rf_pipelines.py_wi_transform.__init__(self, name)
+        wi_transform.__init__(self, name)
 
         assert img_nt > 0
         assert img_nfreq > 0
@@ -67,8 +69,6 @@ class plotter_transform(rf_pipelines.py_wi_transform):
             raise RuntimeError("plotter_transform: specified nt_chunk(=%d) must be a multiple of downsampling factor at max zoom level (=%d)" % (nt_chunk,max_downsample))
 
         self.nt_chunk = nt_chunk
-        self.nt_prepad = 0
-        self.nt_postpad = 0
         self.img_nfreq = img_nfreq
         self.img_nt = img_nt
         self.clip_niter = clip_niter
@@ -79,6 +79,7 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         self.downsample_nt = [downsample_nt]
         self.nt_chunk_ds = [nt_chunk // downsample_nt]     # number of times/chunk divided by number of times per pixel -> pixels/chunk
         self.add_plot_group("waterfall", nt_per_pix=downsample_nt, ny=img_nfreq)
+        self.img_prefix0 = img_prefix
         self.img_prefix = [img_prefix + "_zoom0"]
 
         if self.n_zoom > 1:
@@ -88,34 +89,22 @@ class plotter_transform(rf_pipelines.py_wi_transform):
                 self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[zoom_level + 1], ny=img_nfreq)
                 self.img_prefix += [img_prefix + "_zoom" + str(zoom_level+1)]
 
- 
-    def set_stream(self, s):
-        # As explained in the rf_pipelines.py_wi_transform docstring, this function is
-        # called once per pipeline run, when the stream (the 's' argument) has been specified.
-        self.nfreq = s.nfreq
-
-        if s.nfreq % self.img_nfreq != 0:
+                
+    def _bind_transform(self, json_data):
+        if self.nfreq % self.img_nfreq != 0:
             raise RuntimeError("plotter_transform: current implementation requires 'img_nfreq' to be a divisor of stream nfreq")
 
 
-    def start_substream(self, isubstream, t0):
-        # Called once per substream (a stream can be split into multiple substreams).
-        # We initialize per-substream state: a buffer for the downsampled data which
-        # will be used to construct the plot.
-
+    def _allocate(self):
         # The buffers store intensity/weights data until a plot can be written out
         # This means that the buffers will have dimensions n_zoom x n_xpix x n_ypix
         self.intensity_buf = np.zeros((self.n_zoom, self.img_nfreq, self.img_nt), dtype=np.float32)
         self.weight_buf = np.zeros((self.n_zoom, self.img_nfreq, self.img_nt), dtype=np.float32)
-        self.isubstream = isubstream
         self.ifile = np.zeros((self.n_zoom), int)    # keeps track of which png file we're accumulating
         self.ipos = np.zeros((self.n_zoom), int)     # keeps track of how many (downsampled) time samples have been accumulated into file so far
 
 
-    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        # This is the main computational routine defining the transform, which is called
-        # once per incoming "block" of data.  For documentation on the interface see
-        # rf_pipelines.py_wi_transform docstring.
+    def _process_chunk(self, intensity, weights, pos):
 
         # Invariant: When this routine is called, downsampled arrays of intensity and
         # weights data have been partially accumulated, in self.intensity_buf and self.weight_buf.
@@ -130,7 +119,7 @@ class plotter_transform(rf_pipelines.py_wi_transform):
             intensity = preserved_intensity.copy()
             weights = preserved_weights.copy()
 
-            (intensity, weights) = rf_pipelines.wi_downsample(intensity, weights, self.img_nfreq, self.nt_chunk_ds[zoom_level])
+            (intensity, weights) = wi_downsample(intensity, weights, self.img_nfreq, self.nt_chunk_ds[zoom_level])
             
             # Keeps track of how much downsampled data has been moved from input chunk to the plots.
             ichunk = 0
@@ -149,7 +138,7 @@ class plotter_transform(rf_pipelines.py_wi_transform):
                     self._write_file(zoom_level)
 
 
-    def end_substream(self):
+    def _end_pipeline(self, json_output):
         for zoom_level in xrange(self.n_zoom):
             if self.ipos[zoom_level] > 0:
                 self._write_file(zoom_level)
@@ -162,8 +151,6 @@ class plotter_transform(rf_pipelines.py_wi_transform):
         weights = self.weight_buf[zoom_level, :, :]
 
         basename = self.img_prefix[zoom_level]
-        if self.isubstream > 0:
-            basename += str(isubstream+1)
         basename += ('_%s.png' % self.ifile[zoom_level])
 
         # The add_plot() method adds the plot to the JSON output, and returns the filename that should be written.
@@ -175,10 +162,36 @@ class plotter_transform(rf_pipelines.py_wi_transform):
                                  group_id = zoom_level)
 
 
-        rf_pipelines.write_png(filename, intensity, weights=weights, transpose=True, ytop_to_bottom=True, 
-                               clip_niter=self.clip_niter, sigma_clip=self.sigma_clip)
+        write_png(filename, intensity, weights=weights, transpose=True, ytop_to_bottom=True, 
+                  clip_niter=self.clip_niter, sigma_clip=self.sigma_clip)
 
         self.intensity_buf[zoom_level, :, :] = 0.
         self.weight_buf[zoom_level, :, :] = 0.
         self.ifile[zoom_level] += 1
         self.ipos[zoom_level] = 0
+
+
+    def jsonize(self):
+        return { 'class_name': 'plotter_transform',
+                 'img_prefix': self.img_prefix0,
+                 'img_nfreq': self.img_nfreq,
+                 'img_nt': self.img_nt,
+                 'downsample_nt': self.downsample_nt[0],
+                 'n_zoom': self.n_zoom,
+                 'nt_chunk': self.nt_chunk,
+                 'clip_niter': self.clip_niter,
+                 'sigma_clip': self.sigma_clip }
+
+    @staticmethod
+    def from_json(j):
+        return plotter_transform(img_prefix = j['img_prefix'],
+                                 img_nfreq = j['img_nfreq'],
+                                 img_nt = j['img_nt'],
+                                 downsample_nt = j['downsample_nt'],
+                                 n_zoom = j['n_zoom'],
+                                 nt_chunk = j['nt_chunk'],
+                                 clip_niter = j['clip_niter'],
+                                 sigma_clip = j['sigma_clip'])
+
+
+pipeline_object.register_json_constructor('plotter_transform', plotter_transform.from_json)

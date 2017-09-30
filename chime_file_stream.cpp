@@ -1,6 +1,5 @@
 #include <algorithm>
 #include "rf_pipelines_internals.hpp"
-#include "chime_file_stream_base.hpp"
 
 #ifdef HAVE_CH_FRB_IO
 #include <ch_frb_io.hpp>
@@ -43,17 +42,20 @@ public:
     chime_file_stream(const vector<string> &filename_list_, ssize_t nt_chunk, ssize_t noise_source_align);
     virtual ~chime_file_stream() { }
 
+    virtual Json::Value jsonize() const override;
+    static shared_ptr<chime_file_stream> from_json(const Json::Value &j);
+
 protected:
     virtual void load_file(const std::string& filename) override;
     virtual void close_file() override;
     virtual void set_params_from_file() override;
     virtual void check_file_consistency() const override;
-    virtual void read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride) const override;
+    virtual void read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_istride, ssize_t dst_wstride) const override;
 };
 
     
 chime_file_stream::chime_file_stream(const vector<string> &filename_list_, ssize_t nt_chunk, ssize_t noise_source_align_) :
-    chime_file_stream_base(filename_list_, nt_chunk, noise_source_align_)
+    chime_file_stream_base("chime_file_stream", filename_list_, nt_chunk, noise_source_align_)
 {
 }
 
@@ -75,7 +77,7 @@ void chime_file_stream::set_params_from_file() {
     this->dt_sample = curr_file->dt_sample;
     this->time_lo = curr_file->time_lo;
     this->time_hi = curr_file->time_hi;
-    this->nt = curr_file->nt_logical;
+    this->nt_file = curr_file->nt_logical;
     this->frequencies_are_increasing = curr_file->frequencies_are_increasing;
 }
 
@@ -92,9 +94,55 @@ void chime_file_stream::check_file_consistency() const {
 }
 
 // virtual override
-void chime_file_stream::read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride) const {
-	    curr_file->get_unpolarized_intensity(dst_int, dst_wt, it_file, n, dst_stride);
+void chime_file_stream::read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_istride, ssize_t dst_wstride) const
+{
+    curr_file->get_unpolarized_intensity(dst_int, dst_wt, it_file, n, dst_istride, dst_wstride);
 }
+
+// virtual override
+Json::Value chime_file_stream::jsonize() const
+{
+    Json::Value ret;
+    Json::Value &jf = ret["filename_list"];
+
+    ret["class_name"] = "chime_file_stream";
+    ret["noise_source_align"] = int(noise_source_align);
+    ret["nt_chunk"] = int(this->get_orig_nt_chunk());
+
+    for (const string &f: filename_list)
+	jf.append(f);
+
+    return ret;
+}
+
+// static
+shared_ptr<chime_file_stream> chime_file_stream::from_json(const Json::Value &j)
+{
+    Json::Value a = array_from_json(j, "filename_list");
+    vector<string> vs;
+
+    for (const Json::Value &v: a) {
+	if (!v.isString())
+	    throw runtime_error("chime_file_stream::from_json(): filename was not a string as expected");
+	vs.push_back(v.asString());
+    }
+
+    int nt_chunk = int_from_json(j, "nt_chunk");
+    int noise_source_align = int_from_json(j, "noise_source_align");
+    return make_shared<chime_file_stream> (vs, nt_chunk, noise_source_align);
+}
+
+
+namespace {
+    struct _init {
+	_init() {
+	    pipeline_object::register_json_constructor("chime_file_stream", chime_file_stream::from_json);
+	}
+    } init;
+}
+
+
+// -------------------------------------------------------------------------------------------------
 
 
 // Returns true if filename is of the form NNNNNNNN.h5, where N=[0,9]

@@ -1,10 +1,11 @@
-import rf_pipelines
 import numpy as np
 import h5py
 from math import floor
 
+from rf_pipelines.rf_pipelines_c import pipeline_object, wi_transform
 
-class variance_estimator(rf_pipelines.py_wi_transform):
+
+class variance_estimator(wi_transform):
     """
     This pseudo-transform (meaning that it does not actually modify its input)
     estimates the variance of an intensity array and writes the results into a file. 
@@ -19,6 +20,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
        - The variance arrays are outputted after accumulating the first 64 bins.
     """
 
+                 
     def __init__(self, var_filename, v1_chunk=128, v2_chunk=80, nt_chunk=1024):
         name = "variance_estimator(var_filename=%s, v1_chunk=%d, v2_chunk=%d, nt_chunk=%d)" % (var_filename, v1_chunk, v2_chunk, nt_chunk)
 
@@ -26,7 +28,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         assert isinstance(var_filename, basestring)   # if this fails, arguments are probably in the old ordering
 
         # Call base class constructor
-        rf_pipelines.py_wi_transform.__init__(self, name)
+        wi_transform.__init__(self, name)
 
         assert nt_chunk % v1_chunk == 0, \
             'For now, nt_chunk(=%d) must be a multiple of v1_chunk(=%d)' % (nt_chunk, v1_chunk)
@@ -34,8 +36,6 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         self.v1_chunk = v1_chunk
         self.v2_chunk = v2_chunk
         self.nt_chunk = nt_chunk
-        self.nt_prepad = 0
-        self.nt_postpad = 0 
         self.v1_t = floor(self.v2_chunk / 2) + 1  # which v1 to index for time (+1 since iv1 is len, not index)
         self.var_filename = var_filename
 
@@ -44,14 +44,13 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         self.f.attrs['v2_chunk'] = self.v2_chunk
 
 
-    def set_stream(self, s):
-        # As explained in the rf_pipelines.py_wi_transform docstring, this function is
-        # called once per pipeline run, when the stream (the 's' argument) has been specified.
-        self.nfreq = s.nfreq
-
-
-    def start_substream(self, isubstream, t0):
-        # Called once per substream (a stream can be split into multiple substreams).
+    def _bind_transform(self, json_attrs):
+        if not json_attrs.has_key('t_initial'):
+            raise RuntimeError("rf_pipelines.variance_estimator: pipeline must contain a chime_file_stream (or another stream which defines the 't_initial' attribute)")
+        
+        self.t_initial = json_attrs['t_initial']
+        self.dt_sample = json_attrs['dt_sample']
+        
         self.v1 = np.zeros((self.nfreq, self.v2_chunk))
         self.iv1 = 0   # keeps track of which position we are adding v1 to 
         self.v2 = []   # stores final v2 values (reshaped when being outputted)
@@ -65,10 +64,9 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         self.t_dset = self.f.create_dataset('time', shape=(1,0), dtype=np.float32, maxshape=(1, None)) 
 
 
-    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        # This is the main computational routine defining the transform, which is called
-        # once per incoming "block" of data.  For documentation on the interface see
-        # rf_pipelines.py_wi_transform docstring.
+    def _process_chunk(self, intensity, weights, pos):
+        t0 = self.t_initial + self.dt_sample * pos
+        t1 = self.t_initial + self.dt_sample * (pos + nt_chunk)
         
         for i in xrange(0, self.nt_chunk, self.v1_chunk):
             # Process the chunks for each frequency sequentially, wrap back if nt_chunk > v1_chunk
@@ -102,9 +100,8 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         # Write a file every now and then (for now, after at least 64 bins are produced)
         if len(self.v2) >= self.nfreq*64:
             self._write()
-
-
-    def end_substream(self):
+                 
+    def _end_pipeline(self, json_output):
         """Write any remaining data"""
         if len(self.v2) > 0:
             # We need to remove the extra time that was calculated
@@ -113,14 +110,14 @@ class variance_estimator(rf_pipelines.py_wi_transform):
             self._write()
         self.f.close()
 
-
+                 
     def _v1(self, i, w):
         """Calculate weighted variance"""
         if np.count_nonzero(w) < self.v1_chunk * 0.25:
             return 0
         return np.average(i**2, weights=w) 
     
-
+                 
     def _write(self):
         """Writes a .h5 file"""
         # Reshape self.v2
@@ -137,3 +134,22 @@ class variance_estimator(rf_pipelines.py_wi_transform):
         # Clear self.v2 and self.t
         self.v2 = []
         self.t = []
+
+
+    def jsonize(self):
+        return { 'class_name': 'variance_estimator',
+                 'var_filename': self.var_filename,
+                 'v1_chunk': self.v1_chunk,
+                 'v2_chunk': self.v2_chunk,
+                 'nt_chunk': self.nt_chunk }
+
+
+    @staticmethod
+    def from_json(j):
+        return variance_estimator(var_filename = j['var_filename'],
+                                  v1_chunk = j['v1_chunk'],
+                                  v2_chunk = j['v2_chunk'],
+                                  nt_chunk = j['nt_chunk'])
+
+
+pipeline_object.register_json_constructor('variance_estimator', variance_estimator.from_json)

@@ -1,5 +1,5 @@
-#include <rf_kernels/intensity_clipper.hpp>
 #include <rf_kernels/mean_rms.hpp>
+#include <rf_kernels/intensity_clipper.hpp>
 
 #include "rf_pipelines_internals.hpp"
 
@@ -30,7 +30,8 @@ struct intensity_clipper_transform : public wi_transform
 
     
     intensity_clipper_transform(int Df_, int Dt_, rf_kernels::axis_type axis_, int nt_chunk_, double sigma_, int niter_, double iter_sigma_, bool two_pass_)
-	: Df(Df_),
+	: wi_transform("intensity_clipper", nt_chunk_),
+	  Df(Df_),
 	  Dt(Dt_),
 	  axis(axis_),
 	  niter(niter_),
@@ -39,41 +40,79 @@ struct intensity_clipper_transform : public wi_transform
 	  two_pass(two_pass_)
     {
 	stringstream ss;
-        ss << "intensity_clipper_cpp(nt_chunk=" << nt_chunk_ << ", axis=" << axis 
+        ss << "intensity_clipper(nt_chunk=" << nt_chunk_ << ", axis=" << axis 
 	   << ", sigma=" << sigma << ", niter=" << niter << ", iter_sigma=" << iter_sigma 
 	   << ", Df=" << Df << ", Dt=" << Dt << ", two_pass=" << two_pass << ")";
 
 	this->name = ss.str();
-	this->nt_chunk = nt_chunk_;
-	this->nt_prepad = 0;
-	this->nt_postpad = 0;
+	
+	if ((nt_chunk == 0) && (axis != rf_kernels::AXIS_FREQ))
+	    throw runtime_error("rf_pipelines::intensity_clipper: nt_chunk must be specified (unless axis=AXIS_FREQ)");
 
-	// Can't construct the kernel yet, since 'nfreq' is not known until set_stream()
+	// Can't construct the kernel yet, since 'nfreq' and 'nds' are not known until bind().
 	// However, for argument checking purposes, we construct a dummy kernel with Df=nfreq.
-	// FIXME eventaully there will be a constructor argument 'allocate=false' that will make sense here.
+	// FIXME eventually there will be a constructor argument 'allocate=false' that will make sense here.
+	
 	rf_kernels::intensity_clipper dummy(Df, nt_chunk, axis, sigma, Df, Dt, niter, iter_sigma, two_pass);
     }
 
     virtual ~intensity_clipper_transform() { }
 
-    virtual void set_stream(const wi_stream &stream) override
+    // Called after (nfreq, nds) are initialized.
+    virtual void _bind_transform(Json::Value &json_data) override
     {
-	if (stream.nfreq % Df)
-	    throw runtime_error("rf_pipelines::intensity_clipper: stream nfreq (=" + to_string(stream.nfreq) 
+	if (nfreq % Df)
+	    throw runtime_error("rf_pipelines::intensity_clipper: nfreq (=" + to_string(nfreq) 
 				+ ") is not divisible by frequency downsampling factor Df=" + to_string(Df));
 
-	this->nfreq = stream.nfreq;
-	this->kernel = make_unique<rf_kernels::intensity_clipper> (nfreq, nt_chunk, axis, sigma, Df, Dt, niter, iter_sigma, two_pass);
+	this->kernel = make_unique<rf_kernels::intensity_clipper> (nfreq, xdiv(nt_chunk,nds), axis, sigma, Df, Dt, niter, iter_sigma, two_pass);
     }
 
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
     {
-	this->kernel->clip(intensity, weights, stride);
+	this->kernel->clip(intensity, istride, weights, wstride);
     }
 
-    virtual void start_substream(int isubstream, double t0) override { }
-    virtual void end_substream() override { }
+    virtual Json::Value jsonize() const override
+    {
+	Json::Value ret;
+
+	ret["class_name"] = "intensity_clipper";
+	ret["Df"] = Df;
+	ret["Dt"] = Dt;
+	ret["axis"] = rf_kernels::axis_type_to_string(axis);
+	ret["nt_chunk"] = int(this->get_orig_nt_chunk());
+	ret["sigma"] = sigma;
+	ret["niter"] = niter;
+	ret["iter_sigma"] = iter_sigma;
+	ret["two_pass"] = two_pass;
+
+	return ret;
+    }
+
+    static shared_ptr<intensity_clipper_transform> from_json(const Json::Value &j)
+    {
+	int Df = int_from_json(j, "Df");
+	int Dt = int_from_json(j, "Dt");
+	int niter = int_from_json(j, "niter");
+	int nt_chunk = int_from_json(j, "nt_chunk");
+	bool two_pass = bool_from_json(j, "two_pass");
+	double sigma = double_from_json(j, "sigma");
+	double iter_sigma = double_from_json(j, "iter_sigma");
+	rf_kernels::axis_type axis = axis_type_from_json(j, "axis");
+
+	return make_shared<intensity_clipper_transform> (Df, Dt, axis, nt_chunk, sigma, niter, iter_sigma, two_pass);
+    }
 };
+
+
+namespace {
+    struct _init {
+	_init() {
+	    pipeline_object::register_json_constructor("intensity_clipper", intensity_clipper_transform::from_json);
+	}
+    } init;
+}
 
 
 // -------------------------------------------------------------------------------------------------
@@ -83,25 +122,6 @@ struct intensity_clipper_transform : public wi_transform
 shared_ptr<wi_transform> make_intensity_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, int niter, double iter_sigma, int Df, int Dt, bool two_pass)
 {
     return make_shared<intensity_clipper_transform> (Df, Dt, axis, nt_chunk, sigma, niter, iter_sigma, two_pass);
-}
-
-
-// Externally visible
-void apply_intensity_clipper(const float *intensity, float *weights, int nfreq, int nt, int stride, rf_kernels::axis_type axis, double sigma, int niter, double iter_sigma, int Df, int Dt, bool two_pass)
-{
-    rf_kernels::intensity_clipper ic(nfreq, nt, axis, sigma, Df, Dt, niter, iter_sigma, two_pass);
-    ic.clip(intensity, weights, stride);
-}
-
-
-// Externally visible
-void weighted_mean_and_rms(float &mean, float &rms, const float *intensity, const float *weights, int nfreq, int nt, int stride, int niter, double sigma, bool two_pass)
-{
-    rf_kernels::weighted_mean_rms w(nfreq, nt, rf_kernels::AXIS_NONE, 1, 1, niter, sigma, two_pass);
-    w.compute_wrms(intensity, weights, stride);
-
-    mean = w.out_mean[0];
-    rms = w.out_rms[0];
 }
 
 

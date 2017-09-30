@@ -9,125 +9,128 @@ namespace rf_pipelines {
 #endif
 
 
-// This is a simple stream which outputs an independent Gaussian random number
-// for every (frequency, time) pair.  This code is also intended to be a reference 
-// for implementing new wi_streams!
-
-
 class gaussian_noise_stream : public wi_stream
 {
 protected:
-    ssize_t nt_tot;
-    double sample_rms;
-    bool randomize_weights;
+    const ssize_t nt_tot;
+    const double freq_lo_MHz;
+    const double freq_hi_MHz;
+    const double dt_sample;
+    const double sample_rms;
+    const bool randomize_weights;
+
+    std::mt19937 rng;
+    std::normal_distribution<float> gdist;
 
 public:
-    //
-    // The subclass constructor should initialize the following members,
-    // which are inherited from the wi_stream base class:
-    //
-    //   nfreq            Number of frequency channels
-    //   freq_lo_MHz      Lowest frequency in band (e.g. 400 for CHIME)
-    //   freq_hi_MHz      Highest frequency in band (e.g. 800 for CHIME)
-    //   dt_sample        Length of a time sample in seconds
-    //   nt_maxwrite      Stream block size (=max number of time samples per call to setup_write())
-    //
-    // As an alternative to initializing these fields in the constructor, another possibility is to
-    // define the function wi_stream::stream_start (overriding an empty virtual function in the base
-    // class) and initialize them there.  This function gets called when the stream starts running.
-    //
-    // An example where stream_start() is useful is a network stream, where the value of dt_sample (say)
-    // may not be known until the stream actually receives packets.  By deferring initialization of dt_sample 
-    // to start_stream(), the constructor can return immediately (start_stream() would need to block until
-    // the first packet is received but that's OK).
-    //
-    gaussian_noise_stream(ssize_t nfreq_, ssize_t nt_tot_, double freq_lo_MHz_, double freq_hi_MHz_, double dt_sample_, double sample_rms_, ssize_t nt_chunk, bool randomize_weights_)
+    gaussian_noise_stream(ssize_t nfreq_, ssize_t nt_tot_, double freq_lo_MHz_, double freq_hi_MHz_, double dt_sample_, double sample_rms_, ssize_t nt_chunk_, bool randomize_weights_) :
+	wi_stream("gaussian_noise_stream", nfreq_, nt_chunk_),
+	nt_tot(nt_tot_),
+	freq_lo_MHz(freq_lo_MHz_),
+	freq_hi_MHz(freq_hi_MHz_),
+	dt_sample(dt_sample_),
+	sample_rms(sample_rms_),
+	randomize_weights(randomize_weights_),
+	rng(std::random_device{}()),
+	gdist(0, sample_rms_)
     {
-	if (nt_chunk == 0)
-	    nt_chunk = 1024;   // default
-	
-	this->nfreq = nfreq_;
-	this->freq_lo_MHz = freq_lo_MHz_;
-	this->freq_hi_MHz = freq_hi_MHz_;
-	this->dt_sample = dt_sample_;
-	this->nt_maxwrite = nt_chunk;
-	this->sample_rms = sample_rms_;
-	this->randomize_weights = randomize_weights_;
-	this->nt_tot = nt_tot_;
-
-	// Some sanity checking of arguments.
-	// A detail: we don't sanity check the base class members { nfreq, ..., nt_maxwrite } since
-	// they're automatically sanity-checked elsewhere.
-
-	rf_assert(sample_rms >= 0.0);
+	// Sanity-checking.
+	rf_assert(nfreq > 0);
 	rf_assert(nt_tot > 0);
+	rf_assert(freq_lo_MHz > 0.0);
+	rf_assert(freq_lo_MHz < freq_hi_MHz);
+	rf_assert(dt_sample > 0.0);
+	rf_assert(sample_rms >= 0.0);
+	rf_assert(nt_chunk >= 0);
+
+	// Default nt_chunk
+	if (nt_chunk == 0)
+	    nt_chunk = 1024;
+
+	// Improved RNG seeding.
+	rng.discard(700000);
     }
 
     virtual ~gaussian_noise_stream() { }
 
-    //
-    // This overrides the pure virtual function wi_stream::stream_body() and defines the stream.
-    // For a high-level overview, see comments in rf_pipelines.hpp (in class wi_stream).
-    // The 'run_state' argument contains ring buffers which the stream will write data into.
-    //
-    virtual void stream_body(wi_run_state &run_state) override
+    virtual void _bind_stream(Json::Value &json_data) override
     {
-	std::random_device rd;
-	std::mt19937 rng(rd());
-	std::normal_distribution<float> dist(0, sample_rms);
+	json_data["freq_lo_MHz"] = this->freq_lo_MHz;
+	json_data["freq_hi_MHz"] = this->freq_hi_MHz;
+	json_data["dt_sample"] = this->dt_sample;
+    }
 
-	// In general a stream can be composed of multiple "substreams" (see rf_pipelines.hpp).
-	// Here we put everything into a single stream, with nominal starting time t=0.
-	run_state.start_substream(0.0);
-	
-	// Current position in stream (such that 0 <= it0 < nt_tot, where nt_tot is the stream length)
-	ssize_t it0 = 0;
+    virtual bool _fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
+    {
+	// Number of Gaussian random samples to be written.
+	ssize_t nt = min(nt_chunk, nt_tot-pos);
 
-	while (it0 < nt_tot) {
-	    // Number of samples to write in this block
-	    ssize_t nt = min(nt_maxwrite, nt_tot-it0);
-	    
-	    // Call wi_run_state::setup_write() to reserve space in the ring buffers.
-	    // For details, see comments in rf_pipelines.hpp (in class wi_run_state).
-	    float *intensity;
-	    float *weights;
-	    ssize_t stride;
-	    bool zero_flag = false;   // no need to zero buffers, since we'll overwrite them shortly
-	    run_state.setup_write(nt, intensity, weights, stride, zero_flag);
-
-	    // After setup_write() returns, the 'intensity' and 'weights' pointers point to memory
-	    // regions in the ring buffers.  These are logical 2D arrays of shape (nfreq,nt), laid
-	    // out in memory so that time samples are adjacent, but frequencies are separated by
-	    // offset 'stride'.  Therefore, the memory location of the intensity array element with
-	    // (frequency,time) indices (ifreq,it) is intensity[ifreq*stride+it], and similarly for
-	    // the weights.
-
-	    // Fill the intensity array with Gaussian random numbers, and initialize the weights to 1.
-	    for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++) {
-		for (ssize_t it = 0; it < nt; it++) {
-		    intensity[ifreq*stride + it] = dist(rng);
-		    weights[ifreq*stride + it] = randomize_weights ? std::uniform_real_distribution<>()(rng) : 1.0;
-		}
+	// Fill the intensity array with Gaussian random numbers, and initialize the weights to 1.
+	for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++) {
+	    for (ssize_t it = 0; it < nt; it++) {
+		intensity[ifreq*istride + it] = gdist(rng);
+		weights[ifreq*wstride + it] = randomize_weights ? std::uniform_real_distribution<>()(rng) : 1.0;
 	    }
+	}
+	
+	if (nt == nt_chunk)
+	    return true;
 
-	    // Call wi_run_state::finalize_write() after filling the arrays, to advance the ring buffers.
-	    // After finalize_write() returns, the intensity and weights pointers are no longer valid.
-	    run_state.finalize_write(nt);
-
-	    it0 += nt;
+	for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++) {
+	    memset(intensity + ifreq*istride + nt, 0, (nt_chunk-nt) * sizeof(float));
+	    memset(weights + ifreq*wstride + nt, 0, (nt_chunk-nt) * sizeof(float));
 	}
 
-	run_state.end_substream();
+	return false;
+    }
+
+    virtual Json::Value jsonize() const override
+    {
+	Json::Value ret;
+
+	ret["class_name"] = "gaussian_noise_stream";
+	ret["nfreq"] = Json::Int64(nfreq);
+	ret["nt_tot"] = Json::Int64(nt_tot);
+	ret["freq_lo_MHz"] = freq_lo_MHz;
+	ret["freq_hi_MHz"] = freq_hi_MHz;
+	ret["dt_sample"] = dt_sample;
+	ret["sample_rms"] = sample_rms;
+	ret["nt_chunk"] = Json::Int64(this->get_orig_nt_chunk());
+	ret["randomize_weights"] = randomize_weights;
+
+	return ret;
+    }
+
+    static shared_ptr<gaussian_noise_stream> from_json(const Json::Value &j)
+    {
+	ssize_t nfreq = int_from_json(j, "nfreq");
+	ssize_t nt_tot = int_from_json(j, "nt_tot");
+	double freq_lo_MHz = double_from_json(j, "freq_lo_MHz");
+	double freq_hi_MHz = double_from_json(j, "freq_hi_MHz");
+	double dt_sample = double_from_json(j, "dt_sample");
+	double sample_rms = double_from_json(j, "sample_rms");
+	ssize_t nt_chunk = int_from_json(j, "nt_chunk");
+	bool randomize_weights = bool_from_json(j, "randomize_weights");
+
+	return make_shared<gaussian_noise_stream> (nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms, nt_chunk, randomize_weights);
     }
 };
 
 
-//
+namespace {
+    struct _init {
+	_init() {
+	    pipeline_object::register_json_constructor("gaussian_noise_stream", gaussian_noise_stream::from_json);
+	}
+    } init;
+}
+
+
 // Factory function which returns a shared pointer to the wi_stream.  (Using a factory function
 // means that details of the base class 'gaussian_noise_stream' and others can be hidden in this 
 // source file to avoid overpopulating rf_pipelines.hpp with definitions of many classes, but
 // this is just a preference!)
-//
+
 shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssize_t nt_tot, double freq_lo_MHz, double freq_hi_MHz, double dt_sample, double sample_rms, ssize_t nt_chunk, bool randomize_weights)
 {
     return make_shared<gaussian_noise_stream> (nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms, nt_chunk, randomize_weights);

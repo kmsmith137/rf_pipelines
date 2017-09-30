@@ -15,43 +15,47 @@ struct polynomial_detrender : public wi_transform
     const double epsilon;
 
     polynomial_detrender(rf_kernels::axis_type axis, int nt_chunk_, int polydeg, double epsilon_) :
+	wi_transform("polynomial_detrender", nt_chunk_),
 	kernel(axis, polydeg),
 	epsilon(epsilon_)
     {
 	stringstream ss;
-        ss << "polynomial_detrender_cpp(nt_chunk=" << nt_chunk_ << ", axis=" << axis << ", polydeg=" << polydeg << ", epsilon=" << epsilon_ << ")";
-
+        ss << "polynomial_detrender(nt_chunk=" << nt_chunk_ << ", axis=" << axis << ", polydeg=" << polydeg << ", epsilon=" << epsilon_ << ")";
 	this->name = ss.str();
-	this->nt_chunk = nt_chunk_;
-	this->nt_prepad = 0;
-	this->nt_postpad = 0;
+	
+	if ((nt_chunk == 0) && (axis != rf_kernels::AXIS_FREQ))
+	    throw runtime_error("rf_pipelines::polynomial_detrender: nt_chunk must be specified (unless axis=AXIS_FREQ)");
     }
-    
-    virtual void set_stream(const wi_stream &stream) override
+
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
     {
-	this->nfreq = stream.nfreq;
+	this->kernel.detrend(nfreq, nt_chunk, intensity, istride, weights, wstride, epsilon);
     }
 
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
-    {
-	this->kernel.detrend(nfreq, nt_chunk, intensity, weights, stride, epsilon);
-    }
-
-    virtual void start_substream(int isubstream, double t0) override { }
-    virtual void end_substream() override { }
-
-
-    virtual Json::Value serialize_to_json() const override
+    virtual Json::Value jsonize() const override
     {
 	Json::Value ret;
 
-	ret["transform_name"] = "polynomial_detrender";
-	ret["nt_chunk"] = int(this->nt_chunk);
+	ret["class_name"] = "polynomial_detrender";
+	ret["nt_chunk"] = int(this->get_orig_nt_chunk());
 	ret["axis"] = rf_kernels::axis_type_to_string(this->kernel.axis);
 	ret["polydeg"] = this->kernel.polydeg;
 	ret["epsilon"] = this->epsilon;
 
 	return ret;
+    }
+
+    static shared_ptr<polynomial_detrender> from_json(const Json::Value &x)
+    {
+	if (string_from_json(x,"class_name") != "polynomial_detrender")
+	    throw runtime_error("rf_pipelines: expected class_name=\"pipeline\" in pipeline json constructor");
+
+	rf_kernels::axis_type axis = axis_type_from_json(x, "axis");
+	int nt_chunk = int_from_json(x, "nt_chunk");
+	double polydeg = double_from_json(x, "polydeg");
+	double epsilon = double_from_json(x, "epsilon");
+	
+	return make_shared<polynomial_detrender> (axis, nt_chunk, polydeg, epsilon);
     }
 };
 
@@ -63,10 +67,12 @@ shared_ptr<wi_transform> make_polynomial_detrender(int nt_chunk, rf_kernels::axi
 }
 
 
-void apply_polynomial_detrender(float *intensity, float *weights, int nfreq, int nt, int stride, rf_kernels::axis_type axis, int polydeg, double epsilon)
-{
-    rf_kernels::polynomial_detrender kernel(axis, polydeg);
-    kernel.detrend(nfreq, nt, intensity, weights, stride, epsilon);
+namespace {
+    struct _init {
+	_init() {
+	    pipeline_object::register_json_constructor("polynomial_detrender", polynomial_detrender::from_json);
+	}
+    } init;
 }
 
 

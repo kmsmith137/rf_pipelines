@@ -22,14 +22,12 @@ outdir_manager::outdir_manager(const string &outdir_, bool clobber_ok_) :
 	outdir = outdir + "/";
 
     makedirs(outdir);
-	
-    if (clobber_ok)
-	return;
 
-    for (const string &s: listdir(outdir)) {
-	if (is_json_basename(s))
-	    throw runtime_error("Directory \"" + outdir + "\" contains stray files of the form rf_pipeline_NN.json, and 'clobber' flag wasn't set");
-    }
+    // By convention, the toplevel pipeline json file is named 'rf_pipeline_0.json'.
+    string toplevel_filename = outdir + "rf_pipeline_0.json";
+    
+    if (!clobber_ok && file_exists(toplevel_filename))
+	throw runtime_error("Directory \"" + outdir + "\" contains rf_pipeline_0.json, and 'clobber' flag wasn't set");
 }
 
 
@@ -39,57 +37,15 @@ string outdir_manager::add_file(const string &basename)
     if (outdir.size() == 0)
 	throw runtime_error("rf_pipelines: transform attempted to write output file, but outdir=None was specified in the stream constructor");
 
-    bool is_new = basename_set.insert(basename).second;
+    // The return value of unordered_set::insert() is a std::pair whose 
+    // second element is 'true' if the inserted value doesn't already exist.
+    bool is_new = basenames.insert(basename).second;
     string ret = outdir + basename;
 
     if (!is_new)
 	throw runtime_error("rf_pipelines: output file '" + ret + "' was written twice in same pipeline run");
 
     return ret;
-}
-
-
-void outdir_manager::write_per_substream_json_file(int isubstream, const Json::Value &data, int verbosity)
-{
-    if (isubstream < 0)
-	throw runtime_error("outdir_manager::write_json_file(): 'isubstream' arg was negative");
-
-    stringstream ss;
-    ss << this->outdir << "rf_pipeline_" << isubstream << ".json";
-
-    string filename = ss.str();
-    ofstream f(filename);
-
-    if (f.fail())
-	throw runtime_error("couldn't open output file " + filename);
-
-    Json::StyledWriter w;
-    f << w.write(data);
-
-    if (verbosity >= 2)
-	cerr << ("wrote " + filename + "\n") << endl;
-}
-
-
-// Static member function
-bool outdir_manager::is_json_basename(const string &basename)
-{
-    if (!startswith(basename, "rf_pipeline_"))
-	return false;
-    if (!endswith(basename, ".json"))
-	return false;
-    
-    const char *s = basename.c_str();
-    int len = strlen(s);
-    
-    if (len <= 14)
-	return false;
-    
-    for (int i = 9; i < len-5; i++)
-	if (!isdigit(s[i]))
-	    return false;
-
-    return true;
 }
     
 

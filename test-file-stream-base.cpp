@@ -1,6 +1,4 @@
-#include <random>
 #include "rf_pipelines_internals.hpp"
-#include "chime_file_stream_base.hpp"
 
 using namespace std;
 using namespace rf_pipelines;
@@ -48,7 +46,7 @@ protected:
     virtual void load_file(const std::string &filename) override;
     virtual void set_params_from_file() override;
     virtual void check_file_consistency() const override;
-    virtual void read_data(float *dst_int, float *dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride) const override;
+    virtual void read_data(float *dst_int, float *dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_istride, ssize_t dst_wstride) const override;
     virtual void close_file() override;
 };
 
@@ -71,7 +69,7 @@ shared_ptr<test_stream> test_stream::make_random(std::mt19937 &rng)
 
 
 test_stream::test_stream(std::mt19937 &rng, const vector<string> &filename_list_, int nt_chunk_, int noise_source_align_, int nsamples_per_noise_source_switch_, int it_initial_) :
-    chime_file_stream_base(filename_list_, nt_chunk_, noise_source_align_)
+    chime_file_stream_base("test_stream", filename_list_, nt_chunk_, noise_source_align_)
 {
     this->_nfiles = filename_list_.size();
     this->_curr_ifile = -1;
@@ -88,7 +86,7 @@ test_stream::test_stream(std::mt19937 &rng, const vector<string> &filename_list_
     int f = 0;
     do {
 	this->_file_it[0] = _it0;
-	this->_file_nt[0] = randint(rng, f, f+10);
+	this->_file_nt[0] = f + randint(rng,0,10);  // randint(rng,f,f+10) gives spurious gcc5 warning!
 	
 	for (int i = 1; i < _nfiles; i++) {
 	    this->_file_it[i] = _file_it[i-1] + _file_nt[i-1] + randint(rng,0,11);
@@ -103,7 +101,7 @@ test_stream::test_stream(std::mt19937 &rng, const vector<string> &filename_list_
     this->_nfreq = randint(rng, 1, 11);
     this->_freq_lo_MHz = uniform_rand(rng, 200.0, 600.0);
     this->_freq_hi_MHz = uniform_rand(rng, 600.0, 1000.0);
-    this->_dt_sample = (1 << 23) * constants::chime_seconds_per_fpga_count / double(nsamples_per_noise_source_switch_);
+    this->_dt_sample = (1 << 23) * chime_seconds_per_fpga_count / double(nsamples_per_noise_source_switch_);
 }
 
 
@@ -145,7 +143,7 @@ void test_stream::set_params_from_file()
     this->dt_sample = _dt_sample;
     this->time_lo = _dt_sample * (_file_it[_curr_ifile]);
     this->time_hi = _dt_sample * (_file_it[_curr_ifile] + _file_nt[_curr_ifile]);
-    this->nt = _file_nt[_curr_ifile];
+    this->nt_file = _file_nt[_curr_ifile];
     this->frequencies_are_increasing = _file_freq_inc[_curr_ifile];
 }
 
@@ -159,7 +157,7 @@ void test_stream::check_file_consistency() const
 }
 
 // virtual override
-void test_stream::read_data(float *dst_int, float *dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride) const
+void test_stream::read_data(float *dst_int, float *dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_istride, ssize_t dst_wstride) const
 {
     rf_assert(dst_int != nullptr);
     rf_assert(dst_wt != nullptr);
@@ -175,8 +173,8 @@ void test_stream::read_data(float *dst_int, float *dst_wt, ssize_t it_file, ssiz
 	    int ifreq = _file_freq_inc[_curr_ifile] ? (_nfreq-1-i) : i;
 	    int it = _file_it[_curr_ifile] + it_file + j;
 
-	    dst_int[i*dst_stride + j] = _intensity(ifreq, it);
-	    dst_wt[i*dst_stride + j] = _weight(ifreq, it);
+	    dst_int[i*dst_istride + j] = _intensity(ifreq, it);
+	    dst_wt[i*dst_wstride + j] = _weight(ifreq, it);
 	}
     }
 }
@@ -193,70 +191,40 @@ struct test_transform : public wi_transform {
 
     test_transform(std::mt19937 &rng, const shared_ptr<test_stream> &s_);
 
-    virtual void set_stream(const wi_stream &stream) override;
-    virtual void start_substream(int isubstream, double t0) override;
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override;
-    virtual void end_substream() override;
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
 };
 
 
-test_transform::test_transform(std::mt19937 &rng, const shared_ptr<test_stream> &s_)
+test_transform::test_transform(std::mt19937 &rng, const shared_ptr<test_stream> &s_) :
+    wi_transform("test_transform")
 {
     this->s = s_;
     this->nt_chunk = randint(rng, 1, 11);
-    this->name = "test_transform";
 
     int n = s->_noise_source_align;
     this->it_curr = (n > 0) ? round_up(s->_it0,n) : s->_it0;
 }
 
-// virtual override
-void test_transform::set_stream(const wi_stream &stream)
+
+// Virtual override
+void test_transform::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
 {
-    rf_assert(stream.nfreq == s->_nfreq);
-    rf_assert(stream.freq_lo_MHz == s->_freq_lo_MHz);
-    rf_assert(stream.freq_hi_MHz == s->_freq_hi_MHz);
-    rf_assert(stream.dt_sample == s->_dt_sample);
-
-    this->nfreq = stream.nfreq;
-}
-
-// virtual override
-void test_transform::start_substream(int isubstream, double t0)
-{
-    double expected_t0 = s->_dt_sample * it_curr;
-    rf_assert(fabs(t0 - expected_t0) < 1.0e-3);
-}
-
-// virtual override
-void test_transform::process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
-{
-    double expected_t0 = s->_dt_sample * it_curr;
-    double expected_t1 = s->_dt_sample * (it_curr + nt_chunk);
-
-    rf_assert(fabs(t0 - expected_t0) < 1.0e-3);
-    rf_assert(fabs(t1 - expected_t1) < 1.0e-3);
-
+    rf_assert(this->nfreq == s->_nfreq);
+    
     for (int j = 0; j < nt_chunk; j++) {
 	if (s->is_masked(it_curr+j)) {
 	    for (int i = 0; i < nfreq; i++)
-		rf_assert(weights[i*stride+j] == 0.0);
+		rf_assert(weights[i*wstride+j] == 0.0);
 	}
 	else {
 	    for (int i = 0; i < nfreq; i++) {
-		rf_assert(intensity[i*stride+j] == test_stream::_intensity(i,it_curr+j));
-		rf_assert(weights[i*stride+j] == test_stream::_weight(i,it_curr+j));
+		rf_assert(intensity[i*istride+j] == test_stream::_intensity(i,it_curr+j));
+		rf_assert(weights[i*wstride+j] == test_stream::_weight(i,it_curr+j));
 	    }
 	}
     }
 
     this->it_curr += nt_chunk;
-}
-
-// virtual override
-void test_transform::end_substream()
-{
-    rf_assert(this->it_curr >= s->_it1);
 }
 
 
@@ -277,8 +245,12 @@ int main(int argc, char **argv)
 	shared_ptr<test_stream> sp = test_stream::make_random(rng);
 	shared_ptr<test_transform> tp = make_shared<test_transform> (rng, sp);
 
-	// run pipeline with no outputs
-	sp->run({tp}, "", nullptr, 0);
+	// run two-element pipeline with no outputs
+	vector<shared_ptr<pipeline_object>> v = { sp, tp };
+	auto p = make_shared<pipeline> (v, "test_pipeline");
+	p->run("", 0);   // (outdir, verbosity) = ("", 0)
+
+	rf_assert(tp->it_curr >= sp->_it1);
     }
 
     cerr << "pass\n";

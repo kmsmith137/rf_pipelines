@@ -43,37 +43,39 @@ struct chime_file_writer : public wi_transform {
     std::vector<float> weights_contig_buf;
 
 
-    chime_file_writer(const string &filename_, bool clobber_, int bitshuffle_, ssize_t nt_chunk_)
-	: filename(filename_), clobber(clobber_), bitshuffle(bitshuffle_)
-    {
-	if (nt_chunk_ == 0)
-	    nt_chunk_ = 128;  // default value
-	
-	// Initialization of nfreq postponed to set_stream()
-	this->nt_chunk = nt_chunk_;
-	this->nt_prepad = 0;
-	this->nt_postpad = 0;
-    }
-    
-    virtual ~chime_file_writer() { }
-
-    virtual void set_stream(const wi_stream &stream) override
+    chime_file_writer(const string &filename_, bool clobber_, int bitshuffle_, ssize_t nt_chunk_) :
+	wi_transform("chime_file_writer", nt_chunk_),
+	filename(filename_),
+	clobber(clobber_), 
+	bitshuffle(bitshuffle_)
     {
 	this->name = "chime_file_writer(" + filename + ")";
-	this->nfreq = stream.nfreq;
-	this->freq_lo_MHz = stream.freq_lo_MHz;
-	this->freq_hi_MHz = stream.freq_hi_MHz;
-	this->dt_sample = stream.dt_sample;
+
+	// Default nt_chunk.
+	if (nt_chunk == 0)
+	    nt_chunk = 128;
+    }
+
+    
+    virtual void _bind_transform(Json::Value &json_data) override
+    {
+	if (!json_data.isMember("freq_lo_MHz") || !json_data.isMember("freq_hi_MHz"))
+	    throw runtime_error("chime_file_writer: expected json_data to contain members 'freq_lo_MHz' and 'freq_hi_MHz'");
+	
+	if (!json_data.isMember("dt_sample"))
+	    throw runtime_error("chime_file_writer: expected json_data to contain member 'dt_sample'");
+
+	this->freq_lo_MHz = json_data["freq_lo_MHz"].asDouble();
+	this->freq_hi_MHz = json_data["freq_hi_MHz"].asDouble();
+	this->dt_sample = json_data["dt_sample"].asDouble();
 
 	this->intensity_contig_buf.resize(nfreq * nt_chunk);
 	this->weights_contig_buf.resize(nfreq * nt_chunk);
     }
 
-    virtual void start_substream(int isubstream, double t0) override
-    {
-	if (isubstream > 0)
-	    throw runtime_error("rf_pipelines: multiple substreams are not currently supported in class chime_file_writer");
 
+    virtual void _start_pipeline(Json::Value &j) override
+    {
 	if (!clobber && file_exists(filename))
 	    throw runtime_error(filename + ": file already exists and clobber=false was specified in the the chime_file_writer constructor");
 
@@ -81,28 +83,58 @@ struct chime_file_writer : public wi_transform {
 	vector<string> pol = { "XX" };
 
 	// Note swapped ordering of freq_hi_MHz and freq_lo_MHz.  This is because rf_pipelines always orders frequency channels from highest to lowest.
-	this->ofile = make_unique<ch_frb_io::intensity_hdf5_ofile> (filename, nfreq, pol, freq_hi_MHz, freq_lo_MHz, dt_sample, 0, t0, bitshuffle, nt_chunk);
+	this->ofile = make_unique<ch_frb_io::intensity_hdf5_ofile> (filename, nfreq, pol, freq_hi_MHz, freq_lo_MHz, dt_sample, 0, 0, bitshuffle, nt_chunk);
 	this->ichunk = 0;
     }
 
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
+
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
     {
 	// Repack to contiguous arrays
 	for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-	    memcpy(&intensity_contig_buf[0] + ifreq*nt_chunk, intensity + ifreq*stride, nt_chunk * sizeof(float));
-	    memcpy(&weights_contig_buf[0] + ifreq*nt_chunk, weights + ifreq*stride, nt_chunk * sizeof(float));
+	    memcpy(&intensity_contig_buf[0] + ifreq*nt_chunk, intensity + ifreq*istride, nt_chunk * sizeof(float));
+	    memcpy(&weights_contig_buf[0] + ifreq*nt_chunk, weights + ifreq*wstride, nt_chunk * sizeof(float));
 	}
 
-	this->ofile->append_chunk(nt_chunk, &intensity_contig_buf[0], &weights_contig_buf[0], ichunk * nt_chunk, t0);
+	this->ofile->append_chunk(nt_chunk, &intensity_contig_buf[0], &weights_contig_buf[0], ichunk * nt_chunk, pos * dt_sample);
 	this->ichunk++;
     }
 
-    virtual void end_substream() override
+    virtual void _end_pipeline(Json::Value &j) override
     {
 	// Resetting this pointer will close file
 	this->ofile.reset();
     }
+
+    virtual Json::Value jsonize() const override
+    {
+	Json::Value ret;
+	ret["class_name"] = "chime_file_writer";
+	ret["filename"] = filename;
+	ret["clobber"] = clobber;
+	ret["bitshuffle"] = bitshuffle;
+	ret["nt_chunk"] = int(nt_chunk);
+	return ret;
+    }
+
+    static shared_ptr<chime_file_writer> from_json(const Json::Value &j)
+    {
+	string filename = string_from_json(j, "filename");
+	bool clobber = bool_from_json(j, "clobber");
+	int bitshuffle = int_from_json(j, "bitshuffle");
+	int nt_chunk = int_from_json(j, "nt_chunk");
+	return make_shared<chime_file_writer> (filename, clobber, bitshuffle, nt_chunk);
+    }
 };
+
+
+namespace {
+    struct _init {
+	_init() {
+	    pipeline_object::register_json_constructor("chime_file_writer", chime_file_writer::from_json);
+	}
+    } init;
+}
 
 
 // See rf_pipelines.hpp for an explanation of the arguments
@@ -115,4 +147,3 @@ shared_ptr<wi_transform> make_chime_file_writer(const string &filename, bool clo
 
 
 }  // namespace rf_pipelines
-

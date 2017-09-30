@@ -10,27 +10,26 @@ namespace rf_pipelines {
 
 
 struct badchannel_mask : public wi_transform {
-    // Note: inherits { nfreq, nt_chunk, nt_prepad, nt_postpad } from base class wi_transform
+    // Note: inherits { nfreq, nt_chunk, nfreq, nds } from base class wi_transform.
 
+    string maskpath;
     vector<double> m_bad_channels; // holds the bad frequencies, as specified from the input file
     vector<int> m_bad_indices;     // holds the final bad indices to be used to mask the weights array
     int m_len_indices;             // the size of bad_indices vector
    
-    badchannel_mask(const string &maskpath, int nt_chunk)
+    badchannel_mask(const string &maskpath_) :
+	wi_transform("badchannel_mask"),
+	maskpath(maskpath_)
     {
         stringstream ss;
-	ss << "badchannel_mask_cpp(maskpath=" << maskpath << ", nt_chunk=" << nt_chunk << ")";
+	ss << "badchannel_mask(maskpath=" << maskpath << ")";
         this->name = ss.str();
-	this->nt_prepad = 0;
-	this->nt_postpad = 0;
-	this->nt_chunk = nt_chunk;
-	
-	rf_assert(nt_chunk > 0);
 
         // Extract the channels to be removed into m_bad_channels
 	get_bad_channels(maskpath, m_bad_channels);
     }
 
+    // Helper function called by constructor.
     void get_bad_channels(const string &maskpath, vector<double> &bad_channels)
     {
         ifstream inf(maskpath);
@@ -61,13 +60,14 @@ struct badchannel_mask : public wi_transform {
 	    throw runtime_error("badchannel_mask: couldn't open file at the maskpath given!");
     }
 
-    // As explaned in rf_pipelines.hpp, the following four virtual functions in the base class
-    // must be overridden, in order to define the badchannel_mask subclass.
-    virtual void set_stream(const wi_stream &stream) override
+    // Called after 'nfreq' is initialized.
+    virtual void _bind_transform(Json::Value &json_data) override
     {
-        this->nfreq = stream.nfreq;
-	double freq_lo_MHz = stream.freq_lo_MHz;
-	double freq_hi_MHz = stream.freq_hi_MHz;
+	if (!json_data.isMember("freq_lo_MHz") || !json_data.isMember("freq_hi_MHz"))
+	    throw runtime_error("badchannel_mask: expected json_data to contain members 'freq_lo_MHz' and 'freq_hi_MHz'");
+
+	double freq_lo_MHz = json_data["freq_lo_MHz"].asDouble();
+	double freq_hi_MHz = json_data["freq_hi_MHz"].asDouble();
 
 	// First, make sure all intervals are within the freq
 	int vec_size = m_bad_channels.size();
@@ -109,24 +109,19 @@ struct badchannel_mask : public wi_transform {
 	// floor of the second element. Next, we convert them to integers
 	// so they can be fed as indexes into the weights array.
 	// We take the max at the end to ensure no values are below 0.
-	double scale = stream.nfreq / (freq_hi_MHz - freq_lo_MHz);
+	double scale = nfreq / (freq_hi_MHz - freq_lo_MHz);
 	double factor = scale * freq_hi_MHz;
 	m_len_indices = temp.size();
 	for (int i = 0; i < m_len_indices; ++i)
 	{
 	    if (i % 2 == 0)
-	      m_bad_indices.push_back(min(max(int(ceil(factor - temp[i]*scale)), 0), (int) stream.nfreq-1));
+	      m_bad_indices.push_back(min(max(int(ceil(factor - temp[i]*scale)), 0), (int) nfreq-1));
 	    else
-	      m_bad_indices.push_back(min(max(int(floor(factor - temp[i]*scale)), 0), (int) stream.nfreq-1));
+	      m_bad_indices.push_back(min(max(int(floor(factor - temp[i]*scale)), 0), (int) nfreq-1));
 	}
     }
 
-    virtual  void start_substream(int isubstream, double t0) override
-    {
-        // Nothing necessary here
-    }
-
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
     {
          // Loop over bad indices list
         for (int ibad_index=0; ibad_index < m_len_indices; ibad_index+=2)
@@ -136,21 +131,39 @@ struct badchannel_mask : public wi_transform {
 	    {
 	        // Set all weights in the channel to 0
 	        for (int it=0; it < nt_chunk; ++it)
-		    weights[ifreq*stride+it] = 0;
+		    weights[ifreq*wstride+it] = 0;
 	    }
         }
     }
 
-    virtual void end_substream() override
+    virtual Json::Value jsonize() const override
     {
-        // Nothing necessary here
+	Json::Value ret;
+	ret["class_name"] = "badchannel_mask";
+	ret["maskpath"] = maskpath;
+	return ret;
+    }
+
+    static shared_ptr<badchannel_mask> from_json(const Json::Value &j)
+    {
+	return make_shared<badchannel_mask> (string_from_json(j, "maskpath"));
     }
 };
 
 
-shared_ptr<wi_transform> make_badchannel_mask(const string &maskpath, int nt_chunk)
+shared_ptr<wi_transform> make_badchannel_mask(const string &maskpath)
 {
-    return make_shared<badchannel_mask> (maskpath, nt_chunk);
+    return make_shared<badchannel_mask> (maskpath);
 }
+
+
+namespace {
+    struct _init {
+	_init() {
+	    pipeline_object::register_json_constructor("badchannel_mask", badchannel_mask::from_json);
+	}
+    } init;
+}
+
 
 }  // namespace rf_pipelines

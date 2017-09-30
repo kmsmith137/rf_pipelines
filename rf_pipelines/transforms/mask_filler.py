@@ -1,9 +1,11 @@
-import rf_pipelines
 import numpy as np
 from numpy import random
 
+from rf_pipelines.rf_pipelines_c import pipeline_object, wi_transform
+from rf_pipelines.utils import Variance_Estimates
 
-class mask_filler(rf_pipelines.py_wi_transform):
+
+class mask_filler(wi_transform):
     """
     Modifies values in the intensity and weight arrays. If the weight is > w_cutoff, the weight is changed to 
     2.0 and the intensity is left unmodified. Otherwise the weight is changed to 2.0 AND the intensity 
@@ -23,19 +25,24 @@ class mask_filler(rf_pipelines.py_wi_transform):
         name = "mask_filler(var_file=%s, w_cutoff=%s, nt_chunk=%d)" % (var_file, w_cutoff, nt_chunk)
 
         # Call base class constructor
-        rf_pipelines.py_wi_transform.__init__(self, name)
+        wi_transform.__init__(self, name)
 
-        self.Variance = rf_pipelines.utils.Variance_Estimates(var_file)
+        self.Variance = Variance_Estimates(var_file)
+        self.var_file = var_file
         self.w_cutoff = w_cutoff
-        self.nt_postpad = 0
-        self.nt_prepad = 0
         self.nt_chunk = nt_chunk
         print 'mask_filler: nt_chunk should be less than or equal to v1_chunk * v2_chunk for the variance array.'
 
-    def set_stream(self, s):
-         self.nfreq = s.nfreq
 
-    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights): 
+    def _bind_transform(self, json_data):
+        if not json_attrs.has_key('t_initial'):
+            raise RuntimeError("rf_pipelines.mask_filler: pipeline must contain a chime_file_stream (or another stream which defines the 't_initial' attribute)")
+        
+        self.t_initial = json_attrs['t_initial']
+        self.dt_sample = json_attrs['dt_sample']
+
+
+    def _process_chunk(self, intensity, weights, pos):
         # ---------------------------------------------------------
         # FIXME We need to normalize weights here so that
         # w_cutoff becomes more meaningful and less data-dependant.
@@ -44,6 +51,9 @@ class mask_filler(rf_pipelines.py_wi_transform):
         #       (2) Any such changes may also need to be applied
         #           to other components (e.g. bonsai)
         # ---------------------------------------------------------
+        
+        t0 = self.t_initial + self.dt_sample * pos
+        t1 = self.t_initial + self.dt_sample * (pos + nt_chunk)
         var = self.Variance.eval((t0+t1)/2.)
         
         # 'intensity_valid' will be a 2D boolean-valued numpy array
@@ -58,3 +68,20 @@ class mask_filler(rf_pipelines.py_wi_transform):
                 weights[ifreq,:] = 2.0
 
         intensity[:,:] = np.where(intensity_valid, intensity, rand_intensity)
+
+
+    def jsonize(self):
+        return { 'class_name': 'mask_filler',
+                 'var_file': self.var_file,
+                 'w_cutoff': self.w_cutoff,
+                 'nt_chunk': self.nt_chunk }
+
+
+    @staticmethod
+    def from_json(j):
+        return mask_filler(var_file = j['var_file'],
+                           w_cutoff = j['w_cutoff'],
+                           nt_chunk = j['nt_chunk'])
+
+
+pipeline_object.register_json_constructor('mask_filler', mask_filler.from_json)

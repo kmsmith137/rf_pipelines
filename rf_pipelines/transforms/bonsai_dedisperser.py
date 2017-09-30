@@ -1,10 +1,12 @@
 import sys
 import numpy as np
-import rf_pipelines
+
+from rf_pipelines.rf_pipelines_c import pipeline_object, wi_transform
+from rf_pipelines.utils import write_png, triggers_png, upsample
+from rf_pipelines.L1b import L1Grouper
 
 
-
-class bonsai_dedisperser(rf_pipelines.py_wi_transform):
+class bonsai_dedisperser(wi_transform):
     """
     Returns a "transform" which doesn't actually modify the data, it just runs the bonsai dedisperser.
 
@@ -75,9 +77,13 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
             self.make_plot = True
 
         name = "bonsai_dedisperser('%s')" % config_filename
-        rf_pipelines.py_wi_transform.__init__(self, name)
+        wi_transform.__init__(self, name)
 
+        # Need to save all constructor arguments, for later use in jsonize()
         self.config_filename = config_filename
+        self.fill_rfi_mask = fill_rfi_mask
+        self.hdf5_output_filename = hdf5_output_filename
+        self.use_analytic_normalization = use_analytic_normalization
         self.deallocate_between_substreams = deallocate_between_substreams
         
         initially_allocated = not deallocate_between_substreams
@@ -85,26 +91,30 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         self.global_max_tracker = None
 
         if track_global_max:
+            self.global_max_tracker_dm_min = dm_min
+            self.global_max_tracker_dm_max = dm_max
             self.global_max_tracker = bonsai.global_max_tracker(dm_min, dm_max)
             self.dedisperser.add_processor(self.global_max_tracker)
 
         if hdf5_output_filename:
             t = bonsai.trigger_hdf5_file_writer(hdf5_output_filename, nt_per_hdf5_file)
             self.dedisperser.add_processor(t)
+            self.nt_per_hdf5_file = nt_per_hdf5_file
 
         # For grouper code
         self.event_outfile = event_outfile
         if self.event_outfile is not None:
-            self.grouper = rf_pipelines.L1Grouper(self.dedisperser, L1Grouper_thr, L1Grouper_beam, L1Grouper_addr)
+            self.L1Grouper_thr = L1Grouper_thr
+            self.L1Grouper_beam = L1Grouper_beam
+            self.L1Grouper_addr = L1Grouper_addr
+            self.grouper = L1Grouper(self.dedisperser, L1Grouper_thr, L1Grouper_beam, L1Grouper_addr)
             self.detected_events = []
 
-        # Note that 'nfreq' is determined by the config file.  If the stream's 'nfreq' differs,
-        # then an exception will be thrown.  The 'nt_chunk' parameter is also determined by the
-        # config file, not a constructor argument.
-        self.nfreq = self.dedisperser.nfreq
+        # The 'nt_chunk' parameter is also determined by the config file, not a constructor argument.
+        # The same is true for 'nfreq', but rather than initializing self.nfreq here, we let bind()
+        # initialize self.nfreq to the "stream nfreq", and check in _bind_transform() that it agrees
+        # with the "dedisperser nfreq".  (We do it this way so that the error message will be more helpful.)
         self.nt_chunk = self.dedisperser.nt_chunk
-        self.nt_prepad = 0
-        self.nt_postpad = 0
 
         # Set plotting parameters
         if self.make_plot:
@@ -145,26 +155,21 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                     self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[i], ny=img_ndm/2)
 
 
-    def set_stream(self, stream):
-        if stream.nfreq != self.nfreq:
+    def _bind_transform(self, json_data):
+        if self.nfreq != self.dedisperser.nfreq:
             raise RuntimeError("rf_pipelines: number of frequencies in stream (nfreq=%d) does not match bonsai config file '%s' (nfreq=%d)" 
-                               % (stream.nfreq, self.config_filename, self.nfreq))
-
-        if self.make_plot and (stream.nfreq % self.img_ndm != 0):
-            raise RuntimeError("bonsai_dedisperser: current implementation requires 'img_ndm' to be a divisor of stream nfreq")
+                               % (self.nfreq, self.config_filename, self.dedisperser.nfreq))
 
 
-    def start_substream(self, isubstream, t0):
+    def _allocate(self):
         if self.deallocate_between_substreams:
             self.dedisperser.allocate()
 
         if self.make_plot:
-            self.isubstream = isubstream
             self.plot_groups = [Plotter(self, ny=self.img_ndm/(1 if i==0 else 2), iplot=i) for i in xrange(1 + self.plot_all_trees * (self.ntrees-1))]
-            self.json_per_substream["n_plot_groups"] = 1 + self.plot_all_trees * (self.ntrees-1)  # Helpful parameter for the web viewer
 
 
-    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
+    def _process_chunk(self, intensity, weights, pos):
         # FIXME some day I'd like to remove this extra copy required by current cython implementation
         intensity = np.array(intensity, dtype=np.float32, order='C')
         weights = np.array(weights, dtype=np.float32, order='C')
@@ -209,8 +214,11 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                 self.detected_events.append(events) 
  
 
-    def end_substream(self):
+    def _end_pipeline(self, json_output):
         if self.make_plot:
+            # Helpful parameter for the web viewer
+            json_output["n_plot_groups"] = 1 + self.plot_all_trees * (self.ntrees-1) 
+
             # Write whatever may be left in the plots
             for zoom_level in xrange(self.n_zoom):
                 for i in xrange(1 + self.plot_all_trees * (self.ntrees-1)):
@@ -223,9 +231,9 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
         
         if self.global_max_tracker is not None:
             # Add global max trigger data to pipeline json output
-            self.json_per_substream["frb_global_max_trigger"] = self.global_max_tracker.global_max_trigger
-            self.json_per_substream["frb_global_max_trigger_dm"] = self.global_max_tracker.global_max_trigger_dm
-            self.json_per_substream["frb_global_max_trigger_tfinal"] = self.global_max_tracker.global_max_trigger_arrival_time
+            json_output["frb_global_max_trigger"] = self.global_max_tracker.global_max_trigger
+            json_output["frb_global_max_trigger_dm"] = self.global_max_tracker.global_max_trigger_dm
+            json_output["frb_global_max_trigger_tfinal"] = self.global_max_tracker.global_max_trigger_arrival_time
 
         if self.deallocate_between_substreams:
             self.dedisperser.deallocate()
@@ -246,8 +254,6 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
 
     def _write_file(self, arr, zoom_level, ifile, iplot):
         basename = self.img_prefix[zoom_level] + '_tree' + str(iplot)
-        if self.isubstream > 0:
-            basename += str(isubstream+1)
         basename += ('_%s.png' % ifile)
 
         group_id = iplot * self.n_zoom + zoom_level
@@ -261,10 +267,61 @@ class bonsai_dedisperser(rf_pipelines.py_wi_transform):
                                  group_id = group_id)
         
         if self.dynamic_plotter:
-            rf_pipelines.write_png(filename, arr, transpose=True)
+            write_png(filename, arr, transpose=True)
         else:
-            rf_pipelines.utils.triggers_png(filename, arr, transpose=True, 
-                                            threshold1=self.plot_threshold1, threshold2=self.plot_threshold2)
+            triggers_png(filename, arr, transpose=True, threshold1=self.plot_threshold1, threshold2=self.plot_threshold2)
+
+
+    def jsonize(self):
+        return { 'class_name': 'bonsai_dedisperser',
+                 'config_filename': self.config_filename,
+                 'fill_rfi_mask': self.fill_rfi_mask,
+                 'img_prefix': self.img_prefix if self.make_plot else None,
+                 'img_ndm': self.img_ndm if self.make_plot else 0,
+                 'img_nt': self.img_nt if self.make_plot else 0,
+                 'downsample_nt': self.downsample_nt[0] if self.make_plot else 0,
+                 'n_zoom': self.n_zoom if self.make_plot else 0,
+                 'track_global_max': (self.global_max_tracker is not None),
+                 'global_max_tracker_dm_min': self.global_max_tracker_dm_min if (self.global_max_tracker is not None) else None,
+                 'global_max_tracker_dm_max': self.global_max_tracker_dm_min if (self.global_max_tracker is not None) else None,
+                 'hdf5_output_filename': self.hdf5_output_filename,
+                 'nt_per_hdf5_file': self.nt_per_hdf5_file if self.hdf5_output_filename else 0,
+                 'deallocate_between_substreams': self.deallocate_between_substreams,
+                 'use_analytic_normalization': self.use_analytic_normalization,
+                 'dynamic_plotter': self.dynamic_plotter if self.make_plot else False,
+                 'plot_threshold1': self.plot_threshold1 if self.make_plot else 6,
+                 'plot_threshold2': self.plot_threshold2 if self.make_plot else 10,
+                 'event_outfile': self.event_outfile,
+                 'L1Grouper_thr': self.L1Grouper_thr if (self.event_outfile is not None) else 7,
+                 'L1Grouper_beam': self.L1Grouper_beam if (self.event_outfile is not None) else 0,
+                 'L1Grouper_addr': self.L1Grouper_addr if (self.event_outfile is not None) else None,
+                 'plot_all_trees': self.plot_all_trees if self.make_plot else False }
+
+
+    @staticmethod
+    def from_json(j):
+        return bonsai_dedisperser(config_filename = j['config_filename'],
+                                  fill_rfi_mask = j['fill_rfi_mask'],
+                                  img_prefix = j['img_prefix'],
+                                  img_ndm = j['img_ndm'],
+                                  img_nt = j['img_nt'],
+                                  downsample_nt = j['downsample_nt'],
+                                  n_zoom = j['n_zoom'],
+                                  track_global_max = j['track_global_max'],
+                                  dm_min = j['global_max_tracker_dm_min'],
+                                  dm_max = j['global_max_tracker_dm_max'],
+                                  hdf5_output_filename = j['hdf5_output_filename'],
+                                  nt_per_hdf5_file = j['nt_per_hdf5_file'],
+                                  deallocate_between_substreams = j['deallocate_between_substreams'],
+                                  use_analytic_normalization = j['use_analytic_normalization'],
+                                  dynamic_plotter = j['dynamic_plotter'],
+                                  plot_threshold1 = j['plot_threshold1'],
+                                  plot_threshold2 = j['plot_threshold2'],
+                                  event_outfile = j['event_outfile'],
+                                  L1Grouper_thr = j['L1Grouper_thr'],
+                                  L1Grouper_beam = j['L1Grouper_beam'],
+                                  L1Grouper_addr = j['L1Grouper_addr'],
+                                  plot_all_trees = j['plot_all_trees'])
 
 
 class Plotter():
@@ -289,7 +346,7 @@ class Plotter():
         if shape[0] > self.ny:
             arr = self.max_ds(arr, self.ny, shape[1])
         elif shape[0] < self.ny:
-            arr = rf_pipelines.upsample(arr, self.ny, shape[1])
+            arr = upsample(arr, self.ny, shape[1])
 
         for zoom_level in xrange(self.transform.n_zoom):
             dm_t = arr.copy()
@@ -298,7 +355,7 @@ class Plotter():
             if dm_t_shape[1] > self.transform.nt_chunk_ds[zoom_level]:
                 dm_t = self.max_ds(dm_t, dm_t_shape[0], self.transform.nt_chunk_ds[zoom_level])
             elif dm_t_shape[1] < self.transform.nt_chunk_ds[zoom_level]:
-                dm_t = rf_pipelines.upsample(dm_t, dm_t_shape[0], self.transform.nt_chunk_ds[zoom_level])
+                dm_t = upsample(dm_t, dm_t_shape[0], self.transform.nt_chunk_ds[zoom_level])
 
             ichunk = 0
             while ichunk < self.transform.nt_chunk_ds[zoom_level]:
@@ -333,3 +390,6 @@ class Plotter():
         arr = np.amax(arr, axis=3)
         arr = np.amax(arr, axis=1)
         return arr
+
+
+pipeline_object.register_json_constructor('bonsai_dedisperser', bonsai_dedisperser.from_json)

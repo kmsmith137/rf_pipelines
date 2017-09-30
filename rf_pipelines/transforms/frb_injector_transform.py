@@ -1,8 +1,11 @@
 import sys
-import rf_pipelines
 import numpy as np
 
-class frb_injector_transform(rf_pipelines.py_wi_transform):
+from rf_pipelines.rf_pipelines_c import pipeline_object, wi_transform
+from rf_pipelines.utils import Variance_Estimates
+
+
+class frb_injector_transform(wi_transform):
     """
     This transform modifies the intensities in the pipeline by adding a simulated FRB
     (leaving weights unmodified).  For example, it can be used to add a simulated FRB
@@ -24,8 +27,7 @@ class frb_injector_transform(rf_pipelines.py_wi_transform):
         Constructor arguments
         ---------------------
 
-           snr: Signal-to-noise ratio in "sigmas".  Currently a placeholder and not implemented correctly!
-                (See note in the class docstring.)
+           snr: Signal-to-noise ratio in "sigmas".
 
            undispersed_arrival_time: Arrival time (in seconds) of the pulse without dispersion delay applied.
                 This can be compared to other timestamps in the pipeline (e.g. the t0,t1 arguments to
@@ -52,7 +54,7 @@ class frb_injector_transform(rf_pipelines.py_wi_transform):
              is proportional to frequency^beta.
         """
 
-        rf_pipelines.py_wi_transform.__init__(self)
+        wi_transform.__init__(self, 'frb_injector_transform')
 
         self.dm = dm
         self.sm = sm
@@ -60,22 +62,23 @@ class frb_injector_transform(rf_pipelines.py_wi_transform):
         self.spectral_index = spectral_index
         self.intrinsic_width = intrinsic_width
         self.undispersed_arrival_time = undispersed_arrival_time
-        
-        self.nfreq = 0     # to be initialized in set_stream()
         self.nt_chunk = nt_chunk
-        self.nt_prepad = 0
-        self.nt_postpad = 0
 
-        # Initialize self.sample_rms, self.sample_weights
+        # Initialize self.sample_rms, self.sample_weights.
+        #
         # These will be passed directly to simpulse.single_pulse.get_signal_to_noise(), and
         # can be either scalars or 1D numpy arrays.
+        #
+        # We also initialize 'jsonized_variance', which is simply the 'variance' constructor argument,
+        # converted to a jsonized datatype (e.g. 1D numpy array gets converted to list of floats).
 
         if isinstance(variance, basestring):
             # Interpret 'variance' as hdf5 filename.
-            variance = rf_pipelines.utils.Variance_Estimates(variance)
+            variance = Variance_Estimates(variance)
             self.sample_rms = np.sqrt(variance.eval(self.undispersed_arrival_time))
             self.sample_weights = np.ones(self.sample_rms.shape)
             self.sample_weights[self.sample_rms == 0.] = 0.0
+            self.jsonized_variance = variance
         else:
             # 'variance' should be 0d or 1d numpy array.
             variance = np.array(variance, dtype=np.float)
@@ -87,17 +90,23 @@ class frb_injector_transform(rf_pipelines.py_wi_transform):
             self.sample_rms = variance**0.5
             self.sample_weights = 1.0
 
+            if variance.ndim == 0:
+                self.jsonized_variance = float(variance)
+            else:  # variance.ndim == 1
+                self.jsonized_variance = [ float(x) for x in variance ]
+
         
-    def set_stream(self, stream):
+    def _bind_transform(self, json_attrs):
         try:
             import simpulse
         except ImportError:
-            raise RuntimeError("rf_pipelines: couldn't import the 'bonsai' module.  You may need to clone https://github.com/kmsmith137/simpulse and install.")
+            raise RuntimeError("rf_pipelines: couldn't import the 'simpulse' module.  You may need to clone https://github.com/kmsmith137/simpulse and install.")
 
-        self.nfreq = stream.nfreq
-        self.freq_lo_MHz = stream.freq_lo_MHz
-        self.freq_hi_MHz = stream.freq_hi_MHz
-        self.dt_sample = stream.dt_sample
+        self.freq_lo_MHz = json_attrs['freq_lo_MHz']
+        self.freq_hi_MHz = json_attrs['freq_hi_MHz']
+        self.dt_sample = json_attrs['dt_sample']
+        self.t_initial = json_attrs.get('t_initial', 0)
+        self.t_final = self.t_initial
 
         # Construct a simpulse.single_pulse object, which represents a single FRB signal, to be added to the timestream in chunks.
         #
@@ -139,35 +148,54 @@ class frb_injector_transform(rf_pipelines.py_wi_transform):
         # We want to end up with signal-to-noise 'snr'.  Therefore, the following fluence gives the signal-to-noise we want.
         self.pulse.fluence = self.snr / snr0
 
-    
-    def start_substream(self, isubstream, t0):
-        # We keep track of the time range spanned by the stream, so that we can print a warning
-        # in end_substream() if the substream doesn't span the pulse.
-        self.substream_t0 = t0
-        self.substream_t1 = t0
 
-
-    def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
-        nt_chunk = intensity.shape[1]
-        t1 = t0 + nt_chunk * self.dt_sample
+    def _process_chunk(self, intensity, weights, pos):
+        t0 = self.t_initial + self.dt_sample * pos
+        t1 = self.t_initial + self.dt_sample * (pos + self.nt_chunk)
 
         # The freq_hi_to_lo flag tells the 'simpulse' library to use the rf_pipelines
         # frequency ordering (i.e. frequencies ordered from high to low).
         self.pulse.add_to_timestream(intensity, t0, t1, freq_hi_to_lo=True)
-        self.substream_t1 = t1
+        self.t_final = t1
 
 
-    def end_substream(self):
+    def _end_pipeline(self, json_output):
         # We print warning if the pulse isn't entirely contained in the substream,
         # since this is probably unintentional.
         (pulse_t0, pulse_t1) = self.pulse.get_endpoints()
 
-        if (pulse_t0 >= self.substream_t0) and (pulse_t1 <= self.substream_t1):
+        if (pulse_t0 >= self.t_initial) and (pulse_t1 <= self.t_final):
             return
 
-        intersection_t0 = max(pulse_t0, self.substream_t0)
-        intersection_t1 = min(pulse_t1, self.substream_t1)
+        intersection_t0 = max(pulse_t0, self.t_initial)
+        intersection_t1 = min(pulse_t1, self.t_final)
         intersection_dt = max(intersection_t1 - intersection_t0, 0)
         missing_frac = 1.0 - intersection_dt / (pulse_t1 - pulse_t0)
 
         print >>sys.stderr, ('frb_injector_transform: warning: %f percent of pulse was outside stream endpoints' % (100. * missing_frac))
+
+        
+    def jsonize(self):
+        return { 'class_name': 'frb_injector_transform',
+                 'snr': self.snr,
+                 'undispersed_arrival_time': self.undispersed_arrival_time,
+                 'dm': self.dm,
+                 'variance': self.jsonized_variance,
+                 'intrinsic_width': self.intrinsic_width,
+                 'sm': self.sm,
+                 'spectral_index': self.spectral_index,
+                 'nt_chunk': self.nt_chunk }
+
+    @staticmethod
+    def from_json(j):
+        return frb_injector_transform(snr = j['snr'],
+                                      undispersed_arrival_time = j['undispersed_arrival_time'],
+                                      dm = j['dm'],
+                                      variance = j['variance'],
+                                      intrinsic_width = j['intrinsic_width'],
+                                      sm = j['sm'],
+                                      spectral_index = j['spectral_index'],
+                                      nt_chunk = j['nt_chunk'])
+                 
+
+pipeline_object.register_json_constructor('frb_injector_transform', frb_injector_transform.from_json)

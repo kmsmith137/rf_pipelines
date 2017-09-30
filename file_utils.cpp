@@ -1,8 +1,9 @@
+#include <cstring>
+#include <sstream>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
 #include <unistd.h>
-#include <sstream>
 
 #include "rf_pipelines_internals.hpp"
 

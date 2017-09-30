@@ -1,209 +1,89 @@
-#include <fstream>
-#include <sstream>
 #include "rf_pipelines_internals.hpp"
 
 using namespace std;
 
 namespace rf_pipelines {
 #if 0
-}; // pacify emacs c-mode
+}  // namespace rf_pipelines
 #endif
 
 
-int wi_transform::add_plot_group(const string &name, int nt_per_pix, int ny)
+wi_transform::wi_transform(const string &name_, ssize_t nt_chunk_, ssize_t nfreq_, ssize_t nds_) :
+    chunked_pipeline_object(name_, false, nt_chunk_),  // can_be_first=false
+    nfreq(nfreq_),
+    nds(nds_)
 {
-    // Note: argument checking is done in plot_group constructor
-    this->plot_groups.push_back(make_shared<plot_group>(name, nt_per_pix, ny));
-    return plot_groups.size()-1;
+    if (nfreq < 0)
+	_throw("expected nfreq >= 0 in wi_transform constructor");
+    if (nds < 0)
+	_throw("expected nds >= 0 in wi_transform constructor");
 }
 
 
-string wi_transform::add_plot(const string &basename, int64_t it0, int nt, int nx, int ny, int group_id)
+// virtual override
+void wi_transform::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_data)
 {
-    if (plot_groups.size() == 0)
-	throw runtime_error("wi_transform::add_plot(): no plot groups defined, maybe you forgot to call add_plot_group()?");
+    this->_save_nfreq = nfreq;
+    this->_save_nds = nds;
 
-    if ((group_id < 0) || (group_id >= (int)plot_groups.size()))
-	throw runtime_error("wi_transform::add_plot(): bad group_id specified");
+    this->rb_intensity = this->get_buffer(rb_dict, "INTENSITY");
+    this->rb_weights = this->get_buffer(rb_dict, "WEIGHTS");
 
-    shared_ptr<plot_group> g = plot_groups[group_id];
+    if (rb_intensity->cdims != rb_weights->cdims)
+	_throw("'intensity' and 'weights' buffers have different dimensions");
+    if (rb_intensity->nds != rb_weights->nds)
+	_throw("'intensity' and 'weights' buffers have different downsampling");
+    if (rb_intensity->cdims.size() != 1)
+	_throw ("expected intensity/weights arrays to be two-dimensional");
 
-    if (nt != g->nt_per_pix * nx)
-	throw runtime_error("wi_transform::add_plot(): requirement (nt == nx*nt_per_pix) failed");
-    if (ny != g->ny)
-	throw runtime_error("wi_transform::add_plot(): ny doesn't match value specified in add_plot_group()");
+    ssize_t expected_nfreq = this->nfreq;
+    ssize_t expected_nds = this->nds;
 
-    if (g->is_empty) {
-	g->is_empty = false;
-	g->curr_it0 = it0;
-    }
-    else if (it0 != g->curr_it1)
-	throw runtime_error("wi_transform::add_plot(): plot time ranges are not contiguous");
+    this->nfreq = rb_intensity->cdims[0];
+    this->nds = rb_intensity->nds;
 
-    string filename = this->add_file(basename);
+    if ((expected_nfreq > 0) && (nfreq != expected_nfreq))
+	_throw("pipeline nfreq (" + to_string(nfreq) + ") doesn't match expected value (" + to_string(expected_nfreq) + ")");
+    if ((expected_nds > 0) && (nds != expected_nds))
+	_throw("pipeline nds (" + to_string(nds) + ") doesn't match expected value (" + to_string(expected_nds) + ")");
 
-    Json::Value file;
-    file["filename"] = basename;
-    file["it0"] = Json::Value::Int64(it0);
-    file["nx"] = nx;
-
-    g->curr_it1 = it0 + nt;
-    g->files.append(file);
-    return filename;
+    // Optional subclass-specific initializations.
+    this->_bind_transform(json_data);
 }
 
 
-string wi_transform::add_file(const string &basename)
+// virtual override
+bool wi_transform::_process_chunk(ssize_t pos)
 {
-    if (!outdir_manager)
-	throw runtime_error("rf_pipelines: internal error: no outdir_manager in wi_transform::add_file()");
-    if (outdir_manager->outdir.size() == 0)
-	throw runtime_error("rf_pipelines: transform '" + this->name + "' attempted to write output file, but outdir=None was specified in the stream constructor");
+    float *intensity = rb_intensity->get(pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
+    float *weights = rb_weights->get(pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
 
-    return this->outdir_manager->add_file(basename);
+    this->_process_chunk(intensity, rb_intensity->get_stride(), weights, rb_weights->get_stride(), pos);
+
+    rb_intensity->put(intensity, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
+    rb_weights->put(weights, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
+    return true;
 }
 
 
-static void merge_json(Json::Value &dst, const Json::Value &src)
+// Default virtual
+void wi_transform::_bind_transform(Json::Value &json_data)
 {
-    if (src.isNull())
-	return;
-
-    if (!src.isObject())
-	throw runtime_error("expected json value to be of 'object' type");
-
-    for (const auto &key : src.getMemberNames())
-        dst[key] = src[key];
+    return;
 }
 
 
-// default implementation of virtual 
-void wi_transform::_get_json(Json::Value &dst) const
+ssize_t wi_transform::get_orig_nfreq() const
 {
-    merge_json(dst, this->json_persistent);
-    merge_json(dst, this->json_per_stream);
-    merge_json(dst, this->json_per_substream);
+    return is_bound() ? _save_nfreq : nfreq;
 }
 
 
-// default implementation of virtual 
-void wi_transform::_clear_json(bool substream_only)
+ssize_t wi_transform::get_orig_nds() const
 {
-    this->json_per_substream.clear();
-    
-    if (!substream_only)
-	this->json_per_stream.clear();
-}
-
-
-// Default implementation of virtual
-Json::Value wi_transform::serialize_to_json() const
-{
-    throw runtime_error("rf_pipelines: serialization-to-json not implemeted for transform '" + this->name + "'");
-}
-
-
-// -------------------------------------------------------------------------------------------------
-//
-// More json serialization/deserialization
-
-
-// Helper for deserialize_transform_from_json()
-static string _get_string(const Json::Value &x, const string &k)
-{
-    if (!x.isMember(k))
-	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was expected but not found");
-    
-    const Json::Value &v = x[k];
-    if (!v.isString())
-	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was not a string as expected");
-
-    return v.asString();
-}
-
-// Helper for deserialize_transform_from_json()
-static int _get_int(const Json::Value &x, const string &k)
-{
-    if (!x.isMember(k))
-	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was expected but not found");
-    
-    const Json::Value &v = x[k];
-    if (!v.isInt())
-	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was not an int as expected");
-
-    return v.asInt();
-}
-
-// Helper for deserialize_transform_from_json()
-static double _get_double(const Json::Value &x, const string &k)
-{
-    if (!x.isMember(k))
-	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was expected but not found");
-    
-    const Json::Value &v = x[k];
-    if (!v.isDouble())
-	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was not a floating-point number as expected");
-
-    return v.asDouble();
-}
-
-// Helper for deserialize_transform_from_json()
-static rf_kernels::axis_type _get_axis(const Json::Value &x, const string &k)
-{
-    string s = _get_string(x, k);
-
-    if (s == "AXIS_FREQ")
-	return rf_kernels::AXIS_FREQ;
-    if (s == "AXIS_TIME")
-	return rf_kernels::AXIS_TIME;
-    if (s == "AXIS_NONE")
-	return rf_kernels::AXIS_NONE;
-
-    throw runtime_error("rf_pipelines: deserialize_transform_from_json(): member '" + k + "' was not an axis_type as expected");
-}
-
-
-shared_ptr<wi_transform> deserialize_transform_from_json(const Json::Value &x)
-{
-    if (!x.isObject())
-	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): expected json object");
-
-    string transform_name = _get_string(x, "transform_name");
-
-    if (transform_name == "polynomial_detrender") {
-	return make_polynomial_detrender(_get_int(x, "nt_chunk"),
-					 _get_axis(x, "axis"),
-					 _get_int(x, "polydeg"),
-					 _get_double(x, "epsilon"));
-    }
-
-    throw runtime_error("rf_pipelines::deserialize_transform_from_json(): transform_name='" + transform_name + "' not recognized");
-}
-
-
-vector<shared_ptr<wi_transform>> deserialize_transform_chain_from_json(const Json::Value &x)
-{
-    if (!x.isArray())
-	throw runtime_error("rf_pipelines: deserialize_transform_from_json(): expected json array");
-
-    int n = x.size();
-    vector<shared_ptr<wi_transform>> ret(n);
-
-    for (int i = 0; i < n; i++)
-	ret[i] = deserialize_transform_from_json(x[i]);
-
-    return ret;
-}
-
-
-Json::Value serialize_transform_chain_to_json(const vector<shared_ptr<wi_transform>> &v)
-{
-    Json::Value ret;
-    for (const auto &t: v)
-	ret.append(t->serialize_to_json());
-
-    return ret;
+    return is_bound() ? _save_nds : nds;
 }
 
 
 }  // namespace rf_pipelines
+

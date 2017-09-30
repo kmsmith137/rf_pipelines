@@ -1,10 +1,5 @@
 #include <algorithm>
 #include "rf_pipelines_internals.hpp"
-#include "chime_file_stream_base.hpp"
-
-#ifdef HAVE_CH_FRB_IO
-#include <ch_frb_io.hpp>
-#endif
 
 using namespace std;
 
@@ -14,31 +9,37 @@ namespace rf_pipelines {
 #endif
 
     
-chime_file_stream_base::chime_file_stream_base(const vector<string> &filename_list_, ssize_t nt_chunk, ssize_t noise_source_align_) :
-    filename_list(filename_list_), noise_source_align(noise_source_align_)
+chime_file_stream_base::chime_file_stream_base(const string &stream_name, const vector<string> &filename_list_, ssize_t nt_chunk_, ssize_t noise_source_align_) :
+    wi_stream(stream_name, 0, nt_chunk_),  // nfreq=0
+    filename_list(filename_list_),
+    noise_source_align(noise_source_align_)
 {
     rf_assert(filename_list.size() > 0);
     rf_assert(noise_source_align >= 0);
 
-    // We defer initialization of the base class members { nfreq, freq_lo_MHz, freq_hi_MHz, dt_sample } to stream_start().
-    this->nt_maxwrite = (nt_chunk > 0) ? nt_chunk : 1024;
+    // We initialize nt_chunk here, but defer initialization of nfreq to chime_file_stream_base::_bind_stream().
+    if (nt_chunk == 0)
+	this->nt_chunk = 1024;
 }
 
-// virtual
-void chime_file_stream_base::stream_start()
+
+// Virtual override
+void chime_file_stream_base::_bind_stream(Json::Value &json_data)
 {
     load_file(filename_list[0]);
     this->curr_ifile = 0;
 
-    set_params_from_file();
-
+    // Initializes the following fields: nfreq, freq_lo_MHz, freq_hi_MHz, dt_sample, time_lo, time_hi, nt, frequencies_are_increasing.
+    this->set_params_from_file();
+    
+    // Initialize initial_discard_count.
     if (noise_source_align > 0) {
 	if (dt_sample < 1.0e-4)
 	    throw std::runtime_error("chime_file_stream_base constructor: unexpectedly small dt_sample");
 
 	// The CHIME noise source switch occurs at FPGA counts which are multiples of 2^23.
-	double fsamp = (1 << 23) * constants::chime_seconds_per_fpga_count / dt_sample;
-	this->samples_per_noise_switch = ssize_t(fsamp + 0.5);
+	double fsamp = (1 << 23) * chime_seconds_per_fpga_count / dt_sample;
+	ssize_t samples_per_noise_switch = ssize_t(fsamp + 0.5);
 
 	if (fabs(samples_per_noise_switch - fsamp) > 1.0e-4)
 	    throw std::runtime_error("chime_file_stream_base constructor: dt_sample does not appear to evenly divide dt_noise_source");
@@ -54,50 +55,46 @@ void chime_file_stream_base::stream_start()
 	i0 = i0 % noise_source_align;
 	this->initial_discard_count = (noise_source_align - i0) % noise_source_align;
     }
+
+    json_data["freq_lo_MHz"] = this->freq_lo_MHz;
+    json_data["freq_hi_MHz"] = this->freq_hi_MHz;
+    json_data["dt_sample"] = this->dt_sample;
+    json_data["t_initial"] = this->time_lo + initial_discard_count * dt_sample;
 }
 
     
 // virtual
-void chime_file_stream_base::stream_body(wi_run_state &run_state)
+bool chime_file_stream_base::_fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
 {
-    ssize_t it_file = 0;                         // time index in current file.  Can be negative!  This means there is a time gap between files.
-    ssize_t it_chunk = -initial_discard_count;   // index in current chunk.  Can be negative!  This means we're still discarding initial samples.
-    double stream_t0 = time_lo + initial_discard_count * dt_sample;
     int nfiles = filename_list.size();
+    ssize_t it_chunk = 0;  // Index in current chunk.
 
-    float *intensity;
-    float *weights;
-    ssize_t stride;
-    bool zero_flag = true;
+    // We set the 'intensity' and 'weights' buffers to zero here.
+    // Therefore, if the buffers (or a subset thereof) are unmodified, they will be treated as masked (weight-zero).
 
-    // Reminder: setup_write() sets the 'intensity' and 'weights' buffers to zero.
-    // Therefore, if part of the buffer is unmodified here, it will be treated as masked (weight-zero).
-    run_state.start_substream(stream_t0);
-    run_state.setup_write(nt_maxwrite, intensity, weights, stride, zero_flag, stream_t0);
+    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	memset(intensity + ifreq*istride, 0, nt_chunk * sizeof(float));
+	memset(weights + ifreq*wstride, 0, nt_chunk * sizeof(float));
+    }
 
     for (;;) {
-	// At top of loop, the state of the stream is represented by the following variables;
+
+	// At top of loop, the state of the stream is represented by the following variables:
 	//   curr_ifile  -> index of current file
 	//   it_file     -> time index within current file
+	//   nt_file     -> number of time samples in current file
 	//   it_chunk    -> time index within output chunk
+	
+	if (curr_ifile >= nfiles)
+	    return false;
 
-	if (curr_ifile >= nfiles) {
-	    // End of stream
-	    // FIXME should be able to write fewer than nt_maxwrite samples here
-	    run_state.finalize_write(nt_maxwrite);
-	    run_state.end_substream();
-
-	    this->curr_ifile = -1;
-	    return;
-	}
-	else if (it_file >= nt) {
+	if (it_file >= nt_file) {
 	    // End of file.
 	    curr_ifile++;
-	    it_file = 0;
 	    close_file();
 
 	    if (curr_ifile >= nfiles)
-		continue;
+		return false;
 	    
 	    // Open next file and do consistency tests.
 	    double old_t1 = time_hi;
@@ -105,13 +102,13 @@ void chime_file_stream_base::stream_body(wi_run_state &run_state)
 
             check_file_consistency();
 
-            // pick up new time_lo, etc
+	    // Read new time_lo, time_hi, nt_file.
             set_params_from_file();
 
+	    // Infer gap length from timestamps.
 	    double new_t0 = time_lo;
 	    double gap = (new_t0 - old_t1) / dt_sample;  // time gap between files, as multiple of dt_sample
 
-	    // FIXME another option here would be to start a new substream if a large gap is encountered.
 	    if (gap < -0.01)
 		throw runtime_error("chime_file_stream_base: acquisition files are not in time order?!");
 	    if (gap > 10000.01)
@@ -122,50 +119,53 @@ void chime_file_stream_base::stream_body(wi_run_state &run_state)
 
 	    if (fabs(gap-ngap) > 0.01)
 		throw runtime_error("chime_file_stream_base: time gap between files is not an integer multiple of dt_sample");
-	    
+
+	    // Note that it_file is negative if there is a gap between files.
 	    it_file = -ngap;
+	    continue;
 	}
-	else if (it_chunk >= nt_maxwrite) {
-	    // Write chunk
-	    run_state.finalize_write(nt_maxwrite);
-	    run_state.setup_write(nt_maxwrite, intensity, weights, stride, zero_flag, time_lo + it_file * dt_sample);
-	    it_chunk = 0;
+
+	if (it_chunk >= nt_chunk)
+	    return true;  // End of chunk, but not end of file.
+
+	if (initial_discard_count > 0) {
+	    // Still discarding initial samples (only happens if 'noise_source_align' is specified)
+	    ssize_t n = min(initial_discard_count, nt_file - it_file);
+	    it_file += n;
+	    initial_discard_count -= n;
+	    continue;
 	}
-	else if (it_file < 0) {
+
+	if (it_file < 0) {
 	    // Skip gap between files.
-	    ssize_t n = min(-it_file, nt_maxwrite - it_chunk);
+	    ssize_t n = min(-it_file, nt_chunk - it_chunk);
 	    it_file += n;
 	    it_chunk += n;
+	    continue;
 	}
-	else if (it_chunk < 0) {
-	    // Drop data, by advancing it_chunk.
-	    // This only happens if 'noise_source_align' is specified, and we need to drop the first few samples in the stream.
-	    ssize_t n = min(-it_chunk, nt - it_file);
-	    it_file += n;
-	    it_chunk += n;
-	}
-	else {
-	    // Read data from file
-	    ssize_t n = min(nt - it_file, nt_maxwrite - it_chunk);
+
+	// If we get here, we will read data from file into the chunk.
+
+	ssize_t n = min(nt_file - it_file, nt_chunk - it_chunk);
 	    
-	    // A note on frequency channel ordering.  In rf_pipelines, frequencies must 
-	    // be ordered from highest frequency to lowest.  In the ch_frb_io::intensity_hdf5_file,
-	    // either ordering can be used depending on the value of the 'frequencies_are_increasing' 
-	    // flag.  If this flag is set, then we need to reorder by using a negative stride.
-
-	    bool incflag = frequencies_are_increasing;
-	    float *dst_int = incflag ? (intensity + (nfreq-1)*stride + it_chunk) : (intensity + it_chunk);
-	    float *dst_wt = incflag ? (weights + (nfreq-1)*stride + it_chunk) : (weights + it_chunk);
-	    ssize_t dst_stride = incflag ? (-stride) : stride;
-
-            read_data(dst_int, dst_wt, it_file, n, dst_stride);
-
-	    it_file += n;
-	    it_chunk += n;	    
-	}
+	// A note on frequency channel ordering.  In rf_pipelines, frequencies must 
+	// be ordered from highest frequency to lowest.  In the ch_frb_io::intensity_hdf5_file,
+	// either ordering can be used depending on the value of the 'frequencies_are_increasing' 
+	// flag.  If this flag is set, then we need to reorder by using a negative stride.
+	
+	bool incflag = frequencies_are_increasing;
+	float *dst_int = incflag ? (intensity + (nfreq-1)*istride + it_chunk) : (intensity + it_chunk);
+	float *dst_wt = incflag ? (weights + (nfreq-1)*wstride + it_chunk) : (weights + it_chunk);
+	ssize_t dst_istride = incflag ? (-istride) : istride;
+	ssize_t dst_wstride = incflag ? (-wstride) : wstride;
+	
+	// Call read_data() method in subclass.
+	this->read_data(dst_int, dst_wt, it_file, n, dst_istride, dst_wstride);
+	
+	it_file += n;
+	it_chunk += n;	    
     }
 }
-
 
 
 }   // namespace rf_pipelines

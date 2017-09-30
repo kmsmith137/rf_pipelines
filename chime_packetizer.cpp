@@ -5,8 +5,6 @@
 #include <ch_frb_io.hpp>
 #endif
 
-#include "chime_packetizer.hpp"
-
 using namespace std;
 
 namespace rf_pipelines {
@@ -17,16 +15,27 @@ namespace rf_pipelines {
 
 #ifndef HAVE_CH_FRB_IO
 
-shared_ptr<wi_transform> make_chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff,
-					       int beam_id)
+shared_ptr<wi_transform> make_chime_packetizer(const string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps, int beam_id)
 {
     throw runtime_error("rf_pipelines::make_chime_packetizer() was called, but rf_pipelines was compiled without ch_frb_io");
 }
 
 #else  // HAVE_CH_FRB_IO
 
-chime_packetizer::chime_packetizer(const string &dstname, int nfreq_coarse_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps,
-int beam_id)
+struct chime_packetizer : public wi_transform {
+    ch_frb_io::intensity_network_ostream::initializer ini_params;
+    std::shared_ptr<ch_frb_io::intensity_network_ostream> ostream;
+
+    chime_packetizer(const std::string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps, int beam_id=0);
+
+    virtual void _bind_transform(Json::Value &json_data) override;
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual void _end_pipeline(Json::Value &j) override;
+};
+
+
+chime_packetizer::chime_packetizer(const string &dstname, int nfreq_coarse_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps, int beam_id) :
+    wi_transform("chime_packetizer")
 {
     // Argument checking
 
@@ -41,7 +50,7 @@ int beam_id)
     if (nt_per_chunk % nt_per_packet)
 	throw runtime_error("chime_packetizer: nt_per_chunk must be a multiple of nt_per_packet");
 
-    // Initialize ini_params (some initializations deferred to set_stream)
+    // Initialize ini_params (some initializations deferred to _bind_transform())
 
     this->ini_params.beam_ids = { beam_id };
     this->ini_params.dstname = dstname;
@@ -55,59 +64,51 @@ int beam_id)
     for (int i = 0; i < nfreq_coarse; i++)
 	this->ini_params.coarse_freq_ids[i] = i;
 
-    // Initialize base class members
+    // Initialize base class members.
     this->nt_chunk = nt_per_chunk;
-    this->name = "chime_packetizer";
 }
 
 
-void chime_packetizer::set_stream(const wi_stream &stream)
+// Called after (nfreq, nds) are initialized.
+// FIXME what about nds?
+void chime_packetizer::_bind_transform(Json::Value &json_data)
 {
     constexpr int nfreq_coarse = ch_frb_io::constants::nfreq_coarse_tot;
+    constexpr double seconds_per_fpga_count = ch_frb_io::constants::dt_fpga;
 
-    if (stream.nfreq % nfreq_coarse)
-	throw runtime_error("chime_packetizer: currently stream.nfreq must be a multiple of " + to_string(nfreq_coarse) + " (see comment in rf_pipelines.hpp)");
+    if (nfreq % nfreq_coarse)
+	throw runtime_error("chime_packetizer: currently nfreq must be a multiple of " + to_string(nfreq_coarse) + " (see comment in rf_pipelines.hpp)");
 
-    this->nfreq = stream.nfreq;
-    this->ini_params.nupfreq = stream.nfreq / nfreq_coarse;
+    if (nds != 1)
+	throw runtime_error("FIXME: chime_packetizer currently cannot be run in a downsampled sub-pipeline (this would be easy to fix)");
 
-    // infer fpga_counts_per_sample from stream.dt_sample
-    double f = stream.dt_sample / constants::chime_seconds_per_fpga_count;
+    if (!json_data.isMember("dt_sample"))
+	throw runtime_error("chime_packetizer: expected json_data to contain member 'dt_sample'");
+
+    this->ini_params.nupfreq = xdiv(nfreq, nfreq_coarse);
+
+    // infer fpga_counts_per_sample from dt_sample
+    double dt_sample = json_data["dt_sample"].asDouble();
+    double f = dt_sample / seconds_per_fpga_count;
     this->ini_params.fpga_counts_per_sample = int(f+0.5);   // round to nearest integer
 
     if (fabs(f - ini_params.fpga_counts_per_sample) > 0.01) {
 	// We use a stringstream here since to_string() gives a weird formatting
 	stringstream ss;
-	ss << "chime_packetizer: currently stream.dt_sample must be a multiple of " << constants::chime_seconds_per_fpga_count <<  " seconds (see comment in rf_pipelines.hpp)";
+	ss << "chime_packetizer: currently dt_sample must be a multiple of " << seconds_per_fpga_count <<  " seconds (see comment in rf_pipelines.hpp)";
 	throw runtime_error(ss.str());
     }
 
     this->ostream = ch_frb_io::intensity_network_ostream::make(ini_params);
 }
 
-
-void chime_packetizer::start_substream(int isubstream, double t0)
+void chime_packetizer::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
 {
-    if (isubstream > 0)
-	throw runtime_error("chime_packetizer: multiple substreams are not currently supported");
-
-    // infer current_fpga_count from t0
-    if (t0 > 0.0) {
-	double u = t0 / constants::chime_seconds_per_fpga_count / ini_params.fpga_counts_per_sample;
-	this->current_fpga_count = int(u+0.5) * ini_params.fpga_counts_per_sample;
-    }
+    this->ostream->send_chunk(intensity, istride, weights, wstride, pos * ini_params.fpga_counts_per_sample);
 }
 
 
-void chime_packetizer::process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
-{
-    //cout << "chime_packetizer: processing t " << t0 << " to " << t1 << endl;
-    this->ostream->send_chunk(intensity, weights, stride, current_fpga_count);
-    this->current_fpga_count += nt_chunk * ini_params.fpga_counts_per_sample;
-}
-
-
-void chime_packetizer::end_substream()
+void chime_packetizer::_end_pipeline(Json::Value &j)
 {
     bool join_network_thread = true;
     ostream->end_stream(join_network_thread);

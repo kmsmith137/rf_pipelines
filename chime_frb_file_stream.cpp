@@ -1,7 +1,6 @@
 #include <glob.h>
 #include <algorithm>
 #include "rf_pipelines_internals.hpp"
-#include "chime_file_stream_base.hpp"
 
 #ifdef HAVE_CH_FRB_IO
 #include <ch_frb_io.hpp>
@@ -45,17 +44,20 @@ public:
     chime_frb_file_stream(const vector<string> &filename_list_, ssize_t nt_chunk, ssize_t noise_source_align);
     virtual ~chime_frb_file_stream() { }
 
+    virtual Json::Value jsonize() const override;
+    static shared_ptr<chime_frb_file_stream> from_json(const Json::Value &j);
+
 protected:
     virtual void load_file(const std::string &filename) override;
     virtual void close_file() override;
     virtual void set_params_from_file() override;
     virtual void check_file_consistency() const override;
-    virtual void read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride) const override;
+    virtual void read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_istride, ssize_t dst_wstride) const override;
 };
 
     
 chime_frb_file_stream::chime_frb_file_stream(const vector<string> &filename_list_, ssize_t nt_chunk, ssize_t noise_source_align_) :
-    chime_file_stream_base(filename_list_, nt_chunk, noise_source_align_)
+    chime_file_stream_base("chime_frb_file_stream", filename_list_, nt_chunk, noise_source_align_)
 {
 }
 
@@ -74,11 +76,11 @@ void chime_frb_file_stream::set_params_from_file() {
     this->nfreq = chunk->nupfreq * ch_frb_io::constants::nfreq_coarse_tot;
     this->freq_lo_MHz = 400.0;
     this->freq_hi_MHz = 800.0;
-    double fpga_t = rf_pipelines::constants::chime_seconds_per_fpga_count;
+    double fpga_t = chime_file_stream_base::chime_seconds_per_fpga_count;
     this->dt_sample = fpga_t * chunk->fpga_counts_per_sample;
     this->time_lo = fpga_t * chunk->fpga_begin;
     this->time_hi = fpga_t * chunk->fpga_end;
-    this->nt = ch_frb_io::constants::nt_per_assembled_chunk;
+    this->nt_file = ch_frb_io::constants::nt_per_assembled_chunk;
     this->frequencies_are_increasing = false;
 }
 
@@ -86,18 +88,63 @@ void chime_frb_file_stream::set_params_from_file() {
 void chime_frb_file_stream::check_file_consistency() const {
     if (this->nfreq != chunk->nupfreq * ch_frb_io::constants::nfreq_coarse_tot)
         throw runtime_error("chime_frb_file_stream: nfreq mismatch!");
-    double fpga_t = rf_pipelines::constants::chime_seconds_per_fpga_count;
+    double fpga_t = chime_file_stream_base::chime_seconds_per_fpga_count;
     if (this->dt_sample != fpga_t * chunk->fpga_counts_per_sample)
         throw runtime_error("chime_frb_file_stream: dt_sample mismatch!");
-    if (this->nt != ch_frb_io::constants::nt_per_assembled_chunk)
-        throw runtime_error("chime_frb_file_stream: nt mismatch!");
+    if (this->nt_file != ch_frb_io::constants::nt_per_assembled_chunk)
+        throw runtime_error("chime_frb_file_stream: nt_file mismatch!");
 }
 
 // virtual override
-void chime_frb_file_stream::read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_stride) const {
-    chunk->decode_subset(dst_int, dst_wt, it_file, n, dst_stride);
+void chime_frb_file_stream::read_data(float* dst_int, float* dst_wt, ssize_t it_file, ssize_t n, ssize_t dst_istride, ssize_t dst_wstride) const {
+    chunk->decode_subset(dst_int, dst_wt, it_file, n, dst_istride, dst_wstride);
 }
 
+
+// virtual override
+Json::Value chime_frb_file_stream::jsonize() const
+{
+    Json::Value ret;
+    Json::Value &jf = ret["filename_list"];
+
+    ret["class_name"] = "chime_frb_file_stream";
+    ret["nt_chunk"] = int(this->get_orig_nt_chunk());
+    ret["noise_source_align"] = int(noise_source_align);
+
+    for (const string &f: filename_list)
+	jf.append(f);
+
+    return ret;
+}
+
+// static 
+shared_ptr<chime_frb_file_stream> chime_frb_file_stream::from_json(const Json::Value &j)
+{
+    Json::Value a = array_from_json(j, "filename_list");
+    vector<string> vs;
+
+    for (const Json::Value &v: a) {
+	if (!v.isString())
+	    throw runtime_error("chime_frb_file_stream::from_json(): filename was not a string as expected");
+	vs.push_back(v.asString());
+    }
+
+    int nt_chunk = int_from_json(j, "nt_chunk");
+    int noise_source_align = int_from_json(j, "noise_source_align");
+    return make_shared<chime_frb_file_stream> (vs, nt_chunk, noise_source_align);
+}
+
+
+namespace {
+    struct _init {
+	_init() {
+	    pipeline_object::register_json_constructor("chime_frb_file_stream", chime_frb_file_stream::from_json);
+	}
+    } init;
+}
+
+
+// -------------------------------------------------------------------------------------------------
 
 // Lists all files matching given glob pattern.
 static void list_glob(vector<string> &filenames, const string &glob_pattern, bool allow_empty=false) {
