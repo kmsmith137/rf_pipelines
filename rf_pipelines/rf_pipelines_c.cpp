@@ -528,9 +528,8 @@ static void wrap_pipeline_object(extension_module &m)
 
     // Decided to leave these unwrapped for now.
     //   pipeline_object_type.add_method("_bind", ...)
-    //   pipeline_object_type.add_method("_allocate", "_allocate(): optional", wrap_method(&pipeline_object::_allocate));
-    //   pipeline_object_type.add_method("_deallocate", "_deallocate(): optional", wrap_method(&pipeline_object::_deallocate));
-
+    pipeline_object_type.add_method("_allocate", "_allocate(): optional", wrap_method(&pipeline_object::_allocate));
+    pipeline_object_type.add_method("_deallocate", "_deallocate(): optional", wrap_method(&pipeline_object::_deallocate));
     pipeline_object_type.add_method("_start_pipeline", "_start_pipeline(): optional", wrap_j(&pipeline_object::_start_pipeline));
     pipeline_object_type.add_method("_end_pipeline", "_end_pipeline(): optional", wrap_j(&pipeline_object::_end_pipeline));
 
