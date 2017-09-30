@@ -11,3 +11,4 @@ and python reference transforms are equivalent.
 
 from .intensity_clipper import intensity_clipper, clip_fx
 from .polynomial_detrender import polynomial_detrender
+from .std_dev_clipper import std_dev_clipper, filter_stdv

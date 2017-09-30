@@ -63,7 +63,8 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/variance_estimator.py \
 	rf_pipelines/retirement_home/__init__.py \
 	rf_pipelines/retirement_home/intensity_clipper.py \
-	rf_pipelines/retirement_home/polynomial_detrender.py
+	rf_pipelines/retirement_home/polynomial_detrender.py \
+	rf_pipelines/retirement_home/std_dev_clipper.py
 
 
 TESTBINFILES = test-ring-buffer test-core-pipeline-logic test-file-stream-base
