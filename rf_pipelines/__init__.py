@@ -99,4 +99,3 @@ from .utils import write_png, upsample, json_show, json_str, Variance_Estimates
 
 # Grouping code to handle output of bonsai_dedisperser
 from L1b import L1Grouper
-

@@ -60,13 +60,15 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/mask_filler.py \
 	rf_pipelines/transforms/noise_filler.py \
 	rf_pipelines/transforms/plotter_transform.py \
-	rf_pipelines/transforms/variance_estimator.py
+	rf_pipelines/transforms/variance_estimator.py \
+	rf_pipelines/retirement_home/__init__.py \
+	rf_pipelines/retirement_home/intensity_clipper.py
 
 
 TESTBINFILES = test-ring-buffer test-core-pipeline-logic test-file-stream-base
 
 # Used in 'make clean'
-CLEANDIRS=. site rf_pipelines rf_pipelines/streams rf_pipelines/transforms
+CLEANDIRS=. site rf_pipelines rf_pipelines/streams rf_pipelines/transforms rf_pipelines/retirement_home
 
 # Used in 'make uninstall': header files which no longer exist, but did exist in previous versions of rf_pipelines
 DUMMY_INCFILES=chime_packetizer.hpp chime_file_stream_base.hpp reverter.hpp
@@ -126,7 +128,7 @@ LIBS += -lrf_kernels -ljsoncpp
 all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so $(TESTBINFILES)
 
 install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
-	mkdir -p $(INCDIR)/ $(LIBDIR)/ $(PYDIR)/rf_pipelines/streams $(PYDIR)/rf_pipelines/transforms
+	mkdir -p $(INCDIR)/ $(LIBDIR)/ $(PYDIR)/rf_pipelines/streams $(PYDIR)/rf_pipelines/transforms $(PYDIR)/rf_pipelines/retirement_home
 	cp -f $(INCFILES) $(INCDIR)/
 	for f in $(PYFILES); do cp $$f $(PYDIR)/$$f; done
 	cp -f librf_pipelines.so $(LIBDIR)/
