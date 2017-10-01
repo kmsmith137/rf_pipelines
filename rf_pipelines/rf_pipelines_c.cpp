@@ -93,6 +93,57 @@ namespace pyclops {
 	}
     };
 
+
+    template<typename T, typename U>
+    struct predicated_converter<pair<T,U>, typename enable_if<(converts_from_python<T>::value && converts_from_python<U>::value)>::type> {
+	static pair<T,U> from_python(const py_object &x, const char *where = nullptr)
+	{
+	    // FIXME cut-and-paste from vector converter
+	    // FIXME this could use general cleanup!
+
+	    // This check is important, otherwise x='string' could be interpreted as the
+	    // list-of-strings [ 's', 't', 'r', 'i', 'n', 'g' ].
+	    if (PyString_Check(x.ptr))
+		throw runtime_error((where ? string(where) : string("")) + ": expected list or iterator, got single string");
+
+	    PyObject *iter_p = PyObject_GetIter(x.ptr);
+	    if (!iter_p)
+		throw runtime_error((where ? string(where) : string("")) + ": expected list or iterator, got non-iterable object");
+
+	    py_object iter = py_object::new_reference(iter_p);
+	    PyObject *item0_p = PyIter_Next(iter_p);
+
+	    if (!item0_p) {
+		if (PyErr_Occurred())
+		    throw pyerr_occurred();
+		throw runtime_error((where ? string(where) : string("")) + ": expected length-2 iterable object, got length-0");
+	    }
+
+	    py_object item0 = py_object::new_reference(item0_p);
+	    PyObject *item1_p = PyIter_Next(iter_p);
+
+	    if (!item1_p) {
+		if (PyErr_Occurred())
+		    throw pyerr_occurred();
+		throw runtime_error((where ? string(where) : string("")) + ": expected length-2 iterable object, got length-1");
+	    }
+
+	    py_object item1 = py_object::new_reference(item1_p);
+	    PyObject *item2_p = PyIter_Next(iter_p);
+
+	    if (item2_p) {
+		Py_DECREF(item2_p);
+		throw runtime_error((where ? string(where) : string("")) + ": expected length-2 iterable object, got length >= 3");
+	    }
+
+	    if (PyErr_Occurred())
+		throw pyerr_occurred();
+
+	    return make_pair<T,U> (converter<T>::from_python(item0,where), converter<U>::from_python(item1,where));
+	}
+    };
+
+
     // "Deep" converter for Json::Value.
     // FIXME put somewhere more general (pyclops/addons/jsoncpp.hpp?)
     // FIXME doesn't check for circular reference, so can lead to infinite recursion (fixable)
@@ -973,16 +1024,17 @@ static void wrap_detrenders(extension_module &m)
 
 static void wrap_clippers(extension_module &m)
 {
-    string doc_bm = ("badchannel_mask(maskpath)\n"
+    string doc_bm = ("badchannel_mask(mask_path, mask_ranges=None)\n"
 		     "\n"
 		     "The badchannel_mask transform sets bad freq channels of a weights array to 0.\n"
 		     "\n"
-		     "'maskpath' is the full path to a mask file that contains affected freq\n"
+		     "'mask_path' is the full path to a mask file that contains affected freq\n"
 		     "intervals, written in rows with the following format: e.g., 420.02,423.03.\n"
+		     "If mask_path is an empty string (or None), then no mask file will be read.\n"
 		     "\n"
-		     "FIXME: the python version of this transforms has an additional feature\n"
-		     "which hasn't been implemented in C++ yet.  The caller can specify a list\n"
-		     "of frequency pairs for additional masking.");
+		     "'mask_ranges' is a list of (freq_lo, freq_hi) pairs, which define additional\n"
+		     "frequency ranges to be masked.  If mask_ranges is an empty list (or None),\n"
+		     "then no additional ranges will be masked.\n");
 
     string doc_ic = ("intensity_clipper(nt_chunk, axis, sigma, niter=1, iter_sigma=0, Df=1, Dt=1, two_pass=false)\n"
 		     "\n"
@@ -1022,13 +1074,32 @@ static void wrap_clippers(extension_module &m)
 		     "\n"
 		     "If the 'two_pass' flag is set, a more numerically stable but slightly slower algorithm will be used.");
 
-    auto f_bm = wrap_func(make_badchannel_mask, "maskpath");
+    
+    // python-callable make_badchannel_mask()
+    std::function<shared_ptr<pipeline_object>(py_object, py_object)>
+	_make_bm = [](py_object py_mask_path, py_object py_mask_ranges) -> shared_ptr<pipeline_object>
+	{
+	    string cpp_mask_path;
+	    vector<pair<double,double>> cpp_mask_ranges;
+
+	    if (!py_mask_path.is_none())
+		cpp_mask_path = converter<string>::from_python(py_mask_path, "badchannel_mask: 'mask_path'");
+
+	    if (!py_mask_ranges.is_none())
+		cpp_mask_ranges = converter<vector<pair<double,double>>>::from_python(py_mask_ranges, "badchannel_mask: 'mask_ranges'");
+
+	    return make_badchannel_mask(cpp_mask_path, cpp_mask_ranges);
+	};
+
+
+    auto f_bm = wrap_func(_make_bm, "mask_path", kwarg("mask_ranges",py_object()));
     
     auto f_ic = wrap_func(make_intensity_clipper, "nt_chunk", "axis", "sigma", kwarg("niter",1),
 			  kwarg("iter_sigma",0.0), kwarg("Df",1), kwarg("Dt",1), kwarg("two_pass",false));
 
     auto f_sd = wrap_func(make_std_dev_clipper, "nt_chunk", "axis", "sigma", kwarg("Df",1), kwarg("Dt",1), kwarg("two_pass",false));
     
+
     m.add_function("badchannel_mask", doc_bm, f_bm);
     m.add_function("intensity_clipper", doc_ic, f_ic);
     m.add_function("std_dev_clipper", doc_sd, f_sd);

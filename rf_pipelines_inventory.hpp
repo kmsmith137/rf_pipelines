@@ -132,14 +132,20 @@ make_spline_detrender(int nt_chunk, rf_kernels::axis_type axis, int nbins, doubl
 
 // The badchannel_mask transform sets bad freq channels of a weights array to 0.
 //
-// 'maskpath' is the full path to a mask file that contains affected freq
-// intervals, written in rows with the following format: e.g., 420.02,423.03
+// 'mask_path' is the full path to a mask file that contains affected freq
+// intervals, written in rows with the following format: e.g., 420.02,423.03.
+// If 'maskpath' is an empty string, then no mask file will be read.
 //
-// FIXME: the python version of this transforms has an additional feature
-// which hasn't been implemented in C++ yet.  The caller can specify a list
-// of frequency pairs for additional masking.
+// 'mask_ranges' is a list of (freq_lo, freq_hi) pairs, which define additional
+// frequency ranges to be masked.
 
-extern std::shared_ptr<wi_transform> make_badchannel_mask(const std::string &maskpath);
+
+// List of (freq_lo, freq_hi) pairs, for badchannel_mask.
+using bc_mask_t = std::vector<std::pair<double,double>>;
+
+extern std::shared_ptr<wi_transform> 
+make_badchannel_mask(const std::string &mask_path, 
+		     const bc_mask_t &mask_ranges = bc_mask_t());
 
 
 // intensity_clipper: this "clips" an array by masking outlier intensities.

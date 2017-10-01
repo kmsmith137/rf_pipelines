@@ -12,27 +12,48 @@ namespace rf_pipelines {
 struct badchannel_mask : public wi_transform {
     // Note: inherits { nfreq, nt_chunk, nfreq, nds } from base class wi_transform.
 
-    string maskpath;
+    // Constructor arguments
+    const string mask_path;
+    const vector<pair<double,double>> mask_ranges;
+
     vector<double> m_bad_channels; // holds the bad frequencies, as specified from the input file
     vector<int> m_bad_indices;     // holds the final bad indices to be used to mask the weights array
     int m_len_indices;             // the size of bad_indices vector
    
-    badchannel_mask(const string &maskpath_) :
+    badchannel_mask(const string &mask_path_, const vector<pair<double,double>> &mask_ranges_) :
 	wi_transform("badchannel_mask"),
-	maskpath(maskpath_)
+	mask_path(mask_path_),
+	mask_ranges(mask_ranges_)
     {
         stringstream ss;
-	ss << "badchannel_mask(maskpath=" << maskpath << ")";
+	ss << "badchannel_mask(mask_path=\"" << mask_path << "\"";
+	if (mask_ranges.size() > 0)
+	    ss << ", mask_ranges=<" << mask_ranges.size() << ">";
+	ss << ")";
+
         this->name = ss.str();
 
         // Extract the channels to be removed into m_bad_channels
-	get_bad_channels(maskpath, m_bad_channels);
+	if (mask_path.size() > 0)
+	    get_bad_channels(mask_path, m_bad_channels);
+
+	// Add mask_ranges.
+	for (const auto &p: mask_ranges) {
+	    double freq_lo = p.first;
+	    double freq_hi = p.second;
+
+	    if (freq_lo >= freq_hi)
+		throw runtime_error("rf_pipelines::badchannel_mask constructor: expected freq_lo < freq_hi in 'mask_ranges'");
+
+	    m_bad_channels.push_back(freq_lo);
+	    m_bad_channels.push_back(freq_hi);
+	}
     }
 
     // Helper function called by constructor.
-    void get_bad_channels(const string &maskpath, vector<double> &bad_channels)
+    void get_bad_channels(const string &mask_path, vector<double> &bad_channels)
     {
-        ifstream inf(maskpath);
+        ifstream inf(mask_path);
 
 	if (inf.is_open())
 	{
@@ -57,7 +78,7 @@ struct badchannel_mask : public wi_transform {
 	    inf.close();
 	}
 	else
-	    throw runtime_error("badchannel_mask: couldn't open file at the maskpath given!");
+	    throw runtime_error("badchannel_mask: couldn't open file at the mask_path given!");
     }
 
     // Called after 'nfreq' is initialized.
@@ -140,20 +161,40 @@ struct badchannel_mask : public wi_transform {
     {
 	Json::Value ret;
 	ret["class_name"] = "badchannel_mask";
-	ret["maskpath"] = maskpath;
+	ret["mask_path"] = mask_path;
+	ret["mask_ranges"] = Json::Value(Json::arrayValue);
+
+	for (const auto &p: mask_ranges) {
+	    Json::Value v;
+	    v.append(p.first);
+	    v.append(p.second);
+	    ret["mask_ranges"].append(v);
+	}
+
 	return ret;
     }
 
     static shared_ptr<badchannel_mask> from_json(const Json::Value &j)
     {
-	return make_shared<badchannel_mask> (string_from_json(j, "maskpath"));
+	string mask_path = string_from_json(j, "mask_path");
+	vector<pair<double,double>> mask_ranges;
+
+	Json::Value a = array_from_json(j, "mask_ranges");
+
+	for (const Json::Value &v: a) {
+	    if (!v.isArray() || (v.size() != 2) || !v[0].isDouble() || !v[1].isDouble())
+		throw runtime_error("rf_pipelines::badchannel_mask::from_json: expected each element of 'mask_ranges' to be a length-2 floating-point array");
+	    mask_ranges.push_back(make_pair(v[0].asDouble(), v[1].asDouble()));
+	}
+	
+	return make_shared<badchannel_mask> (mask_path, mask_ranges);
     }
 };
 
 
-shared_ptr<wi_transform> make_badchannel_mask(const string &maskpath)
+shared_ptr<wi_transform> make_badchannel_mask(const string &mask_path, const vector<pair<double,double>> &mask_ranges)
 {
-    return make_shared<badchannel_mask> (maskpath);
+    return make_shared<badchannel_mask> (mask_path, mask_ranges);
 }
 
 
