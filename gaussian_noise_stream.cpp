@@ -63,7 +63,9 @@ public:
     virtual bool _fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
     {
 	// Number of Gaussian random samples to be written.
-	ssize_t nt = min(nt_chunk, nt_tot-pos);
+	ssize_t nt = nt_chunk;
+	nt = min(nt, nt_tot - pos);
+	nt = max(nt, ssize_t(0));
 
 	// Fill the intensity array with Gaussian random numbers, and initialize the weights to 1.
 	for (ssize_t ifreq = 0; ifreq < nfreq; ifreq++) {
@@ -72,7 +74,7 @@ public:
 		weights[ifreq*wstride + it] = randomize_weights ? std::uniform_real_distribution<>()(rng) : 1.0;
 	    }
 	}
-	
+
 	if (nt == nt_chunk)
 	    return true;
 
