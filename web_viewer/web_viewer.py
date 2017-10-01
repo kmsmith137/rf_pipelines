@@ -3,7 +3,7 @@ from os import walk, environ
 from os.path import isfile, exists, join
 from json import loads
 from math import ceil
-from flask import Flask, url_for
+from flask import Flask, url_for, send_from_directory
 app = Flask(__name__)
 
 
@@ -299,6 +299,13 @@ def runs(user):
             display += '<li><a href="%s">Show Last Transform</a>\n' % url_for('show_last_transform', user=user, run=run, zoom=0)
     return display
 
+
+@app.route("/<string:user>/<string:run>/get_tile/<string:fname>")
+def get_tile(user, run, fname):
+    dirname = '%s/%s/%s' % (path, user, run)
+    return send_from_directory(dirname, fname)
+
+
 @app.route("/<string:user>/<string:run>/show_tiles/<int:zoom>/<int:index1>/<int:index2>")
 def show_tiles(user, run, zoom, index1, index2):
     """Tiled image viewer! Shows all of the plots produced from a pipeline run at different zooms 
@@ -335,7 +342,7 @@ def show_tiles(user, run, zoom, index1, index2):
         # Now, add the images
         for index in range(index1, index2 + 1):
             if _check_image(user, run, transform, zoom, index):
-                display += '<td><img src="%s"></td>' % url_for('static', filename='plots/%s/%s/%s' % (user, run, fnames[transform][zoom][index]))
+                display += '<td><img src="%s"></td>' % url_for('get_tile', user=user, run=run, fname=fnames[transform][zoom][index])
         display += '</tr><tr><td>&nbsp;</td></tr>'
 
     # Links to user and user/run pages
@@ -431,7 +438,7 @@ def show_last_transform(user, run, zoom):
     current_row = 0
 
     for i, trigger in enumerate(triggerList[zoom]):
-        temp = url_for('static', filename='plots/%s/%s/%s' % (user, run, trigger))
+        temp = url_for('get_tile', user=user, run=run, fname=trigger)
         if i > 1 and i < max_index[-1][zoom] - 2:
             temp_link = url_for('show_tiles', user=user, run=run, zoom=zoom, index1=i - 2, index2=i + 1)
             display += '<td><a href="%s"><img src="%s"></a></td>' % (temp_link, temp)
@@ -476,7 +483,7 @@ def show_triggers(user, run, zoom):
     current_row = 0
 
     for i, trigger in enumerate(triggerList[zoom]):
-        temp = url_for('static', filename='plots/%s/%s/%s' % (user, run, trigger))
+        temp = url_for('get_tile', user=user, run=run, fname=trigger)
         if i > 1 and i < max_index[-1][zoom] - 2:
             temp_link = url_for('show_tiles', user=user, run=run, zoom=zoom, index1=i - 2, index2=i + 1)
             display += '<td><a href="%s"><img src="%s"></a></td>' % (temp_link, temp)
