@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-from os import walk
-from os.path import isfile, exists
+from os import walk, environ
+from os.path import isfile, exists, join
 from json import loads
 from math import ceil
 from flask import Flask, url_for
@@ -23,7 +23,7 @@ Flask (pip install Flask)
 
 RUNNING
 In your web_viewer directory, 
-    ./run-web-viewer.sh 5000
+    ./run-web-viewer.sh /data2/web_viewer 5000
 
 *Slightly annoying note: the zoom levels in the url are opposite those in the filenames, hence the 
  'reverse()' in the Parser class. This is only really relevant if a user is modifying the zoom level
@@ -194,8 +194,9 @@ class Crawler():
         for user in walk(self.path).next()[1]:
             temp_usr_data = dict()
             for run in walk('%s/%s' % (self.path, user)).next()[1]:
-                if run[0] != '_' and isfile('static/plots/' + user + '/' + run + '/rf_pipeline_0.json'):  
-                    temp_usr_data[run] = Parser('static/plots/%s/%s' % (user, run))
+                rundir = join(self.path, user, run)
+                if run[0] != '_' and isfile(join(rundir, 'rf_pipeline_0.json')):
+                    temp_usr_data[run] = Parser(rundir)
             pipeline_dir[user] = temp_usr_data
         return pipeline_dir
 
@@ -204,8 +205,9 @@ class Crawler():
         not a whole new dictionary of parser instances, as _get_dirs does."""
         temp_usr_data = dict()
         for run in walk('%s/%s' % (self.path, user)).next()[1]:
-            if run[0] != '_' and isfile('static/plots/' + user + '/' + run + '/rf_pipeline_0.json'):
-                temp_usr_data[run] = Parser('static/plots/%s/%s' % (user, run))
+            rundir = join(self.path, user, run)
+            if run[0] != '_' and isfile(join(rundir, 'rf_pipeline_0.json')):
+                temp_usr_data[run] = Parser(rundir)
         return temp_usr_data
 
     def __str__(self):
@@ -221,9 +223,11 @@ class Crawler():
                     s += self.pipeline_dir[user][run].__str__()
         return s
 
+# where we will search for users/runs/plots
+path = environ.get('WEB_VIEWER_ROOT', 'static/plots')
+print 'web_viewer root: %s' % path
 
-master_directories = Crawler()     # dirs contains a dictionary in the form {'user1': {'run1': Parser1, 'run2': Parser2, ...}, ...}
-path = 'static/plots'  # where we will search for users/runs/plots
+master_directories = Crawler(path)     # dirs contains a dictionary in the form {'user1': {'run1': Parser1, 'run2': Parser2, ...}, ...}
 
 
 ####################################################################################################
