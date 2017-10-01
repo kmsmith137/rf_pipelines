@@ -21,15 +21,9 @@ A persistent web viewer is running from the frb1 web_viewer account, and is up a
 DEPENDENCIES
 Flask (pip install Flask)
 
-SETUP
-In your web_viewer directory, 
-    mkdir static
-    cd static
-    ln -s /data2/web_viewer plots
-
 RUNNING
-    uwsgi --socket 0.0.0.0:5000 --plugin python --protocol=http -w wsgi --callable app
-
+In your web_viewer directory, 
+    ./run-web-viewer.sh 5000
 
 *Slightly annoying note: the zoom levels in the url are opposite those in the filenames, hence the 
  'reverse()' in the Parser class. This is only really relevant if a user is modifying the zoom level
@@ -228,6 +222,13 @@ class Crawler():
         return s
 
 
+master_directories = Crawler()     # dirs contains a dictionary in the form {'user1': {'run1': Parser1, 'run2': Parser2, ...}, ...}
+path = 'static/plots'  # where we will search for users/runs/plots
+
+
+####################################################################################################
+
+
 """
 This used to be a class for the web_viewer application, but I soon found that Flask Classy doesn't 
 interface properly with wsgi :'( Now, it is merely a collection of functions for loading pages of the 
@@ -303,7 +304,6 @@ def show_tiles(user, run, zoom, index1, index2):
     are the time in seconds at the start of the plot."""
 
     if run not in master_directories.pipeline_dir[str(user)]:
-        global master_directories
         master_directories.pipeline_dir[user] = master_directories._update_user(user)
     if run not in master_directories.pipeline_dir[str(user)]:
         return "The run was not found."
@@ -403,7 +403,6 @@ def show_last_transform(user, run, zoom):
     changing the value in the url. Currently just indexes the second last value in fnames."""
 
     if run not in master_directories.pipeline_dir[str(user)]:
-        global master_directories
         master_directories.pipeline_dir[user] = master_directories._update_user(user)
     if run not in master_directories.pipeline_dir[str(user)]:
         return "The run was not found."
@@ -447,7 +446,6 @@ def show_triggers(user, run, zoom):
     Currently just indexes the last value in fnames."""
 
     if run not in master_directories.pipeline_dir[str(user)]:
-        global master_directories
         master_directories.pipeline_dir[user] = master_directories._update_user(user)
     if run not in master_directories.pipeline_dir[str(user)]:
         return "The run was not found."
@@ -507,7 +505,3 @@ def _check_image(user, run, transform, zoom, index):
     if zoom >= max_zoom or zoom < min_zoom or index < min_index or index >= max_index[transform][zoom]:
         return False
     return True
-
-
-master_directories = Crawler()     # dirs contains a dictionary in the form {'user1': {'run1': Parser1, 'run2': Parser2, ...}, ...}
-path = 'static/plots'  # where we will search for users/runs/plots
