@@ -153,7 +153,11 @@ void reference_pipeline_object::run_test(ssize_t nt_end)
     auto p = make_shared<pipeline> ();
     p->add(p1);
     p->add(p2);
-    p->run("", 0);   // (outdir,verbosity) = ("",0)
+
+    pipeline_object::run_params params;
+    params.outdir = "";
+    params.verbosity = 0;
+    p->run(params);
 
     vector<vector<float>> &buf = p2->vectorized_output;
     rf_assert(buf.size() == ref_buf.size());

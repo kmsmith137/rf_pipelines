@@ -248,7 +248,11 @@ int main(int argc, char **argv)
 	// run two-element pipeline with no outputs
 	vector<shared_ptr<pipeline_object>> v = { sp, tp };
 	auto p = make_shared<pipeline> (v, "test_pipeline");
-	p->run("", 0);   // (outdir, verbosity) = ("", 0)
+
+	pipeline_object::run_params params;
+	params.outdir = "";
+	params.verbosity = 0;
+	p->run(params);
 
 	rf_assert(tp->it_curr >= sp->_it1);
     }

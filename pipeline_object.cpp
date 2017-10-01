@@ -172,12 +172,12 @@ void pipeline_object::_deallocate() { }
 // run() and friends
 
 
-Json::Value pipeline_object::run(const string &outdir, int verbosity, bool clobber)
+Json::Value pipeline_object::run(const run_params &params)
 {
     if (this->out_mp)
 	throw runtime_error("rf_pipelines: 'out_mp' is set in pipeline_object::run(), maybe you are rerunning pipeline after throwing an exception?");
 
-    auto mp = make_shared<outdir_manager> (outdir, clobber);
+    auto mp = make_shared<outdir_manager> (params.outdir, params.clobber);
     Json::Value j_in(Json::objectValue);
 
     // Note: allocate() calls bind() if necessary.
@@ -197,6 +197,9 @@ Json::Value pipeline_object::run(const string &outdir, int verbosity, bool clobb
 	    ssize_t m = pos_hi + nt_chunk_in;
 	    ssize_t n = this->advance(m, m);
 	    nt_end = min(nt_end, n);
+
+	    if (params.callback)
+		params.callback(pos_lo, pos_hi);
 	}
     } catch (std::exception &e) {
 	exception_text = e.what();
@@ -209,8 +212,8 @@ Json::Value pipeline_object::run(const string &outdir, int verbosity, bool clobb
     this->end_pipeline(j_out);
 
     // Try to write json file, even if exception was thrown.
-    if (outdir.size() > 0) {
-	string json_filename = outdir + "/rf_pipeline_0.json";
+    if (params.outdir.size() > 0) {
+	string json_filename = params.outdir + "/rf_pipeline_0.json";
 	ofstream f(json_filename);
 
 	if (f.fail())
@@ -219,7 +222,7 @@ Json::Value pipeline_object::run(const string &outdir, int verbosity, bool clobb
 	Json::StyledWriter w;
 	f << w.write(j_out);
 
-	if (verbosity >= 2)
+	if (params.verbosity >= 2)
 	    cout << "wrote " << json_filename << endl;
     }
 

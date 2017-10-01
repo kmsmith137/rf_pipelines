@@ -357,12 +357,20 @@ namespace pyclops {
 // Current pythonization is partial: can call run(), bind(), allocate(), jsonize(), etc.
 // but new pipeline_objects can't be defined from python.  This is because 'class ring_buffer'
 // isn't pythonized yet (this is on my todo list!)
-
-
+//
 // Note: the "upcalling" class
 //   struct py_pipeline_object : pipeline_object { ... };
 //
 // is not needed, since subclassing from python isn't implemented yet.
+
+
+// Helper function, passed as 'callback' in pipeline_object::run(), so that the pipeline
+// will periodically check for control-C, and throw the appropriate exception.
+static void check_signals(ssize_t pos_lo, ssize_t pos_hi)
+{
+    if (PyErr_Occurred() || PyErr_CheckSignals())
+	throw pyerr_occurred();
+}
 
 
 static void wrap_pipeline_object(extension_module &m)
@@ -373,18 +381,25 @@ static void wrap_pipeline_object(extension_module &m)
     std::function<string& (pipeline_object *)>
 	_name = [](pipeline_object *self) -> string& { return self->name; };
 
-    // This extra level of wrapping for run() only exists so that outdir=None will be equivalent to outdir=''!
-    // FIXME define 'class string_or_none' with converter instead?
     std::function<Json::Value (pipeline_object *, const py_object &, int, bool)>
 	_run = [](pipeline_object *self, const py_object &outdir_, int verbosity, bool clobber)
 	{
-	    string outdir;
-	    if (outdir_.is_string())
-		outdir = converter<string>::from_python(outdir_, "rf_pipelines.pipeline_object.run(): 'outdir'");
-	    else if (!outdir_.is_none())
+	    // FIXME for completeness, should allow python caller to specify a callback function.
+	    // (This should be called via a C++ wrapper which also calls check_signals().)
+
+	    pipeline_object::run_params params;
+	    params.verbosity = verbosity;
+	    params.clobber = clobber;
+	    params.callback = check_signals;
+
+	    if (outdir_.is_none())
+		params.outdir = "";
+	    else if (outdir_.is_string())
+		params.outdir = converter<string>::from_python(outdir_, "rf_pipelines.pipeline_object.run(): 'outdir'");
+	    else
 		throw runtime_error("rf_pipelines.pipeline_object.run(): expected 'outdir' to be a string or None");
 
-	    return self->run(outdir, verbosity, clobber);
+	    return self->run(params);
 	};
 
     // __str__()

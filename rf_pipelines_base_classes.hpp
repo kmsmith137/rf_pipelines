@@ -190,24 +190,38 @@ public:
     virtual ~pipeline_object();
 
     // High-level API: to run a pipeline, just call run().
-    //
-    // 'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will
-    // be written, in addition to other transform-specific output files such as plots. 
-    //
-    // If 'outdir' is an empty string, then the json file will not be written, and 
-    // any transform which tries to write an output file (such as a plotter_transform)
-    // will throw an exception.
-    //
-    // If 'clobber' is false, then an exception will be thrown if the pipeline tries to
-    // overwrite an old rf_pipelines.json file.
-    //
-    // The meaning of the 'verbosity' argument is:
-    //   0 = no output
-    //   1 = high-level summary output (names of transforms, number of samples processed etc.)
-    //   2 = show all output files
-    //   3 = debug trace through pipeline
 
-    Json::Value run(const std::string &outdir=".", int verbosity=2, bool clobber=true);
+    struct run_params {
+
+	// 'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will
+	// be written, in addition to other transform-specific output files such as plots. 
+	//
+	// If 'outdir' is an empty string, then the json file will not be written, and 
+	// any transform which tries to write an output file (such as a plotter_transform)
+	// will throw an exception.
+	//
+	// If 'clobber' is false, then an exception will be thrown if the pipeline tries to
+	// overwrite an old rf_pipelines.json file.
+	//
+	// The meaning of the 'verbosity' argument is:
+	//   0 = no output
+	//   1 = high-level summary output (names of transforms, number of samples processed etc.)
+	//   2 = show all output files
+	//   3 = debug trace through pipeline
+	//
+	// If 'callback' is specified, it will be called periodically as callback(pos_lo, pos_hi),
+	// where pos_lo is the number of samples which have been finalized by the pipeline, and
+	// pos_hi is the number of partially processed samples.  (Note pos_lo <= pos_hi.)
+	//
+	// FIXME: verbosity not actually implemented yet
+
+	std::string outdir = ".";
+	int verbosity = 2;
+	bool clobber = true;
+	std::function<void(ssize_t, ssize_t)> callback;
+    };
+	
+    Json::Value run(const run_params &params);
 
     // A more fine-grained high-level API.
     // bind() is the first step in pipeline: determines pipeline parameters such as ring buffer sizes
