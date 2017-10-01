@@ -451,7 +451,7 @@ int pipeline_object::add_plot_group(const string &name, int nt_per_pix, int ny)
 string pipeline_object::add_plot(const string &basename, int64_t it0, int nt, int nx, int ny, int group_id)
 {
     if (this->plot_groups.size() == 0)
-	_throw("add_plot() called but not plot_groups defined, maybe you forgot to call add_plot_group()?");
+	_throw("add_plot() called but no plot_groups defined, maybe you forgot to call add_plot_group()?");
 
     if ((group_id < 0) || (group_id >= (int)plot_groups.size()))
 	_throw("add_plot(): bad group_id specified");

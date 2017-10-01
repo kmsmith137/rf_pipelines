@@ -148,12 +148,6 @@ class bonsai_dedisperser(wi_transform):
                             or (self.img_ndm / 2) % tup[0] == 0 for tup in self.trigger_dim[1:]])
             assert all(tup[1] % (self.nt_chunk_ds[-1]) == 0 or self.nt_chunk_ds[0] % tup[1] == 0 for tup in self.trigger_dim)  # Downsample or upsample t
 
-            for i in xrange(self.n_zoom):
-                self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[i], ny=img_ndm)
-            if self.plot_all_trees:
-                for i in (self.ntrees-1) * range(self.n_zoom):
-                    self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[i], ny=img_ndm/2)
-
 
     def _bind_transform(self, json_data):
         if self.nfreq != self.dedisperser.nfreq:
@@ -167,6 +161,20 @@ class bonsai_dedisperser(wi_transform):
 
         if self.make_plot:
             self.plot_groups = [Plotter(self, ny=self.img_ndm/(1 if i==0 else 2), iplot=i) for i in xrange(1 + self.plot_all_trees * (self.ntrees-1))]
+
+
+    def _start_pipeline(self, json_attrs):
+        # Calls to add_plot_group() must go here.
+
+        if not self.make_plot:
+            return
+
+        for i in xrange(self.n_zoom):
+            self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[i], ny=self.img_ndm)
+
+        if self.plot_all_trees:
+            for i in (self.ntrees-1) * range(self.n_zoom):
+                self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[i], ny=self.img_ndm//2)
 
 
     def _process_chunk(self, intensity, weights, pos):

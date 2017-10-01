@@ -52,6 +52,8 @@ class plotter_transform(wi_transform):
     def __init__(self, img_prefix, img_nfreq, img_nt, downsample_nt=1, n_zoom = 1, nt_chunk=0, clip_niter=3, sigma_clip=3.0):
         # Build up name string, showing arguments which differ from non-default values
         name = "plotter_transform('%s', img_nfreq=%d, img_nt=%d, downsample_nt=%d" % (img_prefix, img_nfreq, img_nt, downsample_nt)
+        if n_zoom != 1:
+            name += ", n_zoom=%d" % n_zoom
         if nt_chunk > 0:
             name += ", nt_chunk=%d" % nt_chunk
         if clip_niter != 3:
@@ -84,23 +86,21 @@ class plotter_transform(wi_transform):
         self.clip_niter = clip_niter
         self.sigma_clip = sigma_clip
         self.n_zoom = n_zoom
+        self.img_prefix0 = img_prefix
         
         # Parameters implemented as lists that change for each zoom level
         self.downsample_nt = [downsample_nt]
         self.nt_chunk_ds = [nt_chunk // downsample_nt]     # number of times/chunk divided by number of times per pixel -> pixels/chunk
-        self.add_plot_group("waterfall", nt_per_pix=downsample_nt, ny=img_nfreq)
-        self.img_prefix0 = img_prefix
         self.img_prefix = [img_prefix + "_zoom0"]
 
         if self.n_zoom > 1:
             for zoom_level in xrange(self.n_zoom - 1):
                 self.downsample_nt += [self.downsample_nt[zoom_level] * 2]   # zoom_level = previous element's index because of the original value added
                 self.nt_chunk_ds += [nt_chunk // self.downsample_nt[zoom_level + 1]]
-                self.add_plot_group("waterfall", nt_per_pix=self.downsample_nt[zoom_level + 1], ny=img_nfreq)
                 self.img_prefix += [img_prefix + "_zoom" + str(zoom_level+1)]
 
                 
-    def _bind_transform(self, json_data):
+    def _bind_transform(self, json_attrs):
         if self.nfreq % self.img_nfreq != 0:
             raise RuntimeError("plotter_transform: current implementation requires 'img_nfreq' to be a divisor of stream nfreq")
 
@@ -112,6 +112,12 @@ class plotter_transform(wi_transform):
         self.weight_buf = np.zeros((self.n_zoom, self.img_nfreq, self.img_nt), dtype=np.float32)
         self.ifile = np.zeros((self.n_zoom), int)    # keeps track of which png file we're accumulating
         self.ipos = np.zeros((self.n_zoom), int)     # keeps track of how many (downsampled) time samples have been accumulated into file so far
+
+
+    def _start_pipeline(self, json_attrs):
+        # Note: calls to add_plot_group() must go in _start_pipeline().
+        for nds in self.downsample_nt:
+            self.add_plot_group("waterfall", nt_per_pix=nds, ny=self.img_nfreq)
 
 
     def _process_chunk(self, intensity, weights, pos):
