@@ -186,7 +186,7 @@ public:
     // Constructor for this abstract base class.
     explicit pipeline_object(const std::string &name);
 
-    virtual ~pipeline_object() { }
+    virtual ~pipeline_object();
 
     // High-level API: to run a pipeline, just call run().
     //

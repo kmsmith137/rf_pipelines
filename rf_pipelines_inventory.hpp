@@ -8,6 +8,9 @@
 // ring_buffer, pipeline_object, etc.
 #include "rf_pipelines_base_classes.hpp"
 
+// enum axis_type
+#include <rf_kernels/core.hpp>
+
 // A little hack so that all definitions still compile if optional dependencies are absent.
 namespace bonsai { class dedisperser; }
 namespace ch_frb_io { class intensity_network_stream; }
