@@ -394,15 +394,25 @@ class Variance_Estimates():
             else:
                 self.var[frequency] = np.interp(indices, nonzero, self.var[frequency, nonzero])
 
-        print "Variance_Estimate: This variance file ranges approximately from times", self.t[0] - size, 'to', self.t[-1] + size
-        print ("Variance_Estimate: Requesting variances outside of this time range will result in eval() returning"
-               + " the endpoints of the variance array.")
+        # We print a one-time warning if the variance is requested outside the range (warn_tmin, warn_tmax).
+        # (See eval() below.)
+        self.warn_tmin = self.t[0] - size
+        self.warn_tmax = self.t[-1] + size
+        self.warn_flag = False
+
         
     def eval(self, t):
+        if (not self.warn_flag) and ((t < self.warn_tmin) or (t > self.warn_tmax)):
+            self.warn_flag = True  # only warn once
+            print "Variance_Estimate: This variance file ranges approximately from times", self.warn_tmin, 'to', self.warn_tmax
+            print ("Variance_Estimate: Requesting variances outside of this time range will result in eval() returning"
+                   + " the endpoints of the variance array.")
+
         ret = []
         for f in range(self.var.shape[0]):
             ret += [ np.interp(t, self.t, self.var[f]) ] 
         return ret
+
 
     def _read_h5(self, fname, dset):
         with h5py.File(fname, 'r') as hf:
