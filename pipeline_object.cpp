@@ -438,10 +438,6 @@ int pipeline_object::add_plot_group(const string &name, int nt_per_pix, int ny)
     if (ny < 1)
 	_throw("add_plot_group(): ny must be >= 1");
 
-    for (const auto &p: this->plot_groups)
-	if (p.name == name)
-	    _throw("add_plot_group(): duplicate plot_group_name '" + name + "'");
-
     plot_group g;
     g.name = name;
     g.nt_per_pix = nt_per_pix;
