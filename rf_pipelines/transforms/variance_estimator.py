@@ -66,7 +66,7 @@ class variance_estimator(wi_transform):
 
     def _process_chunk(self, intensity, weights, pos):
         t0 = self.t_initial + self.dt_sample * pos
-        t1 = self.t_initial + self.dt_sample * (pos + nt_chunk)
+        t1 = self.t_initial + self.dt_sample * (pos + self.nt_chunk)
         
         for i in xrange(0, self.nt_chunk, self.v1_chunk):
             # Process the chunks for each frequency sequentially, wrap back if nt_chunk > v1_chunk
