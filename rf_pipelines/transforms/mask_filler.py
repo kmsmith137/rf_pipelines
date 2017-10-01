@@ -31,10 +31,9 @@ class mask_filler(wi_transform):
         self.var_file = var_file
         self.w_cutoff = w_cutoff
         self.nt_chunk = nt_chunk
-        print 'mask_filler: nt_chunk should be less than or equal to v1_chunk * v2_chunk for the variance array.'
 
 
-    def _bind_transform(self, json_data):
+    def _bind_transform(self, json_attrs):
         if not json_attrs.has_key('t_initial'):
             raise RuntimeError("rf_pipelines.mask_filler: pipeline must contain a chime_file_stream (or another stream which defines the 't_initial' attribute)")
         
