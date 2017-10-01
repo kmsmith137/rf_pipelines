@@ -52,7 +52,7 @@ class mask_filler(wi_transform):
         # ---------------------------------------------------------
         
         t0 = self.t_initial + self.dt_sample * pos
-        t1 = self.t_initial + self.dt_sample * (pos + nt_chunk)
+        t1 = self.t_initial + self.dt_sample * (pos + self.nt_chunk)
         var = self.Variance.eval((t0+t1)/2.)
         
         # 'intensity_valid' will be a 2D boolean-valued numpy array
