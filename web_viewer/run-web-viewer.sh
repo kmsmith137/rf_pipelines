@@ -7,4 +7,4 @@ if [[ $# -ne 2 ]]; then
 fi
 
 export WEB_VIEWER_ROOT=$1
-uwsgi --socket 0.0.0.0:$2 --plugin python --protocol=http -w web_viewer --callable app
+uwsgi --socket 0.0.0.0:$2 --processes 8 --plugin python --protocol=http -w web_viewer --callable app
