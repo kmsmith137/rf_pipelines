@@ -183,7 +183,7 @@ class bonsai_dedisperser(wi_transform):
         weights = np.array(weights, dtype=np.float32, order='C')
 
         # Send the inputs (intensity, weights) to the dedisperser.
-        self.dedisperser.run(intensity, weights, t0)
+        self.dedisperser.run(intensity, weights)
 
         # Retrieve the outputs (trigger arrays) from the dedisperser.
         #
