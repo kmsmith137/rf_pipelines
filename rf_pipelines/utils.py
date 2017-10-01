@@ -185,7 +185,13 @@ def _downsample_2d(arr, new_nfreq, new_ntime):
 
 
 def wi_downsample(intensity, weights, new_nfreq, new_ntime):
-    """Downsamples a pair of 2D arrays (intensity, weights), returning a new pair (ds_intensity, ds_weights)."""
+    """
+    Downsamples a pair of 2D arrays (intensity, weights), returning a new pair (ds_intensity, ds_weights).
+
+    This python function is morally equivalent to the C++ function rf_pipelines.wi_downsample(),
+    but note that the python version takes arguments (new_nfreq, new_nt), whereas the C++ version
+    takes (Df, Dt), and the normalization of the weights also differs by a factor (Df*Dt).
+    """
 
     wi = _downsample_2d(weights * intensity, new_nfreq, new_ntime)
     w = _downsample_2d(weights, new_nfreq, new_ntime)
@@ -197,6 +203,7 @@ def wi_downsample(intensity, weights, new_nfreq, new_ntime):
     (nfreq, ntime) = intensity.shape
     w = w / (nfreq//new_nfreq * ntime//new_ntime)
     return (wi, w)
+
 
 def upsample(arr, new_nfreq, new_nt):
     """Upsamples a 2d array"""

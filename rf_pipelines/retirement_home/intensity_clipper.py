@@ -1,6 +1,11 @@
 import sys
 import numpy as np
 
+# Note that we use the "rf_pipelines.utils" version of wi_downsample.
+# This python function is morally equivalent to the C++ function rf_pipelines.wi_downsample(),
+# but note that the python version takes arguments (new_nfreq, new_nt), whereas the C++ version
+# takes (Df, Dt), and the normalization of the weights also differs by a factor (Df*Dt).
+
 from rf_pipelines.rf_pipelines_c import wi_transform
 from rf_pipelines.utils import tile_arr, upsample, weighted_mean_and_rms, wi_downsample
 

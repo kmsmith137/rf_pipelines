@@ -103,11 +103,11 @@ def test_utils():
         weights = rand.uniform(size=(nfreq,nt))
 
         # Test 1: compare rf_pipelines.utils.wi_downsample() and rf_pipelines_c.wi_downsample()
+        # Note that the former takes arguments (new_nfreq, new_nt), whereas the latter takes (Df, Dt),
+        # and the normalization of the weights also differs by a factor (Df*Dt).
 
         (ds_int, ds_wt) = rf_pipelines.utils.wi_downsample(intensity, weights, nfreq//Df, nt//Dt)
         (ds_int2, ds_wt2) = rf_pipelines_c.wi_downsample(copy_array(intensity), copy_array(weights), Df, Dt)
-
-        # Different weights convention used in python/C++ wi_downsample().
         ds_wt *= (Df*Dt)
 
         epsilon_w = np.max(np.abs(ds_wt - ds_wt2))

@@ -1,8 +1,18 @@
 import sys
 import numpy as np
 
-from rf_pipelines.rf_pipelines_c import pipeline_object, wi_transform, wi_downsample
-from rf_pipelines.utils import write_png
+# Note that we use the "rf_pipelines.utils" version of wi_downsample.
+# This python function is morally equivalent to the C++ function rf_pipelines.wi_downsample(),
+# but note that the python version takes arguments (new_nfreq, new_nt), whereas the C++ version
+# takes (Df, Dt), and the normalization of the weights also differs by a factor (Df*Dt).
+#
+# FIXME using the fast C++ version of wi_downsample() would be preferable, but there
+# is a nuisance issue in the way: it assumes (nt/Dt) is a multiple of 8, and this
+# assumption sometimes fails in the plotter_transform.
+
+
+from rf_pipelines.rf_pipelines_c import pipeline_object, wi_transform
+from rf_pipelines.utils import write_png, wi_downsample
 
 
 class plotter_transform(wi_transform):
