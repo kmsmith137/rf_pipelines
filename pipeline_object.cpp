@@ -30,10 +30,8 @@ pipeline_object::pipeline_object(const string &name_) :
     name(name_) 
 { }
 
-pipeline_object::~pipeline_object()
-{
-    std::cout << "[" << name << "]\n";
-}
+pipeline_object::~pipeline_object() { }
+
 
 void pipeline_object::_throw(const string &msg) const
 {
