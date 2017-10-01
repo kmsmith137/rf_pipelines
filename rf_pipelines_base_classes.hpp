@@ -186,6 +186,8 @@ public:
     // Constructor for this abstract base class.
     explicit pipeline_object(const std::string &name);
 
+    virtual ~pipeline_object() { }
+
     // High-level API: to run a pipeline, just call run().
     //
     // 'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will
