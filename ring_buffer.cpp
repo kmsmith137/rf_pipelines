@@ -29,6 +29,13 @@ ring_buffer::ring_buffer(const vector<ssize_t> &cdims_, ssize_t nds_) :
 }
 
 
+ring_buffer::~ring_buffer()
+{
+    free(buf);
+    buf = nullptr;
+}
+
+
 void ring_buffer::update_params(ssize_t nt_contig_, ssize_t nt_maxlag_)
 {
     rf_assert(buf == nullptr);

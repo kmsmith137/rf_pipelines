@@ -40,6 +40,7 @@ public:
     const ssize_t nds;                 
 
     ring_buffer(const std::vector<ssize_t> &cdims, ssize_t nds);
+    ~ring_buffer();
 
     void update_params(ssize_t nt_contig, ssize_t nt_maxlag);
 
