@@ -49,10 +49,6 @@ bonsai_dedisperser::bonsai_dedisperser(const shared_ptr<bonsai::dedisperser> &dp
     this->name = "bonsai_dedisperser(" + dp->config.name + ")";
     this->nfreq = dedisperser->nfreq;
     this->nt_chunk = dedisperser->nt_chunk;
-
-    // FIXME: write more config info?
-    //for (int itree = 0; itree < dedisperser->ntrees; itree++)
-    //this->json_persistent["max_dm"].append(dedisperser->max_dm[itree]);
 }
 
 
@@ -108,6 +104,9 @@ void bonsai_dedisperser::_process_chunk(float *intensity, ssize_t istride, float
 void bonsai_dedisperser::_end_pipeline(Json::Value &json_output)
 {
     dedisperser->end_dedispersion();
+
+    for (int itree = 0; itree < dedisperser->ntrees; itree++)
+	json_output["max_dm"].append(dedisperser->max_dm[itree]);
 
     if (max_tracker) {
 	json_output["frb_global_max_trigger"] = max_tracker->global_max_trigger;
