@@ -27,6 +27,8 @@ void wi_stream::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs
 
     this->rb_intensity = this->create_buffer(rb_dict, "INTENSITY", {nfreq}, 1);
     this->rb_weights = this->create_buffer(rb_dict, "WEIGHTS", {nfreq}, 1);
+
+    json_attrs["nfreq"] = Json::Int64(nfreq);
 }
 
 
