@@ -55,16 +55,13 @@ void pipeline_object::bind()
 	_throw("this object cannot be first in pipeline");
 
     ring_buffer_dict rb_dict;
-    Json::Value json_data;
 
-    this->bind(rb_dict, n, n, json_data);
-
-    // Note: currently throwing away 'json_data' after bind() completes.
-    // Should it be saved somewhere?
+    this->json_attrs1 = Json::Value(Json::objectValue);
+    this->bind(rb_dict, n, n, json_attrs1);
 }
 
 // The non-virtual function bind() wraps the pure virtual function _bind().
-void pipeline_object::bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in_, ssize_t nt_maxlag_, Json::Value &json_data)
+void pipeline_object::bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in_, ssize_t nt_maxlag_, Json::Value &json_attrs)
 {    
     rf_assert(nt_chunk_in_ > 0);
     rf_assert(nt_maxlag_ > 0);
@@ -78,7 +75,7 @@ void pipeline_object::bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in_, ssiz
     this->nt_chunk_in = nt_chunk_in_;
     this->nt_maxlag = nt_maxlag_;
     
-    this->_bind(rb_dict, json_data);
+    this->_bind(rb_dict, json_attrs);
 
     rf_assert(nt_chunk_in == nt_chunk_in_);
     rf_assert(nt_maxlag == nt_maxlag_);
@@ -178,11 +175,12 @@ Json::Value pipeline_object::run(const run_params &params)
 	throw runtime_error("rf_pipelines: 'out_mp' is set in pipeline_object::run(), maybe you are rerunning pipeline after throwing an exception?");
 
     auto mp = make_shared<outdir_manager> (params.outdir, params.clobber);
-    Json::Value j_in(Json::objectValue);
 
     // Note: allocate() calls bind() if necessary.
     this->allocate();
-    this->start_pipeline(mp, j_in);
+
+    this->json_attrs2 = Json::Value(Json::objectValue);
+    this->start_pipeline(mp, json_attrs2);
 
     // We wrap the advance() loop in try..except, so that if an exception is thrown, we
     // still call end_pipeline() to clean up, and write partially complete output files.
@@ -209,6 +207,9 @@ Json::Value pipeline_object::run(const run_params &params)
 
     // Note: end_pipeline() clears outdir_manager, plot_groups.
     Json::Value j_out(Json::objectValue);
+    add_json_object(j_out, this->json_attrs1);  // bind() attributes
+    add_json_object(j_out, this->json_attrs2);  // start_pipeline() attributes
+    
     this->end_pipeline(j_out);
 
     // Try to write json file, even if exception was thrown.

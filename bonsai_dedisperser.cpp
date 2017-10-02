@@ -32,7 +32,7 @@ struct bonsai_dedisperser : public wi_transform {
     // This is a little "fragile", but since this is an internal interface, I didn't bother improving it!
     bonsai_dedisperser(const shared_ptr<bonsai::dedisperser> &dp, const shared_ptr<bonsai::global_max_tracker> &tp);
 
-    virtual void _bind_transform(Json::Value &json_data) override;
+    virtual void _bind_transform(Json::Value &json_attrs) override;
     virtual void _allocate() override;
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
     virtual void _end_pipeline(Json::Value &json_output) override;
@@ -63,17 +63,17 @@ void bonsai_dedisperser::_allocate()
 }
 
 
-void bonsai_dedisperser::_bind_transform(Json::Value &json_data)
+void bonsai_dedisperser::_bind_transform(Json::Value &json_attrs)
 {
-    if (!json_data.isMember("freq_lo_MHz") || !json_data.isMember("freq_hi_MHz"))
-	throw runtime_error("bonsai_dedisperser: expected json_data to contain members 'freq_lo_MHz' and 'freq_hi_MHz'");
+    if (!json_attrs.isMember("freq_lo_MHz") || !json_attrs.isMember("freq_hi_MHz"))
+	throw runtime_error("bonsai_dedisperser: expected json_attrs to contain members 'freq_lo_MHz' and 'freq_hi_MHz'");
 
-    if (!json_data.isMember("dt_sample"))
-	throw runtime_error("bonsai_dedisperser: expected json_data to contain member 'dt_sample'");
+    if (!json_attrs.isMember("dt_sample"))
+	throw runtime_error("bonsai_dedisperser: expected json_attrs to contain member 'dt_sample'");
     
-    double freq_lo_MHz = json_data["freq_lo_MHz"].asDouble();
-    double freq_hi_MHz = json_data["freq_hi_MHz"].asDouble();
-    double dt_sample = json_data["dt_sample"].asDouble();
+    double freq_lo_MHz = json_attrs["freq_lo_MHz"].asDouble();
+    double freq_hi_MHz = json_attrs["freq_hi_MHz"].asDouble();
+    double dt_sample = json_attrs["dt_sample"].asDouble();
 
     // Check that pipeline params match bonsai config
 

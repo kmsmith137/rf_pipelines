@@ -82,13 +82,13 @@ struct badchannel_mask : public wi_transform {
     }
 
     // Called after 'nfreq' is initialized.
-    virtual void _bind_transform(Json::Value &json_data) override
+    virtual void _bind_transform(Json::Value &json_attrs) override
     {
-	if (!json_data.isMember("freq_lo_MHz") || !json_data.isMember("freq_hi_MHz"))
-	    throw runtime_error("badchannel_mask: expected json_data to contain members 'freq_lo_MHz' and 'freq_hi_MHz'");
+	if (!json_attrs.isMember("freq_lo_MHz") || !json_attrs.isMember("freq_hi_MHz"))
+	    throw runtime_error("badchannel_mask: expected json_attrs to contain members 'freq_lo_MHz' and 'freq_hi_MHz'");
 
-	double freq_lo_MHz = json_data["freq_lo_MHz"].asDouble();
-	double freq_hi_MHz = json_data["freq_hi_MHz"].asDouble();
+	double freq_lo_MHz = json_attrs["freq_lo_MHz"].asDouble();
+	double freq_hi_MHz = json_attrs["freq_hi_MHz"].asDouble();
 
 	// First, make sure all intervals are within the freq
 	int vec_size = m_bad_channels.size();

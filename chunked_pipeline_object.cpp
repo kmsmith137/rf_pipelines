@@ -29,7 +29,7 @@ ssize_t chunked_pipeline_object::get_preferred_chunk_size()
 
 
 // virtual override
-void chunked_pipeline_object::_bind(ring_buffer_dict &rb_dict, Json::Value &json_data)
+void chunked_pipeline_object::_bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
 {
     this->_save_nt_chunk = nt_chunk;
 
@@ -41,7 +41,7 @@ void chunked_pipeline_object::_bind(ring_buffer_dict &rb_dict, Json::Value &json
     this->nt_contig = nt_chunk;
 
     // _bind_chunked() will call get_buffer() or create_buffer() as needed.
-    this->_bind_chunked(rb_dict, json_data);
+    this->_bind_chunked(rb_dict, json_attrs);
 }
 
 

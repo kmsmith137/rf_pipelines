@@ -24,7 +24,7 @@ chime_file_stream_base::chime_file_stream_base(const string &stream_name, const 
 
 
 // Virtual override
-void chime_file_stream_base::_bind_stream(Json::Value &json_data)
+void chime_file_stream_base::_bind_stream(Json::Value &json_attrs)
 {
     load_file(filename_list[0]);
     this->curr_ifile = 0;
@@ -56,10 +56,10 @@ void chime_file_stream_base::_bind_stream(Json::Value &json_data)
 	this->initial_discard_count = (noise_source_align - i0) % noise_source_align;
     }
 
-    json_data["freq_lo_MHz"] = this->freq_lo_MHz;
-    json_data["freq_hi_MHz"] = this->freq_hi_MHz;
-    json_data["dt_sample"] = this->dt_sample;
-    json_data["t_initial"] = this->time_lo + initial_discard_count * dt_sample;
+    json_attrs["freq_lo_MHz"] = this->freq_lo_MHz;
+    json_attrs["freq_hi_MHz"] = this->freq_hi_MHz;
+    json_attrs["dt_sample"] = this->dt_sample;
+    json_attrs["t_initial"] = this->time_lo + initial_discard_count * dt_sample;
 }
 
     

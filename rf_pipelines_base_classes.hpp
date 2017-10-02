@@ -224,7 +224,7 @@ public:
     Json::Value run(const run_params &params);
 
     // A more fine-grained high-level API.
-    // bind() is the first step in pipeline: determines pipeline parameters such as ring buffer sizes
+    // bind() is the first step in pipeline: determines pipeline parameters such as ring buffer sizes.
     void bind();  
     void allocate();
     void deallocate();    
@@ -264,11 +264,11 @@ public:
     // Stream-type pipeline_objects which can appear first in a pipeline should override
     // get_preferred_chunk_size() to return a nonzero value.
     
-    void bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in, ssize_t nt_maxlag, Json::Value &json_data);
+    void bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in, ssize_t nt_maxlag, Json::Value &json_attrs);
     ssize_t advance(ssize_t pos_hi, ssize_t pos_max);
     
-    void start_pipeline(const std::shared_ptr<outdir_manager> &mp, Json::Value &j);
-    void end_pipeline(Json::Value &j);
+    void start_pipeline(const std::shared_ptr<outdir_manager> &mp, Json::Value &json_attrs);
+    void end_pipeline(Json::Value &json_output);
     
     virtual ssize_t get_preferred_chunk_size();
 
@@ -338,7 +338,7 @@ public:
     //      does not.  In _start_pipeline(), the outdir_manager is available as 'this->outdir_manager'.
     //
     //    - Container pipeline_objects must call 
-    //         p.start_pipeline(this->outdir_manager, json_data)
+    //         p.start_pipeline(this->outdir_manager, json_attrs)
     //      for each sub-object 'p'.
     //
     //    - Both _start_pipeline() and _end_pipeline() take a (Json::Value &) argument, but the meaning
@@ -376,19 +376,19 @@ public:
     //      defines the following default json outputs: "name", "cpu_time", "plots".  For many pipeline_objects,
     //      these default outputs are sufficient, and defining _end_pipeline() isn't necessary.
 
-    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_data) = 0;    
+    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs) = 0;    
     virtual ssize_t _advance() = 0;
 
     // By default, these virtual functions do nothing.
     virtual void _allocate();
     virtual void _deallocate();
-    virtual void _start_pipeline(Json::Value &j);
-    virtual void _end_pipeline(Json::Value &j);
+    virtual void _start_pipeline(Json::Value &json_attrs);
+    virtual void _end_pipeline(Json::Value &json_output);
 
     // Helper: throws runtime_error with prefix "rf_pipelines: <name>: ..."
     void _throw(const std::string &msg) const;
 
-    // For debugging or internal use
+    // For debugging or internal use.
     static void _show_registered_json_constructors();
     static json_constructor_t _find_json_constructor(const std::string &class_name);  // can return NULL.
 
@@ -397,6 +397,7 @@ public:
     // These fields are initialized in bind().
     std::vector<std::shared_ptr<ring_buffer>> new_ring_buffers;    // ring buffers created by this pipeline object
     std::vector<std::shared_ptr<ring_buffer>> all_ring_buffers;    // all ring buffers used by this pipeline object (including new_ring_buffers)
+    Json::Value json_attrs1;  // only in top-level pipeline_object
 
     // These fields are initialized in start_pipeline() and cleared in end_pipeline().
     // Note: if the 'outdir' argument to run() is an empty string (or python None), then
@@ -405,6 +406,7 @@ public:
     std::shared_ptr<outdir_manager> out_mp;
     std::vector<plot_group> plot_groups;
     double time_spent_in_transform = 0.0;
+    Json::Value json_attrs2;  // only in top-level pipeline_object
 };
 
 
@@ -424,12 +426,12 @@ public:
 // protected:
 
     // These pipeline_object virtuals are defined here.
-    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_data) override;
+    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
     virtual ssize_t _advance() override;
     virtual ssize_t get_preferred_chunk_size() override;
 
     // New pure virtuals, to be defined by subclass.
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_data) = 0;
+    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) = 0;
     virtual bool _process_chunk(ssize_t pos) = 0;
 
     // Helper for jsonize(): this is the originally-specified value of 'nt_chunk' before bind() is called.
@@ -459,13 +461,13 @@ public:
 // protected:
 
     // These chunked pipeline_object virtuals are defined here.
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_data) override;
+    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
     virtual bool _process_chunk(ssize_t pos) override;
 
     // New virtuals, to be defined by subclass.
     // Sometimes it's convenient to defer initialization of nfreq and nt_chunk to _bind_stream().
     // The _fill_chunk() return value should be 'false' if EOF occurred somewhere in the chunk.
-    virtual void _bind_stream(Json::Value &json_data);  // non-pure virtual (default does nothing)
+    virtual void _bind_stream(Json::Value &json_attrs);  // non-pure virtual (default does nothing)
     virtual bool _fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) = 0;
 
     // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline().
@@ -496,13 +498,13 @@ public:
 // protected:
 
     // These chunked_pipeline_object virtuals are defined here.
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_data) override;
+    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
     virtual bool _process_chunk(ssize_t pos) override;
 
     // New virtuals, to be defined by subclass.
     // Note that _bind_transform() is called after 'nfreq' and 'nds' get initialized, so subclass-dependent
     // initializations which depend on their values should go there.
-    virtual void _bind_transform(Json::Value &json_data);  // non-pure virtual (default does nothing)
+    virtual void _bind_transform(Json::Value &json_attrs);  // non-pure virtual (default does nothing)
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) = 0;
 
     // Helpers for jsonize(): originally-specified values of 'nfreq', 'nds' before bind() is called.
@@ -565,7 +567,7 @@ protected:
     ssize_t it_file = 0;
 
     // Devirtualize wi_stream::_fill_chunk()
-    virtual void _bind_stream(Json::Value &json_data) override;
+    virtual void _bind_stream(Json::Value &json_attrs) override;
     virtual bool _fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
 
     // Pure virtuals which follow must be defined by subclass!

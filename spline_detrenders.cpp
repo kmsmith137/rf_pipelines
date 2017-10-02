@@ -36,7 +36,7 @@ struct spline_detrender : public wi_transform
     }
 
     // Called after this->nfreq is initialized.
-    virtual void _bind_transform(Json::Value &json_data) override
+    virtual void _bind_transform(Json::Value &json_attrs) override
     {
 	this->kernel = make_unique<rf_kernels::spline_detrender> (nfreq, nbins, epsilon);
     }

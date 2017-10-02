@@ -40,7 +40,7 @@ public:
     static std::shared_ptr<pipeline> from_json(const Json::Value &x);
     
 protected:
-    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_data) override;
+    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
     virtual ssize_t _advance() override;
         
     virtual void _allocate() override;
@@ -90,7 +90,7 @@ struct wi_sub_pipeline : pipeline {
     const std::shared_ptr<pipeline_object> sub_pipeline;
 
 protected:
-    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_data) override;
+    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
 };
 
 

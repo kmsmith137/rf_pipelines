@@ -31,7 +31,7 @@ struct downsampler : chunked_pipeline_object {
     shared_ptr<ring_buffer> rb_intensity_out;
     shared_ptr<ring_buffer> rb_weights_out;
 
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_data) override;
+    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
     virtual bool _process_chunk(ssize_t pos) override;
 };
 
@@ -42,7 +42,7 @@ downsampler::downsampler(const wi_sub_pipeline::initializer &ini_params_) :
 { }
 
 
-void downsampler::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_data)
+void downsampler::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
 {
     // Get input buffers, sanity check, compute nfreq_in and nds_in.
 
@@ -126,7 +126,7 @@ struct upsampler : chunked_pipeline_object {
     shared_ptr<ring_buffer> rb_weights_in;
     shared_ptr<ring_buffer> rb_weights_out;
 
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_data) override;
+    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
     virtual bool _process_chunk(ssize_t pos) override;
 };
 
@@ -136,7 +136,7 @@ upsampler::upsampler() :
 { }
 
 
-void upsampler::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_data)
+void upsampler::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
 {
     this->rb_weights_in = get_buffer(rb_dict, "WEIGHTS");
     this->rb_weights_out = get_buffer(rb_dict, "WEIGHTS_HIRES");
@@ -192,7 +192,7 @@ wi_sub_pipeline::wi_sub_pipeline(const shared_ptr<pipeline_object> &sub_pipeline
 }
 
 
-void wi_sub_pipeline::_bind(ring_buffer_dict &rb_dict, Json::Value &json_data)
+void wi_sub_pipeline::_bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
 {
     if (!has_key(rb_dict, "INTENSITY"))
 	_throw("buffer 'INTENSITY' does not exist in pipeline");
@@ -203,7 +203,7 @@ void wi_sub_pipeline::_bind(ring_buffer_dict &rb_dict, Json::Value &json_data)
     rb_dict2["INTENSITY_HIRES"] = rb_dict["INTENSITY"];
     rb_dict2["WEIGHTS_HIRES"] = rb_dict["WEIGHTS"];
 
-    pipeline::_bind(rb_dict2, json_data);
+    pipeline::_bind(rb_dict2, json_attrs);
 }
 
 

@@ -57,17 +57,17 @@ struct chime_file_writer : public wi_transform {
     }
 
     
-    virtual void _bind_transform(Json::Value &json_data) override
+    virtual void _bind_transform(Json::Value &json_attrs) override
     {
-	if (!json_data.isMember("freq_lo_MHz") || !json_data.isMember("freq_hi_MHz"))
-	    throw runtime_error("chime_file_writer: expected json_data to contain members 'freq_lo_MHz' and 'freq_hi_MHz'");
+	if (!json_attrs.isMember("freq_lo_MHz") || !json_attrs.isMember("freq_hi_MHz"))
+	    throw runtime_error("chime_file_writer: expected json_attrs to contain members 'freq_lo_MHz' and 'freq_hi_MHz'");
 	
-	if (!json_data.isMember("dt_sample"))
-	    throw runtime_error("chime_file_writer: expected json_data to contain member 'dt_sample'");
+	if (!json_attrs.isMember("dt_sample"))
+	    throw runtime_error("chime_file_writer: expected json_attrs to contain member 'dt_sample'");
 
-	this->freq_lo_MHz = json_data["freq_lo_MHz"].asDouble();
-	this->freq_hi_MHz = json_data["freq_hi_MHz"].asDouble();
-	this->dt_sample = json_data["dt_sample"].asDouble();
+	this->freq_lo_MHz = json_attrs["freq_lo_MHz"].asDouble();
+	this->freq_hi_MHz = json_attrs["freq_hi_MHz"].asDouble();
+	this->dt_sample = json_attrs["dt_sample"].asDouble();
 
 	this->intensity_contig_buf.resize(nfreq * nt_chunk);
 	this->weights_contig_buf.resize(nfreq * nt_chunk);

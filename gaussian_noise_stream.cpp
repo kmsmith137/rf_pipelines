@@ -53,11 +53,11 @@ public:
 
     virtual ~gaussian_noise_stream() { }
 
-    virtual void _bind_stream(Json::Value &json_data) override
+    virtual void _bind_stream(Json::Value &json_attrs) override
     {
-	json_data["freq_lo_MHz"] = this->freq_lo_MHz;
-	json_data["freq_hi_MHz"] = this->freq_hi_MHz;
-	json_data["dt_sample"] = this->dt_sample;
+	json_attrs["freq_lo_MHz"] = this->freq_lo_MHz;
+	json_attrs["freq_hi_MHz"] = this->freq_hi_MHz;
+	json_attrs["dt_sample"] = this->dt_sample;
     }
 
     virtual bool _fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override

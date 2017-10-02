@@ -21,7 +21,7 @@ wi_transform::wi_transform(const string &name_, ssize_t nt_chunk_, ssize_t nfreq
 
 
 // virtual override
-void wi_transform::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_data)
+void wi_transform::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
 {
     this->_save_nfreq = nfreq;
     this->_save_nds = nds;
@@ -48,7 +48,7 @@ void wi_transform::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_da
 	_throw("pipeline nds (" + to_string(nds) + ") doesn't match expected value (" + to_string(expected_nds) + ")");
 
     // Optional subclass-specific initializations.
-    this->_bind_transform(json_data);
+    this->_bind_transform(json_attrs);
 }
 
 
@@ -67,7 +67,7 @@ bool wi_transform::_process_chunk(ssize_t pos)
 
 
 // Default virtual
-void wi_transform::_bind_transform(Json::Value &json_data)
+void wi_transform::_bind_transform(Json::Value &json_attrs)
 {
     return;
 }

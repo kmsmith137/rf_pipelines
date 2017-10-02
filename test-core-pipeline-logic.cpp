@@ -40,7 +40,7 @@ public:
 	pipeline_object("vectorizer")
     { }
 
-    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_data) override
+    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
     {
 	this->nt_chunk_out = nt_chunk_in;
 	this->nt_contig = nt_chunk_in;
@@ -369,7 +369,7 @@ struct rot2 : public chunked_pipeline_object {
     }
     
 
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_data) override
+    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
     {
 	_bind_input(rb_dict, params.ix_in0, params.create_in0, buf_in0, mode_in0);
 	_bind_input(rb_dict, params.ix_in1, params.create_in1, buf_in1, mode_in1);

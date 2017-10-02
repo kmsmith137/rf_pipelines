@@ -59,7 +59,7 @@ struct intensity_clipper_transform : public wi_transform
     virtual ~intensity_clipper_transform() { }
 
     // Called after (nfreq, nds) are initialized.
-    virtual void _bind_transform(Json::Value &json_data) override
+    virtual void _bind_transform(Json::Value &json_attrs) override
     {
 	if (nfreq % Df)
 	    throw runtime_error("rf_pipelines::intensity_clipper: nfreq (=" + to_string(nfreq) 

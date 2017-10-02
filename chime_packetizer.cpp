@@ -28,9 +28,9 @@ struct chime_packetizer : public wi_transform {
 
     chime_packetizer(const std::string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps, int beam_id=0);
 
-    virtual void _bind_transform(Json::Value &json_data) override;
+    virtual void _bind_transform(Json::Value &json_attrs) override;
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
-    virtual void _end_pipeline(Json::Value &j) override;
+    virtual void _end_pipeline(Json::Value &json_output) override;
 };
 
 
@@ -71,7 +71,7 @@ chime_packetizer::chime_packetizer(const string &dstname, int nfreq_coarse_per_p
 
 // Called after (nfreq, nds) are initialized.
 // FIXME what about nds?
-void chime_packetizer::_bind_transform(Json::Value &json_data)
+void chime_packetizer::_bind_transform(Json::Value &json_attrs)
 {
     constexpr int nfreq_coarse = ch_frb_io::constants::nfreq_coarse_tot;
     constexpr double seconds_per_fpga_count = ch_frb_io::constants::dt_fpga;
@@ -82,13 +82,13 @@ void chime_packetizer::_bind_transform(Json::Value &json_data)
     if (nds != 1)
 	throw runtime_error("FIXME: chime_packetizer currently cannot be run in a downsampled sub-pipeline (this would be easy to fix)");
 
-    if (!json_data.isMember("dt_sample"))
-	throw runtime_error("chime_packetizer: expected json_data to contain member 'dt_sample'");
+    if (!json_attrs.isMember("dt_sample"))
+	throw runtime_error("chime_packetizer: expected json_attrs to contain member 'dt_sample'");
 
     this->ini_params.nupfreq = xdiv(nfreq, nfreq_coarse);
 
     // infer fpga_counts_per_sample from dt_sample
-    double dt_sample = json_data["dt_sample"].asDouble();
+    double dt_sample = json_attrs["dt_sample"].asDouble();
     double f = dt_sample / seconds_per_fpga_count;
     this->ini_params.fpga_counts_per_sample = int(f+0.5);   // round to nearest integer
 
@@ -108,7 +108,7 @@ void chime_packetizer::_process_chunk(float *intensity, ssize_t istride, float *
 }
 
 
-void chime_packetizer::_end_pipeline(Json::Value &j)
+void chime_packetizer::_end_pipeline(Json::Value &json_output)
 {
     bool join_network_thread = true;
     ostream->end_stream(join_network_thread);

@@ -46,7 +46,7 @@ void pipeline::_update_name()
 }
 
 
-void pipeline::_bind(ring_buffer_dict &rb_dict, Json::Value &json_data)
+void pipeline::_bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
 {
     if (elements.size() == 0)
 	_throw("pipeline is empty (length-zero)");
@@ -57,7 +57,7 @@ void pipeline::_bind(ring_buffer_dict &rb_dict, Json::Value &json_data)
     this->nt_contig = 1;
 
     for (auto &p: this->elements) {
-	p->bind(rb_dict, nt_chunk_out, nt_maxlag + nt_maxgap, json_data);
+	p->bind(rb_dict, nt_chunk_out, nt_maxlag + nt_maxgap, json_attrs);
 	this->nt_chunk_out = p->nt_chunk_out;
 	this->nt_maxgap += p->nt_maxgap;
     }
@@ -134,17 +134,17 @@ void pipeline::_deallocate()
 	p->deallocate();
 }
 
-void pipeline::_start_pipeline(Json::Value &j)
+void pipeline::_start_pipeline(Json::Value &json_attrs)
 {
     for (auto &p: this->elements)
-	p->start_pipeline(this->out_mp, j);
+	p->start_pipeline(this->out_mp, json_attrs);
 }
 
-void pipeline::_end_pipeline(Json::Value &j)
+void pipeline::_end_pipeline(Json::Value &json_output)
 {
     for (int i = 0; i < (int)elements.size(); i++) {
-	j["pipeline"].append(Json::Value(Json::objectValue));
-	elements[i]->end_pipeline(j["pipeline"][i]);
+	json_output["pipeline"].append(Json::Value(Json::objectValue));
+	elements[i]->end_pipeline(json_output["pipeline"][i]);
     }
 }
 

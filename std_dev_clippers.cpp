@@ -50,7 +50,7 @@ struct std_dev_clipper_transform : public wi_transform
     virtual ~std_dev_clipper_transform() { }
 
     // Called after (nfreq, nds) are initialized.
-    virtual void _bind_transform(Json::Value &json_data) override
+    virtual void _bind_transform(Json::Value &json_attrs) override
     {
 	if (nfreq % Df)
 	    throw runtime_error("rf_pipelines std_dev_clipper: nfreq (=" + to_string(nfreq) 
