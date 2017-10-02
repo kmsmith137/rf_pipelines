@@ -15,7 +15,7 @@ namespace rf_pipelines {
 
 #ifndef HAVE_CH_FRB_IO
 
-shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &filename, ssize_t nt_chunk, ssize_t noise_source_align)
+shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &filename, ssize_t nt_chunk, ssize_t noise_source_align, ssize_t nfiles)
 {
     throw runtime_error("rf_pipelines::make_chime_stream_from_acqdir() was called, but rf_pipelines was compiled without ch_frb_io");
 }
@@ -183,15 +183,22 @@ static void list_chime_acqdir(vector<string> &chime_files, const string &dirname
 }
 
 
-shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &dirname, ssize_t nt_chunk, ssize_t noise_source_align)
+shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &dirname, ssize_t nt_chunk, ssize_t noise_source_align, ssize_t nfiles)
 {
+    if (nfiles < 0)
+	throw runtime_error("rf_pipelines::chime_stream_from_acqdir: 'nfiles' argument was negative");
+
     bool allow_empty = false;
     vector<string> filename_list;
     list_chime_acqdir(filename_list, dirname, allow_empty);
     cerr << dirname << ": " << filename_list.size() << " data files found in acqdir\n";
 
+    if ((nfiles > 0) && (nfiles < (ssize_t)filename_list.size()))
+	filename_list.resize(nfiles);
+
     return make_chime_stream_from_filename_list(filename_list, nt_chunk, noise_source_align);
 }
+
 
 shared_ptr<wi_stream> make_chime_stream_from_filename(const string &filename, ssize_t nt_chunk, ssize_t noise_source_align)
 {
@@ -200,6 +207,7 @@ shared_ptr<wi_stream> make_chime_stream_from_filename(const string &filename, ss
 
     return make_chime_stream_from_filename_list(filename_list, nt_chunk, noise_source_align);
 }
+
 
 shared_ptr<wi_stream> make_chime_stream_from_filename_list(const vector<string> &filename_list, ssize_t nt_chunk, ssize_t noise_source_align)
 {

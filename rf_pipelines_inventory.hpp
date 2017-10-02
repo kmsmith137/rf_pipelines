@@ -249,6 +249,7 @@ extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssiz
 
 // File streams, either from single file, explicit filename, or acquisition directory.
 // In the 'acqusition directory' case, the directory is scanned for filenames of the form NNNNNNNN.h5, where N=[0,9].
+// The 'nfiles' optional argument can be used to limit the acquisition to the first N files.
 //    
 // The 'nt_chunk' arg is the chunk size used internally when moving data from hdf5 file
 // into the rf_pipelines buffer.  If unspecified or zero, it will default to a reasonable value.
@@ -263,8 +264,8 @@ extern std::shared_ptr<wi_stream> make_gaussian_noise_stream(ssize_t nfreq, ssiz
 // Note: a quick way to inspect a CHIME hdf5 file is using the 'ch-show-intensity-file' and 'ch-plot-intensity-file'
 // programs, in the ch_frb_io github repo.
 
-extern std::shared_ptr<wi_stream> make_chime_stream_from_acqdir(const std::string &dirname, ssize_t nt_chunk=0, ssize_t noise_source_align=0);
 extern std::shared_ptr<wi_stream> make_chime_stream_from_filename(const std::string &filename, ssize_t nt_chunk=0, ssize_t noise_source_align=0);
+extern std::shared_ptr<wi_stream> make_chime_stream_from_acqdir(const std::string &dirname, ssize_t nt_chunk=0, ssize_t noise_source_align=0, ssize_t nfiles=0);
 extern std::shared_ptr<wi_stream> make_chime_stream_from_filename_list(const std::vector<std::string> &filename_list, ssize_t nt_chunk=0, ssize_t noise_source_align=0);
 
 // CHIME assembled_chunk file stream, in msgpack format.

@@ -859,10 +859,11 @@ static void wrap_chime_streams(extension_module &m)
 		     "file, respectively.");
 
     m.add_function("chime_stream_from_acqdir",
-		   "chime_stream_from_acqdir(dirname, nt_chunk=0, noise_source_align=0)\n\n"
+		   "chime_stream_from_acqdir(dirname, nt_chunk=0, noise_source_align=0, nfiles=0)\n\n"
 		   "Makes a CHIME data stream from a directory containing HDF5 files.\n"
-		   "The directory is scanned for filenames of the form NNNNNNNN.h5, where N=[0,9].\n\n" + doc_fs,
-		   wrap_func(make_chime_stream_from_acqdir, "dirname", kwarg("nt_chunk",0), kwarg("noise_source_align",0)));
+		   "The directory is scanned for filenames of the form NNNNNNNN.h5, where N=[0,9].\n"
+		   "The 'nfiles' optional argument can be used to limit the acquisition to the first N files.\n\n" + doc_fs,
+		   wrap_func(make_chime_stream_from_acqdir, "dirname", kwarg("nt_chunk",0), kwarg("noise_source_align",0), kwarg("nfiles",0)));
 
     m.add_function("chime_stream_from_filename",
 		   "chime_stream_from_filename(filename, nt_chunk=0, noise_source_align=0)\n\n"
