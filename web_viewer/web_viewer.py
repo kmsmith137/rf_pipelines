@@ -296,7 +296,7 @@ class Crawler():
         """Similar to get_users(): returns a list of all run directories for a given user."""
 
         d = join(self.path, user)
-        return [ r for r in listdir(d) if exists(join(d,r,'rf_pipeline_0.json')) ]
+        return [ r for r in listdir(d) if ((r[0] != '_') and exists(join(d,r,'rf_pipeline_0.json'))) ]
 
 
     def get_sorted_runs(self, user):
