@@ -39,6 +39,9 @@ class Parser():
     for an individual pipeline run. This is repeatedly called by the Crawler() class as it discovers new 
     users and pipeline run directories. 
 
+    The Parser initialization logic is complex, because the rf_pipelines json file format has changed several
+    times, and the Parser needs to autodetect the version, and successfully parse old versions.
+
     Members
     -------
 
@@ -76,6 +79,7 @@ class Parser():
             self.min_zoom, self.min_index = None, None
             self.max_zoom = None
             self.max_index = None
+
         
     def _get_files(self, path):
         """
@@ -87,20 +91,51 @@ class Parser():
          [...]]
         """
 
+        self.fnames = [ ]  # stores file names (so the viewer can request them)
+        self.ftimes = [ ]  # stores timestamps (to be displayed for chime_stream_from_times())
+
         json_file = open(path + '/rf_pipeline_0.json').read()
         json_data = loads(json_file)
 
+        # The 'v1' json file format was used until October 2017.
+        # The 'v2' json file format was used after this.
+        if 'cpu_time' in json_data:
+            self._get_files_v2(json_data)
+        else:
+            self._get_files_v1(json_data)
+
+
+    def _get_files_v1(self, json_data):
+        """The 'v1' json file format was used until October 2017."""
+
         self.t0 = json_data['t0']
         self.s_per_sample = (json_data['t1'] - json_data['t0']) / json_data['nsamples']  # number of seconds per sample
-
-        self.fnames = []  # stores file names (so the viewer can request them)
-        self.ftimes = []  # stores timestamps (to be displayed for chime_stream_from_times())
         
         for transform in json_data['transforms']:
             if ('plotter_transform' in transform['name']) and ('plots' in transform):
                 self._add_plotter_transform(transform)
             elif ('bonsai_dedisperser' in transform['name']) and ('plots' in transform):
                 self._add_bonsai_dedisperser(transform)
+
+
+    def _get_files_v2(self, json_data):
+        """The 'v2' json file format was used starting in October 2017."""
+
+        self.t0 = json_data.get('t_initial', 0)
+        self.s_per_sample = json_data['dt_sample']
+        self._add_v2_transform(json_data)
+
+
+    def _add_v2_transform(self, t):
+        if 'plotter_transform' in t['name']:
+            self._add_plotter_transform(t)
+        elif 'bonsai_dedisperser' in t['name']:
+            self._add_bonsai_dedisperser(t)
+        elif 'wi_sub_pipeline' in t['name']:
+            self._add_v2_transform(t['sub_pipeline'])
+        elif 'pipeline' in t:
+            for t in t['pipeline']:
+                self._add_v2_transform(t)
 
 
     def _add_plotter_transform(self, transform):
