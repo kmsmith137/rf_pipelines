@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 from os import environ, listdir
 from os.path import isfile, isdir, exists, join
 from json import loads
@@ -28,7 +29,6 @@ In your web_viewer directory,
 *Slightly annoying note: the zoom levels in the url are opposite those in the filenames, hence the 
  'reverse()' in the Parser class. This is only really relevant if a user is modifying the zoom level
  by hand from the url. 
-
 """
 
 
@@ -38,10 +38,32 @@ class Parser():
     all information relevant to displaying the required images (min/max index and zoom values and timestamps)
     for an individual pipeline run. This is repeatedly called by the Crawler() class as it discovers new 
     users and pipeline run directories. 
+
+    Members
+    -------
+
+      self.fnames[itransform][izoom][it] -> string
+      self.ftimes[itransform][izoom][it] -> float
+      self.min_zoom -> int
+      self.max_zoom -> int
+      self.min_index -> int
+      self.max_index[itransform][izoom] -> int
+
+    The 'itransform' index runs over all plot_groups (e.g. one or more waterfall plots, followed by one
+    or more bonsai trigger plots).  
+
+    The 'izoom' index runs over zoom levels, ordered from most-zoomed-out to most-zoomed-in.  (This ordering
+    is opposite to the file naming convention in the rf_pipelines.plotter_transform.)
     """
+
     def __init__(self, path):
         # First, read everything in /data2/web_viewer, and extract file names and timestamps
-        self.fnames, self.ftimes = self._get_files(path) 
+        # Initializes self.fnames, self.ftimes.
+        self._get_files(path) 
+
+        # Check whether there was anything of value in the run
+        if len(self.fnames) == 0:
+            self.fnames = self.ftimes = None
 
         # Calculate some useful values for the viewer, given a successful run
         if self.fnames is not None and self._check_zoom():
@@ -56,94 +78,96 @@ class Parser():
             self.max_index = None
         
     def _get_files(self, path):
-        """Outputs a list of plot filenames and plot start times as a tuple based on the .json file produced from 
-        pipeline runs. The output is in the following form:
+        """
+        Initializes self.fnames (plot filenames) and self.ftimes (plot start times), based on the .json file 
+        produced from pipeline runs.  The output is in the following form:
+        
         [[[z0tf0f0, z0tf0f1, ...], [z1tf0f0, z1tf0f1, ...], ..., [...]],
          [[z0tf1f0, z0tf1f0, ...], [z1tf1f0, z1tf1f1, ...], ..., [...]],
          [...]]
         """
+
         json_file = open(path + '/rf_pipeline_0.json').read()
         json_data = loads(json_file)
-        transforms_list = json_data['transforms']
-        fnames = []  # stores file names (so the viewer can request them)
-        ftimes = []  # stores timestamps (to be displayed for chime_stream_from_times())
 
-        s_per_sample = (json_data['t1'] - json_data['t0']) / json_data['nsamples']  # number of seconds per sample
+        self.t0 = json_data['t0']
+        self.s_per_sample = (json_data['t1'] - json_data['t0']) / json_data['nsamples']  # number of seconds per sample
+
+        self.fnames = []  # stores file names (so the viewer can request them)
+        self.ftimes = []  # stores timestamps (to be displayed for chime_stream_from_times())
         
-        for transform in transforms_list:
-            # Here, we establish whether we're using the regular plotter or old bonsai plotter (in which case, we don't need to 
-            # worry about separating part of the outputs into different rows) or the new bonsai plotter
-            if ('plotter_transform' in transform['name'] and 'plots' in transform) or \
-                ('bonsai_dedisperser' in transform['name'] and 'plots' in transform and 'n_plot_groups' not in transform):
-                nloops = 1
-            elif 'bonsai_dedisperser' in transform['name'] and 'plots' in transform and 'n_plot_groups' in transform:
-                nloops = transform['n_plot_groups']
-            else:
-                nloops = -1  # ignore the json field! 
+        for transform in json_data['transforms']:
+            if ('plotter_transform' in transform['name']) and ('plots' in transform):
+                self._add_plotter_transform(transform)
+            elif ('bonsai_dedisperser' in transform['name']) and ('plots' in transform):
+                self._add_bonsai_dedisperser(transform)
 
-            # This is for the regular plotter transform or the bonsai transform with only one tree. This will just 
-            # index everything as normal. 
-            if nloops == 1:
-                # Start a new list for a new transform
-                ftransform_group = []
-                ttransform_group = []
-                for zoom_level in transform['plots'][:]:
-                    # This iterates over each zoom level (plot group) for a particular plotter transform (list of dictionaries)
-                    fzoom_group = []
-                    tzoom_group = []
-                    group_it0 = zoom_level['it0']
-                    for file_info in zoom_level['files'][0]:
-                        # We can finally access the file names :)
-                        name = file_info['filename']
-                        time = (group_it0 + file_info['it0']) * s_per_sample + json_data['t0']   # start time of the plot in seconds
-                        fzoom_group.append(name)
-                        tzoom_group.append(time)
-                    ftransform_group.append(fzoom_group)
-                    ttransform_group.append(tzoom_group)
-                # The plotter_transform defines zoom_level 0 to be most-zoomed-in, and zoom_level (N-1) to be
-                # most-zoomed-out. The web viewer uses the opposite convention, so we reverse the order here.
-                ftransform_group.reverse()
-                ttransform_group.reverse()
-                fnames.append(ftransform_group)
-                ftimes.append(ttransform_group)
 
-            # This is for a bonsai transform that plots multiple trees. We need to reverse the list at the beginning so that tree 0
-            # shows up in the first row and remove the reversals at the end so the zoom levels are displayed properly. A bit of an
-            # ugly hack, but it works. 
-            if nloops > 1:
-                n = 0
-                group_size = len(transform['plots']) / nloops
-                transform['plots'].reverse()
-                while n < len(transform['plots']):
-                    # Start a new list for a new transform
-                    ftransform_group = []
-                    ttransform_group = []
-                    for zoom_level in transform['plots'][n:n+group_size]:
-                        # This iterates over each zoom level (plot group) for a particular plotter transform (list of dictionaries)
-                        fzoom_group = []
-                        tzoom_group = []
-                        group_it0 = zoom_level['it0']
-                        for file_info in zoom_level['files'][0]:
-                            # We can finally access the file names :)
-                            name = file_info['filename']
-                            time = (group_it0 + file_info['it0']) * s_per_sample + json_data['t0']   # start time of the plot in seconds
-                            fzoom_group.append(name)
-                            tzoom_group.append(time)
-                        ftransform_group.append(fzoom_group)
-                        ttransform_group.append(tzoom_group)
-                    # The plotter_transform defines zoom_level 0 to be most-zoomed-in, and zoom_level (N-1) to be
-                    # most-zoomed-out. The web viewer uses the opposite convention, so we reverse the order here.
-                    ftransform_group
-                    ttransform_group
-                    fnames.append(ftransform_group)
-                    ftimes.append(ttransform_group)
-                    n += group_size
+    def _add_plotter_transform(self, transform):
+        """
+        Helper function, called by _get_files() to process a plotter_transform.
 
-        # Check whether there was anything of value in the run
-        if len(fnames) != 0:
-            return fnames, ftimes
-        else:
-            return None, None
+        The 'transform' argument should be the json object corresponding to a plotter_transform,
+        i.e. transform['name'] or transform['class_name'] should be 'plotter_transform...'.
+        """
+        self._add_plot_group(transform['plots'])
+
+
+    def _add_bonsai_dedisperser(self, transform):
+        """
+        Helper function, called by _get_files() to process a bonsai_dedisperser transform.
+
+        The 'transform' argument should be the json object corresponding to a bonsai_dedisperser,
+        i.e. transform['name'] or transform['class_name'] should be 'bonsai_dedisperser...'.
+        """
+
+        # Here, we establish whether we're using the regular plotter or old bonsai plotter (in which case, we don't need to 
+        # worry about separating part of the outputs into different rows) or the new bonsai plotter
+
+        if ('n_plot_groups' not in transform):
+            self._add_plot_group(transform['plots'])
+            return
+        
+        # transform['plots'] will be a list of length (nloops * nzoom)
+        assert len(transform['plots']) % transform['n_plot_groups'] == 0
+        nloops = transform['n_plot_groups']
+        group_size = len(transform['plots']) // nloops
+
+        for i in xrange(nloops):
+            j = (nloops-i-1) * group_size
+            k = (nloops-i) * group_size
+            self._add_plot_group(transform['plots'][j:k])
+
+    
+    def _add_plot_group(self, tp):
+        """
+        Helper function, called by _get_files() to process a new plot group.
+        The 'tp' argument should be the 'plots' member of the json_data (a length of list nzoom).
+        """
+        
+        # Start a new list for a new transform
+        ftransform_group = []
+        ttransform_group = []
+        for zoom_level in tp:
+            # This iterates over each zoom level (plot group) for a particular plotter transform (list of dictionaries)
+            fzoom_group = []
+            tzoom_group = []
+            group_it0 = zoom_level['it0']
+            for file_info in zoom_level['files'][0]:
+                # We can finally access the file names :)
+                name = file_info['filename']
+                time = (group_it0 + file_info['it0']) * self.s_per_sample + self.t0   # start time of the plot in seconds
+                fzoom_group.append(name)
+                tzoom_group.append(time)
+            ftransform_group.append(fzoom_group)
+            ttransform_group.append(tzoom_group)
+        # The plotter_transform defines zoom_level 0 to be most-zoomed-in, and zoom_level (N-1) to be
+        # most-zoomed-out. The web viewer uses the opposite convention, so we reverse the order here.
+        ftransform_group.reverse()
+        ttransform_group.reverse()
+        self.fnames.append(ftransform_group)
+        self.ftimes.append(ttransform_group)
+
 
     def _check_zoom(self):
         """Back in the dark days without ch_frb_rfi, you could force the bonsai plotter and the transform plotter
@@ -313,21 +337,6 @@ master_directories = Crawler(path)     # dirs contains a dictionary in the form 
 
 ####################################################################################################
 
-
-"""
-This used to be a class for the web_viewer application, but I soon found that Flask Classy doesn't 
-interface properly with wsgi :'( Now, it is merely a collection of functions for loading pages of the 
-web_viewer.
-
-The index page shows a list of users, with links to each of the pipeline runs they have done (runs). 
-Show tiles shows all the plots produced by the plotter transform for a particular pipeline run. 
-Show triggers currently shows the last series of plots made, but will eventually display bonsai
-trigger plots. 
-Show last transform is the same as Show triggers, but for the second last plotting transform run.
-
-If __init__ is present, it will be called once for each page when the viewer starts (hence, no
-__init__ method). 
-"""
 
 @app.route("/")
 def index():
