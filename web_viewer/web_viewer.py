@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-from os import walk, environ
-from os.path import isfile, exists, join
+from os import environ, listdir
+from os.path import isfile, isdir, exists, join
 from json import loads
 from math import ceil
 from flask import Flask, url_for, send_from_directory
@@ -157,6 +157,31 @@ class Parser():
                 return False
         return True
 
+
+    def check_set(self, zoom, index):
+        """Checks whether a link should be added at the top of the page to the next set of images in the series."""
+
+        # For whatever reason, there are differing number of plots for
+        # different transforms of the same zoom. This only returns false
+        # if there are absolutely no images left (i.e. it will return true
+        # if there is only one image available at a particular zoom because
+        # one transform happened to output more than the rest). This means
+        # we need to check again when we are displaying each individual
+        # image whether it exists.
+
+        if zoom >= self.max_zoom or zoom < self.min_zoom or index < self.min_index or index >= max([element[zoom] for element in self.max_index]):
+            return False
+        return True
+
+
+    def check_image(self, transform, zoom, index):
+        """Checks whether a particular image is available (because some transforms seem to produce more plots than others)"""
+
+        if zoom >= self.max_zoom or zoom < self.min_zoom or index < self.min_index or index >= self.max_index[transform][zoom]:
+            return False
+        return True
+
+
     def __str__(self):
         s = ''
         if self.fnames is None:
@@ -181,34 +206,90 @@ class Crawler():
     Searches the two top directories pointed to by plots (assumed to be users -> pipeline runs). 
     Parser() is called for each pipeline run, creating a dictionary with information about 
     each pipeline run for each user. 
+
     Separate class here because I thought it might be nice for it to get other interesting metadata
     at some point. Could just be added to Parser if not. 
+
+    Internal state:
+        self.pipeline_dir[user][rundir] -> Parser
     """
+
     def __init__(self, path='static/plots'):
-        self.path = path  # path is the directory symlinked to the web_viewer directory
-        self.pipeline_dir = self._get_dirs()
+        self.path = path  # web_viewer root directory
 
-    def _get_dirs(self):
-        """Steps through all the user directories and pipeline runs, calling Parser() for each."""
-        pipeline_dir = dict()
-        for user in walk(self.path).next()[1]:
-            temp_usr_data = dict()
-            for run in walk('%s/%s' % (self.path, user)).next()[1]:
-                rundir = join(self.path, user, run)
-                if run[0] != '_' and isfile(join(rundir, 'rf_pipeline_0.json')):
-                    temp_usr_data[run] = Parser(rundir)
-            pipeline_dir[user] = temp_usr_data
-        return pipeline_dir
+        # Initially empty!  To reduce startup time, we no longer enumerate all
+        # rundirs on startup.  Instead, new Parsers are added to the dictionary
+        # as they get "discovered" with web requests.
 
-    def _update_user(self, user):
-        """This will just return the information to be added to the section of the dictionary for a particular user, 
-        not a whole new dictionary of parser instances, as _get_dirs does."""
-        temp_usr_data = dict()
-        for run in walk('%s/%s' % (self.path, user)).next()[1]:
-            rundir = join(self.path, user, run)
-            if run[0] != '_' and isfile(join(rundir, 'rf_pipeline_0.json')):
-                temp_usr_data[run] = Parser(rundir)
-        return temp_usr_data
+        self.pipeline_dir = { }
+
+
+    def get_users(self):
+        """
+        Called by web viewer toplevel page, to get a list of all users with pipeline runs.
+        Since new entries may have been added since the last call to get_users(), we listdir()
+        the web_viewer root directory, rather than relying on cached results.
+        """
+        return [ d for d in listdir(self.path) if isdir(join(self.path,d)) ]
+
+
+    def get_unsorted_runs(self, user):
+        """Similar to get_users(): returns a list of all run directories for a given user."""
+
+        d = join(self.path, user)
+        return [ r for r in listdir(d) if exists(join(d,r,'rf_pipeline_0.json')) ]
+
+
+    def get_sorted_runs(self, user):
+        """
+        Sort runs by prefix, then by date/time.
+
+        The return value is built out of lists and tuples as follows:
+            [ (prefix1, [run1, run2, run3, ...]), 
+              (prefix2, [...]),
+             ... ]
+        """
+
+        runs = dict()
+
+        for run in self.get_unsorted_runs(user):
+            prefix = run[:-18]
+            if prefix not in runs:
+                # We need to add a new key
+                runs[prefix] = [run]
+            else:
+                # Add to existing list
+                runs[prefix].append(run)
+
+        return [ (prefix, sorted(runs[prefix])) for prefix in sorted(runs.keys()) ]
+
+
+    def run_exists(self, user, run):
+        return exists(join(self.path, user, run, 'rf_pipeline_0.json'))
+
+
+    def get_parser(self, user, run):
+        """Returns Parser object, or None on error."""
+
+        # Check for cached Parser.
+        if self.pipeline_dir.has_key(user) and self.pipeline_dir[user].has_key(run):
+            return self.pipeline_dir[user][run]
+
+        # Cached Parser does not exist.  Does the run exist on disk?
+        if not self.run_exists(user, run):
+            return None
+
+        try:
+            p = Parser(join(self.path, user, run))
+        except:
+            return None
+
+        # Add Parser to cache
+        self.pipeline_dir.setdefault(user, {})
+        self.pipeline_dir[user][run] = p
+        
+        return p
+
 
     def __str__(self):
         s = ""
@@ -247,16 +328,6 @@ Show last transform is the same as Show triggers, but for the second last plotti
 If __init__ is present, it will be called once for each page when the viewer starts (hence, no
 __init__ method). 
 """
-def _get_run_info(user, run):
-    # Get parser object for corresponding user/run (since this is no longer a class, I 
-    # don't think there's a better way to do this)
-    fnames = master_directories.pipeline_dir[user][run].fnames
-    ftimes = master_directories.pipeline_dir[user][run].ftimes
-    min_zoom = master_directories.pipeline_dir[user][run].min_zoom
-    min_index = master_directories.pipeline_dir[user][run].min_index
-    max_zoom = master_directories.pipeline_dir[user][run].max_zoom
-    max_index = master_directories.pipeline_dir[user][run].max_index
-    return fnames, ftimes, min_zoom, min_index, max_zoom, max_index
 
 @app.route("/")
 def index():
@@ -264,12 +335,12 @@ def index():
 
     display = '<h3>Users</h3>'
 
-    # Check for new users
-    for user in walk(path).next()[1]:
+    for user in master_directories.get_users():
         display += '<li><a href="%s">%s</a>\n' % (url_for('runs', user=user), user)
 
     display += '<p><a href="https://github.com/mburhanpurkar/web_viewer">Instructions / Help / Documentation</a></p>'
     return display
+
 
 @app.route("/<string:user>/runs")
 def runs(user):
@@ -278,30 +349,20 @@ def runs(user):
     display = '<h3>%s\'s pipeline runs</h3>' % user
     display += '<p>[&nbsp;&nbsp;&nbsp;<a href="%s">Back to List of Users</a>&nbsp;&nbsp;&nbsp;]' % url_for('index')
 
-    # Sort runs by prefix {prefix1: [run1, run2, run3, ...], prefix2: [...], ...}
-    sorted_runs = dict()
-    for run in walk(path + '/' + user).next()[1]:
-        if exists(path + '/' + user + '/' + run + '/' + 'rf_pipeline_0.json'):
-            prefix = run[:-18]
-            if prefix not in sorted_runs:
-                # We need to add a new key
-                sorted_runs[prefix] = [run]
-            else:
-                # Add to existing list
-                sorted_runs[prefix].append(run)
-
-    for prefix in sorted(sorted_runs):
+    for (prefix, runs) in master_directories.get_sorted_runs(user):
         display += '<h4>%s</h4>' % prefix
-        for run in sorted(sorted_runs[prefix]):
+        for run in runs:
             display += '<h5>%s</h5>' % run[-17:]
             display += '<li><a href="%s">Show Tiles</a>\n' % url_for('show_tiles', user=user, run=run, zoom=0, index1=0, index2=3)
             display += '<li><a href="%s">Show Triggers</a>\n' % url_for('show_triggers', user=user, run=run, zoom=0)
             display += '<li><a href="%s">Show Last Transform</a>\n' % url_for('show_last_transform', user=user, run=run, zoom=0)
+
     return display
 
 
 @app.route("/<string:user>/<string:run>/get_tile/<string:fname>")
 def get_tile(user, run, fname):
+    """Returns single image tile."""
     dirname = '%s/%s/%s' % (path, user, run)
     return send_from_directory(dirname, fname)
 
@@ -314,35 +375,33 @@ def show_tiles(user, run, zoom, index1, index2):
     and defaults are set to 0 and 4 for the link accessed from the home page). The numbers displayed
     are the time in seconds at the start of the plot."""
 
-    if run not in master_directories.pipeline_dir[str(user)]:
-        master_directories.pipeline_dir[user] = master_directories._update_user(user)
-    if run not in master_directories.pipeline_dir[str(user)]:
-        return "The run was not found."
+    p = master_directories.get_parser(user, run)
 
-    fnames, ftimes, min_zoom, min_index, max_zoom, max_index = _get_run_info(user, run)
+    if p is None:
+        return "The run was not found, or its json file could not be parsed."
 
-    if fnames is None:
+    if p.fnames is None:
         return 'No files found.'
 
-    if max_index is None:
+    if p.max_index is None:
         s = 'The number of zoom levels produced by the pipeline plotter was unequal to the number of plots produced ' \
             'by the bonsai plotter. This pipeline run cannot be displayed.'
         return s
 
-    display = '<h3>Displaying Plots %d-%d at Zoom %d</h3>' % (index1, index2, (max_zoom - zoom - 1))  # account for resversal of zoom order in plotter
+    display = '<h3>Displaying Plots %d-%d at Zoom %d</h3>' % (index1, index2, (p.max_zoom - zoom - 1))  # account for resversal of zoom order in plotter
     display += '<table cellspacing="0" cellpadding="0">'
 
-    for transform in reversed(range(len(fnames))):    # reversed to show triggers first
+    for transform in reversed(range(len(p.fnames))):    # reversed to show triggers first
         display += '<tr>'
         # First, add plot times 
         for index in range(index1, index2 + 1):
-            if _check_image(user, run, transform, zoom, index):
-                display += '<td>%s</td>' % ftimes[transform][zoom][index]
+            if p.check_image(transform, zoom, index):
+                display += '<td>%s</td>' % p.ftimes[transform][zoom][index]
         display += '</tr>'
         # Now, add the images
         for index in range(index1, index2 + 1):
-            if _check_image(user, run, transform, zoom, index):
-                display += '<td><img src="%s"></td>' % url_for('get_tile', user=user, run=run, fname=fnames[transform][zoom][index])
+            if p.check_image(transform, zoom, index):
+                display += '<td><img src="%s"></td>' % url_for('get_tile', user=user, run=run, fname=p.fnames[transform][zoom][index])
         display += '</tr><tr><td>&nbsp;</td></tr>'
 
     # Links to user and user/run pages
@@ -354,25 +413,25 @@ def show_tiles(user, run, zoom, index1, index2):
     # Plots to be linked
     display += '<p> <center> [&nbsp;&nbsp;&nbsp;'
 
-    if _check_set(user, run, zoom, index1 - 1):
+    if p.check_set(zoom, index1 - 1):
         display += '<a href="%s">%s</a>&nbsp;&nbsp;&nbsp;' % ((url_for('show_tiles',
                     user=user, run=run, zoom=zoom, index1=index1 - 1, index2=index2 - 1)), 'Prev Time')
     else:
         display += 'Prev Time&nbsp;&nbsp;&nbsp;'
 
-    if _check_set(user, run, zoom, index1 + 1):
+    if p.check_set(zoom, index1 + 1):
         display += '<a href="%s">%s</a>&nbsp;&nbsp;&nbsp;' % ((url_for('show_tiles',
                     user=user, run=run, zoom=zoom, index1=index1 + 1, index2=index2 + 1)), 'Next Time')
     else:
         display += 'Next Time&nbsp;&nbsp;&nbsp;'
 
-    if _check_set(user, run, zoom, index1 - (index2 - index1)):
+    if p.check_set(zoom, index1 - (index2 - index1)):
         display += '<a href="%s">%s</a>&nbsp;&nbsp;&nbsp;' % ((url_for('show_tiles',
                     user=user, run=run, zoom=zoom, index1=index1 - (index2 - index1), index2=index2 - (index2 - index1))), 'Jump Back')
     else:
         display += 'Jump Back&nbsp;&nbsp;&nbsp;'
 
-    if _check_set(user, run, zoom, index1 + (index2 - index1)):
+    if p.check_set(zoom, index1 + (index2 - index1)):
         display += '<a href="%s">%s</a>&nbsp;&nbsp;&nbsp;' % ((url_for('show_tiles',
                     user=user, run=run, zoom=zoom, index1=index1 + (index2 - index1), index2=index2 + (index2 - index1))), 'Jump Forward')
     else:
@@ -386,7 +445,7 @@ def show_tiles(user, run, zoom, index1, index2):
         new_index1 = index1 * 2 + ceil(index2 - index1) / 2 + 1
         new_index2 = index2 * 2 - ceil(index2 - index1) / 2 + 1
 
-    if _check_set(user, run, zoom + 1, index1 * 2):
+    if p.check_set(zoom + 1, index1 * 2):
         display += '<a href="%s">%s</a>&nbsp;&nbsp;&nbsp;' % ((url_for('show_tiles',
                     user=user, run=run, zoom=zoom + 1, index1=int(new_index1), index2=int(new_index2))), 'Zoom In')
     else:
@@ -400,7 +459,7 @@ def show_tiles(user, run, zoom, index1, index2):
         new_index1 = (index1 - ceil((index2 - index1) / 2)) / 2
         new_index2 = (index2 + (ceil((index2 - index1) / 2) + 1)) / 2
 
-    if _check_set(user, run, zoom - 1, index1 // 2):
+    if p.check_set(zoom - 1, index1 // 2):
         display += '<a href="%s">%s</a>&nbsp;&nbsp;&nbsp;' % ((url_for('show_tiles',
                     user=user, run=run, zoom=zoom - 1, index1=int(new_index1), index2=int(new_index2))), 'Zoom Out')
     else:
@@ -408,28 +467,27 @@ def show_tiles(user, run, zoom, index1, index2):
     display += ']</p> </center>'
     return display
 
+
 @app.route("/<string:user>/<string:run>/show_last_transform/<int:zoom>")
 def show_last_transform(user, run, zoom):
     """Displays the plots for the last transform at a given zoom horizontally. The zoom level can be changed by 
     changing the value in the url. Currently just indexes the second last value in fnames."""
 
-    if run not in master_directories.pipeline_dir[str(user)]:
-        master_directories.pipeline_dir[user] = master_directories._update_user(user)
-    if run not in master_directories.pipeline_dir[str(user)]:
-        return "The run was not found."
+    p = master_directories.get_parser(user, run)
 
-    fnames, ftimes, min_zoom, min_index, max_zoom, max_index = _get_run_info(user, run)
+    if p is None:
+        return "The run was not found, or its json file could not be parsed."
 
-    if fnames is None:
+    if p.fnames is None:
         return 'No files found.'
 
-    if max_index is None:
+    if p.max_index is None:
         s = 'The number of zoom levels produced by the pipeline plotter was unequal to the number of plots produced ' \
             'by the bonsai plotter. This pipeline run cannot be displayed.'
         return s
 
-    triggerList = fnames[-2]
-    display = '<h3>Displaying Last Transform Plots at Zoom %s</h3>' % (max_zoom - zoom - 1)
+    triggerList = p.fnames[-2]
+    display = '<h3>Displaying Last Transform Plots at Zoom %s</h3>' % (p.max_zoom - zoom - 1)
     display += '<p><center>[&nbsp;&nbsp;&nbsp;<a href="%s">Back to Users List</a>&nbsp;&nbsp;&nbsp;<a href="%s">Back to Your Runs</a>' \
                '&nbsp;&nbsp;&nbsp;]</center></p>' % (url_for('index'), url_for('runs', user=user))
     display += '<table cellspacing="0" cellpadding="0"><tr>'
@@ -439,7 +497,7 @@ def show_last_transform(user, run, zoom):
 
     for i, trigger in enumerate(triggerList[zoom]):
         temp = url_for('get_tile', user=user, run=run, fname=trigger)
-        if i > 1 and i < max_index[-1][zoom] - 2:
+        if i > 1 and i < p.max_index[-1][zoom] - 2:
             temp_link = url_for('show_tiles', user=user, run=run, zoom=zoom, index1=i - 2, index2=i + 1)
             display += '<td><a href="%s"><img src="%s"></a></td>' % (temp_link, temp)
         else:
@@ -450,31 +508,30 @@ def show_last_transform(user, run, zoom):
             display += '</tr><tr><td>&nbsp;</td></tr><tr>'
     display += '</tr></table>'
     return display
+
 
 @app.route("/<string:user>/<string:run>/show_triggers/<int:zoom>")
 def show_triggers(user, run, zoom):
     """Displays all trigger plots at a given zoom horizontally. The zoom level can be changed by changing the value in the url. 
     Currently just indexes the last value in fnames."""
 
-    if run not in master_directories.pipeline_dir[str(user)]:
-        master_directories.pipeline_dir[user] = master_directories._update_user(user)
-    if run not in master_directories.pipeline_dir[str(user)]:
-        return "The run was not found."
+    p = master_directories.get_parser(user, run)
 
-    fnames, ftimes, min_zoom, min_index, max_zoom, max_index = _get_run_info(user, run)
+    if p is None:
+        return "The run was not found, or its json file could not be parsed."
 
-    if fnames is None:
+    if p.fnames is None:
         return 'No files found.'
 
-    if max_index is None:
+    if p.max_index is None:
         s = 'The number of zoom levels produced by the pipeline plotter was unequal to the number of plots produced ' \
             'by the bonsai plotter. This pipeline run cannot be displayed.'
         return s
 
     zoom = int(zoom)
 
-    triggerList = fnames[-1]
-    display = '<h3>Displaying Trigger Plots at Zoom %s</h3>' % (max_zoom - zoom - 1)
+    triggerList = p.fnames[-1]
+    display = '<h3>Displaying Trigger Plots at Zoom %s</h3>' % (p.max_zoom - zoom - 1)
     display += '<p><center>[&nbsp;&nbsp;&nbsp;<a href="%s">Back to Users List</a>&nbsp;&nbsp;&nbsp;<a href="%s">Back to Your Runs</a>' \
                '&nbsp;&nbsp;&nbsp;]</center></p>' % (url_for('index'), url_for('runs', user=user))
     display += '<table cellspacing="0" cellpadding="0"><tr>'
@@ -484,7 +541,7 @@ def show_triggers(user, run, zoom):
 
     for i, trigger in enumerate(triggerList[zoom]):
         temp = url_for('get_tile', user=user, run=run, fname=trigger)
-        if i > 1 and i < max_index[-1][zoom] - 2:
+        if i > 1 and i < p.max_index[-1][zoom] - 2:
             temp_link = url_for('show_tiles', user=user, run=run, zoom=zoom, index1=i - 2, index2=i + 1)
             display += '<td><a href="%s"><img src="%s"></a></td>' % (temp_link, temp)
         else:
@@ -495,24 +552,3 @@ def show_triggers(user, run, zoom):
             display += '</tr><tr><td>&nbsp;</td></tr><tr>'
     display += '</tr></table>'
     return display
-
-def _check_set(user, run, zoom, index):
-    """Checks whether a link should be added at the top of the page to the next set of images in the series."""
-    # For whatever reason, there are differing number of plots for
-    # different transforms of the same zoom. This only returns false
-    # if there are absolutely no images left (i.e. it will return true
-    # if there is only one image available at a particular zoom because
-    # one transform happened to output more than the rest). This means
-    # we need to check again when we are displaying each individual
-    # image whether it exists.
-    fnames, ftimes, min_zoom, min_index, max_zoom, max_index = _get_run_info(user, run)
-    if zoom >= max_zoom or zoom < min_zoom or index < min_index or index >= max([element[zoom] for element in max_index]):
-        return False
-    return True
-
-def _check_image(user, run, transform, zoom, index):
-    """Checks whether a particular image is available (because some transforms seem to produce more plots than others)"""
-    fnames, ftimes, min_zoom, min_index, max_zoom, max_index = _get_run_info(user, run)
-    if zoom >= max_zoom or zoom < min_zoom or index < min_index or index >= max_index[transform][zoom]:
-        return False
-    return True
