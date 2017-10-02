@@ -346,16 +346,24 @@ def index():
 def runs(user):
     """Displays links to the pipeline runs for a particular user."""
 
-    display = '<h3>%s\'s pipeline runs</h3>' % user
-    display += '<p>[&nbsp;&nbsp;&nbsp;<a href="%s">Back to List of Users</a>&nbsp;&nbsp;&nbsp;]' % url_for('index')
+    display = '<h3>%s\'s pipeline runs</h3>\n' % user
+    display += '<p>[&nbsp;&nbsp;&nbsp;<a href="%s">Back to List of Users</a>&nbsp;&nbsp;&nbsp;]\n' % url_for('index')
+    display += '<p><ul>\n'
 
     for (prefix, runs) in master_directories.get_sorted_runs(user):
-        display += '<h4>%s</h4>' % prefix
+        run_urls = [ ]
         for run in runs:
-            display += '<h5>%s</h5>' % run[-17:]
-            display += '<li><a href="%s">Show Tiles</a>\n' % url_for('show_tiles', user=user, run=run, zoom=0, index1=0, index2=3)
-            display += '<li><a href="%s">Show Triggers</a>\n' % url_for('show_triggers', user=user, run=run, zoom=0)
-            display += '<li><a href="%s">Show Last Transform</a>\n' % url_for('show_last_transform', user=user, run=run, zoom=0)
+            u = url_for('show_tiles', user=user, run=run, zoom=0, index1=0, index2=3)
+            u = '<a href="%s">%s</a>' % (u, run[-17:])
+            run_urls.append(u)
+
+        display += '<p> <li> <b>%s</b><br>' % prefix
+
+        n = len(run_urls)
+        for i in xrange(0,n,6):
+            j = min(i+6,n)
+            display += (' | '.join(run_urls[i:j]))
+            display += '<br>'
 
     return display
 
