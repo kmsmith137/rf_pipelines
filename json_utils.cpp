@@ -89,4 +89,17 @@ Json::Value array_from_json(const Json::Value &j, const string &k)
 }
 
 
+void add_json_object(Json::Value &dst, const Json::Value &src)
+{
+    if (src.isNull())
+	return;
+
+    if (!src.isObject())
+	throw runtime_error("rf_pipelines internal error: 'src' argument to add_json_object() was not an Object as expected");
+
+    for (const auto &key: src.getMemberNames())
+	dst[key] = src[key];
+}
+
+
 }  // namespace rf_pipelines
