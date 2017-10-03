@@ -35,6 +35,7 @@ public:
     explicit pipeline(const std::vector<std::shared_ptr<pipeline_object>> &elements, const std::string &name="");
 
     void add(const std::shared_ptr<pipeline_object> &p);
+    inline int size() const { return elements.size(); }
 
     virtual Json::Value jsonize() const override;
     static std::shared_ptr<pipeline> from_json(const Json::Value &x);

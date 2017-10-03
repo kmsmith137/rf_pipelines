@@ -812,12 +812,16 @@ static void wrap_containers(extension_module &m)
     std::function<pipeline* (const chain_t &, const string &)>
 	_pipeline_init = [](const chain_t &stages, const string &name) { return new pipeline(stages,name); };
 
+    std::function<int (const pipeline *)>
+	_pipeline_size = [](const pipeline *p) { return p->size(); };
+
     std::string doc_add = ("add(pipeline_object)\n"
 			   "\n"
 			   "Appends a pipeline_object to the pipeline.");
     
     pipeline_type.add_constructor(wrap_constructor(_pipeline_init, kwarg("object_list",chain_t()), kwarg("name",string())));
     pipeline_type.add_method("add", doc_add, wrap_method(&pipeline::add, "object"));
+    pipeline_type.add_property("size", "Number of pipeline_objects in pipeline container", _pipeline_size);
 
     std::function<wi_sub_pipeline* (const shared_ptr<pipeline_object> &ds_pipeline, ssize_t, ssize_t, ssize_t, ssize_t)>
 	_ws_init = [](const shared_ptr<pipeline_object> &ds_pipeline, ssize_t nfreq_out, ssize_t nds_out, ssize_t Df, ssize_t Dt)
