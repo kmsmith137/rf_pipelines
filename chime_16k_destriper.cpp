@@ -14,25 +14,6 @@ struct chime_16k_destriper : public chunked_pipeline_object
     static constexpr int nfreq_c = 1024;
     static constexpr int nfreq_f = nfreq_c * nupfreq;
 
-    static constexpr float finv[nupfreq] = {
-	0.779691555944,
-	0.795894064757,
-	0.834242063942,
-	0.904273810309,
-	1.01822956051,
-	1.1840461684,
-	1.38413227762,
-	1.54291695921,
-	1.55405309524,
-	1.40852045797,
-	1.20806286823,
-	1.03610512003,
-	0.915863237391,
-	0.841025295903,
-	0.799321308517,
-	0.78072288612
-    };
-
     std::shared_ptr<ring_buffer> rb_intensity;
 
 
@@ -52,6 +33,25 @@ struct chime_16k_destriper : public chunked_pipeline_object
 
     virtual bool _process_chunk(ssize_t pos) override
     {
+	constexpr float finv[nupfreq] = {
+	    0.779691555944,
+	    0.795894064757,
+	    0.834242063942,
+	    0.904273810309,
+	    1.01822956051,
+	    1.1840461684,
+	    1.38413227762,
+	    1.54291695921,
+	    1.55405309524,
+	    1.40852045797,
+	    1.20806286823,
+	    1.03610512003,
+	    0.915863237391,
+	    0.841025295903,
+	    0.799321308517,
+	    0.78072288612
+	};
+
 	float *intensity = rb_intensity->get(pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
 	ssize_t istride = rb_intensity->get_stride();
 
