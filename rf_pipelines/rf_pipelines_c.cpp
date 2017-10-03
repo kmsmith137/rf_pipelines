@@ -886,7 +886,7 @@ static void wrap_chime_streams(extension_module &m)
 		   wrap_func(make_chime_frb_stream_from_filename, "filename", kwarg("nt_chunk",0), kwarg("noise_source_align",0)));
 
     m.add_function("chime_frb_stream_from_filename_list",
-		   "chime_frb_stream_from_filename_list(filename, nt_chunk=0, noise_source_align=0)"
+		   "chime_frb_stream_from_filename_list(filename, nt_chunk=0, noise_source_align=0)\n"
 		   "Makes a CHIME data stream from a python list of msgpack filenames.\n\n" + doc_fs,
 		   wrap_func(make_chime_frb_stream_from_filename_list, "filename_list", kwarg("nt_chunk",0), kwarg("noise_source_align",0)));
 
@@ -900,6 +900,11 @@ static void wrap_chime_streams(extension_module &m)
 		   "chime_network_stream(udp_port=0, beam_id=0)\n"
 		   "\nIf the udp_port is zero, then the default chimefrb port will be used.",
 		   wrap_func((ns_t) make_chime_network_stream, kwarg("udp_port",0), kwarg("beam_id",0)));
+
+    m.add_function("chime_16k_destriper",
+		   "chime_16k_destriper(nt_chunk=0)\n"
+		   "Experimental: removes \"ripples\" from 16K data.",
+		   wrap_func(make_chime_16k_destriper, kwarg("nt_chunk",0)));
 }
 
 

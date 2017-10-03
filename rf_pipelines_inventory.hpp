@@ -281,6 +281,9 @@ extern std::shared_ptr<wi_stream> make_chime_network_stream(const std::shared_pt
 // If the 'udp_port' argument is zero, then the default chimefrb port will be used.
 extern std::shared_ptr<wi_stream> make_chime_network_stream(int udp_port=0, int beam_id=0);
 
+// Experimental: removes "ripples" from 16K data.
+extern std::shared_ptr<chunked_pipeline_object> make_chime_16k_destriper(ssize_t nt_chunk=0);
+
 
 // -------------------------------------------------------------------------------------------------
 //

@@ -34,7 +34,7 @@ void wi_transform::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_at
     if (rb_intensity->nds != rb_weights->nds)
 	_throw("'intensity' and 'weights' buffers have different downsampling");
     if (rb_intensity->cdims.size() != 1)
-	_throw ("expected intensity/weights arrays to be two-dimensional");
+	_throw("expected intensity/weights arrays to be two-dimensional");
 
     ssize_t expected_nfreq = this->nfreq;
     ssize_t expected_nds = this->nds;
