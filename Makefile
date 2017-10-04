@@ -39,6 +39,7 @@ OFILES = badchannel_mask.o \
 	pipeline_object.o \
 	polynomial_detrenders.o \
 	ring_buffer.o \
+	spectrum_analyzer.o \
 	spline_detrenders.o \
 	std_dev_clippers.o \
 	wi_sub_pipeline.o \

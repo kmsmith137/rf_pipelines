@@ -288,6 +288,9 @@ extern std::shared_ptr<chunked_pipeline_object> make_chime_16k_destriper(ssize_t
 // Experimental: analyzes 16k-ripples and writes result to HDF5 file for follow-up analysis.
 extern std::shared_ptr<wi_transform> make_chime_16k_stripe_analyzer(ssize_t Dt1=16, ssize_t Df2=16, ssize_t Dt2=16);
 
+// Experimental: writes HDF5 file containing the intensity spectrum.
+extern std::shared_ptr<wi_transform> make_spectrum_analyzer(ssize_t Dt1=16, ssize_t Dt2=16);
+
 
 // -------------------------------------------------------------------------------------------------
 //
