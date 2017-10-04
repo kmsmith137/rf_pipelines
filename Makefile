@@ -21,7 +21,7 @@ INCFILES = rf_pipelines.hpp \
 
 OFILES = badchannel_mask.o \
 	bonsai_dedisperser.o \
-	chime_16k_destriper.o \
+	chime_16k_stripe_tools.o \
 	chime_file_stream.o \
 	chime_file_stream_base.o \
 	chime_file_writer.o \

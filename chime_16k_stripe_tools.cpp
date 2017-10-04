@@ -17,18 +17,110 @@ namespace rf_pipelines {
 // -------------------------------------------------------------------------------------------------
 
 
-struct chime_16k_destriper : public chunked_pipeline_object
+struct chime_16k_spike_mask : public chunked_pipeline_object
 {
     static constexpr int nupfreq = 16;
     static constexpr int nfreq_c = 1024;
     static constexpr int nfreq_f = nfreq_c * nupfreq;
 
+    std::shared_ptr<ring_buffer> rb_weights;
+
+
+    chime_16k_spike_mask(ssize_t nt_chunk_=0) :
+	chunked_pipeline_object("chime_16k_spike_mask", false, nt_chunk_)
+    { }
+
+    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
+    {
+	this->rb_weights = this->get_buffer(rb_dict, "WEIGHTS");
+	
+	if (rb_weights->cdims.size() != 1)
+	    _throw("expected weights array to be two-dimensional");
+	if (rb_weights->cdims[0] != nfreq_f)
+	    _throw("expected nfreq=" + to_string(nfreq_f));
+    }
+
+    virtual bool _process_chunk(ssize_t pos) override
+    {
+	float *weights = rb_weights->get(pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
+	ssize_t wstride = rb_weights->get_stride();
+
+	for (int ifreq_c = 0; ifreq_c < nfreq_c; ifreq_c++) {
+	    float *wrow = weights + (ifreq_c * nupfreq + 15) * wstride;
+	    memset(wrow, 0, nt_chunk * sizeof(float));
+	}
+
+	rb_weights->put(weights, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
+	return true;
+    }	
+
+    virtual Json::Value jsonize() const override
+    {
+	Json::Value ret;
+	ret["class_name"] = "chime_16k_spike_mask";
+	ret["nt_chunk"] = int(this->get_orig_nt_chunk());
+	return ret;
+    }
+
+    static shared_ptr<chime_16k_spike_mask> from_json(const Json::Value &j)
+    {
+	int nt_chunk = int_from_json(j, "nt_chunk");
+	return make_shared<chime_16k_spike_mask> (nt_chunk);
+    }
+};
+
+
+// Externally-visible factory function
+shared_ptr<chunked_pipeline_object> make_chime_16k_spike_mask(ssize_t nt_chunk)
+{
+    return make_shared<chime_16k_spike_mask> (nt_chunk);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+struct chime_16k_derippler : public chunked_pipeline_object
+{
+    static constexpr int nupfreq = 16;
+    static constexpr int nfreq_c = 1024;
+    static constexpr int nfreq_f = nfreq_c * nupfreq;
+
+    const double fudge_factor;
+    double multiplier[nupfreq];
+
     std::shared_ptr<ring_buffer> rb_intensity;
 
 
-    chime_16k_destriper(ssize_t nt_chunk_=0) :
-	chunked_pipeline_object("chime_16k_destriper", false, nt_chunk_)
-    { }
+    chime_16k_derippler(double fudge_factor_=1.0, ssize_t nt_chunk_=0) :
+	chunked_pipeline_object("chime_16k_derippler", false, nt_chunk_),
+	fudge_factor(fudge_factor_)
+    { 
+	constexpr float fl[nupfreq] = {
+	    1.28255845837,
+	    1.25644862084,
+	    1.19869285334,
+	    1.10585973916,
+	    0.982096806832,
+	    0.844561662108,
+	    0.722474301172,
+	    0.648123020509,
+	    0.643478657879,
+	    0.709964838879,
+	    0.827771489632,
+	    0.965153033863,
+	    1.09186607691,
+	    1.18902487817,
+	    1.25106135586,
+	    1.28086420647
+	};
+
+	if ((fudge_factor < 0.0) || (fudge_factor > 2.0))
+	    _throw("fudge_factor must be between 0 and 2");
+
+	for (int i = 0; i < nupfreq; i++)
+	    this->multiplier[i] = 1.0 / (1.0 + fudge_factor * (fl[i] - 1.0));
+    }
 
     virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
     {
@@ -42,31 +134,13 @@ struct chime_16k_destriper : public chunked_pipeline_object
 
     virtual bool _process_chunk(ssize_t pos) override
     {
-	constexpr float finv[nupfreq] = {
-	    0.779691555944,
-	    0.795894064757,
-	    0.834242063942,
-	    0.904273810309,
-	    1.01822956051,
-	    1.1840461684,
-	    1.38413227762,
-	    1.54291695921,
-	    1.55405309524,
-	    1.40852045797,
-	    1.20806286823,
-	    1.03610512003,
-	    0.915863237391,
-	    0.841025295903,
-	    0.799321308517,
-	    0.78072288612
-	};
 
 	float *intensity = rb_intensity->get(pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
 	ssize_t istride = rb_intensity->get_stride();
 
 	for (int ifreq_c = 0; ifreq_c < nfreq_c; ifreq_c++) {
 	    for (int iupfreq = 0; iupfreq < nupfreq; iupfreq++) {
-		float t = finv[iupfreq];
+		float t = multiplier[iupfreq];
 		float *p = intensity + (ifreq_c*nupfreq + iupfreq) * istride;
 		
 		for (int i = 0; i < nt_chunk; i++)
@@ -81,23 +155,25 @@ struct chime_16k_destriper : public chunked_pipeline_object
     virtual Json::Value jsonize() const override
     {
 	Json::Value ret;
-	ret["class_name"] = "chime_16k_destriper";
+	ret["class_name"] = "chime_16k_derippler";
+	ret["fudge_factor"] = this->fudge_factor;
 	ret["nt_chunk"] = int(this->get_orig_nt_chunk());
 	return ret;
     }
 
-    static shared_ptr<chime_16k_destriper> from_json(const Json::Value &j)
+    static shared_ptr<chime_16k_derippler> from_json(const Json::Value &j)
     {
 	int nt_chunk = int_from_json(j, "nt_chunk");
-	return make_shared<chime_16k_destriper> (nt_chunk);
+	double fudge_factor = double_from_json(j, "fudge_factor");
+	return make_shared<chime_16k_derippler> (fudge_factor, nt_chunk);
     }
 };
 
 
 // Externally-visible factory function
-shared_ptr<chunked_pipeline_object> make_chime_16k_destriper(ssize_t nt_chunk)
+shared_ptr<chunked_pipeline_object> make_chime_16k_derippler(double fudge_factor, ssize_t nt_chunk)
 {
-    return make_shared<chime_16k_destriper> (nt_chunk);
+    return make_shared<chime_16k_derippler> (fudge_factor, nt_chunk);
 }
 
 
@@ -306,7 +382,8 @@ shared_ptr<wi_transform> make_chime_16k_stripe_analyzer(ssize_t Dt1, ssize_t Df2
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("chime_16k_destriper", chime_16k_destriper::from_json);
+	    pipeline_object::register_json_constructor("chime_16k_derippler", chime_16k_derippler::from_json);
+	    pipeline_object::register_json_constructor("chime_16k_spike_mask", chime_16k_spike_mask::from_json);
 	    pipeline_object::register_json_constructor("chime_16k_stripe_analyzer", chime_16k_stripe_analyzer::from_json);
 	}
     } init;

@@ -905,10 +905,16 @@ static void wrap_chime_streams(extension_module &m)
 		   "\nIf the udp_port is zero, then the default chimefrb port will be used.",
 		   wrap_func((ns_t) make_chime_network_stream, kwarg("udp_port",0), kwarg("beam_id",0)));
 
-    m.add_function("chime_16k_destriper",
-		   "chime_16k_destriper(nt_chunk=0)\n"
+
+    m.add_function("chime_16k_spike_mask",
+		   "chime_16k_spike_mask(nt_chunk=0)\n"
+		   "Experimental: removes \"spikes\" from 16K data.",		   
+		   wrap_func(make_chime_16k_spike_mask, kwarg("nt_chunk",0)));
+
+    m.add_function("chime_16k_derippler",
+		   "chime_16k_derippler(fudge_factor=1.0, nt_chunk=0)\n"
 		   "Experimental: removes \"ripples\" from 16K data.",
-		   wrap_func(make_chime_16k_destriper, kwarg("nt_chunk",0)));
+		   wrap_func(make_chime_16k_derippler, kwarg("fudge_factor",1.0), kwarg("nt_chunk",0)));
 
     m.add_function("chime_16k_stripe_analyzer",
 		   "chime_16k_stripe_analyzer(Dt1=16, Df2=16, Dt2=16)\n"
