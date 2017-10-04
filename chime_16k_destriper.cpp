@@ -136,7 +136,7 @@ struct chime_16k_stripe_analyzer : public wi_transform
     ssize_t nfreq_h5 = 0;          // = 1024/Df2
     uptr<float> h5_chunk;  // shape (16, nfreq_h5)
 
-    string h5_fullpath;
+    string h5_fullname;
     H5::H5File h5_file;
     unique_ptr<sp_hdf5::hdf5_extendable_dataset<float>> h5_dset;
 
@@ -179,7 +179,7 @@ struct chime_16k_stripe_analyzer : public wi_transform
     virtual void _bind_transform(Json::Value &json_attrs) override
     {
 	// check for filename collision
-	this->h5_fullpath = this->out_mp->add_file("stripe_analysis.h5");
+	this->h5_fullname = this->out_mp->add_file("stripe_analysis.h5");
     }
 
     virtual void _start_pipeline(Json::Value &json_attrs) override
@@ -187,14 +187,12 @@ struct chime_16k_stripe_analyzer : public wi_transform
 	vector<hsize_t> chunk_shape = { 16, hsize_t(nfreq_h5), 1 };
 
 	// open file
-	this->h5_file = sp_hdf5::hdf5_open_trunc(h5_fullpath);
+	this->h5_file = sp_hdf5::hdf5_open_trunc(h5_fullname);
 	this->h5_dset = make_unique<sp_hdf5::hdf5_extendable_dataset<float>> (h5_file, "data", chunk_shape, 2);
     }
 
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
     {
-	memset(this->h5_chunk.get(), 0, 16 * nfreq_h5 * sizeof(float));
-
 	// Downsample (16384, Dt1*Dt2) -> (16384, Dt2)
 	ds_kernel->downsample(16384, Dt2,               // nfreq_out, nt_out
 			      ds_intensity.get(), Dt2,  // out_i, out_istride
@@ -211,9 +209,9 @@ struct chime_16k_stripe_analyzer : public wi_transform
 
 	// Divide 'ds' by 'ds2'.
 	for (int ifreq_c = 0; ifreq_c < 1024; ifreq_c++) {
-	    float *irow = ds_intensity.get() + ifreq_c * 16 * Dt2;
-	    float *wrow = ds_weights.get() + ifreq_c * 16 * Dt2;
-	    float *irow2 = ds2_intensity.get() + ifreq_c * Dt2;
+	    float *irow = ds_intensity.get() + ifreq_c * 16 * Dt2;  // shape (16,Dt2)
+	    float *wrow = ds_weights.get() + ifreq_c * 16 * Dt2;    // shape (16,Dt2)
+	    float *irow2 = ds2_intensity.get() + ifreq_c * Dt2;     // length Dt2
 
 	    for (int it = 0; it < Dt2; it++) {
 		if (irow2[it] > 0.0) {
@@ -226,8 +224,10 @@ struct chime_16k_stripe_analyzer : public wi_transform
 		}
 	    }
 	}
-	
-	// Compute medians in shape-(Df2,Dt2) blocks.
+
+	// Fill shape-(16,nfreq_h5) array, by computing medians in shape-(Df2,Dt2) blocks.
+	memset(this->h5_chunk.get(), 0, 16 * nfreq_h5 * sizeof(float));
+
 	for (int ifreq_h = 0; ifreq_h < nfreq_h5; ifreq_h++) {
 	    for (int u = 0; u < 16; u++) {
 		int ifreq_f = (ifreq_h * Df2 * 16) + u;
@@ -235,14 +235,14 @@ struct chime_16k_stripe_analyzer : public wi_transform
 		// shape-(Df2,Dt2) strided arrays
 		float *tmp_i = ds_intensity.get() + ifreq_f * Dt2;
 		float *tmp_w = ds_weights.get() + ifreq_f * Dt2;
-		int tmp_stride = 16 * Dt2;
+		int tstride = 16 * Dt2;
 
 		median_buf.clear();
 
 		for (int i = 0; i < Df2; i++) {
 		    for (int j = 0; j < Dt2; j++) {
-			if (tmp_w[i*tmp_stride+j] > 0.0)
-			    median_buf.push_back(tmp_i[i*tmp_stride+j]);
+			if (tmp_w[i*tstride+j] > 0.0)
+			    median_buf.push_back(tmp_i[i*tstride+j]);
 		    }
 		}
 
@@ -259,6 +259,9 @@ struct chime_16k_stripe_analyzer : public wi_transform
     {
 	this->h5_dset.reset();
 	this->h5_file.close();
+
+	// FIXME if (verbosity >= 2) ...
+	cout << "chime_16k_stripe_analyzer: wrote " << h5_fullname << endl;
     }
 
     virtual void _deallocate() override
