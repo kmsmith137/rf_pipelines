@@ -285,6 +285,9 @@ extern std::shared_ptr<wi_stream> make_chime_network_stream(int udp_port=0, int 
 // Experimental: removes "ripples" from 16K data.
 extern std::shared_ptr<chunked_pipeline_object> make_chime_16k_destriper(ssize_t nt_chunk=0);
 
+// Experimental: analyzes 16k-ripples and writes result to HDF5 file for follow-up analysis.
+extern std::shared_ptr<wi_transform> make_chime_16k_stripe_analyzer(ssize_t Dt1=16, ssize_t Df2=16, ssize_t Dt2=16);
+
 
 // -------------------------------------------------------------------------------------------------
 //

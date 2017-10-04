@@ -68,7 +68,7 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/retirement_home/std_dev_clipper.py
 
 
-TESTBINFILES = test-ring-buffer test-core-pipeline-logic test-file-stream-base
+TESTBINFILES = test-misc test-ring-buffer test-core-pipeline-logic test-file-stream-base
 
 # Used in 'make clean'
 CLEANDIRS=. site rf_pipelines rf_pipelines/streams rf_pipelines/transforms rf_pipelines/retirement_home
@@ -104,7 +104,7 @@ LIBS=
 
 ifeq ($(HAVE_BONSAI),y)
 	CPP += -DHAVE_BONSAI
-	LIBS += -lbonsai -lhdf5
+	LIBS += -lbonsai
 endif
 
 #ifeq ($(HAVE_PSRFITS),y)
@@ -114,12 +114,19 @@ endif
 
 ifeq ($(HAVE_CH_FRB_IO),y)
 	CPP += -DHAVE_CH_FRB_IO
-	LIBS += -lch_frb_io -lhdf5
+	LIBS += -lch_frb_io
 endif
 
-#ifeq ($(HAVE_CH_FRB_IO),y)
+ifeq ($(HAVE_HDF5),y)
+	CPP += -DHAVE_HDF5
+	LIBS += -lhdf5_cpp -lhdf5
+endif
+
+#To be uncommented when C++ pulse_adder transform is resurrected.
+#
+#ifeq ($(HAVE_SIMPULSE),y)
 #	CPP += -DHAVE_CH_FRB_IO
-	LIBS += -lsimpulse
+#	LIBS += -lsimpulse
 #endif
 
 LIBS += -lrf_kernels -ljsoncpp
@@ -157,6 +164,9 @@ rf_pipelines/rf_pipelines_c.o: rf_pipelines/rf_pipelines_c.cpp $(INCFILES)
 rf_pipelines/rf_pipelines_c.so: rf_pipelines/rf_pipelines_c.o librf_pipelines.so
 	$(CPP) $(CPP_LFLAGS) -shared -o $@ $< -lrf_pipelines -lpyclops $(LIBS) $(LIBS_PYMODULE)
 
+
+test-misc: test-misc.o $(OFILES)
+	$(CPP) $(CPP_LFLAGS) -o $@ $^ $(LIBS)
 
 test-core-pipeline-logic: test-core-pipeline-logic.o $(OFILES)
 	$(CPP) $(CPP_LFLAGS) -o $@ $^ $(LIBS)

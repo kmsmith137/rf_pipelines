@@ -909,6 +909,11 @@ static void wrap_chime_streams(extension_module &m)
 		   "chime_16k_destriper(nt_chunk=0)\n"
 		   "Experimental: removes \"ripples\" from 16K data.",
 		   wrap_func(make_chime_16k_destriper, kwarg("nt_chunk",0)));
+
+    m.add_function("chime_16k_stripe_analyzer",
+		   "chime_16k_stripe_analyzer(Dt1=16, Df2=16, Dt2=16)\n"
+		   "Experimental: analyzes 16k-ripples and writes result to HDF5 file for follow-up analysis.",
+		   wrap_func(make_chime_16k_stripe_analyzer, kwarg("Dt1",16), kwarg("Df2",16), kwarg("Dt2",16)));
 }
 
 
