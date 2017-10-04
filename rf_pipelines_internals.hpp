@@ -8,6 +8,7 @@
 #include <random>
 #include <cstring>
 #include <sstream>
+#include <algorithm>
 #include <unordered_set>
 #include <sys/time.h>
 
@@ -291,6 +292,23 @@ inline bool startswith(const std::string &str, const std::string &prefix)
 inline bool endswith(const std::string &str, const std::string &suffix)
 {
     return std::equal(suffix.rbegin(), suffix.rend(), str.rbegin());
+}
+
+
+template<typename T>
+inline T median(std::vector<T> &v)
+{
+    rf_assert(v.size() > 0);
+
+    int n = v.size();
+    int m = n/2;
+
+    std::nth_element(v.begin(), v.begin()+m, v.end());
+    
+    if (n == 2*m+1)
+	return v[m];
+
+    return 0.5 * (v[m] + *std::max_element(v.begin(), v.begin()+m));
 }
 
 
