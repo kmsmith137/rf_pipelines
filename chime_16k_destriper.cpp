@@ -176,15 +176,12 @@ struct chime_16k_stripe_analyzer : public wi_transform
 	this->h5_chunk = make_uptr<float> (16 * nfreq_h5);
     }
 
-    virtual void _bind_transform(Json::Value &json_attrs) override
-    {
-	// check for filename collision
-	this->h5_fullname = this->out_mp->add_file("stripe_analysis.h5");
-    }
-
     virtual void _start_pipeline(Json::Value &json_attrs) override
     {
 	vector<hsize_t> chunk_shape = { 16, hsize_t(nfreq_h5), 1 };
+
+	// check for filename collision
+	this->h5_fullname = this->out_mp->add_file("stripe_analysis.h5");
 
 	// open file
 	this->h5_file = sp_hdf5::hdf5_open_trunc(h5_fullname);
