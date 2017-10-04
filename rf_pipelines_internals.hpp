@@ -164,7 +164,7 @@ inline std::vector<float> uniform_randvec(std::mt19937 &rng, ssize_t n, double l
 
 // -------------------------------------------------------------------------------------------------
 //
-// Misc inlines
+// Allocators
 
 
 template<typename T>
@@ -183,11 +183,34 @@ inline T *aligned_alloc(size_t nelts, size_t nalign=128, bool zero=true)
     return reinterpret_cast<T *> (p);
 }
 
+
 template<typename T, typename... Args>
-std::unique_ptr<T> make_unique(Args&& ...args)
+inline std::unique_ptr<T> make_unique(Args&& ...args)
 {
     return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
+
+
+struct uptr_deleter {
+    inline void operator()(const void *p) { free(const_cast<void *> (p)); }
+};
+
+template<typename T>
+using uptr = std::unique_ptr<T[], uptr_deleter>;
+
+// Usage: uptr<float> p = make_uptr<float> (nelts);
+template<typename T>
+inline uptr<T> make_uptr(size_t nelts, size_t nalign=128, bool zero=true)
+{
+    T *p = aligned_alloc<T> (nelts, nalign, zero);
+    return uptr<T> (p);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// Misc inlines
+
 
 inline double time_diff(const struct timeval &tv1, const struct timeval &tv2)
 {
