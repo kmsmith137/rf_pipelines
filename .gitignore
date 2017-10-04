@@ -7,5 +7,6 @@ Makefile.local
 
 test-core-pipeline-logic
 test-file-stream-base
+test-misc
 test-ring-buffer
 
