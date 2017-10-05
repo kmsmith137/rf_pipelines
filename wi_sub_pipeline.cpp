@@ -252,10 +252,12 @@ void wi_sub_pipeline::_bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
     else if ((ini_params.nt_chunk % min_nt_chunk) != 0)
 	_throw("ini_params.nt_chunk (" + to_string(ini_params.nt_chunk) + " must be a multiple of " + to_string(min_nt_chunk) + " in this pipeline");
 
-    // Call pipeline::add() to make the 3-element pipeline.
-    this->add(make_shared<downsampler> (Df, Dt, nt_chunk));
-    this->add(sub_pipeline);
-    this->add(make_shared<upsampler> (Df, Dt, nt_chunk, ini_params.w_cutoff));
+    // Note: can't call pipeline::add() directly (get error message "...add() was called after bind()")
+    rf_assert(this->elements.size() == 0);
+    this->elements.push_back(make_shared<downsampler> (Df, Dt, nt_chunk));
+    this->elements.push_back(sub_pipeline);
+    this->elements.push_back(make_shared<upsampler> (Df, Dt, nt_chunk, ini_params.w_cutoff));
+    this->_update_name();
 
     ring_buffer_dict rb_dict2;    
     rb_dict2["INTENSITY_HIRES"] = rb_dict["INTENSITY"];
