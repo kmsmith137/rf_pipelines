@@ -131,9 +131,8 @@ class Parser():
             self._add_plotter_transform(t)
         elif 'bonsai_dedisperser' in t['name']:
             self._add_bonsai_dedisperser(t)
-        elif 'wi_sub_pipeline' in t['name']:
-            self._add_v2_transform(t['sub_pipeline'])
         elif 'pipeline' in t:
+            # this handles both the 'pipeline' and 'wi_sub_pipeline' cases.
             for t in t['pipeline']:
                 self._add_v2_transform(t)
 
