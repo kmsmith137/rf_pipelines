@@ -75,6 +75,8 @@ struct wi_sub_pipeline : pipeline {
     // The parameter pair (nds_out, Dt) behaves similarly.
 
     struct initializer {
+	double w_cutoff = 0.0;
+	ssize_t nt_chunk = 0;
 	ssize_t nfreq_out = 0;  // number of frequency channels after downsampling to sub-pipeline
 	ssize_t nds_out = 0;    // cumulative time downsampling (relative to input data) after downsampling to sub-pipeline
 	ssize_t Df = 0;         // frequency downsampling factor (between input pipeline and sub-pipeline)

@@ -353,7 +353,7 @@ static string doc_wi_sub_pipeline =
      "lower (freqency, time) resolution, then upsample and apply the resulting mask."
      "\n"
      "Constructor syntax:\n"
-     "    p = wi_sub_pipeline(sub_pipeline, nfreq_out=0, nds_out=0, Df=0, Dt=0)\n"
+     "    p = wi_sub_pipeline(sub_pipeline, w_cutoff=0.0, nt_chunk=0, nfreq_out=0, nds_out=0, Df=0, Dt=0)\n"
      "\n"
      " 	  nfreq_out = number of frequency channels after downsampling to sub-pipeline\n"
      "    nds_out = cumulative time downsampling (relative to input data) after downsampling to sub-pipeline\n"
@@ -823,10 +823,12 @@ static void wrap_containers(extension_module &m)
     pipeline_type.add_method("add", doc_add, wrap_method(&pipeline::add, "object"));
     pipeline_type.add_property("size", "Number of pipeline_objects in pipeline container", _pipeline_size);
 
-    std::function<wi_sub_pipeline* (const shared_ptr<pipeline_object> &ds_pipeline, ssize_t, ssize_t, ssize_t, ssize_t)>
-	_ws_init = [](const shared_ptr<pipeline_object> &ds_pipeline, ssize_t nfreq_out, ssize_t nds_out, ssize_t Df, ssize_t Dt)
+    std::function<wi_sub_pipeline* (const shared_ptr<pipeline_object> &ds_pipeline, double, ssize_t, ssize_t, ssize_t, ssize_t, ssize_t)>
+	_ws_init = [](const shared_ptr<pipeline_object> &ds_pipeline, double w_cutoff, ssize_t nt_chunk, ssize_t nfreq_out, ssize_t nds_out, ssize_t Df, ssize_t Dt)
 	{
 	    wi_sub_pipeline::initializer ini_params;
+	    ini_params.w_cutoff = w_cutoff;
+	    ini_params.nt_chunk = nt_chunk;
 	    ini_params.nfreq_out = nfreq_out;
 	    ini_params.nds_out = nds_out;
 	    ini_params.Df = Df;
@@ -835,7 +837,8 @@ static void wrap_containers(extension_module &m)
 	    return new wi_sub_pipeline(ds_pipeline, ini_params);
 	};
 
-    auto ws_init = wrap_constructor(_ws_init, "sub_pipeline", kwarg("nfreq_out",0), kwarg("nds_out",0), kwarg("Df",0), kwarg("Dt",0));
+    auto ws_init = wrap_constructor(_ws_init, "sub_pipeline", kwarg("w_cutoff",0.0), kwarg("nt_chunk",0), 
+				    kwarg("nfreq_out",0), kwarg("nds_out",0), kwarg("Df",0), kwarg("Dt",0));
 
     wi_sub_pipeline_type.add_constructor(ws_init);
 
@@ -1137,7 +1140,7 @@ static void wrap_clippers(extension_module &m)
 // wrap_kernels().  (I think these are only used in unit tests now.)
 //
 // FIXME it would be better to have an rf_kernels python module which exports these!
-// FIXME minor loose end: no kernel wrappers for spline_detrender, upsample.
+// FIXME minor loose end: no kernel wrapper for spline_detrender
 
 
 static void apply_polynomial_detrender(io_arr2d intensity, io_arr2d weights, rf_kernels::axis_type axis, int polydeg, double epsilon=1.0e-2)
@@ -1229,6 +1232,29 @@ static py_tuple wi_downsample(const in_arr2d &in_intensity, const in_arr2d &in_w
 }
 
 
+static void weight_upsample(io_arr2d w_out, const in_arr2d &w_in, float w_cutoff=0.0)
+{
+    int nfreq_out = w_out.shape(0);
+    int nt_out = w_out.shape(1);
+    int nfreq_in = w_in.shape(0);
+    int nt_in = w_in.shape(1);
+
+    if (nfreq_out==0 || nt_out==0 || nfreq_in==0 || nt_in==0)
+	throw runtime_error("rf_pipelines.weight_upsample: all array dimensions must be nonzero");
+
+    if ((nfreq_out % nfreq_in) || (nt_out % nt_in))
+	throw runtime_error("rf_pipelines.weight_upsample: output array dimensions must be multiples of input array dimensions");
+
+    int Df = xdiv(nfreq_out, nfreq_in);
+    int Dt = xdiv(nt_out, nt_in);
+    int ostride = xdiv(w_out.stride(0), sizeof(float));
+    int istride = xdiv(w_in.stride(0), sizeof(float));
+
+    rf_kernels::weight_upsampler u(Df, Dt);
+    u.upsample(nfreq_in, nt_in, w_out.data, ostride, w_in.data, istride, w_cutoff);
+}
+
+
 static py_tuple weighted_mean_and_rms(in_arr2d intensity, in_arr2d weights, int niter=1, double sigma=3.0, bool two_pass=false)
 {
     if ((intensity.shape(0) != weights.shape(0)) || (intensity.shape(1) != weights.shape(1)))
@@ -1298,13 +1324,18 @@ static void wrap_kernels(extension_module &m)
 		     "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.\n"
 		     "If the 'two_pass' flag is set, then a more numerically stable but slightly slower algorithm will be used.\n");
     
-    string doc_ds = ("wi_downsample(intensity, weights, Df, Dt)\n"
+    string doc_ds = ("wi_downsample(intensity, weights, Df, Dt) -> (intensity, weights)\n"
 		     "\n"
 		     "Downsamples a weighted intensity array, and returns a new pair (intensity, weights).\n"
 		     "The downsampling factors (Df,Dt) must be powers of two.\n"
 		     "\n"
 		     "Note that the normalization of the downsampled 'weights' array differs\n"
 		     "(by a factor of Df*Dt) from the python version of wi_downsample().\n");
+
+    string doc_us = ("weight_upsample(w_out, w_in, w_cutoff=0.0)\n"
+		     "\n"
+		     "Upsamples the low-res weight array 'w_in', and updates the hi-res weight array 'w_out' in place.\n"
+		     "The array dimensions of 'w_in' must evenly divide the dimensions of 'w_out'.\n");
     
     string doc_mr = ("weighted_mean_and_rms(intensity, weights, niter=1, sigma=3.0, two_pass=False)\n"
 		     "\n"
@@ -1328,6 +1359,9 @@ static void wrap_kernels(extension_module &m)
 
     m.add_function("wi_downsample", doc_ds,
 		   wrap_func(wi_downsample, "intensity", "weights", "Df", "Dt"));
+
+    m.add_function("weight_upsample", doc_us,
+		   wrap_func(weight_upsample, "intensity", "weights", kwarg("w_cutoff",0.0)));
 
     m.add_function("weighted_mean_and_rms", doc_mr,
 		   wrap_func(weighted_mean_and_rms, "intensity", "weights", kwarg("niter",1),
