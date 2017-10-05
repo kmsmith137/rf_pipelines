@@ -350,7 +350,7 @@ static string doc_pipeline =
 
 static string doc_wi_sub_pipeline =
     ("wi_sub_pipeline: this container class is used to run a \"sub-pipeline\" at\n"
-     "lower (freqency, time) resolution, then upsample and apply the resulting mask."
+     "lower (freqency, time) resolution, then upsample and apply the resulting mask.\n"
      "\n"
      "Constructor syntax:\n"
      "    p = wi_sub_pipeline(sub_pipeline, w_cutoff=0.0, nt_chunk=0, nfreq_out=0, nds_out=0, Df=0, Dt=0)\n"

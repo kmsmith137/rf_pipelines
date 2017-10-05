@@ -50,10 +50,6 @@ struct chime_file_writer : public wi_transform {
 	bitshuffle(bitshuffle_)
     {
 	this->name = "chime_file_writer(" + filename + ")";
-
-	// Default nt_chunk.
-	if (nt_chunk == 0)
-	    nt_chunk = 128;
     }
 
     

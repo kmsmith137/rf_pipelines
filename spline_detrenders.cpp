@@ -51,7 +51,7 @@ struct spline_detrender : public wi_transform
     {
 	Json::Value ret;
 
-	ret["transform_name"] = "spline_detrender";
+	ret["class_name"] = "spline_detrender";
 	ret["nt_chunk"] = int(this->get_orig_nt_chunk());
 	ret["axis"] = rf_kernels::axis_type_to_string(rf_kernels::AXIS_FREQ);
 	ret["nbins"] = this->nbins;
