@@ -36,6 +36,7 @@ OFILES = badchannel_mask.o \
 	lexical_cast.o \
 	outdir_manager.o \
 	pipeline.o \
+	pipeline_fork.o \
 	pipeline_object.o \
 	polynomial_detrenders.o \
 	ring_buffer.o \

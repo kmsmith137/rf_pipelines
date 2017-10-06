@@ -844,6 +844,14 @@ static void wrap_containers(extension_module &m)
 
     m.add_type(pipeline_type);
     m.add_type(wi_sub_pipeline_type);
+
+    m.add_function("pipeline_fork",
+		   "pipeline_fork(bufnames) -> pipeline_object\n"
+		   "\n"
+		   "Creates one or more new pipeline ring_buffers, by copying existing ring_buffers.\n"
+		   "The 'bufnames' argument should be a list of (input_bufname, output_bufname) pairs.\n"
+		   "Frequently, the input_bufname will be one of the built-in names \"INTENSITY\" or \"WEIGHTS\".\n",
+		   wrap_func(make_pipeline_fork, "bufnames"));
 }
 
 

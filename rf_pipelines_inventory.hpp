@@ -99,6 +99,18 @@ protected:
 
 // -------------------------------------------------------------------------------------------------
 //
+// pipeline_fork
+//
+// Creates one or more new pipeline ring_buffers, by copying existing ring_buffers.
+// The 'bufnames' argument should be a list of (input_bufname, output_bufname) pairs.
+// Frequently, the input_bufname will be one of the built-in names "INTENSITY" or "WEIGHTS".
+
+
+extern std::shared_ptr<pipeline_object> make_pipeline_fork(const std::vector<std::pair<std::string,std::string>> &bufnames);
+
+
+// -------------------------------------------------------------------------------------------------
+//
 // Detrenders.
 
 
