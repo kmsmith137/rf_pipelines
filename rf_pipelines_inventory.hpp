@@ -99,6 +99,67 @@ protected:
 
 // -------------------------------------------------------------------------------------------------
 //
+// "Utility" classes: mask_expander, pipeline_fork
+
+
+// mask_expander
+//
+// Experimental: expands the RFI mask, in a way which is intended to "fill gaps".
+//
+// It is assuemd that the caller has saved the weights at a previous point in the pipeline
+// (using pipeline_fork, see below).  We use the term "prev_mask" to mean the RFI mask at
+// this previous point in the pipeline, and "delta_mask" to mean the set of pixels which
+// are currently masked in the pipeline, but were not masked in the prev_mask.
+//
+// By default, the mask_expander actually expands the delta-mask, but this behavior
+// can be modified (see the 'alpha' parameter below).
+//
+// The expansion is done by computing exponential moving averages of the delta-mask in
+// both directions, and masking pixels when both averages are above a threshold.  This
+// will be written up in more detail later!
+//
+// Constructor arguments
+// ---------------------
+//
+// 'axis': currently, only AXIS_FREQ is implemented.  AXIS_TIME is coming soon!
+//
+// 'prev_wname': pipeline bufname of the saved weights (a string).  Note that in order
+//   to save the weights at a previous point in the pipeline, you can use a pipeline_fork
+//   whose input_bufname parameter is "WEIGHTS" and whose output_bufname is a string which
+//   uniquely identifies the saved weights (e.g. "WEIGHTS_SAVE1").  The 'prev_wname' argument
+//   to the mask_expander should be the same as the 'output_bufname' argument of the
+//   pipeline_fork.
+//
+// 'width': the decay width of the exponential moving average.  In the AXIS_FREQ case,
+//   this is expressed as a fraction of the frequency band, i.e. width=0.1 means that
+//   the characteristic width of the mask_expander is 10% of the full frequency band.
+//
+// 'threshold': value between 0 and 1 which determines how aggressive the mask_expander is.
+//   Low values correspond to more masking.  The numerical value can be roughly interpreted
+//   as the fraction of data which must be delta-masked before mask expansion will
+//   occur.  For example, if threshold=0.1, then mask expansion will occur in regions of
+//   the data where ~10% or more of the pixels are delta-masked.
+//
+// 'alpha': to explain this parameter, we first note that delta-masked pixels are
+//   "sources" for the mask_expander, and unmasked pixels are "sinks".  That is,
+//   mask expansion occurs in regions where the number of delta-masked pixels
+//   relative to the number of unmasked pixels is above a threshold.
+//
+//   The alpha paramaeter determines how the prev_mask is handled by the mask_expander.
+//   By default (alpha=0), prev-masked pixels are "neutral", i.e. they are neither
+//   sources nor sinks for the mask_expander.  
+//
+//   If 0 < alpha < 1, then prev-masked pixels are sinks for the mask_expander, i.e.
+//   they reduce the amount of mask expansion, and the amount of reduction is proportional
+//   to alpha.  If alpha=1, then prev_masked pixels are equivalent to unmasked pixels.
+//
+//   If -1 < alpha < 0, then prev-masked pixels are sources for the mask_expander, i.e.
+//   they increase the amount of mask expansion, and the amount of reduction is proportional
+//   to (-alpha).  If alpha=-1, then prev_masked pixels are equivalent to delta_masked pixels.
+
+extern std::shared_ptr<pipeline_object> make_mask_expander(rf_kernels::axis_type axis, const std::string &prev_wname, double width, double threshold, double alpha=0.0, ssize_t nt_chunk=0);
+
+
 // pipeline_fork
 //
 // Creates one or more new pipeline ring_buffers, by copying existing ring_buffers.

@@ -34,6 +34,7 @@ OFILES = badchannel_mask.o \
 	intensity_clippers.o \
 	json_utils.o \
 	lexical_cast.o \
+	mask_expander.o \
 	outdir_manager.o \
 	pipeline.o \
 	pipeline_fork.o \
