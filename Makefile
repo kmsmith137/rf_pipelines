@@ -39,6 +39,7 @@ OFILES = badchannel_mask.o \
 	pipeline.o \
 	pipeline_fork.o \
 	pipeline_object.o \
+	plot_utils.o \
 	polynomial_detrenders.o \
 	ring_buffer.o \
 	spectrum_analyzer.o \
@@ -123,6 +124,11 @@ endif
 ifeq ($(HAVE_HDF5),y)
 	CPP += -DHAVE_HDF5
 	LIBS += -lhdf5_cpp -lhdf5
+endif
+
+ifeq ($(HAVE_PNG),y)
+	CPP += -DHAVE_PNG
+	LIBS += -lpng
 endif
 
 #To be uncommented when C++ pulse_adder transform is resurrected.

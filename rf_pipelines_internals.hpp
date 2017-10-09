@@ -93,6 +93,15 @@ extern bool bool_from_json(const Json::Value &j, const std::string &k);
 extern void add_json_object(Json::Value &dst, const Json::Value &src);
 
 
+// plot_utils.cpp
+
+// The 'rgb' array should have shape (m,n,3).
+//
+// The 'ymajor' flag controls whether the major (length-m) index of the array is the y-axis of the
+// plots, i.e. the plot dimensions are either (n,m) or (m,n) depending on whether ymajor is true or false.
+extern void write_rgb8_png(const std::string &filename, uint8_t *rgb, int m, int n, bool ymajor, bool ytop_to_bottom);
+
+
 // -------------------------------------------------------------------------------------------------
 //
 // lexical_cast
