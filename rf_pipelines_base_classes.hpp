@@ -28,6 +28,18 @@ struct plot_group;
 // -------------------------------------------------------------------------------------------------
 //
 // ring_buffer, ring_buffer_dict, ring_buffer_subarray
+//
+// An important note to keep in mind when using the ring_buffer!  The ring buffer can be
+// downsampled relative to the "native" time resolution of the pipeline.  The amount of
+// downsampling is given by the parameter 'nds'.
+//
+// In general, time indices are always sample counts at native (non-downsampled) resolution.
+// For example, the 'nt_contig' and 'nt_maxlag' arguments to ring_buffer::update_params(),
+// and the 'pos0' and 'pos1' arguments to ring_buffer::get().
+//
+// However, array dimensions always have the downsampling factor applied.  For example,
+// the pointer returned by ring_buffer::get() points to an array whose last dimension
+// is (pos1-pos0)/nds, not (pos1-pos0).
 
 
 class ring_buffer {
@@ -42,6 +54,7 @@ public:
     ring_buffer(const std::vector<ssize_t> &cdims, ssize_t nds);
     ~ring_buffer();
 
+    // The 'nt_contig' and 'nt_maxlag' arguments do not have the downsampling factor 'nds' applied.
     void update_params(ssize_t nt_contig, ssize_t nt_maxlag);
 
     void allocate();
@@ -57,11 +70,29 @@ public:
     static constexpr int ACCESS_WRITE = 0x02;
     static constexpr int ACCESS_RW = 0x03;
     static constexpr int ACCESS_APPEND = 0x06;
-    
+
+    // Each call to get() must be followed by a call to put(), which "returns" the memory reference.
+    // However, rather than using ring_buffer::get(), ring_buffer::put() directly, it's usually
+    // preferable to the RAII-wrapper class ring_buffer_subarray below.
+    //
+    // The 'pos0' and 'pos1' arguments do not have the downsampling factor 'nds' applied.
+    // However, the pointer returned by get() points to an array whose dimensions do have the
+    // downsampling factor applied, i.e. the last dimension of the array is (pos1-pos0)/nds,
+    // not (pos1-pos0).
+
     float *get(ssize_t pos0, ssize_t pos1, int access_mode);
     void put(float *p, ssize_t pos0, ssize_t pos1, int access_mode);
 
     ssize_t get_stride() const;
+
+    // The ring_buffer is noncopyable, since it contains a bare pointer.
+    // Move constructor/assignment would be trivial to implement, but I haven't needed it yet.
+    // (I always use ring_buffers via a shared_ptr<ring_buffer>.)
+
+    ring_buffer(ring_buffer &&) = delete;
+    ring_buffer(const ring_buffer &) = delete;
+    ring_buffer& operator=(ring_buffer &&) = delete;
+    ring_buffer& operator=(const ring_buffer &) = delete;
 
     static std::string access_mode_to_string(int access_mode);
 
@@ -77,17 +108,18 @@ protected:
     float *buf = nullptr;
 
     // Runtime state
-    ssize_t curr_pos = 0;
-    ssize_t first_valid_sample = 0;
-    ssize_t last_valid_sample = 0;
+    ssize_t curr_pos = 0;            // downsampling factor applied
+    ssize_t first_valid_sample = 0;  // downsampling factor applied
+    ssize_t last_valid_sample = 0;   // downsampling factor applied
 
     // Is there an active pointer?
     float *ap = nullptr;
-    float ap_pos0 = 0;
-    float ap_pos1 = 0;
+    float ap_pos0 = 0;  // no downsampling factor applied
+    float ap_pos1 = 0;  // no downsampling factor applied
     float ap_mode = ACCESS_NONE;
 
-    // Helper functions
+    // Helper functions for internal use.
+    // All time indices have the downsampling factor applied.
     void _mirror_initial(ssize_t it0);
     void _mirror_final(ssize_t it1);
     void _copy(ssize_t it_dst, ssize_t it_src, ssize_t n);
@@ -96,6 +128,7 @@ protected:
 };
 
 
+// RAII wrapper for ring_buffer::get() and ring_buffer::put().
 struct ring_buffer_subarray {
     std::shared_ptr<ring_buffer> buf;
     float *data = nullptr;
@@ -123,8 +156,11 @@ struct ring_buffer_subarray {
 	    buf->put(data, pos0, pos1, access_mode);
     }
 
-    // For now, this is a lightweight class designed to live briefly on the call stack, with no copying.
+    // Make noncopyable (This is a lightweight class designed to live briefly on the call stack.)
+    // Move constructor/assignment would be trivial to implement, but I haven't needed it yet.
+    ring_buffer_subarray(ring_buffer_subarray &&) = delete;
     ring_buffer_subarray(const ring_buffer_subarray &) = delete;
+    ring_buffer_subarray &operator=(ring_buffer_subarray &&) = delete;
     ring_buffer_subarray &operator=(const ring_buffer_subarray &) = delete;
 
     inline void get(const std::shared_ptr<ring_buffer> &buf_, ssize_t pos0_, ssize_t pos1_, int access_mode_)
@@ -144,6 +180,7 @@ struct ring_buffer_subarray {
 	    buf->put(data, pos0, pos1, access_mode);
 	    buf.reset();
 	}
+
 	data = nullptr;
     }
 };

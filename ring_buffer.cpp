@@ -108,13 +108,20 @@ float *ring_buffer::get(ssize_t pos0, ssize_t pos1, int mode)
     rf_assert(pos0 >= 0);
     rf_assert(pos0 <= pos1);
     rf_assert(pos1 - pos0 <= nt_contig);
+    rf_assert(pos0 % nds == 0);
+    rf_assert(pos1 % nds == 0);
     rf_assert(mode != ACCESS_NONE);
     rf_assert(buf != nullptr);
     rf_assert(ap == nullptr);
-    
+
+    // Set ap_pos* before applying downsampling factor.
+    // (Remaining fields 'ap' and 'ap_mode' will be set later.)
+    this->ap_pos0 = pos0;
+    this->ap_pos1 = pos1;
+
     // Apply downsampling factor
-    pos0 = xdiv(pos0, nds);
-    pos1 = xdiv(pos1, nds);
+    pos0 /= nds;
+    pos1 /= nds;
 
     if (mode == ACCESS_APPEND) {
 	// Range check and advance buffer
@@ -140,8 +147,6 @@ float *ring_buffer::get(ssize_t pos0, ssize_t pos1, int mode)
 	_mirror_initial(it1);
 
     this->ap = this->buf + it0;
-    this->ap_pos0 = pos0;
-    this->ap_pos1 = pos1;
     this->ap_mode = mode;
 
     return ap;
@@ -166,8 +171,8 @@ void ring_buffer::put(float *p, ssize_t pos0, ssize_t pos1, int mode)
 	return;
 
     // Cut-and-paste logic from ring_buffer::get(), for determining (it0,it1).
-    pos0 = xdiv(pos0, nds);
-    pos1 = xdiv(pos1, nds);
+    pos0 /= nds;
+    pos1 /= nds;
     ssize_t it0 = pos0 % period;
     ssize_t it1 = it0 + (pos1 - pos0);
 
