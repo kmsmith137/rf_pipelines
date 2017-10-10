@@ -17,7 +17,7 @@ namespace rf_pipelines {
 // of pipeline.cpp), and there is no way to ensure that the unordered_map<> constructor call
 // occurs first.  
 //
-// In constrast, if we use a pointer, then the first call to register_json_constructor() will initialize 
+// In contrast, if we use a pointer, then the first call to register_json_constructor() will initialize 
 // the regsistry (see code below).  However, this means that all users of the registry (e.g. from_json(),
 // _show_registered_json_constructors()) must handle the corner case where no constructors have been
 // registered yet, and the pointer is still NULL.
@@ -92,6 +92,7 @@ void pipeline_object::bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in_, ssiz
 }
 
 
+// Should be called from _bind().
 shared_ptr<ring_buffer> pipeline_object::get_buffer(ring_buffer_dict &rb_dict, const string &key)
 {
     if (!has_key(rb_dict, key))
@@ -104,6 +105,7 @@ shared_ptr<ring_buffer> pipeline_object::get_buffer(ring_buffer_dict &rb_dict, c
 }
 
 
+// Should be called from _bind().
 shared_ptr<ring_buffer> pipeline_object::create_buffer(ring_buffer_dict &rb_dict, const string &key, const vector<ssize_t> &cdims, ssize_t nds)
 {
     if (has_key(rb_dict, key))

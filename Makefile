@@ -47,7 +47,8 @@ OFILES = badchannel_mask.o \
 	std_dev_clippers.o \
 	wi_sub_pipeline.o \
 	wi_stream.o \
-	wi_transform.o
+	wi_transform.o \
+	zoomable_tileset.o
 
 # Files that get installed in $(PYDIR)
 # Includes both Python source files and the extension module rf_pipelines_c.so (written in C++)

@@ -152,6 +152,51 @@ struct ring_buffer_subarray {
 using ring_buffer_dict = std::unordered_map<std::string, std::shared_ptr<ring_buffer>>;
 
 
+// -------------------------------------------------------------------------------------------------
+//
+// zoomable_tileset.
+//
+// These should be constructed in _start_pipeline().
+//
+// Reminder: typical initialization looks something like this:
+//
+//   if ((this->out_mp->outdir.size() > 0) && (this->plot_params.is_initialized())) {
+//      auto zt = make_shared<zoomable_tileset_subclass> (this->plot_params, ...);
+//      this->add_zoomable_tileset(zt);
+//      this->rb_plot_intensity = this->add_plot_ring_buffer(zt, {nfreq}, nds, nt_chunk);
+//      this->rb_plot_weights = this->add_plot_ring_buffer(zt, {nfreq}, nds, nt_chunk);
+//   }
+//
+// where this->plot_params has type zoomable_tileset::initializer, and this->plot_params.is_valid()
+// has been checked in a constructor.
+
+
+struct zoomable_tileset {
+    struct initializer {
+	std::string img_prefix;  // must be distinct for each tileset.
+	ssize_t img_nzoom = 0;   // must be the same for all tilesets (FIXME move to outdir_manager)
+	ssize_t img_nx = 0;      // must be the same for all tilesets (FIXME move to outdir_manager)
+	ssize_t img_ny = 0;      // can be chosen independently for each tileset.
+	ssize_t downsample_nt = 0;  // must be the same for all tilesets (FIXME move to outdir_manager)
+	
+	bool is_initialized() const;    // returns true iff all fields have been initialized
+	bool is_uninitialized() const;  // returns true iff no fields have been initialized
+	bool is_valid() const;          // returns (is_initialized() || is_unintialized())
+	void reset();
+    };
+
+    const initializer ini_params;
+    uint8_t background_rgb[3];
+
+    zoomable_tileset(const initializer &ini_params, const uint8_t background_rgb[3]);
+    
+    // Triggers calls to downsample().
+    void advance();
+    
+    virtual void downsample(std::vector<ring_buffer> &dst, const std::vector<ring_buffer> &src) = 0;
+    virtual void make_plot() = 0;
+};
+
 
 // -------------------------------------------------------------------------------------------------
 //
@@ -282,7 +327,7 @@ public:
     // Helper functions called by _bind().
     std::shared_ptr<ring_buffer> get_buffer(ring_buffer_dict &rb_dict, const std::string &key);
     std::shared_ptr<ring_buffer> create_buffer(ring_buffer_dict &rb_dict, const std::string &key, const std::vector<ssize_t> &cdims, ssize_t nds);
-
+    
     // These helper functions are used by pipeline_objects which write output files (e.g. hdf5, png).
     //
     // add_plot_group(): 
@@ -405,6 +450,7 @@ public:
 
     std::shared_ptr<outdir_manager> out_mp;
     std::vector<plot_group> plot_groups;
+
     double time_spent_in_transform = 0.0;
     Json::Value json_attrs2;  // only in top-level pipeline_object
 };
