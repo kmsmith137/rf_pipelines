@@ -109,19 +109,16 @@ struct mask_expander : public chunked_pipeline_object
 
     virtual bool _process_chunk(ssize_t pos) override
     {
-	float *wprev = rb_prev_weights->get(pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
-	float *wcurr = rb_curr_weights->get(pos, pos + nt_chunk, ring_buffer::ACCESS_RW);
-
-	int pstride = rb_prev_weights->get_stride();
-	int cstride = rb_curr_weights->get_stride();
-	float t;
+	ring_buffer_subarray wprev(rb_prev_weights, pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
+	ring_buffer_subarray wcurr(rb_curr_weights, pos, pos + nt_chunk, ring_buffer::ACCESS_RW);
 
 	for (int it = 0; it < nt_chunk; it++) {
-	    t = vb;
+	    float t = vb;
+
 	    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
-		if (wcurr[ifreq*cstride + it] > 0.0)
+		if (wcurr.data[ifreq * wcurr.stride + it] > 0.0)
 		    tmp1[ifreq] = 1.0;  // currently unmasked
-		else if (wprev[ifreq*pstride + it] > 0.0)
+		else if (wprev.data[ifreq * wprev.stride + it] > 0.0)
 		    tmp1[ifreq] = 0.0;  // currently masked, previously unmasked
 		else
 		    tmp1[ifreq] = vp;   // previously (and currently) masked
@@ -134,12 +131,9 @@ struct mask_expander : public chunked_pipeline_object
 	    for (int ifreq = nfreq-1; ifreq >= 0; ifreq--) {
 		t = tmp1[ifreq] + a*t;
 		if ((t < b) && (tmp2[ifreq] < b))
-		    wcurr[ifreq*pstride + it] = 0.0;
+		    wcurr.data[ifreq*wprev.stride + it] = 0.0;
 	    }
 	}
-
-	rb_prev_weights->put(wprev, pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
-	rb_curr_weights->put(wcurr, pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
 
 	return true;
     }

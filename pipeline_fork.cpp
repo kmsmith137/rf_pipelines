@@ -63,16 +63,11 @@ struct pipeline_fork : public pipeline_object
     virtual ssize_t _advance() override
     {
 	for (element &e: this->elements) {
-	    float *src = e.input_buffer->get(pos_lo, pos_hi, ring_buffer::ACCESS_READ);
-	    float *dst = e.output_buffer->get(pos_lo, pos_hi, ring_buffer::ACCESS_APPEND);
-	    ssize_t istride = e.input_buffer->get_stride();
-	    ssize_t ostride = e.output_buffer->get_stride();
+	    ring_buffer_subarray src(e.input_buffer, pos_lo, pos_hi, ring_buffer::ACCESS_READ);
+	    ring_buffer_subarray dst(e.output_buffer, pos_lo, pos_hi, ring_buffer::ACCESS_APPEND);
 
 	    for (ssize_t i = 0; i < e.csize; i++)
-		memcpy(dst + i*ostride, src + i*istride, (pos_hi - pos_lo) * sizeof(float));
-
-	    e.input_buffer->put(src, pos_lo, pos_hi, ring_buffer::ACCESS_READ);
-	    e.output_buffer->put(dst, pos_lo, pos_hi, ring_buffer::ACCESS_READ);
+		memcpy(dst.data + i*dst.stride, src.data + i*src.stride, (pos_hi - pos_lo) * sizeof(float));
 	}
 
 	this->pos_lo = pos_hi;

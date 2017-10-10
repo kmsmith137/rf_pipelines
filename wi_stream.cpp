@@ -34,15 +34,10 @@ void wi_stream::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs
 
 bool wi_stream::_process_chunk(ssize_t pos)
 {
-    float *intensity = rb_intensity->get(pos, pos+nt_chunk, ring_buffer::ACCESS_APPEND);
-    float *weights = rb_weights->get(pos, pos+nt_chunk, ring_buffer::ACCESS_APPEND);
+    ring_buffer_subarray intensity(rb_intensity, pos, pos+nt_chunk, ring_buffer::ACCESS_APPEND);
+    ring_buffer_subarray weights(rb_weights, pos, pos+nt_chunk, ring_buffer::ACCESS_APPEND);
 
-    bool ret = _fill_chunk(intensity, rb_intensity->get_stride(), weights, rb_intensity->get_stride(), pos);    
-
-    rb_intensity->put(intensity, pos, pos+nt_chunk, ring_buffer::ACCESS_APPEND);
-    rb_weights->put(weights, pos, pos+nt_chunk, ring_buffer::ACCESS_APPEND);
-    
-    return ret;
+    return _fill_chunk(intensity.data, intensity.stride, weights.data, weights.stride, pos);
 }
 
 

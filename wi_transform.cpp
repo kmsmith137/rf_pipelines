@@ -55,13 +55,10 @@ void wi_transform::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_at
 // virtual override
 bool wi_transform::_process_chunk(ssize_t pos)
 {
-    float *intensity = rb_intensity->get(pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
-    float *weights = rb_weights->get(pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
+    ring_buffer_subarray intensity(rb_intensity, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
+    ring_buffer_subarray weights(rb_weights, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
 
-    this->_process_chunk(intensity, rb_intensity->get_stride(), weights, rb_weights->get_stride(), pos);
-
-    rb_intensity->put(intensity, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
-    rb_weights->put(weights, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
+    this->_process_chunk(intensity.data, intensity.stride, weights.data, weights.stride, pos);
     return true;
 }
 

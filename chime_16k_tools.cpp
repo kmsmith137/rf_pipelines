@@ -42,15 +42,13 @@ struct chime_16k_spike_mask : public chunked_pipeline_object
 
     virtual bool _process_chunk(ssize_t pos) override
     {
-	float *weights = rb_weights->get(pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
-	ssize_t wstride = rb_weights->get_stride();
+	ring_buffer_subarray weights(rb_weights, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
 
 	for (int ifreq_c = 0; ifreq_c < nfreq_c; ifreq_c++) {
-	    float *wrow = weights + (ifreq_c * nupfreq + 15) * wstride;
+	    float *wrow = weights.data + (ifreq_c * nupfreq + 15) * weights.stride;
 	    memset(wrow, 0, nt_chunk * sizeof(float));
 	}
 
-	rb_weights->put(weights, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
 	return true;
     }	
 
@@ -134,21 +132,18 @@ struct chime_16k_derippler : public chunked_pipeline_object
 
     virtual bool _process_chunk(ssize_t pos) override
     {
-
-	float *intensity = rb_intensity->get(pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
-	ssize_t istride = rb_intensity->get_stride();
+	ring_buffer_subarray intensity(rb_intensity, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
 
 	for (int ifreq_c = 0; ifreq_c < nfreq_c; ifreq_c++) {
 	    for (int iupfreq = 0; iupfreq < nupfreq; iupfreq++) {
+		float *irow = intensity.data + (ifreq_c*nupfreq + iupfreq) * intensity.stride;
 		float t = multiplier[iupfreq];
-		float *p = intensity + (ifreq_c*nupfreq + iupfreq) * istride;
 		
 		for (int i = 0; i < nt_chunk; i++)
-		    p[i] *= t;
+		    irow[i] *= t;
 	    }
 	}
 
-	rb_intensity->put(intensity, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
 	return true;
     }	
 

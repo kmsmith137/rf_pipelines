@@ -76,21 +76,16 @@ void downsampler::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_att
 
 bool downsampler::_process_chunk(ssize_t pos)
 {
-    float *int_in = rb_intensity_in->get(pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
-    float *wt_in = rb_weights_in->get(pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
-    float *int_out = rb_intensity_out->get(pos, pos + nt_chunk, ring_buffer::ACCESS_APPEND);
-    float *wt_out = rb_weights_out->get(pos, pos + nt_chunk, ring_buffer::ACCESS_APPEND);
+    ring_buffer_subarray i_in(rb_intensity_in, pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
+    ring_buffer_subarray w_in(rb_weights_in, pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
+    ring_buffer_subarray i_out(rb_intensity_out, pos, pos + nt_chunk, ring_buffer::ACCESS_APPEND);
+    ring_buffer_subarray w_out(rb_weights_out, pos, pos + nt_chunk, ring_buffer::ACCESS_APPEND);
 
-    kernel.downsample(this->nfreq_out, this->nt_out,
-		      int_out, rb_intensity_out->get_stride(), 
-		      wt_out, rb_weights_out->get_stride(),
-		      int_in, rb_intensity_in->get_stride(),
-		      wt_in, rb_weights_in->get_stride());
-    
-    rb_intensity_in->put(int_in, pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
-    rb_weights_in->put(wt_in, pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
-    rb_intensity_out->put(int_out, pos, pos + nt_chunk, ring_buffer::ACCESS_APPEND);
-    rb_weights_out->put(wt_out, pos, pos + nt_chunk, ring_buffer::ACCESS_APPEND);
+    kernel.downsample(this->nfreq_out, this->nt_out, 
+		      i_out.data, i_out.stride,
+		      w_out.data, w_out.stride,
+		      i_in.data, i_in.stride,
+		      w_in.data, w_in.stride);
 
     return true;
 }
@@ -149,17 +144,10 @@ void upsampler::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs
 
 bool upsampler::_process_chunk(ssize_t pos)
 {
-    float *wt_in = rb_weights_in->get(pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
-    float *wt_out = rb_weights_out->get(pos, pos + nt_chunk, ring_buffer::ACCESS_RW);
+    ring_buffer_subarray w_in(rb_weights_in, pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
+    ring_buffer_subarray w_out(rb_weights_out, pos, pos + nt_chunk, ring_buffer::ACCESS_RW);
 
-    kernel.upsample(nfreq_in, nt_in, 
-		    wt_out, rb_weights_out->get_stride(), 
-		    wt_in, rb_weights_in->get_stride(), 
-		    w_cutoff);
-
-    rb_weights_in->put(wt_in, pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
-    rb_weights_out->put(wt_out, pos, pos + nt_chunk, ring_buffer::ACCESS_RW);    
-    
+    kernel.upsample(nfreq_in, nt_in, w_out.data, w_out.stride, w_in.data, w_in.stride, w_cutoff);
     return true;
 }
 
