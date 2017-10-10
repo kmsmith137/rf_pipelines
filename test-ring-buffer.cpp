@@ -16,10 +16,14 @@ static vector<ssize_t> make_random_cdims(std::mt19937 &rng)
 }
 
 
+// Note: for testing a single ring buffer, outside the context of a larger pipeline, it's
+// convenient to use downsampled indices throughout, and multiply by 'nds' when calling 
+// ring_buffer methods which expect non-downsampled indices (e.g. ring_buffer::get()).
+
 static void test_ring_buffer(std::mt19937 &rng, const vector<ssize_t> &cdims, ssize_t nds, ssize_t nt_contig, ssize_t nt_maxlag)
 {
     shared_ptr<ring_buffer> rb = make_shared<ring_buffer> (cdims, nds);
-    rb->update_params(nt_contig, nt_maxlag);
+    rb->update_params(nt_contig * nds, nt_maxlag * nds);
     rb->allocate();
 
     ssize_t buf_pos0 = 0;
@@ -53,7 +57,7 @@ static void test_ring_buffer(std::mt19937 &rng, const vector<ssize_t> &cdims, ss
 	    mode = randint(rng, ring_buffer::ACCESS_READ, ring_buffer::ACCESS_RW+1);
 	}
 	
-	float *p = rb->get(pos0, pos1, mode);
+	float *p = rb->get(pos0 * nds, pos1 * nds, mode);
 
 	if (mode & ring_buffer::ACCESS_READ) {
 	    for (ssize_t it = 0; it < (pos1-pos0); it++) {
@@ -71,7 +75,7 @@ static void test_ring_buffer(std::mt19937 &rng, const vector<ssize_t> &cdims, ss
 	    }
 	}
 
-	rb->put(p, pos0, pos1, mode);
+	rb->put(p, pos0 * nds, pos1 * nds, mode);
 
 	buf_pos1 = max(buf_pos1, pos1);
 	buf_pos0 = max(buf_pos0, buf_pos1 - nt_maxlag);
@@ -93,7 +97,7 @@ int main(int argc, char **argv)
 	vector<ssize_t> cdims = make_random_cdims(rng);
 	ssize_t nt_contig = randint(rng, 1, 50);
 	ssize_t nt_maxlag = randint(rng, nt_contig, 10 * nt_contig);
-	ssize_t nds = 1;  // coming soon
+	ssize_t nds = randint(rng, 1, 5);
 
 	test_ring_buffer(rng, cdims, nds, nt_contig, nt_maxlag);
     }
