@@ -5,6 +5,62 @@
 #error "This source file needs to be compiled with C++11 support (g++ -std=c++11)"
 #endif
 
+// Abstract base classes
+// ---------------------
+//   pipeline_object
+//   chunked_pipeline_object
+//   wi_stream
+//   wi_transform
+//
+// Container classes
+// -----------------
+//   pipeline
+//   wi_sub_pipeline
+//
+// Streams
+// -------
+//   chime_stream_from_acqdir
+//   chime_stream_from_filename
+//   chime_stream_from_filename_list
+//   chime_frb_stream_from_filename
+//   chime_frb_stream_from_filename_list
+//   chime_frb_stream_from_glob
+//   chime_network_stream
+//   gaussian_noise_stream
+//
+// Detrenders
+// ----------
+//   spline_detrender
+//   polynomial_detrender
+//
+// Clippers
+// --------
+//   intensity_clipper
+//   std_dev_clipper
+//   mask_expander
+//
+// CHIME-specific
+// --------------
+//   chime_file_writer
+//   chime_packetizer
+//   chime_16k_spike_mask
+//   chime_16k_derippler
+//   chime_16k_stripe_analyzer
+//
+// Miscellaneous transforms
+// ------------------------
+//   adversarial_masker (*)
+//   badchannel_mask (*)
+//   bonsai_dedisperser (*) 
+//   frb_injector_transform (*)
+//   mask_filler (*) 
+//   noise_filler (*)
+//   plotter_transform (*)
+//   variance_estimator (*)
+//
+// (*) = python-only
+
+
 // ring_buffer, pipeline_object, etc.
 #include "rf_pipelines_base_classes.hpp"
 
@@ -14,7 +70,6 @@
 // A little hack so that all definitions still compile if optional dependencies are absent.
 namespace bonsai { class dedisperser; }
 namespace ch_frb_io { class intensity_network_stream; }
-
 
 namespace rf_pipelines {
 #if 0
