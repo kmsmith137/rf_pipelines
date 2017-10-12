@@ -30,7 +30,7 @@ struct chime_16k_spike_mask : public chunked_pipeline_object
 	chunked_pipeline_object("chime_16k_spike_mask", false, nt_chunk_)
     { }
 
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
+    virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
     {
 	this->rb_weights = this->get_buffer(rb_dict, "WEIGHTS");
 	
@@ -120,7 +120,7 @@ struct chime_16k_derippler : public chunked_pipeline_object
 	    this->multiplier[i] = 1.0 / (1.0 + fudge_factor * (fl[i] - 1.0));
     }
 
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
+    virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
     {
 	this->rb_intensity = this->get_buffer(rb_dict, "INTENSITY");
 	

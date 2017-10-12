@@ -328,7 +328,7 @@ struct rot2 : public chunked_pipeline_object {
     }
 
     
-    // Helper for _bind_chunked()
+    // Helper for _bindc()
     void _bind_input(ring_buffer_dict &rb_dict, int ix, bool create, shared_ptr<ring_buffer> &buf, int &mode)
     {
 	if (create) {
@@ -345,7 +345,7 @@ struct rot2 : public chunked_pipeline_object {
     }
 
 
-    // Helper for _bind_chunked()
+    // Helper for _bindc()
     void _bind_output(ring_buffer_dict &rb_dict, int ix, bool create, shared_ptr<ring_buffer> &buf, int &mode, ring_buffer_subarray* &arr)
     {
 	if (ix == params.ix_in0) {
@@ -369,7 +369,7 @@ struct rot2 : public chunked_pipeline_object {
     }
     
 
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
+    virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
     {
 	_bind_input(rb_dict, params.ix_in0, params.create_in0, buf_in0, mode_in0);
 	_bind_input(rb_dict, params.ix_in1, params.create_in1, buf_in1, mode_in1);

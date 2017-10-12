@@ -18,13 +18,13 @@ struct mask_expander : public chunked_pipeline_object
     const string prev_wname;
     const rf_kernels::axis_type axis;
 
-    // Initialized in _bind_chunked().
+    // Initialized in _bindc().
     shared_ptr<ring_buffer> rb_prev_weights;
     shared_ptr<ring_buffer> rb_curr_weights;
     ssize_t nfreq = 0;
 
     // The following parameters are convenient in the kernel
-    // Initialized in _bind_chunked().
+    // Initialized in _bindc().
 
     float a;    // decay constant for moving average: exp(-1/(width*nfreq))
     float b;    // threshold for moving average: (1-threshold) / (1-a)
@@ -77,7 +77,7 @@ struct mask_expander : public chunked_pipeline_object
 
 
     // Called after this->nfreq is initialized.
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
+    virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
     {
 	this->rb_prev_weights = this->get_buffer(rb_dict, prev_wname);
 	this->rb_curr_weights = this->get_buffer(rb_dict, "WEIGHTS");

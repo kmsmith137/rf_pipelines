@@ -17,7 +17,7 @@ wi_stream::wi_stream(const string &name, ssize_t nfreq_, ssize_t nt_chunk_) :
 }
 
 
-void wi_stream::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
+void wi_stream::_bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
 {
     // Optional subclass-specific initializations.
     this->_bind_stream(json_attrs);

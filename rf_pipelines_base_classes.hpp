@@ -626,6 +626,14 @@ public:
 };
 
 
+// -------------------------------------------------------------------------------------------------
+//
+// chunked_pipeline_object: corresponds to a pipeline_object which processes data in fixed-size chunks.
+//
+// This is a "semi-abstract base class": it defines some virtuals in its pipeline_object base class,
+// but leaves others to be defined in an additional level of subclassing.
+ 
+
 struct chunked_pipeline_object : public pipeline_object {
 public:
     const bool can_be_first;
@@ -638,25 +646,38 @@ public:
     // 'name' must be initialized at construction, but can be changed later (in subclass constructor, or _bind_chunked()).
     chunked_pipeline_object(const std::string &name, bool can_be_first, ssize_t nt_chunk=0);
 
-// FIXME 'protected' removed temporarily, until I figure out how to handle it in the python-wrapping code!
-// protected:
+    // These virtuals in the pipeline_object base class are defined by 'chunked_pipeline_object'.
+    // We make them 'final', so that if e.g. a subclass erroneously overrides _bind() instead of _bindc(),
+    // this error will be detected by the compiler.
 
-    // These pipeline_object virtuals are defined here.
-    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
-    virtual ssize_t _advance() override;
-    virtual ssize_t get_preferred_chunk_size() override;
+    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs) final override;
+    virtual void _unbind() final override;
+    virtual ssize_t _advance() final override;
+    virtual ssize_t get_preferred_chunk_size() final override;
 
     // New pure virtuals, to be defined by subclass.
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) = 0;
-    virtual bool _process_chunk(ssize_t pos) = 0;
+    //
+    // _bindc(): responsible for calling get_buffer() or create_buffer(), for each ring bufffer which will
+    //   be accessed by the chunked_pipeline_object.  Optionally, _bindc() may also read/create json_attrs.
+    //
+    // _process_chunk(pos): responsible for processing data in the range [pos, pos+nt_chunk).
+    //   Note that this range of sample indices should be used when accessing pipeline ring buffers.
+    //   The return value is a boolean which is usually true, but stream-type classes which have reached 
+    //   end-of-stream should return false.
+    //
+    // _unbindc(): any special logic needed to undo _bindc() should go here.  (Usually not needed.)
 
-    // When _bind() is called, it saves the value of 'nt_chunk' (before calling _bindc(), which can set nt_chunk).
+    virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) = 0;
+    virtual bool _process_chunk(ssize_t pos) = 0;
+    virtual void _unbindc();
+
+    // prebind_nt_chunk: saved value of nt_chunk, before it is finalized in bind().
     // This is useful in jsonize() and _unbind().
 
-    ssize_t _prebind_nt_chunk = 0;
+    ssize_t _prebind_nt_chunk = 0;   // intended to be accessed through get_prebind_nt_chunk()
     ssize_t get_prebind_nt_chunk() const { return (state >= BOUND) ? _prebind_nt_chunk : nt_chunk; }
 
-    // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline().
+    // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline(), _reset().
 };
 
 
@@ -674,12 +695,9 @@ public:
     // 'name' must be initialized at construction, but can be changed later (in subclass constructor, or _bind_stream()).
     wi_stream(const std::string &name, ssize_t nfreq=0, ssize_t nt_chunk=0);
 
-// FIXME 'protected' removed temporarily, until I figure out how to handle it in the python-wrapping code!
-// protected:
-
     // These chunked pipeline_object virtuals are defined here.
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
-    virtual bool _process_chunk(ssize_t pos) override;
+    virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) final override;
+    virtual bool _process_chunk(ssize_t pos) final override;
 
     // New virtuals, to be defined by subclass.
     // Sometimes it's convenient to defer initialization of nfreq and nt_chunk to _bind_stream().
@@ -687,7 +705,7 @@ public:
     virtual void _bind_stream(Json::Value &json_attrs);  // non-pure virtual (default does nothing)
     virtual bool _fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) = 0;
 
-    // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline().
+    // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline(), _reset().
 };
 
 
@@ -711,12 +729,9 @@ public:
     // 'name' must be initialized at construction, but can be changed later (in subclass constructor, or _bind_stream()).
     wi_transform(const std::string &name, ssize_t nt_chunk=0, ssize_t nfreq=0, ssize_t nds=0);
 
-// FIXME 'protected' removed temporarily, until I figure out how to handle it in the python-wrapping code!
-// protected:
-
     // These chunked_pipeline_object virtuals are defined here.
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
-    virtual bool _process_chunk(ssize_t pos) override;
+    virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) final override;
+    virtual bool _process_chunk(ssize_t pos) final override;
 
     // New virtuals, to be defined by subclass.
     // Note that _bind_transform() is called after 'nfreq' and 'nds' get initialized, so subclass-dependent
@@ -736,7 +751,7 @@ public:
     ssize_t get_prebind_nfreq() const { return (state >= BOUND) ? nfreq : _prebind_nfreq; }
     ssize_t get_prebind_nds() const   { return (state >= BOUND) ? nds : _prebind_nds; }
 
-    // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline().
+    // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline(), _reset().
 };
 
 

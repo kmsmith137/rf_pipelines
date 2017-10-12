@@ -28,7 +28,7 @@ struct downsampler : chunked_pipeline_object {
     const ssize_t Dt;
     rf_kernels::wi_downsampler kernel;
 
-    // Initialized in _bind_chunked().
+    // Initialized in _bindc().
     shared_ptr<ring_buffer> rb_intensity_in;
     shared_ptr<ring_buffer> rb_weights_in;
     shared_ptr<ring_buffer> rb_intensity_out;
@@ -37,7 +37,7 @@ struct downsampler : chunked_pipeline_object {
     ssize_t nds_out = 0;
     ssize_t nt_out = 0;
 
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
+    virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
     virtual bool _process_chunk(ssize_t pos) override;
 };
 
@@ -50,7 +50,7 @@ downsampler::downsampler(ssize_t Df_, ssize_t Dt_, ssize_t nt_chunk_) :
 { }
 
 
-void downsampler::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
+void downsampler::_bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
 {
     this->rb_intensity_in = get_buffer(rb_dict, "INTENSITY_HIRES");
     this->rb_weights_in = get_buffer(rb_dict, "WEIGHTS_HIRES");
@@ -105,13 +105,13 @@ struct upsampler : chunked_pipeline_object {
     const double w_cutoff;
     rf_kernels::weight_upsampler kernel;
 
-    // Initialized in _bind_chunked().
+    // Initialized in _bindc().
     shared_ptr<ring_buffer> rb_weights_in;
     shared_ptr<ring_buffer> rb_weights_out;
     ssize_t nfreq_in = 0;
     ssize_t nt_in = 0;
 
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
+    virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
     virtual bool _process_chunk(ssize_t pos) override;
 };
 
@@ -125,7 +125,7 @@ upsampler::upsampler(ssize_t Df_, ssize_t Dt_, ssize_t nt_chunk_, double w_cutof
 { }
 
 
-void upsampler::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
+void upsampler::_bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
 {
     this->rb_weights_in = get_buffer(rb_dict, "WEIGHTS");
     this->rb_weights_out = get_buffer(rb_dict, "WEIGHTS_HIRES");

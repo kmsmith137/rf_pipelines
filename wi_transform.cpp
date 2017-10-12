@@ -21,7 +21,7 @@ wi_transform::wi_transform(const string &name_, ssize_t nt_chunk_, ssize_t nfreq
 
 
 // virtual override
-void wi_transform::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
+void wi_transform::_bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
 {
     this->_prebind_nfreq = nfreq;
     this->_prebind_nds = nds;

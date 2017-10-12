@@ -40,9 +40,17 @@ void chunked_pipeline_object::_bind(ring_buffer_dict &rb_dict, Json::Value &json
     this->nt_chunk_out = (nt_chunk_in % nt_chunk) ? nt_chunk : nt_chunk_in;
     this->nt_maxgap = nt_chunk - gcd(nt_chunk_in, nt_chunk);
     this->nt_contig = nt_chunk;
+    
+    // Note: all calls to get_buffer() or create_buffer() are in _bindc(), which is defined by the subclass.
+    this->_bindc(rb_dict, json_attrs);
+}
 
-    // _bind_chunked() will call get_buffer() or create_buffer() as needed.
-    this->_bind_chunked(rb_dict, json_attrs);
+
+void chunked_pipeline_object::_unbind()
+{
+    // We revert 'nt_chunk' to its "prebind" value.
+    this->nt_chunk = this->get_prebind_nt_chunk();
+    this->_unbindc();
 }
 
 
@@ -61,6 +69,10 @@ ssize_t chunked_pipeline_object::_advance()
 
     return ret;
 }
+
+
+// default virtual
+void chunked_pipeline_object::_unbindc() { }
 
 
 }  // namespace rf_pipelines
