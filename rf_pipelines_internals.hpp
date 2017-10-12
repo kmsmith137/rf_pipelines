@@ -251,12 +251,13 @@ inline ssize_t xmod(ssize_t m, ssize_t n)
     return m % n;
 }
 
+// Greatest common divisor
 inline ssize_t gcd(ssize_t m, ssize_t n)
 {
     if (m < n)
 	std::swap(m, n);
-    if (n < 0)
-	throw std::runtime_error("gcd() called with negative argument");
+    if (n <= 0)
+	throw std::runtime_error("gcd() called with non-positive argument");
 
     while (n > 0) {
 	ssize_t d = m % n;
@@ -267,7 +268,13 @@ inline ssize_t gcd(ssize_t m, ssize_t n)
     return m;
 }
 
-// round up m to nearest multiple of n
+// Least common multiple
+inline ssize_t lcm(ssize_t m, ssize_t n)
+{
+    return (m*n) / gcd(m,n);
+}
+
+// Round up 'm' to nearest multiple of 'n'
 inline ssize_t round_up(ssize_t m, ssize_t n)
 {
     rf_assert(m >= 0);
