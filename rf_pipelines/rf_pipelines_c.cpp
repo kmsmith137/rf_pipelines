@@ -582,6 +582,9 @@ static void wrap_pipeline_object(extension_module &m)
     pipeline_object_type.add_method("bind", "First step in pipeline: determines pipeline parameters such as ring buffer sizes", wrap_method(bind_t(&pipeline_object::bind)));
     pipeline_object_type.add_method("allocate", "Allocates all pipeline buffers", wrap_method(&pipeline_object::allocate));
     pipeline_object_type.add_method("deallocate", "Deallocates all pipeline buffers", wrap_method(&pipeline_object::deallocate));
+    pipeline_object_type.add_method("reset", "Resets pipeline after run().", wrap_method(&pipeline_object::reset));
+    pipeline_object_type.add_method("unbind", "\"Unbinds\" pipeline, allowing its components to be used elsewhere", wrap_method(&pipeline_object::unbind));
+    
     pipeline_object_type.add_method("get_preferred_chunk_size", doc_cs, wrap_method(&pipeline_object::get_preferred_chunk_size));
 
     pipeline_object_type.add_method("jsonize", "jsonize(): returns json serialization of pipeline_object", wrap_method(&pipeline_object::jsonize));
