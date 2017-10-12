@@ -204,4 +204,4 @@ class adversarial_masker(wi_transform):
                                   nt_minefield = int(j['nt_minefield']))
 
 
-pipeline_object.register_json_constructor('adversarial_masker', adversarial_masker.from_json)
+pipeline_object.register_json_deserializer('adversarial_masker', adversarial_masker.from_json)

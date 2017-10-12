@@ -92,4 +92,4 @@ class noise_filler(wi_transform):
                             increment = j['increment'])
 
 
-pipeline_object.register_json_constructor('noise_filler', noise_filler.from_json)
+pipeline_object.register_json_deserializer('noise_filler', noise_filler.from_json)

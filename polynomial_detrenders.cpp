@@ -37,7 +37,7 @@ struct polynomial_detrender : public wi_transform
 	Json::Value ret;
 
 	ret["class_name"] = "polynomial_detrender";
-	ret["nt_chunk"] = int(this->get_orig_nt_chunk());
+	ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
 	ret["axis"] = rf_kernels::axis_type_to_string(this->kernel.axis);
 	ret["polydeg"] = this->kernel.polydeg;
 	ret["epsilon"] = this->epsilon;
@@ -70,7 +70,7 @@ shared_ptr<wi_transform> make_polynomial_detrender(int nt_chunk, rf_kernels::axi
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("polynomial_detrender", polynomial_detrender::from_json);
+	    pipeline_object::register_json_deserializer("polynomial_detrender", polynomial_detrender::from_json);
 	}
     } init;
 }

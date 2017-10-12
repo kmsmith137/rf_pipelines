@@ -31,7 +31,7 @@ void pipeline::add(const shared_ptr<pipeline_object> &p)
 {
     if (p.get() == nullptr)
 	_throw("null pointer in pipeline constructor");
-    if (this->is_bound())
+    if (this->state != UNBOUND)
 	_throw("pipeline::add() was called after bind()");
     
     elements.push_back(p);    
@@ -148,11 +148,23 @@ void pipeline::_end_pipeline(Json::Value &json_output)
     }
 }
 
+void pipeline::_reset()
+{
+    for (auto &p: this->elements)
+	p->reset();
+}
+
+void pipeline::_unbind()
+{
+    for (auto &p: this->elements)
+	p->unbind();
+}
+
 
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("pipeline", pipeline::from_json);
+	    pipeline_object::register_json_deserializer("pipeline", pipeline::from_json);
 	}
     } init;
 }

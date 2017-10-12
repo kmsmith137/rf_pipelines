@@ -86,11 +86,8 @@ void ring_buffer::deallocate()
 }
 
 
-void ring_buffer::start()
+void ring_buffer::reset()
 {
-    rf_assert(buf != nullptr);
-    rf_assert(ap == nullptr);
-    
     this->curr_pos = 0;
     this->first_valid_sample = 0;
     this->last_valid_sample = 0;

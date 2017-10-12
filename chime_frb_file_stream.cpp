@@ -108,7 +108,7 @@ Json::Value chime_frb_file_stream::jsonize() const
     Json::Value &jf = ret["filename_list"];
 
     ret["class_name"] = "chime_frb_file_stream";
-    ret["nt_chunk"] = int(this->get_orig_nt_chunk());
+    ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
     ret["noise_source_align"] = int(noise_source_align);
 
     for (const string &f: filename_list)
@@ -138,7 +138,7 @@ shared_ptr<chime_frb_file_stream> chime_frb_file_stream::from_json(const Json::V
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("chime_frb_file_stream", chime_frb_file_stream::from_json);
+	    pipeline_object::register_json_deserializer("chime_frb_file_stream", chime_frb_file_stream::from_json);
 	}
     } init;
 }

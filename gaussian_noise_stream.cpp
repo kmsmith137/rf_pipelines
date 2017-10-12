@@ -97,7 +97,7 @@ public:
 	ret["freq_hi_MHz"] = freq_hi_MHz;
 	ret["dt_sample"] = dt_sample;
 	ret["sample_rms"] = sample_rms;
-	ret["nt_chunk"] = Json::Int64(this->get_orig_nt_chunk());
+	ret["nt_chunk"] = Json::Int64(this->get_prebind_nt_chunk());
 	ret["randomize_weights"] = randomize_weights;
 
 	return ret;
@@ -122,7 +122,7 @@ public:
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("gaussian_noise_stream", gaussian_noise_stream::from_json);
+	    pipeline_object::register_json_deserializer("gaussian_noise_stream", gaussian_noise_stream::from_json);
 	}
     } init;
 }

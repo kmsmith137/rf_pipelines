@@ -201,7 +201,7 @@ shared_ptr<wi_transform> make_badchannel_mask(const string &mask_path, const vec
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("badchannel_mask", badchannel_mask::from_json);
+	    pipeline_object::register_json_deserializer("badchannel_mask", badchannel_mask::from_json);
 	}
     } init;
 }

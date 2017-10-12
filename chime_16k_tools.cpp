@@ -56,7 +56,7 @@ struct chime_16k_spike_mask : public chunked_pipeline_object
     {
 	Json::Value ret;
 	ret["class_name"] = "chime_16k_spike_mask";
-	ret["nt_chunk"] = int(this->get_orig_nt_chunk());
+	ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
 	return ret;
     }
 
@@ -152,7 +152,7 @@ struct chime_16k_derippler : public chunked_pipeline_object
 	Json::Value ret;
 	ret["class_name"] = "chime_16k_derippler";
 	ret["fudge_factor"] = this->fudge_factor;
-	ret["nt_chunk"] = int(this->get_orig_nt_chunk());
+	ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
 	return ret;
     }
 
@@ -377,9 +377,9 @@ shared_ptr<wi_transform> make_chime_16k_stripe_analyzer(ssize_t Dt1, ssize_t Df2
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("chime_16k_derippler", chime_16k_derippler::from_json);
-	    pipeline_object::register_json_constructor("chime_16k_spike_mask", chime_16k_spike_mask::from_json);
-	    pipeline_object::register_json_constructor("chime_16k_stripe_analyzer", chime_16k_stripe_analyzer::from_json);
+	    pipeline_object::register_json_deserializer("chime_16k_derippler", chime_16k_derippler::from_json);
+	    pipeline_object::register_json_deserializer("chime_16k_spike_mask", chime_16k_spike_mask::from_json);
+	    pipeline_object::register_json_deserializer("chime_16k_stripe_analyzer", chime_16k_stripe_analyzer::from_json);
 	}
     } init;
 }

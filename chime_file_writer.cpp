@@ -127,7 +127,7 @@ struct chime_file_writer : public wi_transform {
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("chime_file_writer", chime_file_writer::from_json);
+	    pipeline_object::register_json_deserializer("chime_file_writer", chime_file_writer::from_json);
 	}
     } init;
 }

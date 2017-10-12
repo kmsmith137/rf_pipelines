@@ -115,7 +115,7 @@ struct pipeline_fork : public pipeline_object
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("pipeline_fork", pipeline_fork::from_json);
+	    pipeline_object::register_json_deserializer("pipeline_fork", pipeline_fork::from_json);
 	}
     } init;
 }

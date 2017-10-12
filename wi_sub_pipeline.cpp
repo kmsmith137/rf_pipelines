@@ -294,7 +294,7 @@ shared_ptr<wi_sub_pipeline> wi_sub_pipeline::from_json(const Json::Value &j)
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("wi_sub_pipeline", wi_sub_pipeline::from_json);
+	    pipeline_object::register_json_deserializer("wi_sub_pipeline", wi_sub_pipeline::from_json);
 	}
     } init;
 }

@@ -23,8 +23,8 @@ wi_transform::wi_transform(const string &name_, ssize_t nt_chunk_, ssize_t nfreq
 // virtual override
 void wi_transform::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
 {
-    this->_save_nfreq = nfreq;
-    this->_save_nds = nds;
+    this->_prebind_nfreq = nfreq;
+    this->_prebind_nds = nds;
 
     this->rb_intensity = this->get_buffer(rb_dict, "INTENSITY");
     this->rb_weights = this->get_buffer(rb_dict, "WEIGHTS");
@@ -67,18 +67,6 @@ bool wi_transform::_process_chunk(ssize_t pos)
 void wi_transform::_bind_transform(Json::Value &json_attrs)
 {
     return;
-}
-
-
-ssize_t wi_transform::get_orig_nfreq() const
-{
-    return is_bound() ? _save_nfreq : nfreq;
-}
-
-
-ssize_t wi_transform::get_orig_nds() const
-{
-    return is_bound() ? _save_nds : nds;
 }
 
 

@@ -164,7 +164,7 @@ shared_ptr<wi_transform> make_spectrum_analyzer(ssize_t Dt1, ssize_t Dt2)
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("spectrum_analyzer", spectrum_analyzer::from_json);
+	    pipeline_object::register_json_deserializer("spectrum_analyzer", spectrum_analyzer::from_json);
 	}
     } init;
 }

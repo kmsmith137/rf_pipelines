@@ -81,7 +81,7 @@ struct intensity_clipper_transform : public wi_transform
 	ret["Df"] = Df;
 	ret["Dt"] = Dt;
 	ret["axis"] = rf_kernels::axis_type_to_string(axis);
-	ret["nt_chunk"] = int(this->get_orig_nt_chunk());
+	ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
 	ret["sigma"] = sigma;
 	ret["niter"] = niter;
 	ret["iter_sigma"] = iter_sigma;
@@ -109,7 +109,7 @@ struct intensity_clipper_transform : public wi_transform
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("intensity_clipper", intensity_clipper_transform::from_json);
+	    pipeline_object::register_json_deserializer("intensity_clipper", intensity_clipper_transform::from_json);
 	}
     } init;
 }

@@ -20,6 +20,62 @@ namespace rf_pipelines {
 #endif
 
 
+// -------------------------------------------------------------------------------------------------
+//
+// Here is a good place to explain the rf_pipelines state model.
+//
+// The first thing to say is that high-level users of rf_pipelines probably don't need to know about 
+// the state model; they should just be able to call pipeline::run(), which can advance the state model 
+// from its initial state (UNBOUND) to its final state (DONE).
+//
+// When a new pipeline_object is constructed, its state is UNBOUND, meaning that pipeline-wide parameters
+// have not been determined yet (number of frequency channels, level of downsampling in each ring buffer, 
+// etc.)  The pipeline_object only "knows" about parameters which were specified in its constructor.
+//
+// Next, the pipline is "bound", by calling pipeline_object::bind() for each pipeline_object in the pipeline.
+// This advances the state from UNBOUND to BOUND, and does the following:
+//
+//   - Propagates pipeline attributes through the pipeline.  Any pipeline_object may define
+//     attributes, and subsequent pipeline_objects will have access to them.  For example, a
+//     stream object may define "dt_sample", the timestream sample length in seconds, and a
+//     subsequent transform object can access the value.  The pipeline attributes are represented
+//     as a JSON object.
+//
+//   - Determines which ring buffers exist in the pipeline, which pipeline_objects access them,
+//     chunk sizes for each pipeline_object, and latency for each pipeline_object.  Thus, after
+//     the pipeline is bound, its total memory usage and latency are known, although the memory
+//     has not actually been allocated yet.
+//
+// Next, the pipeline is "allocated", which just means that its state advances from BOUND
+// to ALLOCATED, and all ring buffers are allocated.  (Exception: in pipeline_objects which
+// emit zoomable plots for the web viewer, some allocation happens later, either in start_pipeline(),
+// or on-the-fly while the pipeline is running.  This is nontrivial to fix!  In realistic
+// cases, I think the total memory footprint of the plotting buffers should be small.)
+//
+// Next, the pipeline is "started", which advances its state from ALLOCATED to RUNNING,
+// and does the following:
+//
+//   - A second round of pipeline attributes are propagated through the pipeline (the first
+//     round of attributes was propagated in bind()).  This is to allow for pipeline attributes
+//     which are not known until the pipeline is actually started.  For example, in CHIME,
+//     the initial timestamp (FPGA count) isn't known until the pipeline is started, since
+//     we don't actually start listening for FRB network packets until then.
+//
+//   - Each pipeline_object decides which zoomable plots to emit for the web viewer.  (This
+//     is postponed to start_pipeline(), in order to detect the case where the pipeline is
+//     run without an output directory, and therefore can't emit any plots.)
+//
+// Next, the pipeline runs, and its state advances from RUNNING to DONE.
+// All plots and json output are written to disk here.
+// 
+// After the pipeline finishes, if you want to run it again (or re-use its constituent
+// pipeline_objects in a different pipeline), you'll need to call one of the following:
+//
+//     pipeline_object::reset()        reverts state to ALLOCATED
+//     pipeline_object::deallocate()   reverts state to BOUND
+//     pipeline_object::unbind()       reverts state to UNBOUND
+
+
 // Defined in rf_pipelines_internals.hpp
 struct outdir_manager;
 struct plot_group;
@@ -59,7 +115,7 @@ public:
 
     void allocate();
     void deallocate();
-    void start();
+    void reset();
     
     // The access_mode is optional, but enables some debug checks, and can
     // also help performance.  The numerical values are chosen for convenient
@@ -238,38 +294,15 @@ struct zoomable_tileset {
 // -------------------------------------------------------------------------------------------------
 //
 // Some abstract base classes: pipeline_object, chunked_pipeline_object, wi_stream, wi_transform.
+//
+// Note that all members/methods are public, due to complications in python-wrapping protected methods
+// that I hope to fix eventually.
 
 
 struct pipeline_object {
 public:
-    // We now require the name to be initialized at construction (usually to something simple like the class name).
-    // It can be changed later (in the subclass constructor, or in _bind()) to something more verbose!
-    std::string name;
-    
-    // These parameters control the flow of data into the pipeline_object.
-    // They are set "externally", just before the virtual function _bind() is called.
-    // Don't initialize or change them in the pipeline_object subclass, or strange things will happen!
-
-    ssize_t nt_chunk_in = 0;   // step size in pos_hi
-    ssize_t nt_maxlag = 0;     // max difference between pos_hi and pos_max, when _advance() is called
-
-    // These parameters control the flow of data out of the pipeline object.
-    // The subclass must initialize them, in the virtual function _bind().
-    // Don't change them after _bind() returns, or strange things will happen!
-    
-    ssize_t nt_chunk_out = 0;  // step size in pos_lo
-    ssize_t nt_maxgap = -1;    // max allowed value of (pos_hi-pos_lo), after _advance() returns
-    ssize_t nt_contig = 0;     // max contiguous chunk size requested from ring buffers
-    
-    // Runtime state.
-    ssize_t pos_lo = 0;   // always a multiple of nt_chunk_out
-    ssize_t pos_hi = 0;   // always a multiple of nt_chunk_in
-    ssize_t pos_max = 0;
-
     // Constructor for this abstract base class.
     explicit pipeline_object(const std::string &name);
-
-    virtual ~pipeline_object();
 
     // High-level API: to run a pipeline, just call run().
 
@@ -306,66 +339,215 @@ public:
     Json::Value run(const run_params &params);
 
     // A more fine-grained high-level API.
-    // bind() is the first step in pipeline: determines pipeline parameters such as ring buffer sizes.
-    void bind();  
-    void allocate();
-    void deallocate();    
-    bool is_bound() const;
+    // See comment at top of this source file for more explanation!
 
-    // By default, this virtual function throws an exception ("jsonize() unimplemented...")
-    // Objects which support jsonization should override this function, and also add
-    // deserialization code to pipeline_object::from_json().
+    void bind();         // does global pipeline initializations (advances state UNBOUND -> BOUND)
+    void allocate();     // allocates all buffers (advances state BOUND -> ALLOCATED)
+    void reset();        // reverts state to ALLOCATED
+    void deallocate();   // reverts state to BOUND
+    void unbind();       // reverts state to UNBOUND
 
-    virtual Json::Value jsonize() const;
+    // Everything which follows is low-level stuff, which should not be needed by high-level users
+    // of rf_pipelines, but may be needed if you're writing your own pipeline_object.
 
-    // A pipeline_object subclass which implements jsonize() will also want to implement a
-    // from_json() static member function, and "register" it with register_json_constructor().
+    enum {
+	UNBOUND = 0,
+	BOUND = 1,
+	ALLOCATED = 2,
+	RUNNING = 3,
+	DONE = 4
+    } state;
+
+    // We now require the name to be initialized at construction (usually to something simple like the class name).
+    // It can be changed later (in the subclass constructor, or in bind()) to something more verbose!
+    std::string name;
+
+    // General note: all time indices (for example pipeline_object::nt_chunk_*, or pipeline_object::pos_*)
+    // use the "native" time resolution of the pipeline, i.e. they are not divided by any downsampling factor 'nds'.
     //
-    // The 'f' argument to register_json_converter() should be a function f(x) whose single
-    // argument 'x' is a Json::Value, and returns a shared_ptr<pipeline_ohbject>.  By convention,
-    // f() is usually chosen to be a static member function 'from_json' of the pipeline_object
-    // subclass.  See pipeline.cpp for an example.
-
-    using json_constructor_t = std::function<std::shared_ptr<pipeline_object> (const Json::Value &)>;
-    static void register_json_constructor(const std::string &class_name, const json_constructor_t &f);
-
-    // The implementation of from_json() in the pipeline_object base class will search the
-    // registry for the matching class_name, and call the registered constructor.
-
-    static std::shared_ptr<pipeline_object> from_json(const Json::Value &j);
-
-    // You probably don't want to call the functions below, but they need to be public
-    // (I think) in order to implement container-like subclasses of pipeline_object,
-    // such as 'class pipeline' or 'class wi_sub_pipeline'.
+    // Runtime state:
+    //   pos_lo = number of time samples which have been processed by this pipeline_object
+    //   pos_hi = number of time samples which are ready for processing by this pipeline_object
+    //   pos_max = number of time samples which have entered the pipeline
     //
-    // A note on the virtual function get_preferred_chunk_size().  This is only called
-    // on the first pipeline_object in the pipeline (subsequent chunk sizes are determined
-    // automatically).  By default, this function returns 0, which results in an
-    // exception "...: this pipeline_object cannot appear first in pipeline".
-    //
-    // Stream-type pipeline_objects which can appear first in a pipeline should override
-    // get_preferred_chunk_size() to return a nonzero value.
+    // Note that pos_lo <= pos_hi <= pos_max.
+
+    ssize_t pos_lo = 0;   // always a multiple of nt_chunk_out
+    ssize_t pos_hi = 0;   // always a multiple of nt_chunk_in
+    ssize_t pos_max = 0;
+
+    // These parameters control the flow of data into the pipeline_object.
+    // They are set "externally", just before the virtual function _bind() is called.
+    // Don't initialize or change them in the pipeline_object subclass, or strange things will happen!
+
+    ssize_t nt_chunk_in = 0;   // "input" chunk size (more precisely, step size in pos_hi between calls to _advance())
+    ssize_t nt_maxlag = 0;     // maximum lag when _advance() is called (more precisely, max difference between pos_hi and pos_max)
+
+    // These parameters control the flow of data out of the pipeline object.
+    // The subclass must initialize them, in the virtual function _bind().
+    // Don't change them after _bind() returns, or strange things will happen!
     
+    ssize_t nt_chunk_out = 0;  // "output" chunk size (more precisely, step size in pos_lo)
+    ssize_t nt_maxgap = -1;    // maximum gap after _advance() returns (more precisely, max allowed value of (pos_hi-pos_lo))
+    ssize_t nt_contig = 0;     // max contiguous chunk size this pipeline_object will request from ring buffers
+
+    // Used internally, to keep track of which ring_buffers are bound to this pipeline_object.
+    std::vector<std::shared_ptr<ring_buffer>> new_ring_buffers;    // ring buffers created by this pipeline object
+    std::vector<std::shared_ptr<ring_buffer>> all_ring_buffers;    // all ring buffers used by this pipeline object (including new_ring_buffers)
+
+    // Initialized in start_pipeline().
+    // Note: if the pipeline is run without an output directory, then 'out_mp' will be 
+    // a nonempty pointer, but out_mp->outdir will be an empty string.
+    std::shared_ptr<outdir_manager> out_mp;
+    double time_spent_in_transform = 0.0;
+
+    // New plot_groups should be created in _start_pipeline(), by calling pipeline_object::add_plot_group().
+    std::vector<plot_group> plot_groups;
+
+    // Used internally, to save pipeline attributes from bind() and start_pipeline() respectively.
+    // Note: only in the "top-level" pipeline!  (where run() is called)
+    Json::Value json_attrs1;
+    Json::Value json_attrs2;
+
+    // Here are the virtuals which can/must be implemented, in order to define a pipeline_object subclass.
+    // The meaning of each of the virtuals needs some explanation, see the long comment below for details!
+
+    // Mandatory (pure virtual).
+    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs) = 0;    
+    virtual ssize_t _advance() = 0;
+
+    // Optional, but defaults throw exceptions.
+    virtual ssize_t get_preferred_chunk_size();  // must be defined for stream-type objects which are first in pipeline
+    virtual Json::Value jsonize() const;         // must be defined in order to serialize to json
+
+    // Optional, and defaults do nothing.
+    virtual void _allocate();
+    virtual void _deallocate();
+    virtual void _start_pipeline(Json::Value &json_attrs);
+    virtual void _end_pipeline(Json::Value &json_output);
+    virtual void _reset();
+    virtual void _unbind();
+
+    // Each of the following methods is a wrapper around the corresponding virtual function.
+    // For example, bind() contains "generic" logic, and wraps _bind() which contains 
+    // subclass-dependent logic.
+    //
+    // Note that "container" objects (for example, class pipeline) need to 
+    // recurse into their children.  This should be done using the wrappers.
+    // For example, pipeline::_bind() calls bind() in each child (not _bind()).
+
     void bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in, ssize_t nt_maxlag, Json::Value &json_attrs);
-    ssize_t advance(ssize_t pos_hi, ssize_t pos_max);
-    
     void start_pipeline(const std::shared_ptr<outdir_manager> &mp, Json::Value &json_attrs);
     void end_pipeline(Json::Value &json_output);
-    
-    virtual ssize_t get_preferred_chunk_size();
+    ssize_t advance(ssize_t pos_hi, ssize_t pos_max);    
 
-    // Disable copy constructors
-    pipeline_object(const pipeline_object &) = delete;
-    pipeline_object &operator=(const pipeline_object &) = delete;
 
-// FIXME 'protected' removed temporarily, until I figure out how to handle it in the python-wrapping code!
-// protected:
+    // Here is a long comment explaning each of the virtuals above!
+    //
+    //
+    // _bind(rb_dict, json_attrs): does global pipeline initializations, such as determining ring buffer sizes and latency.
+    //
+    //     Before _bind() is called, the following members are initialized
+    //        ssize_t nt_chunk_in = 0;      "input" chunk size (more precisely, step size in pos_hi between calls to _advance())
+    //        ssize_t nt_maxlag = 0;        maximum lag when _advance() is called (more precisely, max difference between pos_hi and pos_max)
+    //
+    //     The _bind() virtual is responsible for initializing the following members:
+    //        ssize_t nt_chunk_out = 0;     "output" chunk size (more precisely, step size in pos_lo)
+    //        ssize_t nt_maxgap = -1;       maximum gap after _advance() returns (more precisely, max allowed value of (pos_hi-pos_lo))
+    //        ssize_t nt_contig = 0;        max contiguous chunk size this pipeline_object will request from ring buffers
+    //
+    //     It is also responsible for calling get_buffer() or create_buffer(), for each ring buffer which will be
+    //     accessed by the pipeline_object.  (See below for more info on these member functions.)
+    //
+    //     Finally, _bind() may optionally add new pipeline attributes to 'json_attrs', or read values of existing attributes.
+    //
+    //
+    // _allocate(): does subclass-specific buffer allocation.
+    //
+    //     Note that pipeline ring buffers are allocated separately, in the "generic" part of the pipeline,
+    //     and do not need to be allocated in _allocate().  Most pipeline_object subclasses will not need to 
+    //     define _allocate().
+    //
+    //
+    // _start_pipeline(json_attrs): called just before pipeline starts running.
+    //
+    //     The _start_pipeline() virtual is responsible for defining which plots are emitted by the pipeline_object.
+    //     Currently, there are two API's for doing this, the add_plot_group() API and the add_zoomable_tileset() API.
+    //     The long-term plan is to phase out add_plot_group(), and use add_zoomable_tileset() exclusively.
+    //
+    //     Optionally, _start_pipeline() can add new pipeline attributes to 'json_attrs', or read values of existing attributes.
+    //     Note that there are two "rounds" of pipeline attribute propagation, one in _bind() and one in _start_pipeline().
+    //     The purpose of the second round is to allow for pipeline attributes which aren't known until the pipeline is started.
+    //
+    //
+    // _advance(): this pure virtual is the "core" routine which processes data.
+    //
+    //     Before _advance() is called, the following members are initalized:
+    //        ssize_t pos_lo;     number of time samples which have been processed by this pipeline_object
+    //        ssize_t pos_hi;     number of time samples which are ready for processing by this pipeline_object
+    //        ssize_t pos_max;    number of time samples which have entered the pipeline
+    //
+    //     Note that pos_lo <= pos_hi <= pos_max.
+    //
+    //     The _advance() virtual is then responsible for processing data, and advancing pos_lo
+    //     appropriately.  (Subject to the constraints that pos_lo is advanced by a multiple of
+    //     nt_chunk_out, and that the final value of pos_lo is >= pos_hi - nt_maxlag.)
+    //
+    //     The return value from _advance() is a time sample count 'nt_end'.  The pipeline ends when the number
+    //     of processed samples exceeds the min(nt_end), where the minimum is taken over all _advance() calls
+    //     to all pipeline_objects in the pipeline.  For example:
+    //
+    //       - a "transform-type" object which does not define its own end-of-stream
+    //         always returns SSIZE_MAX
+    //
+    //       - a "stream-type" object will return SSIZE_MAX until end-of-stream is 
+    //         encountered, then returns the number of samples in the stream
+    //
+    //       - if a pipeline_object wants to "hard-terminate" the pipeline (but does not
+    //         want to throw an exception), it can return zero.
+    //
+    //
+    // _end_pipeline(json_output)
+    //
+    //     The _end_pipeline() virtual is responsible for adding fields to the pipeline_object's json output.
+    //     By default, the pipeline defines a few generic fields ('name', 'cpu_time', etc.), so defining 
+    //     _end_pipeline() is optional.
+    //
+    //
+    // _reset(), _deallocate(), _unbind()
+    //
+    //     These are all similar and are called by the wrappers reset(), deallocate(), unbind().
+    //
+    //
+    // get_preferred_chunk_size(): defines chunk size for stream-type object
+    //
+    //    This is only called on the first pipeline_object in the pipeline (subsequent chunk sizes are determined
+    //    automatically).  The default virtual returns 0, which results in an exception ""...: this pipeline_object 
+    //    cannot appear first in pipeline".  Stream-type pipeline_objects which can appear first in a pipeline 
+    //    should override get_preferred_chunk_size() to return a nonzero value.
+    //
+    //
+    // jsonize(): defines json seralization for pipeline_object.
+    //
+    //     A pipeline_object subclass which implements jsonize() will also want to implement 
+    //     and "register" a deserializer.  See 
+    //     from_json() static member function, and "register" it with register_json_deserializer().
 
-    // Helper functions called by _bind().
-    std::shared_ptr<ring_buffer> get_buffer(ring_buffer_dict &rb_dict, const std::string &key);
-    std::shared_ptr<ring_buffer> create_buffer(ring_buffer_dict &rb_dict, const std::string &key, const std::vector<ssize_t> &cdims, ssize_t nds);
-    
-    // These helper functions are used by pipeline_objects which write output files (e.g. hdf5, png).
+
+    // Helper functions called by _bind(), to manage ring buffers which are used/created by the pipeline_object.
+    //   get_buffer(): called for each pre-existing pipeline ring buffer which the pipeline_object uses.
+    //   create_buffer(): called for each new pipeline ring buffer which the pipeline_object creates.
+
+    std::shared_ptr<ring_buffer> get_buffer(ring_buffer_dict &rb_dict, const std::string &bufname);
+    std::shared_ptr<ring_buffer> create_buffer(ring_buffer_dict &rb_dict, const std::string &bufname, const std::vector<ssize_t> &cdims, ssize_t nds);
+
+
+    // Helper functions called by _start_pipeline(), to manage plots (and other files, such as hdf5)
+    // which are created by the pipeline_object.
+    //
+    // FIXME: right now there are two plotting API's, one based on add_plot_group() and another
+    // based on add_zoomable_tileset().  I plan to phase out the plot_group API, and use the
+    // zoomable_tileset API exclusively.
     //
     // add_plot_group(): 
     //
@@ -401,95 +583,46 @@ public:
     std::string add_plot(const std::string &basename, int64_t it0, int nt, int nx, int ny, int group_id=0);
     std::string add_file(const std::string &basename);
 
-    // Pure virtuals
-    //
-    // _bind()
-    //    - initializes nt_chunk_out, nt_contig, nt_maxgap
-    //    - calls get_buffer() or create_buffer() for each ring buffer used by pipeline_object
-    //
-    //    - The (Json::Value &) argument contains "pipeline-global" parameters.  Each pipeline_object
-    //      can either create new parameters, or read existing ones.  In CHIME, the pipeline-global
-    //      parameters are: 'freq_lo_MHz', 'freq_hi_MHz', 'dt_sample', and are 
-    //
-    // _allocate()
-    //    - should do nothing if already allocated.
-    //
-    // _start_pipeline()
-    //
-    //    - Note that start_pipeline() has a shared_ptr<outdir_manager> argument, but _start_pipeline()
-    //      does not.  In _start_pipeline(), the outdir_manager is available as 'this->outdir_manager'.
-    //
-    //    - Container pipeline_objects must call 
-    //         p.start_pipeline(this->outdir_manager, json_attrs)
-    //      for each sub-object 'p'.
-    //
-    //    - Both _start_pipeline() and _end_pipeline() take a (Json::Value &) argument, but the meaning
-    //      is different.  In _start_pipeline(), the Json::Value contains "pipeline-global" parameters
-    //      (just like _bind()).  In _end_pipeline(), the Json::Value contains pipeline output, which
-    //      each pipeline_object is free to define independently.
-    //
-    //    - Some pipeline-global parameters are passed to _bind(), and others are passed to _start_pipeline().
-    //      The division is a little arbitrary, but we try to use _bind() if possible.  In CHIME, the only
-    //      _start_pipeline() parameter is 'initial_fpga_count', which isn't known until the first packet
-    //      is received.  As a consequence, _start_pipeline() should be very fast (e.g. avoid allocating
-    //      memory) since it's part of the real-time pipeline.
-    //
-    // _advance()
-    //
-    //    From the perspective of a single pipeline_object, the pipeline run logic is as follows.
-    //
-    //    An external caller advances all input_buffers, and the index 'pos_hi', by a multiple of 
-    //    nt_chunk_in, then calls _advance().  The pipeline_object is then responsible for advancing
-    //    'pos_lo' by a multiple of nt_chunk_out, so that pos_lo >= pos_hi - nt_maxlag.
-    //
-    //    The return value from _advance() is a new nt_end.  Thus:
-    //       - return SSIZE_MAX to continue processing.
-    //       - return 0 to "hard-terminate" the pipeline, without throwing an exception.
-    //       - if end-of-stream is encountered, return the number of samples in the stream.
-    //
-    // _end_pipeline()
-    //
-    //    - Both _start_pipeline() and _end_pipeline() take a (Json::Value &) argument, but the meaning
-    //      is different.  In _start_pipeline(), the Json::Value contains "pipeline-global" parameters
-    //      (just like _bind()).  In _end_pipeline(), the Json::Value contains pipeline output, which
-    //      each pipeline_object is free to define independently.
-    //
-    //    - In addition to any subclass-dependent outputs defined in _end_pipeline(), the pipeline
-    //      defines the following default json outputs: "name", "cpu_time", "plots".  For many pipeline_objects,
-    //      these default outputs are sufficient, and defining _end_pipeline() isn't necessary.
 
-    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs) = 0;    
-    virtual ssize_t _advance() = 0;
+    // Json deserialization
+    //
+    // pipeline_object::from_json() is the "master" deserializer, which accepts a json-serialized
+    // pipeline object, and returns a shared_ptr<pipeline_object>.
+    //
+    // In order for a new pipeline_object subclass to support json-serialization, it must
+    // define the virtual function jsonize().  To support deserialization, it must define
+    // a "deserializer" (a function f(x) whose argument x is a Json::Value&, and returns
+    // a shared_ptr<pipeline_object>), and "register" the deserializer by calling
+    // pipeline_object::register_deserializer().
+    //
+    // By convention, the deserializer for a new class X is usually a static member function
+    //    shared_ptr<pipeline_objecT> X::from_json(Json::Value &j)
+    //
+    // and the boilerplate for registering the deserializer is:
+    //    pipeline_object::register_json_deserializer("X", X::from_json);
+    //
+    // (This boilerplate can be wrapped in a class constructor in an anonymous namespace, see
+    // pipeline.cpp for an example.)
 
-    // By default, these virtual functions do nothing.
-    virtual void _allocate();
-    virtual void _deallocate();
-    virtual void _start_pipeline(Json::Value &json_attrs);
-    virtual void _end_pipeline(Json::Value &json_output);
+    static std::shared_ptr<pipeline_object> from_json(const Json::Value &j);
+
+    using json_deserializer_t = std::function<std::shared_ptr<pipeline_object> (const Json::Value &)>;
+    static void register_json_deserializer(const std::string &class_name, const json_deserializer_t &f);
+
+    // Disable copy/move constructors (I always use pipeline_objects via shared_ptr<>).
+    pipeline_object(pipeline_object &&) = delete;
+    pipeline_object(const pipeline_object &) = delete;
+    pipeline_object &operator=(pipeline_object &&) = delete;
+    pipeline_object &operator=(const pipeline_object &) = delete;
+
+    virtual ~pipeline_object();
 
     // Helper: throws runtime_error with prefix "rf_pipelines: <name>: ..."
     void _throw(const std::string &msg) const;
 
     // For debugging or internal use.
-    static void _show_registered_json_constructors();
-    static json_constructor_t _find_json_constructor(const std::string &class_name);  // can return NULL.
-
-    // Internal state, managed automatically by calls to create_ring_buffer(), add_plot_group(), etc.
-
-    // These fields are initialized in bind().
-    std::vector<std::shared_ptr<ring_buffer>> new_ring_buffers;    // ring buffers created by this pipeline object
-    std::vector<std::shared_ptr<ring_buffer>> all_ring_buffers;    // all ring buffers used by this pipeline object (including new_ring_buffers)
-    Json::Value json_attrs1;  // only in top-level pipeline_object
-
-    // These fields are initialized in start_pipeline() and cleared in end_pipeline().
-    // Note: if the 'outdir' argument to run() is an empty string (or python None), then
-    // 'outdir_manager' will be a nonempty pointer, but calls to outdir_manager->add_file() will fail.
-
-    std::shared_ptr<outdir_manager> out_mp;
-    std::vector<plot_group> plot_groups;
-
-    double time_spent_in_transform = 0.0;
-    Json::Value json_attrs2;  // only in top-level pipeline_object
+    static void _show_registered_json_deserializers();
+    static json_deserializer_t _find_json_deserializer(const std::string &class_name);  // can return NULL.
 };
 
 
@@ -517,10 +650,11 @@ public:
     virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) = 0;
     virtual bool _process_chunk(ssize_t pos) = 0;
 
-    // Helper for jsonize(): this is the originally-specified value of 'nt_chunk' before bind() is called.
-    // This can differ from 'nt_chunk', if nt_chunk is originally zero, and bind() initializes it to a nonzero value.
-    ssize_t get_orig_nt_chunk() const;
-    ssize_t _save_nt_chunk = 0;
+    // When _bind() is called, it saves the value of 'nt_chunk' (before calling _bindc(), which can set nt_chunk).
+    // This is useful in jsonize() and _unbind().
+
+    ssize_t _prebind_nt_chunk = 0;
+    ssize_t get_prebind_nt_chunk() const { return (state >= BOUND) ? _prebind_nt_chunk : nt_chunk; }
 
     // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline().
 };
@@ -590,12 +724,17 @@ public:
     virtual void _bind_transform(Json::Value &json_attrs);  // non-pure virtual (default does nothing)
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) = 0;
 
+    // When _bindc() is called, it saves the values of 'nfreq' and 'nds' (before calling _bind_transform(), which can set them.)
+    // This is useful in jsonize() and _unbind().
+
+    ssize_t _prebind_nfreq = 0;
+    ssize_t _prebind_nds = 0;
+
     // Helpers for jsonize(): originally-specified values of 'nfreq', 'nds' before bind() is called.
     // (Similar to chunked_pipeline_object::get_orig_nt_chunk(), which is inherited by wi_transform.)
-    ssize_t get_orig_nfreq() const;
-    ssize_t get_orig_nds() const;
-    ssize_t _save_nfreq = 0;
-    ssize_t _save_nds = 0;
+
+    ssize_t get_prebind_nfreq() const { return (state >= BOUND) ? nfreq : _prebind_nfreq; }
+    ssize_t get_prebind_nds() const   { return (state >= BOUND) ? nds : _prebind_nds; }
 
     // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline().
 };

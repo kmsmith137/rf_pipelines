@@ -459,12 +459,12 @@ static void wrap_pipeline_object(extension_module &m)
     std::function<string (pipeline_object *)>
 	_str = [](pipeline_object *self) { return self->name; };
 
-    // Wrapped as staticmethod pipeline_object.register_json_constructor().
+    // Wrapped as staticmethod pipeline_object.register_json_deserializer().
     std::function<void (const string &, const py_object &)>
-	_register_json_constructor = [](const string &class_name, const py_object &f)
+	_register_json_deserializer = [](const string &class_name, const py_object &f)
 	{
 	    if (!f.is_callable())
-		throw runtime_error("rf_pipelines.pipeline_object.register_json_constructor(): Argument 'f' must be callable");
+		throw runtime_error("rf_pipelines.pipeline_object.register_json_deserializer(): Argument 'f' must be callable");
 
 	    // FIXME define generic std::function from-python converter?
 	    std::function<shared_ptr<pipeline_object> (const Json::Value &)>
@@ -476,7 +476,7 @@ static void wrap_pipeline_object(extension_module &m)
 		return converter<shared_ptr<pipeline_object>>::from_python(py_ret);
 	    };
 
-	    pipeline_object::register_json_constructor(class_name, _constructor);
+	    pipeline_object::register_json_deserializer(class_name, _constructor);
 	};
 
     // For resolving overloaded bind() function type
@@ -517,7 +517,7 @@ static void wrap_pipeline_object(extension_module &m)
 		     "This staticmethod is the counterpart of the non-static method jsonize().\n"
 		     "It \"de-serializes\" json data, and returns a pipeline_object.");
 
-    string doc_rjc = ("register_json_constructor(class_name, f)\n"
+    string doc_rjc = ("register_json_deserializer(class_name, f)\n"
 		      "\n"
 		      "The 'f' argument should be a function f(x) whose single argument 'x' is a json-serialized\n"
 		      "object (e.g. output of the jsonize() method), and returns a pipeline_object instance.\n"
@@ -586,7 +586,7 @@ static void wrap_pipeline_object(extension_module &m)
 
     pipeline_object_type.add_method("jsonize", "jsonize(): returns json serialization of pipeline_object", wrap_method(&pipeline_object::jsonize));
     pipeline_object_type.add_staticmethod("from_json", doc_fj, wrap_func(&pipeline_object::from_json, "json_data"));
-    pipeline_object_type.add_staticmethod("register_json_constructor", doc_rjc, wrap_func(_register_json_constructor, "class_name", "f"));
+    pipeline_object_type.add_staticmethod("register_json_deserializer", doc_rjc, wrap_func(_register_json_deserializer, "class_name", "f"));
 
     pipeline_object_type.add_method("add_plot_group", doc_add_pg, _add_pg);
     pipeline_object_type.add_method("add_plot", doc_add_plot, _add_plot);

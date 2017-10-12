@@ -155,7 +155,7 @@ struct mask_expander : public chunked_pipeline_object
 	ret["threshold"] = this->threshold;
 	ret["alpha"] = this->alpha;
 	ret["prev_wname"] = this->prev_wname;
-	ret["nt_chunk"] = int(this->get_orig_nt_chunk());
+	ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
 	ret["axis"] = rf_kernels::axis_type_to_string(rf_kernels::AXIS_FREQ);
 
 	return ret;
@@ -179,7 +179,7 @@ struct mask_expander : public chunked_pipeline_object
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("mask_expander", mask_expander::from_json);
+	    pipeline_object::register_json_deserializer("mask_expander", mask_expander::from_json);
 	}
     } init;
 }

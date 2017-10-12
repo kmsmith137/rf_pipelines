@@ -10,23 +10,24 @@ namespace rf_pipelines {
 #endif
 
 
-// Global registry (class_name -> json_constructor).
+// Global registry (class_name -> json_deserializer).
 //
 // Note: We use a pointer here, rather than simply declaring a static global unordered_map<...>, 
 // because we initialize entries with other static global declarations (see example at the end
 // of pipeline.cpp), and there is no way to ensure that the unordered_map<> constructor call
 // occurs first.  
 //
-// In contrast, if we use a pointer, then the first call to register_json_constructor() will initialize 
+// In contrast, if we use a pointer, then the first call to register_json_deserializer() will initialize 
 // the regsistry (see code below).  However, this means that all users of the registry (e.g. from_json(),
-// _show_registered_json_constructors()) must handle the corner case where no constructors have been
+// _show_registered_json_deserializers()) must handle the corner case where no constructors have been
 // registered yet, and the pointer is still NULL.
 
-using json_registry_t = unordered_map<string, pipeline_object::json_constructor_t>;
+using json_registry_t = unordered_map<string, pipeline_object::json_deserializer_t>;
 static json_registry_t *json_registry = nullptr;   // global
 
 
 pipeline_object::pipeline_object(const string &name_) : 
+    state(UNBOUND),
     name(name_) 
 { }
 
@@ -42,17 +43,17 @@ void pipeline_object::_throw(const string &msg) const
 
 // -------------------------------------------------------------------------------------------------
 //
-// bind() and friends.
+// bind(), unbind().
 
 
 void pipeline_object::bind()
 {
-    if (is_bound())
+    if (this->state >= BOUND)
 	return;
 
     ssize_t n = this->get_preferred_chunk_size();
     if (n <= 0)
-	_throw("this object cannot be first in pipeline");
+	_throw("this object cannot be first in pipeline, since its get_preferred_chunk_size() method is undefined");
 
     ring_buffer_dict rb_dict;
 
@@ -69,8 +70,8 @@ void pipeline_object::bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in_, ssiz
     if (name.size() == 0)
 	throw runtime_error("rf_pipelines: pipeline_object did not initialize 'name' field in its constructor");
 
-    if (is_bound())
-	_throw("Double call to pipeline_object::bind().  This can happen if a pipeline_object is reused in a pipeline.");
+    if (this->state != UNBOUND)
+	_throw("Double call to pipeline_object::bind().  This can happen if a pipeline_object is reused in a pipeline, or used in multiple pipelines.");
 
     this->nt_chunk_in = nt_chunk_in_;
     this->nt_maxlag = nt_maxlag_;
@@ -89,16 +90,20 @@ void pipeline_object::bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in_, ssiz
 
     for (auto &rb: this->all_ring_buffers)
 	rb->update_params(nt_contig, nt_maxlag + nt_maxgap);
+
+    this->state = BOUND;
 }
 
 
 // Should be called from _bind().
-shared_ptr<ring_buffer> pipeline_object::get_buffer(ring_buffer_dict &rb_dict, const string &key)
+shared_ptr<ring_buffer> pipeline_object::get_buffer(ring_buffer_dict &rb_dict, const string &bufname)
 {
-    if (!has_key(rb_dict, key))
-	_throw("buffer '" + key + "' does not exist in pipeline");
+    if (this->state != UNBOUND)
+	_throw("pipeline_object::get_buffer() called after pipeline_object is already bound");
+    if (!has_key(rb_dict, bufname))
+	_throw("buffer '" + bufname + "' does not exist in pipeline");
 
-    auto ret = rb_dict[key];
+    auto ret = rb_dict[bufname];
     all_ring_buffers.push_back(ret);
 
     return ret;
@@ -106,14 +111,16 @@ shared_ptr<ring_buffer> pipeline_object::get_buffer(ring_buffer_dict &rb_dict, c
 
 
 // Should be called from _bind().
-shared_ptr<ring_buffer> pipeline_object::create_buffer(ring_buffer_dict &rb_dict, const string &key, const vector<ssize_t> &cdims, ssize_t nds)
+shared_ptr<ring_buffer> pipeline_object::create_buffer(ring_buffer_dict &rb_dict, const string &bufname, const vector<ssize_t> &cdims, ssize_t nds)
 {
-    if (has_key(rb_dict, key))
-	_throw("buffer '" + key + "' already exists in pipeline");
+    if (this->state != UNBOUND)
+	_throw("pipeline_object::create_buffer() called after pipeline_object is already bound");
+    if (has_key(rb_dict, bufname))
+	_throw("buffer '" + bufname + "' already exists in pipeline");
 
     auto ret = make_shared<ring_buffer> (cdims, nds);
 
-    rb_dict[key] = ret;
+    rb_dict[bufname] = ret;
     all_ring_buffers.push_back(ret);
     new_ring_buffers.push_back(ret);
     
@@ -121,9 +128,29 @@ shared_ptr<ring_buffer> pipeline_object::create_buffer(ring_buffer_dict &rb_dict
 }
 
 
-bool pipeline_object::is_bound() const
+void pipeline_object::unbind()
 {
-    return (nt_chunk_in > 0);
+    if (this->state == UNBOUND)
+	return;
+
+    if (this->state >= ALLOCATED)
+	this->deallocate();
+
+    rf_assert(state == BOUND);
+
+    this->_unbind();
+
+    this->nt_chunk_in = 0;
+    this->nt_maxlag = 0;
+    this->nt_chunk_out = 0;
+    this->nt_maxgap = -1;
+    this->nt_contig = 0;
+
+    this->all_ring_buffers.clear();
+    this->new_ring_buffers.clear();
+    this->json_attrs2 = Json::Value();
+
+    this->state = UNBOUND;
 }
 
 
@@ -133,6 +160,9 @@ ssize_t pipeline_object::get_preferred_chunk_size()
     return 0;
 }
 
+// Default virtual
+void pipeline_object::_unbind() { }
+
 
 // -------------------------------------------------------------------------------------------------
 //
@@ -141,23 +171,36 @@ ssize_t pipeline_object::get_preferred_chunk_size()
 
 void pipeline_object::allocate()
 {
-    if (!is_bound())
+    if (this->state >= ALLOCATED)
+	return;
+
+    if (this->state == UNBOUND)
 	this->bind();
     
     for (auto &p: this->new_ring_buffers)
 	p->allocate();
 
     this->_allocate();
+    this->state = ALLOCATED;
 }
-
 
 
 void pipeline_object::deallocate()
 {
+    if (this->state < ALLOCATED)
+	return;
+
+    if (this->state >= RUNNING)
+	this->reset();
+
+    rf_assert(state == ALLOCATED);
+	
     this->_deallocate();
     
     for (auto &p: this->new_ring_buffers)
 	p->deallocate();
+
+    this->state = BOUND;
 }
 
 
@@ -173,16 +216,16 @@ void pipeline_object::_deallocate() { }
 
 Json::Value pipeline_object::run(const run_params &params)
 {
-    if (this->out_mp)
-	throw runtime_error("rf_pipelines: 'out_mp' is set in pipeline_object::run(), maybe you are rerunning pipeline after throwing an exception?");
+    if (this->state >= RUNNING)
+	_throw("Double call to pipeline_object::run(), maybe you're missing a call to reset(), deallocate(), or unbind()?");
 
-    auto mp = make_shared<outdir_manager> (params.outdir, params.clobber);
-
-    // Note: allocate() calls bind() if necessary.
     this->allocate();
 
+    auto mp = make_shared<outdir_manager> (params.outdir, params.clobber);
     this->json_attrs2 = Json::Value(Json::objectValue);
-    this->start_pipeline(mp, json_attrs2);
+    this->start_pipeline(this->out_mp, json_attrs2);
+
+    rf_assert(this->state == RUNNING);
 
     // We wrap the advance() loop in try..except, so that if an exception is thrown, we
     // still call end_pipeline() to clean up, and write partially complete output files.
@@ -207,12 +250,14 @@ Json::Value pipeline_object::run(const run_params &params)
 	// fall through...
     }
 
-    // Note: end_pipeline() clears outdir_manager, plot_groups.
-    Json::Value j_out(Json::objectValue);
-    add_json_object(j_out, this->json_attrs1);  // bind() attributes
-    add_json_object(j_out, this->json_attrs2);  // start_pipeline() attributes
+    Json::Value json_output(Json::objectValue);
+    json_output["success"] = !exception_thrown;
+    json_output["error_message"] = exception_text;
+
+    add_json_object(json_output, this->json_attrs1);  // bind() attributes
+    add_json_object(json_output, this->json_attrs2);  // start_pipeline() attributes
     
-    this->end_pipeline(j_out);
+    this->end_pipeline(json_output);
 
     // Try to write json file, even if exception was thrown.
     if (params.outdir.size() > 0) {
@@ -223,13 +268,12 @@ Json::Value pipeline_object::run(const run_params &params)
 	    _throw("couldn't open output file " + json_filename);
 
 	Json::StyledWriter w;
-	f << w.write(j_out);
+	f << w.write(json_output);
 
 	if (params.verbosity >= 2)
 	    cout << "wrote " << json_filename << endl;
     }
 
-    // Note: no call to deallocate().
     // FIXME add boolean flag to deallocate on pipeline exit.
 
     // FIXME is there a better way to save and re-throw the exception?
@@ -238,7 +282,7 @@ Json::Value pipeline_object::run(const run_params &params)
     if (exception_thrown)
 	throw runtime_error(exception_text);
 
-    return j_out;
+    return json_output;
 }
 
 
@@ -247,6 +291,7 @@ ssize_t pipeline_object::advance(ssize_t pos_hi_, ssize_t pos_max_)
 {
     struct timeval tv0 = get_time();
 
+    rf_assert(state == RUNNING);
     rf_assert(nt_chunk_in > 0);
     rf_assert(nt_chunk_out > 0);
     
@@ -275,10 +320,9 @@ ssize_t pipeline_object::advance(ssize_t pos_hi_, ssize_t pos_max_)
 }
 
 
-void pipeline_object::start_pipeline(const shared_ptr<outdir_manager> &mp, Json::Value &j)
+void pipeline_object::start_pipeline(const shared_ptr<outdir_manager> &mp, Json::Value &json_attrs)
 {
-    if (this->out_mp)
-	throw runtime_error("rf_pipelines: either double call to start_pipeline() without calling end_pipeline(), or pipeline_object appears twice in pipeline");
+    rf_assert(this->state == ALLOCATED);
 
     this->out_mp = mp;
     this->plot_groups.clear();
@@ -288,28 +332,31 @@ void pipeline_object::start_pipeline(const shared_ptr<outdir_manager> &mp, Json:
     this->pos_hi = 0;
     this->pos_max = 0;
     
-    for (auto &p: this->new_ring_buffers)
-	p->start();
+    for (auto &p: this->all_ring_buffers)
+	p->reset();
 
-    this->_start_pipeline(j);
+    this->_start_pipeline(json_attrs);
+
+    this->state = RUNNING;
 }
 
 
-// This wrapper is a little silly, but consistent with our general naming conventions!
-void pipeline_object::end_pipeline(Json::Value &j)
+void pipeline_object::end_pipeline(Json::Value &json_output)
 {
-    if (!j.isObject())
+    rf_assert(this->state == RUNNING);
+
+    if (!json_output.isObject())
 	_throw("end_pipeline(): internal error: Json::Value was not an Object as expected");
 
-    // FIXME should there be a ring_buffer::end()?
-    this->_end_pipeline(j);
+    this->_end_pipeline(json_output);
+    this->state = DONE;
 
-    if (!j.isMember("name"))
-	j["name"] = this->name;
-    if (!j.isMember("cpu_time"))
-	j["cpu_time"] = this->time_spent_in_transform;
+    if (!json_output.isMember("name"))
+	json_output["name"] = this->name;
+    if (!json_output.isMember("cpu_time"))
+	json_output["cpu_time"] = this->time_spent_in_transform;
 
-    if (!j.isMember("plots") && (plot_groups.size() > 0)) {
+    if (!json_output.isMember("plots") && (plot_groups.size() > 0)) {
 	for (const auto &g: plot_groups) {
 	    if (g.is_empty)
 		continue;
@@ -322,18 +369,37 @@ void pipeline_object::end_pipeline(Json::Value &j)
             jp["it1"] = Json::Value::Int64(g.curr_it1);
             jp["files"].append(g.files);
 
-            j["plots"].append(jp);
+            json_output["plots"].append(jp);
 	}
     }
-    
+}
+
+
+void pipeline_object::reset()
+{
+    if (this->state <= ALLOCATED)
+	return;
+
+    this->pos_lo = 0;
+    this->pos_hi = 0;
+    this->pos_max = 0;
     this->out_mp.reset();
     this->plot_groups.clear();
+    this->time_spent_in_transform = 0.0;
+    this->json_attrs2 = Json::Value();
+    
+    for (auto &p: this->all_ring_buffers)
+	p->reset();
+
+    this->_reset();
+    this->state = ALLOCATED;
 }
 
 
 // Default virtuals
 void pipeline_object::_start_pipeline(Json::Value &j) { }
 void pipeline_object::_end_pipeline(Json::Value &j) { }
+void pipeline_object::_reset() { }
 
 
 // -------------------------------------------------------------------------------------------------
@@ -350,26 +416,26 @@ Json::Value pipeline_object::jsonize() const
 
 
 // static member function
-void pipeline_object::register_json_constructor(const string &class_name, const json_constructor_t &f)
+void pipeline_object::register_json_deserializer(const string &class_name, const json_deserializer_t &f)
 {
     if (class_name.size() == 0)
-	throw runtime_error("rf_pipelines::pipeline_object::register_json_constructor(): class_name must be a nonempty string");
+	throw runtime_error("rf_pipelines::pipeline_object::register_json_deserializer(): class_name must be a nonempty string");
 
-    // First call to register_json_constructor() will initialize the regsistry.
+    // First call to register_json_deserializer() will initialize the regsistry.
     if (!json_registry)
 	json_registry = new json_registry_t;
 
     auto p = json_registry->find(class_name);
 
     if (p != json_registry->end())
-	throw runtime_error("rf_pipelines::pipeline_object::register_json_constructor(): duplicate registration for class_name='" + class_name + "'");
+	throw runtime_error("rf_pipelines::pipeline_object::register_json_deserializer(): duplicate registration for class_name='" + class_name + "'");
 
     (*json_registry)[class_name] = f;
 }
 
 
 // Static member function, for debugging.
-void pipeline_object::_show_registered_json_constructors()
+void pipeline_object::_show_registered_json_deserializers()
 {
     // All users of the json registry must handle the corner case where no constructors have
     // been registered yet, and the pointer is still NULL,
@@ -392,7 +458,7 @@ void pipeline_object::_show_registered_json_constructors()
 
 
 // static member function
-pipeline_object::json_constructor_t pipeline_object::_find_json_constructor(const string &class_name)
+pipeline_object::json_deserializer_t pipeline_object::_find_json_deserializer(const string &class_name)
 {
     // All users of the json registry must handle the corner case where no constructors have
     // been registered yet, and the pointer is still NULL,
@@ -414,7 +480,7 @@ shared_ptr<pipeline_object> pipeline_object::from_json(const Json::Value &x)
     // throws exception if 'class_name' not found
     string class_name = string_from_json(x, "class_name");
 
-    json_constructor_t f = _find_json_constructor(class_name);
+    json_deserializer_t f = _find_json_deserializer(class_name);
 
     if (f == NULL)
 	throw runtime_error("rf_pipelines::pipeline_object::from_json(): class_name='" + class_name + "' not found, maybe you're missing a call to pipeline_object::from_json_converter()?");
@@ -422,7 +488,7 @@ shared_ptr<pipeline_object> pipeline_object::from_json(const Json::Value &x)
     shared_ptr<pipeline_object> ret = f(x);
 
     if (!ret)
-	throw runtime_error("rf_pipelines::pipeline_object::from_json(): json_constructor for class_name='" + class_name + "' returned empty pointer");
+	throw runtime_error("rf_pipelines::pipeline_object::from_json(): json_deserializer for class_name='" + class_name + "' returned empty pointer");
 
     return ret;
 }
@@ -436,6 +502,10 @@ shared_ptr<pipeline_object> pipeline_object::from_json(const Json::Value &x)
 // Returns group id
 int pipeline_object::add_plot_group(const string &name, int nt_per_pix, int ny)
 {
+    if ((this->state != ALLOCATED) || (!this->out_mp))
+	_throw("add_plot_group() must be called from _start_pipeline()");
+    if (this->out_mp->outdir.size() == 0)
+	_throw("add_plot_group() was called in pipeline with no outdir (probably need to check out_mp->outdir.size() before calling add_plot_group)");
     if (nt_per_pix < 1)
 	_throw("add_plot_group(): nt_per_pix must be >= 1");
     if (ny < 1)
@@ -453,6 +523,8 @@ int pipeline_object::add_plot_group(const string &name, int nt_per_pix, int ny)
 
 string pipeline_object::add_plot(const string &basename, int64_t it0, int nt, int nx, int ny, int group_id)
 {
+    if (this->state != RUNNING)
+	_throw("add_plot() must be called from _advance()");
     if (this->plot_groups.size() == 0)
 	_throw("add_plot() called but no plot_groups defined, maybe you forgot to call add_plot_group()?");
 
@@ -489,10 +561,12 @@ string pipeline_object::add_plot(const string &basename, int64_t it0, int nt, in
 
 string pipeline_object::add_file(const string &basename)
 {
+    if (this->state != RUNNING)
+	_throw("add_plot() must be called from _advance()");
     if (!out_mp)
 	_throw("internal error: no outdir_manager in pipeline_object::add_file()");
-    if (out_mp->outdir.size() == 0)
-	_throw("attempted to write output file, but outdir='' (or python None) was specified in run()");
+    if (this->out_mp->outdir.size() == 0)
+	_throw("add_file() was called in pipeline with no outdir (probably need to check out_mp->outdir.size() before calling add_plot_group)");
 
     return this->out_mp->add_file(basename);
 }

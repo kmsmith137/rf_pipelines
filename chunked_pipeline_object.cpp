@@ -21,17 +21,18 @@ chunked_pipeline_object::chunked_pipeline_object(const string &name_, bool can_b
 // virtual override
 ssize_t chunked_pipeline_object::get_preferred_chunk_size()
 {
-    if (can_be_first && (nt_chunk == 0))
-	_throw("nt_chunk must be initialized to a nonzero value before bind() is called");
-    
-    return can_be_first ? nt_chunk : 0;
+    if (!can_be_first)
+	return 0;
+    if (nt_chunk == 0)
+	_throw("in chunked_pipeline_objects with can_be_first=true, nt_chunk must be initialized to a nonzero value before bind() is called");
+    return nt_chunk;
 }
 
 
 // virtual override
 void chunked_pipeline_object::_bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
 {
-    this->_save_nt_chunk = nt_chunk;
+    this->_prebind_nt_chunk = nt_chunk;
 
     if (nt_chunk == 0)
 	nt_chunk = nt_chunk_in;
@@ -59,12 +60,6 @@ ssize_t chunked_pipeline_object::_advance()
     }
 
     return ret;
-}
-
-
-ssize_t chunked_pipeline_object::get_orig_nt_chunk() const
-{
-    return is_bound() ? _save_nt_chunk : nt_chunk;
 }
 
 

@@ -103,6 +103,8 @@ protected:
     virtual void _deallocate() override;
     virtual void _start_pipeline(Json::Value &j) override;
     virtual void _end_pipeline(Json::Value &j) override;
+    virtual void _reset() override;
+    virtual void _unbind() override;
     
     virtual ssize_t get_preferred_chunk_size() override;
 
