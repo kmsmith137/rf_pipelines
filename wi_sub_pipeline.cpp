@@ -43,11 +43,13 @@ struct downsampler : chunked_pipeline_object {
 
 
 downsampler::downsampler(ssize_t Df_, ssize_t Dt_, ssize_t nt_chunk_) :
-    chunked_pipeline_object("wi_sub_downsampler", false, nt_chunk_),  // can_be_first=false
+    chunked_pipeline_object("wi_sub_downsampler", false),  // can_be_first=false
     Df(Df_),
     Dt(Dt_),
     kernel(Df_, Dt_)
-{ }
+{ 
+    this->nt_chunk = nt_chunk_;
+}
 
 
 void downsampler::_bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
@@ -117,12 +119,14 @@ struct upsampler : chunked_pipeline_object {
 
 
 upsampler::upsampler(ssize_t Df_, ssize_t Dt_, ssize_t nt_chunk_, double w_cutoff_) :
-    chunked_pipeline_object("wi_sub_upsampler", false, nt_chunk_),  // can_be_first=false
+    chunked_pipeline_object("wi_sub_upsampler", false),  // can_be_first=false
     Df(Df_),
     Dt(Dt_),
     w_cutoff(w_cutoff_),
     kernel(Df_, Dt_)
-{ }
+{ 
+    this->nt_chunk = nt_chunk_;
+}
 
 
 void upsampler::_bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs)

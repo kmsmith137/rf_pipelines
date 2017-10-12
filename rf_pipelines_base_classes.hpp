@@ -302,6 +302,8 @@ struct zoomable_tileset {
 struct pipeline_object {
 public:
     // Constructor for this abstract base class.
+    // The name must be initialized at construction (possibly to something simple like the class name),
+    // but can be changed later to something more verbose.
     explicit pipeline_object(const std::string &name);
 
     // High-level API: to run a pipeline, just call run().
@@ -358,8 +360,6 @@ public:
 	DONE = 4
     } state;
 
-    // We now require the name to be initialized at construction (usually to something simple like the class name).
-    // It can be changed later (in the subclass constructor, or in bind()) to something more verbose!
     std::string name;
 
     // General note: all time indices (for example pipeline_object::nt_chunk_*, or pipeline_object::pos_*)
@@ -639,38 +639,51 @@ public:
 struct chunked_pipeline_object : public pipeline_object {
 public:
 
-    // The 'name' and 'can_be_first' members must be initialized at construction.
-    // However, 'name' can be initialized to something simple (like the class name), and changed later.
-    // 
-    // The 'nt_chunk' and 'nt_chunk_min' members are optional constructor arugments, and can be changed
-    // either in the body of the subclass constructor, or in the subclass-defined method _bindc().
+    // Note: inherits 'name' member from pipeline_object base class.
     //
-    // Note that nt_chunk must be a multiple of nt_chunk_min (not just a larger value).  This requirement
-    // is intended e.g. for a kernel which needs nt_chunk to be a multiple of 8 for vectorization.
+    // The name must be initialized at construction (possibly to something simple like the class name),
+    // but can be changed later to something more verbose.
     //
-    // Sometimes, it is useful to choose nt_chunk automatically, by calling the finalize_nt_chunk() method.
-    // This will be called automatically, if the subclass-defined method _bindc() returns without initializing
-    // nt_chunk.  Note that finalize_nt_chunk() always chooses an nt_chunk which is a multiple of 'nt_chunk_min' 
-    // and all ring buffer downsampling factors.  Therefore, it is best to postpone calling finalize_nt_chunk() 
-    // until  after all ring buffers have been bound in _bindc(), so that their downsampling factors are known.
+    // The 'can_be_first' parameter should be true for stream-type objects which can be first in
+    // a pipeline, and false for transform-type objects which process existing data.
+
+    chunked_pipeline_object(const std::string &name, bool can_be_first);
+
+    const bool can_be_first;
+
+    // The 'nt_chunk' parameter is the chunk size, in time samples, with no downsampling factor applied.
+    // It can either be initialized to something nonzero, or determined automatically by the pipeline.
     //
-    // Summarizing, there are three options for initializing nt_chunk:
+    // (Reminder: each ring buffer has its own downsampling factor 'nds', and the number of buffer samples
+    // in each chunk will be nt_chunk/nds.)
     //
-    //   - The subclass may initialize nt_chunk by hand, either in its constructor or in _bindc().
+    // The value of nt_chunk must be a multiple of the ring buffer downsampling factor, for each
+    // ring buffer which is used ("bound") by the chunked_pipeline_object.  Additionally, if the
+    // 'nt_chunk_min' parameter is nonzero, then nt_chunk must be a multiple of nt_chunk_min.
+    // (Example use case: a kernel which needs nt_chunk to be a multiple of 8 for vectorization.)
     //
-    //   - The subclass may simply ignore nt_chunk, and let it be determined automatically.  This has
-    //     the potential disadvantage that in _bindc(), nt_chunk will not be initialized yet.
+    // The value of nt_chunk is initially zero, but it will be initialized to a nonzero value
+    // in one of three ways:
+    //
+    //   - The subclass may initialize nt_chunk by hand, either in its constructor or in the
+    //     subclass-defined virtual function _bindc().  In this case, the subclass is responsible
+    //     for ensuring that nt_chunk is a multiple of nt_chunk_min, and all relevant 'nds' values.
+    //
+    //   - If the subclass does not initialize nt_chunk to something nonzero, then the pipeline
+    //     will assign a default value, just after _bindc() is called, by calling the helper method
+    //     finalize_nt_chunk().  This has the potential disadvantage that in _bindc(), nt_chunk will 
+    //     not be initialized yet.
     //
     //   - The subclass may call finalize_nt_chunk() in _bindc(), after ring buffers are bound, but
     //     before the value of nt_chunk is used.  This option makes sense for chunked_pipeline_objects
     //     which want nt_chunk to be determined automatically, but also need to know its value in _bindc().
     //
-    // Reminder: all time indices in chunked_pipeline methods (e.g. nt_chunk) don't have downsampling factors applied.
-    // Each ring buffer has its own downsampling factor 'nds', and 
+    // Note 1: the values of 'nt_chunk' and 'nt_chunk_min' should not be modifed after _bindc()
+    // returns, or strange things will happen!
+    //
+    // Note 2: if 'can_be_first' is true, then nt_chunk must be initialized in the constructor.  In
+    // particular, this means that it can't be determined automatically, as in options #2 and #3 above.
 
-    chunked_pipeline_object(const std::string &name, bool can_be_first, ssize_t nt_chunk=0, ssize_t nt_chunk_min=0);
-
-    const bool can_be_first;
     ssize_t nt_chunk = 0;
     ssize_t nt_chunk_min = 0;
 
@@ -721,14 +734,16 @@ public:
 struct wi_stream : chunked_pipeline_object {
 public:
 
-    // Note: inherits 'name', 'nt_chunk' from base classes.  The value of 'name' must be nonempty
-    // at construction, but can be changed later (in body of subclass constructor, or _bind_stream()).
-    //
-    // The values of 'nfreq' and 'nt_chunk' can be zero when the base class constructor is called,
-    // but if so, then they must must be initialized to nonzero values either in the body of the 
-    // subclass constructor, or in _bind_stream().
+    // Note: inherits 'name' member from base class.
+    // The name must be initialized at construction (possibly to something simple like the class name),
+    // but can be changed later to something more verbose.
 
-    wi_stream(const std::string &name, ssize_t nfreq=0, ssize_t nt_chunk=0);
+    wi_stream(const std::string &name);
+
+    // Note: inherits 'nt_chunk' member from base class.
+    //
+    // The values of 'nfreq' and 'nt_chunk' must be initialized to nonzero values, either in
+    // the constructor, or in the _bind_stream() virtual.
 
     ssize_t nfreq = 0;
 
@@ -749,7 +764,7 @@ public:
     //
     // _unbind_stream()
     //
-    //    Any code needed to undo _bind_stream() can go here.
+    //    Any code needed to undo _bind_stream() can go here.  (Usually not needed.)
     //
     // _fill_chunk(intensity, istride, weights, wstride, pos)
     //
@@ -795,7 +810,7 @@ public:
     ssize_t nds = 0;
 
     // 'name' must be initialized at construction, but can be changed later (in subclass constructor, or _bind_stream()).
-    wi_transform(const std::string &name, ssize_t nt_chunk=0, ssize_t nfreq=0, ssize_t nds=0);
+    wi_transform(const std::string &name);
 
     // These chunked_pipeline_object virtuals are defined here.
     virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) final override;

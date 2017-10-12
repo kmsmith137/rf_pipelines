@@ -24,7 +24,7 @@ protected:
 
 public:
     gaussian_noise_stream(ssize_t nfreq_, ssize_t nt_tot_, double freq_lo_MHz_, double freq_hi_MHz_, double dt_sample_, double sample_rms_, ssize_t nt_chunk_, bool randomize_weights_) :
-	wi_stream("gaussian_noise_stream", nfreq_, nt_chunk_),
+	wi_stream("gaussian_noise_stream"),
 	nt_tot(nt_tot_),
 	freq_lo_MHz(freq_lo_MHz_),
 	freq_hi_MHz(freq_hi_MHz_),
@@ -34,6 +34,9 @@ public:
 	rng(std::random_device{}()),
 	gdist(0, sample_rms_)
     {
+	this->nfreq = nfreq_;
+	this->nt_chunk = nt_chunk_;
+
 	// Sanity-checking.
 	rf_assert(nfreq > 0);
 	rf_assert(nt_tot > 0);

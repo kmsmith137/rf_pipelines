@@ -642,8 +642,8 @@ static void wrap_chunked_pipeline_object(extension_module &m)
 
 
 struct py_wi_stream : wi_stream {
-    py_wi_stream(const string &name_, ssize_t nfreq_=0, ssize_t nt_chunk_=0) :
-	wi_stream(name_, nfreq_, nt_chunk_)
+    py_wi_stream(const string &name_) :
+	wi_stream(name_)
     { }
 
     // _fill_chunk() is the only pure virtual.
@@ -691,10 +691,10 @@ struct py_wi_stream : wi_stream {
 static void wrap_wi_stream(extension_module &m)
 {
     // constructor for python subclasses of wi_stream
-    std::function<wi_stream* (const string &, ssize_t, ssize_t)>
-	_init = [](const string &name, ssize_t nfreq, ssize_t nt_chunk) -> wi_stream*
+    std::function<wi_stream* (const string &)>
+	_init = [](const string &name) -> wi_stream*
 	{
-	    return new py_wi_stream(name, nfreq, nt_chunk);
+	    return new py_wi_stream(name);
 	};
 
     // nfreq property
@@ -710,7 +710,7 @@ static void wrap_wi_stream(extension_module &m)
 	    return self->_fill_chunk(intensity.data, istride, weights.data, wstride, pos);
 	};
 
-    wi_stream_type.add_constructor(wrap_constructor(_init, "name", kwarg("nfreq",0), kwarg("nt_chunk",0)));
+    wi_stream_type.add_constructor(wrap_constructor(_init, "name"));
     wi_stream_type.add_property("nfreq", "Number of frequency channels", _nfreq);
     wi_stream_type.add_method("_bind_stream", "_bind_stream(j): optional", wrap_j(&wi_stream::_bind_stream));
     wi_stream_type.add_method("_unbind_stream", "_unbind_stream(): optional", wrap_method(&wi_stream::_unbind_stream));
@@ -728,8 +728,8 @@ static void wrap_wi_stream(extension_module &m)
 
 
 struct py_wi_transform : wi_transform {
-    py_wi_transform(const string &name_, ssize_t nt_chunk_=0, ssize_t nfreq_=0, ssize_t nds_=0) :
-	wi_transform(name_, nt_chunk_, nfreq_, nds_)
+    py_wi_transform(const string &name_) :
+	wi_transform(name_)
     { }
 
     // _process_chunk() is the only pure virtual.
@@ -777,10 +777,10 @@ static void wrap_wi_transform(extension_module &m)
     std::function<ssize_t& (wi_transform *)> _nds = [](wi_transform *self) -> ssize_t& { return self->nds; };
 
     // constructor for python subclasses of wi_transform
-    std::function<wi_transform* (const string&, ssize_t, ssize_t, ssize_t)>
-	_init = [](const string &name, ssize_t nt_chunk, ssize_t nfreq, ssize_t nds)
+    std::function<wi_transform* (const string&)>
+	_init = [](const string &name)
 	{
-	    return new py_wi_transform(name, nt_chunk, nfreq, nds);
+	    return new py_wi_transform(name);
 	};
 
     // python-callable wi_transform::_process_chunk()
@@ -792,7 +792,7 @@ static void wrap_wi_transform(extension_module &m)
 	    self->_process_chunk(intensity.data, istride, weights.data, wstride, pos);
 	};
 
-    wi_transform_type.add_constructor(wrap_constructor(_init, "name", kwarg("nt_chunk",0), kwarg("nfreq",0), kwarg("nds",0)));
+    wi_transform_type.add_constructor(wrap_constructor(_init, "name"));
     wi_transform_type.add_property("nfreq", "Number of frequency channels", _nfreq);
     wi_transform_type.add_property("nds", "Time downsampling factor", _nds);
     wi_transform_type.add_method("_bind_transform", "_bind_transform(): optional", wrap_j(&wi_transform::_bind_transform));

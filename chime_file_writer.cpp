@@ -44,12 +44,13 @@ struct chime_file_writer : public wi_transform {
 
 
     chime_file_writer(const string &filename_, bool clobber_, int bitshuffle_, ssize_t nt_chunk_) :
-	wi_transform("chime_file_writer", nt_chunk_),
+	wi_transform("chime_file_writer"),
 	filename(filename_),
 	clobber(clobber_), 
 	bitshuffle(bitshuffle_)
     {
 	this->name = "chime_file_writer(" + filename + ")";
+	this->nt_chunk = nt_chunk_;
     }
 
     

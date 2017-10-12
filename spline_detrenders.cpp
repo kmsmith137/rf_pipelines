@@ -17,7 +17,7 @@ struct spline_detrender : public wi_transform
     std::unique_ptr<rf_kernels::spline_detrender> kernel;
 
     spline_detrender(int nt_chunk_, rf_kernels::axis_type axis_, int nbins_, double epsilon_) :
-	wi_transform("spline_detrender", nt_chunk_),
+	wi_transform("spline_detrender"),
 	nbins(nbins_),
 	epsilon(epsilon_),
 	axis(axis_)
@@ -27,12 +27,14 @@ struct spline_detrender : public wi_transform
 	    throw runtime_error("rf_pipelines::spline_detrender: only AXIS_FREQ is currently implemented");
 
 	// Superfluous for now, but will make sense when AXIS_TIME and/or AXIS_NONE are implemented.
-	if ((nt_chunk == 0) && (axis != rf_kernels::AXIS_FREQ))
+	if ((nt_chunk_ == 0) && (axis != rf_kernels::AXIS_FREQ))
 	    throw runtime_error("rf_pipelines::spline_detrender: nt_chunk must be specified (unless axis=AXIS_FREQ)");
 
 	stringstream ss;
         ss << "spline_detrender(nt_chunk=" << nt_chunk_ << ", axis=" << rf_kernels::axis_type_to_string(axis) << ", nbins=" << nbins << ", epsilon=" << epsilon << ")";
+
 	this->name = ss.str();
+	this->nt_chunk = nt_chunk_;
     }
 
     // Called after this->nfreq is initialized.

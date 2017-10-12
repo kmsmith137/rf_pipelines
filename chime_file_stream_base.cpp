@@ -10,7 +10,7 @@ namespace rf_pipelines {
 
     
 chime_file_stream_base::chime_file_stream_base(const string &stream_name, const vector<string> &filename_list_, ssize_t nt_chunk_, ssize_t noise_source_align_) :
-    wi_stream(stream_name, 0, nt_chunk_),  // nfreq=0
+    wi_stream(stream_name),
     filename_list(filename_list_),
     noise_source_align(noise_source_align_)
 {
@@ -18,8 +18,7 @@ chime_file_stream_base::chime_file_stream_base(const string &stream_name, const 
     rf_assert(noise_source_align >= 0);
 
     // We initialize nt_chunk here, but defer initialization of nfreq to chime_file_stream_base::_bind_stream().
-    if (nt_chunk == 0)
-	this->nt_chunk = 1024;
+    this->nt_chunk = (nt_chunk_ > 0) ? nt_chunk_ : 1024;
 }
 
 

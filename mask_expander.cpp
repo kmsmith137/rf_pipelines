@@ -37,7 +37,7 @@ struct mask_expander : public chunked_pipeline_object
 
 
     mask_expander(rf_kernels::axis_type axis_, const string &prev_wname_, double width_, double threshold_, double alpha_ = 0.0, ssize_t nt_chunk_ = 0) :
-	chunked_pipeline_object("mask_expander", nt_chunk_),
+	chunked_pipeline_object("mask_expander", false),   // can_be_first=false
 	width(width_),
 	threshold(threshold_),
 	alpha(alpha_),
@@ -57,6 +57,8 @@ struct mask_expander : public chunked_pipeline_object
 	if ((alpha < -1.0) || (alpha > 1.0))
 	    _throw("'alpha' must be between -1 and 1");
 
+	this->nt_chunk = nt_chunk_;
+
 	stringstream ss;
 
 	ss << "mask_expander(" << rf_kernels::axis_type_to_string(axis)
@@ -67,8 +69,8 @@ struct mask_expander : public chunked_pipeline_object
 	if (alpha != 0.0)
 	    ss << ",alpha=" << alpha;
 
-	if (nt_chunk != 0)
-	    ss << ",nt_chunk=" << nt_chunk;
+	if (nt_chunk_ != 0)
+	    ss << ",nt_chunk=" << nt_chunk_;
 
 	ss << ")";
 

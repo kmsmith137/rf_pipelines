@@ -27,8 +27,10 @@ struct chime_16k_spike_mask : public chunked_pipeline_object
 
 
     chime_16k_spike_mask(ssize_t nt_chunk_=0) :
-	chunked_pipeline_object("chime_16k_spike_mask", false, nt_chunk_)
-    { }
+	chunked_pipeline_object("chime_16k_spike_mask", false)
+    { 
+	this->nt_chunk = nt_chunk_;
+    }
 
     virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
     {
@@ -91,7 +93,7 @@ struct chime_16k_derippler : public chunked_pipeline_object
 
 
     chime_16k_derippler(double fudge_factor_=1.0, ssize_t nt_chunk_=0) :
-	chunked_pipeline_object("chime_16k_derippler", false, nt_chunk_),
+	chunked_pipeline_object("chime_16k_derippler", false),
 	fudge_factor(fudge_factor_)
     { 
 	constexpr float fl[nupfreq] = {
@@ -112,6 +114,8 @@ struct chime_16k_derippler : public chunked_pipeline_object
 	    1.25106135586,
 	    1.28086420647
 	};
+
+	this->nt_chunk = nt_chunk_;
 
 	if ((fudge_factor < 0.0) || (fudge_factor > 2.0))
 	    _throw("fudge_factor must be between 0 and 2");

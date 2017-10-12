@@ -8,16 +8,9 @@ namespace rf_pipelines {
 #endif
 
 
-wi_transform::wi_transform(const string &name_, ssize_t nt_chunk_, ssize_t nfreq_, ssize_t nds_) :
-    chunked_pipeline_object(name_, false, nt_chunk_),  // can_be_first=false
-    nfreq(nfreq_),
-    nds(nds_)
-{
-    if (nfreq < 0)
-	_throw("expected nfreq >= 0 in wi_transform constructor");
-    if (nds < 0)
-	_throw("expected nds >= 0 in wi_transform constructor");
-}
+wi_transform::wi_transform(const string &name_) :
+    chunked_pipeline_object(name_, false)  // can_be_first=false
+{ }
 
 
 // virtual override

@@ -23,7 +23,7 @@ struct std_dev_clipper_transform : public wi_transform
     unique_ptr<rf_kernels::std_dev_clipper> kernel;
 
     std_dev_clipper_transform(int Df_, int Dt_, rf_kernels::axis_type axis_, int nt_chunk_, double sigma_, bool two_pass_) :
-	wi_transform("std_dev_clipper", nt_chunk_),
+	wi_transform("std_dev_clipper"),
 	Df(Df_),
 	Dt(Dt_),
 	axis(axis_),
@@ -35,6 +35,7 @@ struct std_dev_clipper_transform : public wi_transform
            << ", Df=" << Df << ", Dt=" << Dt << ", two_pass=" << two_pass << ")";
 	
         this->name = ss.str();
+	this->nt_chunk = nt_chunk_;
 	
 	if (nt_chunk == 0)
 	    throw runtime_error("rf_pipelines::std_dev_clipper: nt_chunk must be specified");

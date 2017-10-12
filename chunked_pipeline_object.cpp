@@ -8,17 +8,10 @@ namespace rf_pipelines {
 #endif
 
 
-chunked_pipeline_object::chunked_pipeline_object(const string &name_, bool can_be_first_, ssize_t nt_chunk_, ssize_t nt_chunk_min_) :
+chunked_pipeline_object::chunked_pipeline_object(const string &name_, bool can_be_first_) :
     pipeline_object(name_),
-    can_be_first(can_be_first_),
-    nt_chunk(nt_chunk_),
-    nt_chunk_min(nt_chunk_min_)
-{
-    if (nt_chunk < 0)
-	_throw("expected nt_chunk >= 0 in chunked_pipeline_object constructor");
-    if (nt_chunk_min < 0)
-	_throw("expected nt_chunk_min >= 0 in chunked_pipeline_object constructor");
-}
+    can_be_first(can_be_first_)
+{ }
 
 
 // virtual override

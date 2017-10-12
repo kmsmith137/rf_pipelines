@@ -15,13 +15,15 @@ struct polynomial_detrender : public wi_transform
     const double epsilon;
 
     polynomial_detrender(rf_kernels::axis_type axis, int nt_chunk_, int polydeg, double epsilon_) :
-	wi_transform("polynomial_detrender", nt_chunk_),
+	wi_transform("polynomial_detrender"),
 	kernel(axis, polydeg),
 	epsilon(epsilon_)
     {
 	stringstream ss;
         ss << "polynomial_detrender(nt_chunk=" << nt_chunk_ << ", axis=" << axis << ", polydeg=" << polydeg << ", epsilon=" << epsilon_ << ")";
+
 	this->name = ss.str();
+	this->nt_chunk = nt_chunk_;
 	
 	if ((nt_chunk == 0) && (axis != rf_kernels::AXIS_FREQ))
 	    throw runtime_error("rf_pipelines::polynomial_detrender: nt_chunk must be specified (unless axis=AXIS_FREQ)");

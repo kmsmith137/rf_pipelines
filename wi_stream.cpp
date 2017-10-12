@@ -8,13 +8,9 @@ namespace rf_pipelines {
 #endif
 
 
-wi_stream::wi_stream(const string &name, ssize_t nfreq_, ssize_t nt_chunk_) :
-    chunked_pipeline_object(name, true, nt_chunk_),   // can_be_first=true
-    nfreq(nfreq_)
-{
-    if (nfreq < 0)
-	_throw("expected nfreq >= 0 in wi_stream constructor");
-}
+wi_stream::wi_stream(const string &name) :
+    chunked_pipeline_object(name, true)
+{ }
 
 
 void wi_stream::_bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs)

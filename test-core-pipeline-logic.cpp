@@ -316,12 +316,14 @@ struct rot2 : public chunked_pipeline_object {
 
     
     rot2(const rot2_params &params_, ssize_t nt_end_) :
-	chunked_pipeline_object("rot2", params_.can_be_first(), params_.nt_chunk),
+	chunked_pipeline_object("rot2", params_.can_be_first()),
 	params(params_),
 	nt_end(nt_end_),
 	rng_in0(params_.seed_in0),
 	rng_in1(params_.seed_in1)
     {
+	this->nt_chunk = params_.nt_chunk;
+
 	params.validate();
 	cos_theta = cos(params.theta);
 	sin_theta = sin(params.theta);
