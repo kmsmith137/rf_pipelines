@@ -636,15 +636,44 @@ public:
 
 struct chunked_pipeline_object : public pipeline_object {
 public:
+
+    // The 'name' and 'can_be_first' members must be initialized at construction.
+    // However, 'name' can be initialized to something simple (like the class name), and changed later.
+    // 
+    // The 'nt_chunk' and 'nt_chunk_min' members are optional constructor arugments, and can be changed
+    // either in the body of the subclass constructor, or in the subclass-defined method _bindc().
+    //
+    // Note that nt_chunk must be a multiple of nt_chunk_min (not just a larger value).  This requirement
+    // is intended e.g. for a kernel which needs nt_chunk to be a multiple of 8 for vectorization.
+    //
+    // Sometimes, it is useful to choose nt_chunk automatically, by calling the finalize_nt_chunk() method.
+    // This will be called automatically, if the subclass-defined method _bindc() returns without initializing
+    // nt_chunk.  Note that finalize_nt_chunk() always chooses an nt_chunk which is a multiple of 'nt_chunk_min' 
+    // and all ring buffer downsampling factors.  Therefore, it is best to postpone calling finalize_nt_chunk() 
+    // until  after all ring buffers have been bound in _bindc(), so that their downsampling factors are known.
+    //
+    // Summarizing, there are three options for initializing nt_chunk:
+    //
+    //   - The subclass may initialize nt_chunk by hand, either in its constructor or in _bindc().
+    //
+    //   - The subclass may simply ignore nt_chunk, and let it be determined automatically.  This has
+    //     the potential disadvantage that in _bindc(), nt_chunk will not be initialized yet.
+    //
+    //   - The subclass may call finalize_nt_chunk() in _bindc(), after ring buffers are bound, but
+    //     before the value of nt_chunk is used.  This option makes sense for chunked_pipeline_objects
+    //     which want nt_chunk to be determined automatically, but also need to know its value in _bindc().
+    //
+    // Reminder: all time indices in chunked_pipeline methods (e.g. nt_chunk) don't have downsampling factors applied.
+    // Each ring buffer has its own downsampling factor 'nds', and 
+
+    chunked_pipeline_object(const std::string &name, bool can_be_first, ssize_t nt_chunk=0, ssize_t nt_chunk_min=0);
+
     const bool can_be_first;
-
-    // If nt_chunk is zero, then it will be initialized (in bind()) to match the previous transform.
-    // However, if 'can_be_first' is true, then nt_chunk must be initialized to a nonzero value.
-    // Note that nt_chunk can be initialized anywhere in the subclass constructor, but not after the constructor exits.
     ssize_t nt_chunk = 0;
+    ssize_t nt_chunk_min = 0;
 
-    // 'name' must be initialized at construction, but can be changed later (in subclass constructor, or _bind_chunked()).
-    chunked_pipeline_object(const std::string &name, bool can_be_first, ssize_t nt_chunk=0);
+    // Helper method which automatically chooses nt_chunk, if has not already been initialized to something nonzero.
+    void finalize_nt_chunk();
 
     // These virtuals in the pipeline_object base class are defined by 'chunked_pipeline_object'.
     // We make them 'final', so that if e.g. a subclass erroneously overrides _bind() instead of _bindc(),
@@ -677,8 +706,14 @@ public:
     ssize_t _prebind_nt_chunk = 0;   // intended to be accessed through get_prebind_nt_chunk()
     ssize_t get_prebind_nt_chunk() const { return (state >= BOUND) ? _prebind_nt_chunk : nt_chunk; }
 
+    // Internal helper function, assumes nt_chunk has been initialized.
+    void _check_nt_chunk() const;
+
     // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline(), _reset().
 };
+
+
+// -------------------------------------------------------------------------------------------------
 
 
 struct wi_stream : chunked_pipeline_object {
@@ -707,6 +742,9 @@ public:
 
     // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline(), _reset().
 };
+
+
+// -------------------------------------------------------------------------------------------------
 
 
 struct wi_transform : chunked_pipeline_object {
