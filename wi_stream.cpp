@@ -22,8 +22,10 @@ void wi_stream::_bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
     // Optional subclass-specific initializations.
     this->_bind_stream(json_attrs);
 
-    if (nfreq == 0)
-	_throw("nfreq must be initialized in either wi_stream constructor, or in wi_stream::_bind_stream()");
+    if (nfreq <= 0)
+	_throw("'nfreq' must be initialized in either constructor, or in _bind_stream()");
+    if (nt_chunk <= 0)
+	_throw("'nt_chunk' must be initialized in either constructor, or in _bind_stream()");
 
     this->rb_intensity = this->create_buffer(rb_dict, "INTENSITY", {nfreq}, 1);
     this->rb_weights = this->create_buffer(rb_dict, "WEIGHTS", {nfreq}, 1);
@@ -41,11 +43,17 @@ bool wi_stream::_process_chunk(ssize_t pos)
 }
 
 
-// Default virtual
-void wi_stream::_bind_stream(Json::Value &json_attrs)
+void wi_stream::_unbindc()
 {
-    return;
+    this->_unbind_stream();
+    this->rb_intensity.reset();
+    this->rb_weights.reset();
 }
+
+
+// Default virtuals
+void wi_stream::_bind_stream(Json::Value &json_attrs) { }
+void wi_stream::_unbind_stream() { }
 
 
 }  // namespace rf_pipelines

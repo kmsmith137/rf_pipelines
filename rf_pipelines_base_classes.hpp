@@ -518,6 +518,8 @@ public:
     //
     //     These are all similar and are called by the wrappers reset(), deallocate(), unbind().
     //
+    //     Note that deallocation of the pipeline ring buffers is done separately, and this does
+    //     not need to be done in _deallocate().
     //
     // get_preferred_chunk_size(): defines chunk size for stream-type object
     //
@@ -687,14 +689,14 @@ public:
     // New pure virtuals, to be defined by subclass.
     //
     // _bindc(): responsible for calling get_buffer() or create_buffer(), for each ring bufffer which will
-    //   be accessed by the chunked_pipeline_object.  Optionally, _bindc() may also read/create json_attrs.
+    //   be accessed by the chunked_pipeline_object.  Optionally, _bindc() may also read/create json attributes.
     //
     // _process_chunk(pos): responsible for processing data in the range [pos, pos+nt_chunk).
     //   Note that this range of sample indices should be used when accessing pipeline ring buffers.
     //   The return value is a boolean which is usually true, but stream-type classes which have reached 
     //   end-of-stream should return false.
     //
-    // _unbindc(): any special logic needed to undo _bindc() should go here.  (Usually not needed.)
+    // _unbindc(): any special logic needed to undo _bindc() should go here.
 
     virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) = 0;
     virtual bool _process_chunk(ssize_t pos) = 0;
@@ -718,27 +720,55 @@ public:
 
 struct wi_stream : chunked_pipeline_object {
 public:
-    // Note: inherits 'name', 'nt_chunk' from base classes.
 
-    // 'nfreq' and 'nt_chunk' must be initialized to nonzero values,
-    // but this can be done any time before bind() is called.
-    ssize_t nfreq = 0;
+    // Note: inherits 'name', 'nt_chunk' from base classes.  The value of 'name' must be nonempty
+    // at construction, but can be changed later (in body of subclass constructor, or _bind_stream()).
+    //
+    // The values of 'nfreq' and 'nt_chunk' can be zero when the base class constructor is called,
+    // but if so, then they must must be initialized to nonzero values either in the body of the 
+    // subclass constructor, or in _bind_stream().
 
-    std::shared_ptr<ring_buffer> rb_intensity;
-    std::shared_ptr<ring_buffer> rb_weights;
-
-    // 'name' must be initialized at construction, but can be changed later (in subclass constructor, or _bind_stream()).
     wi_stream(const std::string &name, ssize_t nfreq=0, ssize_t nt_chunk=0);
 
-    // These chunked pipeline_object virtuals are defined here.
+    ssize_t nfreq = 0;
+
+    // These virtuals in the chunked_pipeline_object base class are defined by 'wi_stream'.
     virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) final override;
     virtual bool _process_chunk(ssize_t pos) final override;
+    virtual void _unbindc() final override;
 
     // New virtuals, to be defined by subclass.
-    // Sometimes it's convenient to defer initialization of nfreq and nt_chunk to _bind_stream().
-    // The _fill_chunk() return value should be 'false' if EOF occurred somewhere in the chunk.
+    //
+    // _bind_stream(json_attrs)
+    //
+    //    This is the "last chance" to initialize 'nfreq', 'nt_chunk', if these members
+    //    were not already initialized in the constructor.
+    //
+    //    Optionally, _bind_stream() may read/create json attributes.  In CHIME, the stream
+    //    is responsible for creating attributes 'freq_lo_MHz', 'freq_hi_MHz', 'dt_sample'.
+    //
+    // _unbind_stream()
+    //
+    //    Any code needed to undo _bind_stream() can go here.
+    //
+    // _fill_chunk(intensity, istride, weights, wstride, pos)
+    //
+    //    This is the "core" method which is responsible for filling the 'intensity' and 'weights'
+    //    arrays.  These are arrays of shape (nfreq, nt_chunk), which must be filled with data
+    //    corresponding to sample range [pos, pos+nt_chunk).  The memory strides are istride/wstride,
+    //    i.e. the (i,j)-th element of the intensity array is intensity[i*istride+j], and similarly
+    //    for the weights.
+    //
+    //    The return value should be 'true' normally, or 'false' if end-of-stream has been reached.
+
     virtual void _bind_stream(Json::Value &json_attrs);  // non-pure virtual (default does nothing)
     virtual bool _fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) = 0;
+    virtual void _unbind_stream();  // non-pure virtual (default does nothing)
+
+    // The wi_stream subclass shouldn't need to use these directly, since its _fill_chunk()
+    // method operates directly on pointers/strides.
+    std::shared_ptr<ring_buffer> rb_intensity;
+    std::shared_ptr<ring_buffer> rb_weights;
 
     // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline(), _reset().
 };

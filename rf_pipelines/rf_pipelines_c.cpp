@@ -592,12 +592,13 @@ static void wrap_pipeline_object(extension_module &m)
     pipeline_object_type.add_method("add_plot", doc_add_plot, _add_plot);
     pipeline_object_type.add_method("add_file", doc_add_file, _add_file);
 
-    // Decided to leave these unwrapped for now.
-    //   pipeline_object_type.add_method("_bind", ...)
+    // FIXME _bind() unwrapped for now, since ring_buffer class and friends are not python-wrapped
     pipeline_object_type.add_method("_allocate", "_allocate(): optional", wrap_method(&pipeline_object::_allocate));
     pipeline_object_type.add_method("_deallocate", "_deallocate(): optional", wrap_method(&pipeline_object::_deallocate));
     pipeline_object_type.add_method("_start_pipeline", "_start_pipeline(): optional", wrap_j(&pipeline_object::_start_pipeline));
     pipeline_object_type.add_method("_end_pipeline", "_end_pipeline(): optional", wrap_j(&pipeline_object::_end_pipeline));
+    pipeline_object_type.add_method("_unbind", "_unbind(): optional", wrap_method(&pipeline_object::_unbind));
+    pipeline_object_type.add_method("_reset", "_reset(): optional", wrap_method(&pipeline_object::_reset));
 
     // FIXME doesn't really work -- more complicated than I thought!
     pipeline_object_type.add_method("__str__", "", wrap_method(_str));
@@ -680,8 +681,10 @@ struct py_wi_stream : wi_stream {
     virtual void _start_pipeline(Json::Value &j) override { _upcall_nodef_j(wi_stream_type, this, "_start_pipeline", j); }
     virtual void _end_pipeline(Json::Value &j) override   { _upcall_nodef_j(wi_stream_type, this, "_end_pipeline", j); }
 
-    virtual void _allocate() override   { _upcall_nodef(wi_stream_type, this, "_allocate"); }
-    virtual void _deallocate() override { _upcall_nodef(wi_stream_type, this, "_deallocate"); }
+    virtual void _allocate() override       { _upcall_nodef(wi_stream_type, this, "_allocate"); }
+    virtual void _deallocate() override     { _upcall_nodef(wi_stream_type, this, "_deallocate"); }
+    virtual void _unbind_stream() override  { _upcall_nodef(wi_stream_type, this, "_unbind_stream"); }
+    virtual void _reset() override          { _upcall_nodef(wi_stream_type, this, "_reset"); }
 };
 
 
@@ -710,6 +713,7 @@ static void wrap_wi_stream(extension_module &m)
     wi_stream_type.add_constructor(wrap_constructor(_init, "name", kwarg("nfreq",0), kwarg("nt_chunk",0)));
     wi_stream_type.add_property("nfreq", "Number of frequency channels", _nfreq);
     wi_stream_type.add_method("_bind_stream", "_bind_stream(j): optional", wrap_j(&wi_stream::_bind_stream));
+    wi_stream_type.add_method("_unbind_stream", "_unbind_stream(): optional", wrap_method(&wi_stream::_unbind_stream));
     
     wi_stream_type.add_method("_fill_chunk", "_fill_chunk(intensity, weights, pos)", 
 			      wrap_method(_fill_chunk, "intensity", "weights", "pos"));
