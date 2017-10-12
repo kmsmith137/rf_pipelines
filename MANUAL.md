@@ -1,7 +1,7 @@
 Some day, there will be systematic documentation here!
 In the meantime, here are some notes on things that have changed recently.
 
-The "sept7" branches contain some new features, which we want to
+The "sept7" and "sept30" branches contain some new features, which we want to
 merge to master branches soon.  In the meantime, you should either
 use the "master" setup:
 ```
@@ -33,7 +33,7 @@ bonsai        sept30
 rf_pipelines  sept30
 ch_frb_rfi    sept30
 ```
-Note that when switching between these two setups, you'll
+Note that when switching between these three setups, you'll
 want to rebuild every package from scratch (make clean; make -j all install)
 **in the order shown above**.
 
