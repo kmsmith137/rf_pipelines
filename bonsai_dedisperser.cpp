@@ -47,7 +47,6 @@ bonsai_dedisperser::bonsai_dedisperser(const shared_ptr<bonsai::dedisperser> &dp
 { 
     // initialize members of wi_transform base class
     this->name = "bonsai_dedisperser(" + dp->config.name + ")";
-    this->nfreq = dedisperser->nfreq;
     this->nt_chunk = dedisperser->nt_chunk;
 }
 
