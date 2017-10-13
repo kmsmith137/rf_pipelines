@@ -61,13 +61,13 @@ struct spectrum_analyzer : public wi_transform
 
 	this->nds = 1;
 	this->nt_chunk = Dt1 * Dt2;  // for convenience
+	this->ds_kernel = make_unique<rf_kernels::wi_downsampler> (1, Dt1);
     }
 
     virtual void _allocate() override
     {
 	rf_assert(nfreq > 0);
 
-	this->ds_kernel = make_unique<rf_kernels::wi_downsampler> (1, Dt1);
 	this->ds_intensity = make_uptr<float> (nfreq * Dt2);
 	this->ds_weights = make_uptr<float> (nfreq * Dt2);
 	this->h5_chunk = make_uptr<float> (nfreq);
@@ -124,9 +124,14 @@ struct spectrum_analyzer : public wi_transform
 	cout << "spectrum_analyzer: wrote " << h5_fullname << endl;
     }
 
+    virtual void _reset() override
+    {
+	this->h5_dset.reset();
+	this->h5_file.close();
+    }
+
     virtual void _deallocate() override
     {
-	this->ds_kernel.reset();
 	this->ds_intensity.reset();
 	this->ds_weights.reset();
 	this->h5_chunk.reset();
