@@ -167,4 +167,23 @@ bool chime_file_stream_base::_fill_chunk(float *intensity, ssize_t istride, floa
 }
 
 
+void chime_file_stream_base::_end_pipeline(Json::Value &json_output)
+{
+    if ((curr_ifile >= 0) && (curr_ifile < int(filename_list.size()))) {
+	close_file();
+	curr_ifile = -1;
+    }
+}
+
+
+void chime_file_stream_base::_unbind_stream()
+{
+    if ((curr_ifile >= 0) && (curr_ifile < int(filename_list.size())))
+	close_file();
+
+    this->curr_ifile = -1;
+    this->initial_discard_count = 0;
+}
+    
+
 }   // namespace rf_pipelines

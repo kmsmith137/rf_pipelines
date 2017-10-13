@@ -10,7 +10,7 @@ namespace rf_pipelines {
 
 
 struct badchannel_mask : public wi_transform {
-    // Note: inherits { nfreq, nt_chunk, nfreq, nds } from base class wi_transform.
+    // Note: inherits { nfreq, nt_chunk, nds } from base class wi_transform.
 
     // Constructor arguments
     const string mask_path;

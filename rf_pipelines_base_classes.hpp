@@ -994,9 +994,11 @@ protected:
     // Time index in current file.  Can be negative!  This means there is a time gap between files.
     ssize_t it_file = 0;
 
-    // Devirtualize wi_stream::_fill_chunk()
+    // Devirtualize wi_stream base class.
     virtual void _bind_stream(Json::Value &json_attrs) override;
     virtual bool _fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual void _end_pipeline(Json::Value &json_output) override;
+    virtual void _unbind_stream() override;
 
     // Pure virtuals which follow must be defined by subclass!
 
