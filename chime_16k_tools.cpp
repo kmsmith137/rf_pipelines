@@ -54,6 +54,11 @@ struct chime_16k_spike_mask : public chunked_pipeline_object
 	return true;
     }	
 
+    virtual void _unbindc() override
+    {
+	this->rb_weights.reset();
+    }
+
     virtual Json::Value jsonize() const override
     {
 	Json::Value ret;
@@ -150,6 +155,11 @@ struct chime_16k_derippler : public chunked_pipeline_object
 
 	return true;
     }	
+
+    virtual void _unbindc() override
+    {
+	this->rb_intensity.reset();
+    }
 
     virtual Json::Value jsonize() const override
     {
