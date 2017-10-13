@@ -36,6 +36,8 @@ struct std_dev_clipper_transform : public wi_transform
 	
         this->name = ss.str();
 	this->nt_chunk = nt_chunk_;
+	this->kernel_chunk_size = 8*Dt;
+	this->nds = 0;  // allows std_dev_clipper to run in a wi_sub_pipeline
 	
 	if (nt_chunk == 0)
 	    throw runtime_error("rf_pipelines::std_dev_clipper: nt_chunk must be specified");
