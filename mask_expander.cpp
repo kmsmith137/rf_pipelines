@@ -148,6 +148,13 @@ struct mask_expander : public chunked_pipeline_object
     }
 
 
+    virtual void _unbindc() override
+    {
+	this->rb_prev_weights.reset();
+	this->rb_curr_weights.reset();
+    }
+
+
     virtual Json::Value jsonize() const override
     {
 	Json::Value ret;
