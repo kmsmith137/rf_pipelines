@@ -24,6 +24,8 @@ struct polynomial_detrender : public wi_transform
 
 	this->name = ss.str();
 	this->nt_chunk = nt_chunk_;
+	this->kernel_chunk_size = 8;
+	this->nds = 0;  // allows polynomial_detrender to run in a wi_sub_pipeline.
 	
 	if ((nt_chunk == 0) && (axis != rf_kernels::AXIS_FREQ))
 	    throw runtime_error("rf_pipelines::polynomial_detrender: nt_chunk must be specified (unless axis=AXIS_FREQ)");
@@ -31,7 +33,8 @@ struct polynomial_detrender : public wi_transform
 
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
     {
-	this->kernel.detrend(nfreq, nt_chunk, intensity, istride, weights, wstride, epsilon);
+	// Note xdiv(nt_chunk,nds) here
+	this->kernel.detrend(nfreq, xdiv(nt_chunk,nds), intensity, istride, weights, wstride, epsilon);
     }
 
     virtual Json::Value jsonize() const override
