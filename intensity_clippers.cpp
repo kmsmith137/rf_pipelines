@@ -46,15 +46,17 @@ struct intensity_clipper_transform : public wi_transform
 
 	this->name = ss.str();
 	this->nt_chunk = nt_chunk_;
+	this->kernel_chunk_size = 8 * Dt;
+	this->nds = 0;   // allows intensity_clipper to run in a wi_sub_pipeline.
 	
 	if ((nt_chunk == 0) && (axis != rf_kernels::AXIS_FREQ))
 	    throw runtime_error("rf_pipelines::intensity_clipper: nt_chunk must be specified (unless axis=AXIS_FREQ)");
 
 	// Can't construct the kernel yet, since 'nfreq' and 'nds' are not known until bind().
-	// However, for argument checking purposes, we construct a dummy kernel with Df=nfreq.
+	// However, for argument checking purposes, we construct a dummy kernel with (nfreq,nt_chunk)=(Df,8*Dt).
 	// FIXME eventually there will be a constructor argument 'allocate=false' that will make sense here.
 	
-	rf_kernels::intensity_clipper dummy(Df, nt_chunk, axis, sigma, Df, Dt, niter, iter_sigma, two_pass);
+	rf_kernels::intensity_clipper dummy(Df, 8*Dt, axis, sigma, Df, Dt, niter, iter_sigma, two_pass);
     }
 
     virtual ~intensity_clipper_transform() { }
@@ -66,6 +68,7 @@ struct intensity_clipper_transform : public wi_transform
 	    throw runtime_error("rf_pipelines::intensity_clipper: nfreq (=" + to_string(nfreq) 
 				+ ") is not divisible by frequency downsampling factor Df=" + to_string(Df));
 
+	// Note xdiv(nt_chunk, nds) here.
 	this->kernel = make_unique<rf_kernels::intensity_clipper> (nfreq, xdiv(nt_chunk,nds), axis, sigma, Df, Dt, niter, iter_sigma, two_pass);
     }
 
@@ -89,6 +92,11 @@ struct intensity_clipper_transform : public wi_transform
 	ret["two_pass"] = two_pass;
 
 	return ret;
+    }
+
+    virtual void _unbind_transform() override
+    {
+	this->kernel.reset();
     }
 
     static shared_ptr<intensity_clipper_transform> from_json(const Json::Value &j)
