@@ -35,6 +35,8 @@ struct spline_detrender : public wi_transform
 
 	this->name = ss.str();
 	this->nt_chunk = nt_chunk_;
+	this->kernel_chunk_size = 8;
+	this->nds = 0;  // allows spline_detrender to run inside a wi_sub_pipeline.
     }
 
     // Called after this->nfreq is initialized.
@@ -45,8 +47,14 @@ struct spline_detrender : public wi_transform
 
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
     {
+	// Note xdiv(nt_chunk, nds) here.
 	rf_assert(kernel.get() != nullptr);
-	kernel->detrend(nt_chunk, intensity, istride, weights, wstride);
+	kernel->detrend(xdiv(nt_chunk,nds), intensity, istride, weights, wstride);
+    }
+
+    virtual void _unbind_transform() override
+    {
+	this->kernel.reset();
     }
 
     virtual Json::Value jsonize() const override
