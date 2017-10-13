@@ -29,13 +29,16 @@ ssize_t chunked_pipeline_object::get_preferred_chunk_size()
 // Can be called any time during initialization or bind(), but at latest will be called at the end of bind().
 void chunked_pipeline_object::finalize_nt_chunk()
 {
+    if (nt_chunk_in <= 0)
+	_throw("finalize_nt_chunk(): expected nt_chunk_in > 0.  Note that finalize_nt_chunk() should be called during bind(), after ring buffers are allocated");
+
     if (nt_chunk > 0) {
 	this->_check_nt_chunk();
 	return;
     }
 
     ssize_t m = max(nt_chunk_in, ssize_t(512));
-    ssize_t n = (nt_chunk_min > 0) ? nt_chunk_min : 1;
+    ssize_t n = 1;
 
     for (const auto &p: this->all_ring_buffers)
 	n = lcm(n, p->nds);
@@ -49,9 +52,7 @@ void chunked_pipeline_object::finalize_nt_chunk()
 void chunked_pipeline_object::_check_nt_chunk() const
 {
     rf_assert(nt_chunk > 0);
-
-    if ((nt_chunk_min > 0) && (nt_chunk % nt_chunk_min))
-	_throw("nt_chunk (=" + to_string(nt_chunk) + ") must be a multiple of nt_chunk_min (=" + to_string(nt_chunk_min) + ")");
+    rf_assert(nt_chunk_in > 0);
 
     for (const auto &p: this->all_ring_buffers) {
 	if (nt_chunk % p->nds)
@@ -77,9 +78,10 @@ void chunked_pipeline_object::_bind(ring_buffer_dict &rb_dict, Json::Value &json
 
 void chunked_pipeline_object::_unbind()
 {
+    this->_unbindc();
+
     // We revert 'nt_chunk' to its "prebind" value.
     this->nt_chunk = this->get_prebind_nt_chunk();
-    this->_unbindc();
 }
 
 

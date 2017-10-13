@@ -634,6 +634,7 @@ static void wrap_chunked_pipeline_object(extension_module &m)
     
     chunked_pipeline_object_type.add_constructor(wrap_constructor(_init));
     chunked_pipeline_object_type.add_property("nt_chunk", "Chunk size of chunked_pipeline_object", _nt_chunk);
+    chunked_pipeline_object_type.add_method("finalize_nt_chunk", "Initializes nt_chunk to a reasonable default, if not yet initialized", wrap_method(&chunked_pipeline_object::finalize_nt_chunk));
 
     m.add_type(chunked_pipeline_object_type);    
 }
@@ -796,9 +797,12 @@ static void wrap_wi_transform(extension_module &m)
 	};
 
     wi_transform_type.add_constructor(wrap_constructor(_init, "name"));
+    wi_transform_type.add_property("kernel_chunk_size", "Kernel chunk size (optional)", _nfreq);
     wi_transform_type.add_property("nfreq", "Number of frequency channels", _nfreq);
     wi_transform_type.add_property("nds", "Time downsampling factor", _nds);
+
     wi_transform_type.add_method("_bind_transform", "_bind_transform(): optional", wrap_j(&wi_transform::_bind_transform));
+    wi_transform_type.add_method("_unbind_transform", "_unbind_transform(): optional", wrap_method(&wi_transform::_unbind_transform));
 
     wi_transform_type.add_method("_process_chunk", "_process_chunk(intensity, weights, pos)",
 				 wrap_method(_process_chunk, "intensity", "weights", "pos"));

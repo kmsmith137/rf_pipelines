@@ -633,7 +633,7 @@ public:
 // chunked_pipeline_object: corresponds to a pipeline_object which processes data in fixed-size chunks.
 //
 // This is a "semi-abstract base class": it defines some virtuals in its pipeline_object base class,
-// but leaves others to be defined in an additional level of subclassing.
+// but leaves others to be defined by an additional level of subclassing.
  
 
 struct chunked_pipeline_object : public pipeline_object {
@@ -658,16 +658,15 @@ public:
     // in each chunk will be nt_chunk/nds.)
     //
     // The value of nt_chunk must be a multiple of the ring buffer downsampling factor, for each
-    // ring buffer which is used ("bound") by the chunked_pipeline_object.  Additionally, if the
-    // 'nt_chunk_min' parameter is nonzero, then nt_chunk must be a multiple of nt_chunk_min.
-    // (Example use case: a kernel which needs nt_chunk to be a multiple of 8 for vectorization.)
+    // ring buffer which is used ("bound") by the chunked_pipeline_object.  This is checked in
+    // bind(), and an exception will be thrown on failure.
     //
     // The value of nt_chunk is initially zero, but it will be initialized to a nonzero value
     // in one of three ways:
     //
     //   - The subclass may initialize nt_chunk by hand, either in its constructor or in the
     //     subclass-defined virtual function _bindc().  In this case, the subclass is responsible
-    //     for ensuring that nt_chunk is a multiple of nt_chunk_min, and all relevant 'nds' values.
+    //     for ensuring that nt_chunk is valid (e.g. a multiple of all relevant 'nds' values)
     //
     //   - If the subclass does not initialize nt_chunk to something nonzero, then the pipeline
     //     will assign a default value, just after _bindc() is called, by calling the helper method
@@ -678,17 +677,17 @@ public:
     //     before the value of nt_chunk is used.  This option makes sense for chunked_pipeline_objects
     //     which want nt_chunk to be determined automatically, but also need to know its value in _bindc().
     //
-    // Note 1: the values of 'nt_chunk' and 'nt_chunk_min' should not be modifed after _bindc()
-    // returns, or strange things will happen!
+    // Note 1: the value of 'nt_chunk' should not be modifed after _bindc() returns, or strange
+    // things will happen!
     //
     // Note 2: if 'can_be_first' is true, then nt_chunk must be initialized in the constructor.  In
     // particular, this means that it can't be determined automatically, as in options #2 and #3 above.
 
     ssize_t nt_chunk = 0;
-    ssize_t nt_chunk_min = 0;
 
     // Helper method which automatically chooses nt_chunk, if has not already been initialized to something nonzero.
-    void finalize_nt_chunk();
+    // (This is virtual because wi_transform defines 'kernel_chunk_size', which needs to be incorporated.)
+    virtual void finalize_nt_chunk();
 
     // These virtuals in the pipeline_object base class are defined by 'chunked_pipeline_object'.
     // We make them 'final', so that if e.g. a subclass erroneously overrides _bind() instead of _bindc(),
@@ -722,28 +721,38 @@ public:
     ssize_t get_prebind_nt_chunk() const { return (state >= BOUND) ? _prebind_nt_chunk : nt_chunk; }
 
     // Internal helper function, assumes nt_chunk has been initialized.
-    void _check_nt_chunk() const;
+    // (This is virtual because wi_transform defines 'kernel_chunk_size', which needs to be incorporated.)
+    virtual void _check_nt_chunk() const;
 
     // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline(), _reset().
 };
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// wi_stream: "weighted intensity stream"
+//
+// Represents a stream-type object which generates weights and intensity arrays.  These are
+// generated in regular chunks (i.e. wi_stream is a subclass of chunked_pipeline_object).
+//
+// This is a "semi-abstract base class": it defines some virtuals in its pipeline_object base class,
+// but leaves others to be defined by an additional level of subclassing.
 
 
 struct wi_stream : chunked_pipeline_object {
 public:
 
-    // Note: inherits 'name' member from base class.
-    // The name must be initialized at construction (possibly to something simple like the class name),
-    // but can be changed later to something more verbose.
+    // Note: inherits 'name' member from base class.  The name must be initialized at construction 
+    // (say to something simple, like the class name), but can be changed later to something more verbose.
 
     wi_stream(const std::string &name);
 
     // Note: inherits 'nt_chunk' member from base class.
     //
-    // The values of 'nfreq' and 'nt_chunk' must be initialized to nonzero values, either in
-    // the constructor, or in the _bind_stream() virtual.
+    // The values of 'nfreq' and 'nt_chunk' must be initialized to nonzero values, either
+    // in the constructor, or in the _bind_stream() virtual.  (Note that nfreq and nt_chunk
+    // can be initialized anywhere, in contrast with wi_transform where the rules are
+    // more complicated, see below.)
 
     ssize_t nfreq = 0;
 
@@ -780,8 +789,8 @@ public:
     virtual bool _fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) = 0;
     virtual void _unbind_stream();  // non-pure virtual (default does nothing)
 
-    // The wi_stream subclass shouldn't need to use these directly, since its _fill_chunk()
-    // method operates directly on pointers/strides.
+    // The wi_stream subclass shouldn't need to use these directly, 
+    // since its _fill_chunk() method operates directly on pointers/strides.
     std::shared_ptr<ring_buffer> rb_intensity;
     std::shared_ptr<ring_buffer> rb_weights;
 
@@ -790,49 +799,148 @@ public:
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// wi_transform: "weighted intensity transform"
+// 
+// Represents a transform-type object which reads and/or modifies weights and intensity arrays,
+// usually as a processing step in a larger pipeline.  The processing is done in regular chunks
+// (i.e. wi_transform is a subclass of chunked_pipeline_object).
+//
+// This is a "semi-abstract base class": it defines some virtuals in its pipeline_object base class,
+// but leaves others to be defined by an additional level of subclassing.
+//
+// An important note!  The intensity and weights arrays which are processed by the wi_transform
+// may be downsampled (in time) relative to the "native" pipeline resolution.  The level of 
+// downsampling is determined by where the transform is placed into a larger pipeline, not by 
+// the transform itself.  Currently, the only way downsampling can arise is if the transform 
+// is placed in a downsampled "sub-pipeline" (see class wi_sub_pipeline).
+//
+// The 'nds' member is the downsampling factor, relative to the native resolution (i.e. nds=1 means
+// there is no downsampling, and nds > 1 is the downsampled case).  The value of nds is initialized 
+// just before the subclass-defined virtual _bind_transform() is called.
+//
+// In the downsampled case (i.e. nds > 1), the 'intensity' and 'weights' arrays which are processed 
+// by the transform have length (nt_chunk/nds), not length nt_chunk.  This is consistent with a 
+// general rf_pipelines convention that time indices (e.g. 'nt_chunk', or the 'pos' argument to 
+// _process_chunk()) do not have downsampling factors applied, but array dimensions do have 
+// downsampling factors applied.
 
 
 struct wi_transform : chunked_pipeline_object {
 public:
-    // Note: inherits 'name', 'nt_chunk' from base classes.
-    
-    std::shared_ptr<ring_buffer> rb_intensity;
-    std::shared_ptr<ring_buffer> rb_weights;
 
-    // If (nfreq, nds) are not initialized in the constructor, then they will
-    // be initialized in bind().
-    //
-    // If (nfreq, nds) are initialized to nonzero values in the constructor,
-    // then bind() will throw an exception if there is a mismatch with the
-    // true (nfreq, nds) of the data.
-  
-    ssize_t nfreq = 0;
-    ssize_t nds = 0;
+    // Note: inherits 'name' member from base class.  The name must be initialized at construction 
+    // (say to something simple, like the class name), but can be changed later to something more verbose.
 
-    // 'name' must be initialized at construction, but can be changed later (in subclass constructor, or _bind_stream()).
     wi_transform(const std::string &name);
+
+    // The rules for initializing 'nfreq' and 'nds' are as follows:
+    //
+    //   - If nfreq and nds are changed from their default values, this should
+    //     be done in the subclass constructor.  Changing their values in
+    //     _bind_transform() is "too late"!
+    //
+    //   - If nfreq and/or nds are nonzero, this means "a specific value is required".
+    //     For example, if nfreq is set to 1024, then an exception will be thrown in
+    //     bind() if the number of frequency channels in the data is not equal to 1024.
+    //
+    //   - If nfreq and/or nds are zero, this means "any value is allowed, and initialize
+    //     before calling _bind_transform()".  For example, if nds is zero, then the
+    //     value of nds will be initialized to the actual downsampling factor of the
+    //     data, just before _bind_transform() is called.
+    //
+    //   - Note that the default value of nfreq is 0 (i.e. any number of frequency channels
+    //     is allowed), but the default value of nds is 1 (i.e. exception is thrown if the
+    //     transform is downsampled).  Transforms which support downsampling should set
+    //     nds to 0 in their subclass constructor, and take special care to ensure correctness
+    //     in the downsampled case.  In particular, remember that time indices are at "native" 
+    //     resolution but array dimensions are downsampled, e.g. the array arguments to
+    //     _process_chunk() have length (nt_chunk/nds), not length nt_chunk.
+
+    ssize_t nfreq = 0;  // Number of frequency channels.
+    ssize_t nds = 1;    // Time downsampling factor, relative to "native" time resolution of pipeline.
+
+    // Note: inherits 'nt_chunk' and finalize_nt_chunk() from base class.
+    //
+    // We also define 'kernel_chunk_size'.  If nonzero, then there is a requirement that nt_chunk
+    // be a multiple of (kernel_chunk_size * nds).  A typical use case is a kernel which requires
+    // that the array length be a multiple of 8 (say) for vectorization.
+    //
+    // The rules for initializing 'nt_chunk', are the same as in the chunked_pipeline_object base class, 
+    // except that wi_transform::_bind_transform() plays the role of chunked_pipeline_object::_bindc().  
+    //
+    // For more details, please refer to the chunked_pipeline_object documentation.  The upshot is that 
+    // if you need to use the value of nt_chunk in _bind_transform(), you need to either initialize it 
+    // to something nonzero, or call finalize_nt_chunk() to determine it automatically.
+
+    ssize_t kernel_chunk_size = 0;
 
     // These chunked_pipeline_object virtuals are defined here.
     virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) final override;
     virtual bool _process_chunk(ssize_t pos) final override;
+    virtual void _unbindc() final override;
 
     // New virtuals, to be defined by subclass.
-    // Note that _bind_transform() is called after 'nfreq' and 'nds' get initialized, so subclass-dependent
-    // initializations which depend on their values should go there.
+    //
+    // _bind_transform(json_attrs)
+    //
+    //   The values of nfreq and nds are initialized just before _bind_transform() is called.
+    //   Initializations which depend on nfreq and nds should go in _bind_transform(), not the 
+    //   constructor.
+    //
+    //   Note that the value of nt_chunk is not necessarily initialized when _bind_transform()
+    //   is called.  If you need the value of nt_chunk in _bind_transform(), you should either
+    //   set it by hand, or call finalize_nt_chunk(), which initializes it automatically if it
+    //   hasn't been initialized yet.
+    //
+    //    Optionally, _bind_transform() may read/create json attributes.  In CHIME, the attributes
+    //    'freq_lo_MHz', 'freq_hi_MHz', 'dt_sample' should already exist.
+    //
+    // _unbind_transform()
+    //
+    //    Any code needed to undo _bind_transform() can go here.  (Usually not needed.)
+    //
+    // _process_chunk(intensity, istride, weights, wstride, pos)
+    //
+    //    This is the "core" method which is responsible for processing the 'intensity' and 'weights'
+    //    arrays over timestamp range [pos,pos+nt_chunk).  The array strides are istride/wstride, 
+    //    i.e. the (i,j)-th element of the intensity  array is intensity[i*istride+j], and similarly 
+    //    for the weights.
+    //
+    //    Transforms which support downsampling (i.e. nds > 1) should note that 'pos'
+    //    and 'nt_chunk' do not have the downsampling factor applied, but array dimensions
+    //    do.  That is, the 'intensity' and 'weights' arrays have shape (nfreq, nt_chunk/nds),
+    //    not shape (nfreq, nt_chunk), and 'pos' increases by nt_chunk (not nt_chunk/nds)
+    //    in each call to _process_chunk();
+
     virtual void _bind_transform(Json::Value &json_attrs);  // non-pure virtual (default does nothing)
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) = 0;
+    virtual void _unbind_transform();
+
+    // prebind_nfreq, prebind_nds: saved values of nt_chunk, before it is finalized in bind().
+    // This is useful in jsonize() and _unbind().
 
     // When _bindc() is called, it saves the values of 'nfreq' and 'nds' (before calling _bind_transform(), which can set them.)
     // This is useful in jsonize() and _unbind().
 
-    ssize_t _prebind_nfreq = 0;
-    ssize_t _prebind_nds = 0;
+    ssize_t _prebind_nfreq = 0;  // intended to be accessed through get_prebind_nfreq
+    ssize_t _prebind_nds = 0;    // intended to be accessed through get_prebind_nds
 
     // Helpers for jsonize(): originally-specified values of 'nfreq', 'nds' before bind() is called.
     // (Similar to chunked_pipeline_object::get_orig_nt_chunk(), which is inherited by wi_transform.)
 
     ssize_t get_prebind_nfreq() const { return (state >= BOUND) ? nfreq : _prebind_nfreq; }
     ssize_t get_prebind_nds() const   { return (state >= BOUND) ? nds : _prebind_nds; }
+
+    // The wi_transform subclass shouldn't need to use these directly, 
+    // since its _process_chunk() method operates directly on pointers/strides.
+    
+    std::shared_ptr<ring_buffer> rb_intensity;
+    std::shared_ptr<ring_buffer> rb_weights;
+
+    // We override chunked_pipeline::finalize_nt_chunk() and _check_nt_chunk(), in order to incorporate 'kernel_chunk_size'.
+    virtual void finalize_nt_chunk() override;
+    virtual void _check_nt_chunk() const override;
 
     // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline(), _reset().
 };
