@@ -161,7 +161,8 @@ def make_random_transform_list(nfreq_ds, nds, nelements):
     ret = [ ]
 
     while len(ret) < nelements:
-        r = rand.randint(0,3)
+        # Don't forget to increment the upper limit, if more transforms are added!
+        r = rand.randint(0,5)
 
         if (r == 0):
             ret.append(make_random_polynomial_detrender(nfreq_ds, nds))
@@ -192,10 +193,12 @@ def emulate_pipeline(pipeline_json, intensity, weights):
     assert intensity.shape == weights.shape
     (nfreq, nt) = intensity.shape
 
+
     if pipeline_json['class_name'] == 'pipeline':
         for q in pipeline_json['elements']:
             (intensity, weights) = emulate_pipeline(q, intensity, weights)
         return (intensity, weights)
+
 
     if pipeline_json['class_name'] == 'polynomial_detrender':
         axis = pipeline_json['axis']
@@ -251,6 +254,23 @@ def emulate_pipeline(pipeline_json, intensity, weights):
             rf_pipelines.apply_intensity_clipper(i_copy[:,(it):(it+nt_chunk)], w_copy[:,(it):(it+nt_chunk)], axis, sigma, niter, iter_sigma, Df, Dt, two_pass)
 
         return (i_copy, w_copy)
+
+
+    if pipeline_json['class_name'] == 'std_dev_clipper':
+        axis = pipeline_json['axis']
+        Df = pipeline_json['Df']
+        Dt = pipeline_json['Dt']
+        sigma = pipeline_json['sigma']
+        nt_chunk = pipeline_json['nt_chunk']
+        two_pass = pipeline_json['two_pass']
+
+        (i_copy, w_copy) = wi_copy(intensity, weights, nt_chunk)
+
+        for it in xrange(0, nt, nt_chunk):
+            rf_pipelines.apply_std_dev_clipper(i_copy[:,(it):(it+nt_chunk)], w_copy[:,(it):(it+nt_chunk)], axis, sigma, Df, Dt, two_pass)
+    
+        return (i_copy, w_copy)
+
 
     raise RuntimeError('emulate_pipeline: unsupported class_name "%s"' % pipeline_json['class_name'])
 
