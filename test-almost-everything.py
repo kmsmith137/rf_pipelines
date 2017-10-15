@@ -160,15 +160,22 @@ def make_random_transform_list(nfreq_ds, nds, nelements):
 
     ret = [ ]
 
+    while (rand.uniform() < 0.5) and (nelements > 1):
+        n = rand.randint(1, nelements+1)
+        ret.append(make_random_pipeline(nfreq_ds, nds, n))
+        nelements -= (n-1)
+
     while len(ret) < nelements:
-        # Don't forget to increment the upper limit, if more transforms are added!
+        # If more transforms are added to the list below, 
+        # don't forget to increment the randint() upper limit!
+
         r = rand.randint(0,5)
 
         if (r == 0):
             ret.append(make_random_polynomial_detrender(nfreq_ds, nds))
         elif (r == 1) and (nfreq_ds >= 32):
             ret.append(make_random_spline_detrender(nfreq_ds, nds))
-        elif (r == 2):
+        elif (r == 2) and (nfreq_ds >= 32):
             ret.append(make_random_intensity_clipper(nfreq_ds, nds))
         elif (r == 3) and (nfreq_ds % 8 == 0) and (nfreq_ds >= 32):
             ret.append(make_random_std_dev_clipper(nfreq_ds, nds))
@@ -176,9 +183,44 @@ def make_random_transform_list(nfreq_ds, nds, nelements):
     return ret
 
 
-def make_random_pipeline(nfreq_ds, nds, nelements):
-    t = make_random_transform_list(nfreq_ds, nds, nelements)
-    return rf_pipelines.pipeline(t) if (len(t) > 1) else t[0]
+
+def make_random_pipeline(nfreq_ds, nds, nelements, allow_downsampling=True):
+    m = fact2(nfreq_ds)
+    n = 5 - fact2(nds)
+    Df = 2**max(rand.randint(-5,m+1),0) if allow_downsampling else 1
+    Dt = 2**max(rand.randint(-5,n+1),0) if allow_downsampling else 1
+
+    tl = make_random_transform_list(nfreq_ds // Df, nds * Dt, nelements)
+
+    if (len(tl) > 1) or (rand.uniform() < 0.1):
+        ret = { 'class_name': 'pipeline', 'elements': tl }
+    else:
+        ret = tl[0]
+    
+    if (Df == 1) and (Dt == 1) and (rand.random() < 0.9):
+        return ret
+
+    ret = { 
+        'class_name': 'wi_sub_pipeline',
+        'sub_pipeline': ret,
+        'w_cutoff': rand.uniform(0.0, 0.01),
+        'nfreq_out': nfreq_ds // Df,
+        'nds_out': nds * Dt,
+        'Df': Df,
+        'Dt': Dt
+    }
+
+    if rand.uniform() < 0.33:
+        ret['nfreq_out'] = 0
+    elif rand.uniform() < 0.5:
+        ret['Df'] = 0
+
+    if rand.uniform() < 0.33:
+        ret['nds_out'] = 0
+    elif rand.uniform() < 0.5:
+        ret['Dt'] = 0
+
+    return ret
 
 
 ####################################################################################################
@@ -186,7 +228,7 @@ def make_random_pipeline(nfreq_ds, nds, nelements):
 # emulate_pipeline
 
 
-def emulate_pipeline(pipeline_json, intensity, weights):
+def emulate_pipeline(pipeline_json, intensity, weights, nds=1):
     """Returns new (intensity, weights) pair."""
 
     assert intensity.ndim == 2
@@ -196,8 +238,42 @@ def emulate_pipeline(pipeline_json, intensity, weights):
 
     if pipeline_json['class_name'] == 'pipeline':
         for q in pipeline_json['elements']:
-            (intensity, weights) = emulate_pipeline(q, intensity, weights)
+            (intensity, weights) = emulate_pipeline(q, intensity, weights, nds)
         return (intensity, weights)
+
+    if pipeline_json['class_name'] == 'wi_sub_pipeline':
+        sub_pipeline = pipeline_json['sub_pipeline']
+        w_cutoff = pipeline_json['w_cutoff']
+        nfreq_out = pipeline_json['nfreq_out']
+        nds_out = pipeline_json['nds_out']
+        Df = pipeline_json['Df']
+        Dt = pipeline_json['Dt']
+
+        if (nfreq_out > 0) and (Df > 0):
+            assert nfreq == nfreq_out * Df
+        elif (nfreq_out == 0) and (Df > 0):
+            assert nfreq % Df == 0
+            nfreq_out = nfreq // Df
+        elif (nfreq_out > 0) and (Df == 0):
+            assert nfreq % nfreq_out == 0
+            Df = nfreq // nfreq_out
+
+        if (nds_out > 0) and (Dt > 0):
+            assert nds_out == nds * Dt
+        elif (nds_out == 0) and (Dt > 0):
+            nds_out = nds * Dt
+        elif (nds_out > 0) and (Dt == 0):
+            assert nds_out % nds == 0
+            Dt = nds_out // nds
+
+        (i_copy, w_copy) = wi_copy(intensity, weights, 8*Dt)
+        (i_ds, w_ds) = rf_pipelines.wi_downsample(i_copy, w_copy, Df, Dt)
+        nt_ds = i_ds.shape[1]
+        
+        (i_ds, w_ds) = emulate_pipeline(sub_pipeline, i_ds, w_ds, nds_out)
+        rf_pipelines.weight_upsample(w_copy, w_ds[:,:nt_ds], w_cutoff)
+
+        return (i_copy, w_copy)
 
 
     if pipeline_json['class_name'] == 'polynomial_detrender':
