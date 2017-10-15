@@ -161,7 +161,7 @@ def make_random_transform_list(nfreq_ds, nds, nelements):
     ret = [ ]
 
     while len(ret) < nelements:
-        r = rand.randint(0,1)
+        r = rand.randint(0,2)
 
         if (r == 0):
             ret.append(make_random_polynomial_detrender(nfreq_ds, nds))
@@ -208,15 +208,26 @@ def emulate_pipeline(pipeline_json, intensity, weights):
             rf_pipelines.apply_polynomial_detrender(i_copy, w_copy, axis, polydeg, epsilon)
             return (i_copy, w_copy)
 
-        if axis != 'AXIS_TIME':
-            raise RuntimeError('emulate_pipeline: unsupported polynomial_detrender axis "%s"' % axis)
+        if axis == 'AXIS_TIME':
+            (i_copy, w_copy) = wi_copy(intensity, weights, nt_chunk)
+            for it in xrange(0, nt, nt_chunk):
+                rf_pipelines.apply_polynomial_detrender(i_copy[:,(it):(it+nt_chunk)], w_copy[:,(it):(it+nt_chunk)], axis, polydeg, epsilon)
+            return (i_copy, w_copy)
 
-        (i_copy, w_copy) = wi_copy(intensity, weights, nt_chunk)
+        raise RuntimeError('emulate_pipeline: unsupported polynomial_detrender axis "%s"' % axis)
 
-        for it in xrange(0, nt, nt_chunk):
-            rf_pipelines.apply_polynomial_detrender(i_copy[:,(it):(it+nt_chunk)], w_copy[:,(it):(it+nt_chunk)], axis, polydeg, epsilon)
 
-        return (i_copy, w_copy)
+    if pipeline_json['class_name'] == 'spline_detrender':
+        axis = pipeline_json['axis']
+        nbins = pipeline_json['nbins']
+        epsilon = pipeline_json['epsilon']
+
+        if axis == 'AXIS_FREQ':
+            (i_copy, w_copy) = wi_copy(intensity, weights, 8)
+            rf_pipelines.apply_spline_detrender(i_copy, w_copy, axis, nbins, epsilon)
+            return (i_copy, w_copy)
+
+        raise RuntimeError('emulate_pipeline: unsupported polynomial_detrender axis "%s"' % axis)
 
     raise RuntimeError('emulate_pipeline: unsupported class_name "%s"' % pipeline_json['class_name'])
 
