@@ -1173,20 +1173,20 @@ static void wrap_clippers(extension_module &m)
 		     "If the 'two_pass' flag is set, a more numerically stable but slightly slower algorithm will be used.");
 
     
-    string doc_sd = ("std_dev_clipper()\n"
-		     "\n"
-		     "std_dev_clipper: this \"clips\" an array by masking rows/columns whose standard deviation is an outlier.\n"
-		     "\n"
-		     "The 'axis' argument has the following meaning:\n"
-		     "   axis=0 or 'freq'   clip time samples whose variance in frequency is high\n"
-		     "   axis=1 or 'time'   clip frequency channels whose variance in time is high\n"
-		     "\n"
-		     "The (Df,Dt) args are downsampling factors on the frequency/time axes.\n"
-		     "If no downsampling is desired, set Df=Dt=1.\n"
-		     "\n"
-		     "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.\n"
-		     "\n"
-		     "If the 'two_pass' flag is set, a more numerically stable but slightly slower algorithm will be used.");
+    string doc_sdc = ("std_dev_clipper()\n"
+		      "\n"
+		      "std_dev_clipper: this \"clips\" an array by masking rows/columns whose standard deviation is an outlier.\n"
+		      "\n"
+		      "The 'axis' argument has the following meaning:\n"
+		      "   axis=0 or 'freq'   clip time samples whose variance in frequency is high\n"
+		      "   axis=1 or 'time'   clip frequency channels whose variance in time is high\n"
+		      "\n"
+		      "The (Df,Dt) args are downsampling factors on the frequency/time axes.\n"
+		      "If no downsampling is desired, set Df=Dt=1.\n"
+		      "\n"
+		      "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.\n"
+		      "\n"
+		      "If the 'two_pass' flag is set, a more numerically stable but slightly slower algorithm will be used.");
 
     
     // python-callable make_badchannel_mask()
@@ -1216,7 +1216,7 @@ static void wrap_clippers(extension_module &m)
 
     m.add_function("badchannel_mask", doc_bm, f_bm);
     m.add_function("intensity_clipper", doc_ic, f_ic);
-    m.add_function("std_dev_clipper", doc_sd, f_sd);
+    m.add_function("std_dev_clipper", doc_sdc, f_sd);
 }		   
 
 
@@ -1242,6 +1242,26 @@ static void apply_polynomial_detrender(io_arr2d intensity, io_arr2d weights, rf_
     int wstride = xdiv(weights.stride(0), sizeof(float));
 
     kernel.detrend(nfreq, nt, intensity.data, istride, weights.data, wstride, epsilon);
+}
+
+
+static void apply_spline_detrender(io_arr2d intensity, io_arr2d weights, rf_kernels::axis_type axis, int nbins, double epsilon=3.0e-4)
+{
+    if ((intensity.shape(0) != weights.shape(0)) || (intensity.shape(1) != weights.shape(1)))
+	throw runtime_error("rf_pipelines.apply_spline_detrender: 'intensity' and 'weights' arrays do not have the same shape");
+
+    if (axis != rf_kernels::AXIS_FREQ)
+	throw runtime_error("rf_pipelines.apply_spline_detrender: currently, only AXIS_FREQ is supported");
+    
+    int nfreq = intensity.shape(0);
+    int nt = intensity.shape(1);
+    int istride = xdiv(intensity.stride(0), sizeof(float));
+    int wstride = xdiv(weights.stride(0), sizeof(float));
+
+    // Additional argument checks will be performed in kernel constructor.
+    rf_kernels::spline_detrender kernel(nfreq, nbins, epsilon);
+
+    kernel.detrend(nt, intensity.data, istride, weights.data, wstride);
 }
 
 
@@ -1372,6 +1392,8 @@ static void wrap_kernels(extension_module &m)
 		     "'epsilon'.  I think that 1.0e-2 is a reasonable default here, but haven't\n"
 		     "experimented systematically.\n");
 
+    string doc_sd = ("apply_spline_detrender(intensity, weights, axis, nbins, epsilon=3.0e-4)\n");
+
     string doc_ic = ("apply_intensity_clipper(intensity, weights, axis, sigma, niter=1, iter_sigma=0.0, Df=1, Dt=1, two_pass=False)\n"
 		     "\n"
 		     "'Clips' an array by masking outlier intensities.\n"
@@ -1394,20 +1416,20 @@ static void wrap_kernels(extension_module &m)
 		     "\n"
 		     "If the 'two_pass' flag is set, then a more numerically stable but slightly slower algorithm will be used.\n");
 
-    string doc_sd = ("apply_std_dev_clipper(intensity, weights, axis, sigma, Df=1, Dt=1, two_pass=False)\n"
-		     "\n"
-		     "'Clips' an array by masking rows/columns whose standard deviation is an outlier.\n"
-		     "The masking is performed by setting elements of the weights array to zero.\n"
-		     "\n"
-		     "The 'axis' argument has the following meaning:\n"
-		     "   axis=0   clip time samples whose variance in frequency is high\n"
-		     "   axis=1   clip frequency channels whose variance in time is high\n"
-		     "\n"
-		     "The (Df,Dt) args are downsampling factors on the frequency/time axes.\n"
-		     "If no downsampling is desired, set Df=Dt=1.\n"
-		     "\n"
-		     "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.\n"
-		     "If the 'two_pass' flag is set, then a more numerically stable but slightly slower algorithm will be used.\n");
+    string doc_sdc = ("apply_std_dev_clipper(intensity, weights, axis, sigma, Df=1, Dt=1, two_pass=False)\n"
+		      "\n"
+		      "'Clips' an array by masking rows/columns whose standard deviation is an outlier.\n"
+		      "The masking is performed by setting elements of the weights array to zero.\n"
+		      "\n"
+		      "The 'axis' argument has the following meaning:\n"
+		      "   axis=0   clip time samples whose variance in frequency is high\n"
+		      "   axis=1   clip frequency channels whose variance in time is high\n"
+		      "\n"
+		      "The (Df,Dt) args are downsampling factors on the frequency/time axes.\n"
+		      "If no downsampling is desired, set Df=Dt=1.\n"
+		      "\n"
+		      "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.\n"
+		      "If the 'two_pass' flag is set, then a more numerically stable but slightly slower algorithm will be used.\n");
     
     string doc_ds = ("wi_downsample(intensity, weights, Df, Dt) -> (intensity, weights)\n"
 		     "\n"
@@ -1434,11 +1456,14 @@ static void wrap_kernels(extension_module &m)
     m.add_function("apply_polynomial_detrender", doc_pd,
 		   wrap_func(apply_polynomial_detrender, "intensity", "weights", "axis", "polydeg", kwarg("epsilon",1.0e-2)));
 
+    m.add_function("apply_spline_detrender", doc_sd,
+		   wrap_func(apply_spline_detrender, "intensity", "weights", "axis", "nbins", kwarg("epsilon",3.0e-4)));
+
     m.add_function("apply_intensity_clipper", doc_ic,
 		   wrap_func(apply_intensity_clipper, "intensity", "weights", "axis", "sigma", kwarg("niter",1),
 			     kwarg("iter_sigma",0.0), kwarg("Df",1), kwarg("Dt",1), kwarg("two_pass",false)));
 
-    m.add_function("apply_std_dev_clipper", doc_sd,
+    m.add_function("apply_std_dev_clipper", doc_sdc,
 		   wrap_func(apply_std_dev_clipper, "intensity", "weights", "axis", "sigma",
 			     kwarg("Df",1), kwarg("Dt",1), kwarg("two_pass",false)));
 
