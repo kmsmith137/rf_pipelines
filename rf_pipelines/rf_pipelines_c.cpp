@@ -45,11 +45,11 @@ namespace pyclops {
 		string s = converter<string>::from_python(x);
 		const char *c = s.c_str();
 
-		if (!strcasecmp(c,"none"))
+		if (!strcasecmp(c,"none") || !strcasecmp(c,"axis_none"))
 		    return rf_kernels::AXIS_NONE;
-		if (!strcasecmp(c,"time"))
+		if (!strcasecmp(c,"time") || !strcasecmp(c,"axis_time"))
 		    return rf_kernels::AXIS_TIME;
-		if (!strcasecmp(c,"freq") || !strcasecmp(c,"frequency"))
+		if (!strcasecmp(c,"freq") || !strcasecmp(c,"axis_freq") || !strcasecmp(c,"frequency"))
 		    return rf_kernels::AXIS_FREQ;
 	    }
 
