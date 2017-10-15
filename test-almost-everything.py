@@ -161,7 +161,7 @@ def make_random_transform_list(nfreq_ds, nds, nelements):
     ret = [ ]
 
     while len(ret) < nelements:
-        r = rand.randint(0,2)
+        r = rand.randint(0,3)
 
         if (r == 0):
             ret.append(make_random_polynomial_detrender(nfreq_ds, nds))
@@ -228,6 +228,29 @@ def emulate_pipeline(pipeline_json, intensity, weights):
             return (i_copy, w_copy)
 
         raise RuntimeError('emulate_pipeline: unsupported polynomial_detrender axis "%s"' % axis)
+
+
+    if pipeline_json['class_name'] == 'intensity_clipper':
+        axis = pipeline_json['axis']
+        Df = pipeline_json['Df']
+        Dt = pipeline_json['Dt']
+        niter = pipeline_json['niter']
+        sigma = pipeline_json['sigma']
+        iter_sigma = pipeline_json['iter_sigma']
+        nt_chunk = pipeline_json['nt_chunk']
+        two_pass = pipeline_json['two_pass']
+
+        if axis == 'AXIS_FREQ':
+            (i_copy, w_copy) = wi_copy(intensity, weights, 8*Dt)
+            rf_pipelines.apply_intensity_clipper(i_copy, w_copy, axis, sigma, niter, iter_sigma, Df, Dt, two_pass)
+            return (i_copy, w_copy)
+
+        (i_copy, w_copy) = wi_copy(intensity, weights, nt_chunk)
+
+        for it in xrange(0, nt, nt_chunk):
+            rf_pipelines.apply_intensity_clipper(i_copy[:,(it):(it+nt_chunk)], w_copy[:,(it):(it+nt_chunk)], axis, sigma, niter, iter_sigma, Df, Dt, two_pass)
+
+        return (i_copy, w_copy)
 
     raise RuntimeError('emulate_pipeline: unsupported class_name "%s"' % pipeline_json['class_name'])
 
@@ -321,6 +344,8 @@ def run_test():
 ####################################################################################################
 
 
-for iter in xrange(100):
-    print 'iteration', iter
+niter = 100
+
+for iter in xrange(niter):
+    print 'iteration %d/%d' % (iter, niter)
     run_test()
