@@ -200,6 +200,13 @@ shared_ptr<wi_transform> make_chime_16k_stripe_analyzer(ssize_t Dt1, ssize_t Df2
     throw runtime_error("rf_pipelines::make_chime_16k_stripe_analyzer() was called, but this rf_pipelines was compiled without HAVE_HDF5");
 }
 
+struct chime_16k_stripe_analyzer {
+    static shared_ptr<pipeline_object> from_json(const Json::Value &j)
+    {
+	throw runtime_error("rf_pipelines: attempt to deserialize chime_16k_stripe_analyzer, but this rf_pipelines was compiled without HAVE_HDF5");
+    }
+};
+
 #else // HAVE_HDF5
 
 struct chime_16k_stripe_analyzer : public wi_transform

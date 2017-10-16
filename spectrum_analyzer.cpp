@@ -28,6 +28,13 @@ shared_ptr<wi_transform> make_spectrum_analyzer(ssize_t Dt1, ssize_t Dt2)
     throw runtime_error("rf_pipelines::make_spectrum_analyzer() was called, but this rf_pipelines was compiled without HAVE_HDF5");
 }
 
+struct spectrum_analyzer {
+    static shared_ptr<pipeline_object> from_json(const Json::Value &j)
+    {
+	throw runtime_error("rf_pipelines: attempt to deserialize spectrum_analyzer, but this rf_pipelines was compiled without HAVE_HDF5");
+    }
+};
+
 #else // HAVE_HDF5
 
 struct spectrum_analyzer : public wi_transform
