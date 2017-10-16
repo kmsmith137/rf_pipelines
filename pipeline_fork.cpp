@@ -98,7 +98,7 @@ struct pipeline_fork : public pipeline_object
 	const Json::Value &jb = array_from_json(j, "bufnames");
 	vector<pair<string,string>> bufnames;
 
-	for (int i = 0; i < jb.size(); i++) {
+	for (int i = 0; i < int(jb.size()); i++) {
 	    if (!jb[i].isArray() || (jb[i].size() != 2) || !jb[i][0].isString() || !jb[i][1].isString())
 		throw runtime_error("pipeline_fork::from_json: expected each element of 'bufnames' array to be a pair of strings");
 
