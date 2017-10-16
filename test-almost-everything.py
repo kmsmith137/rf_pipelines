@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys
+import json
 import numpy as np
 import numpy.random as rand
 
@@ -8,6 +9,12 @@ import rf_pipelines
 
 
 ###########################################  helpers  ##############################################
+
+
+def xdiv(m, n):
+    assert n > 0
+    assert m >= 0
+    return m // n
 
 
 def maxdiff(a1, a2):
@@ -233,7 +240,7 @@ def emulate_pipeline(pipeline_json, intensity, weights, nds=1):
 
     assert intensity.ndim == 2
     assert intensity.shape == weights.shape
-    (nfreq, nt) = intensity.shape
+    (nfreq, nt_ds) = intensity.shape
 
 
     if pipeline_json['class_name'] == 'pipeline':
@@ -268,10 +275,10 @@ def emulate_pipeline(pipeline_json, intensity, weights, nds=1):
 
         (i_copy, w_copy) = wi_copy(intensity, weights, 8*Dt)
         (i_ds, w_ds) = rf_pipelines.wi_downsample(i_copy, w_copy, Df, Dt)
-        nt_ds = i_ds.shape[1]
+        n = i_ds.shape[1]
         
         (i_ds, w_ds) = emulate_pipeline(sub_pipeline, i_ds, w_ds, nds_out)
-        rf_pipelines.weight_upsample(w_copy, w_ds[:,:nt_ds], w_cutoff)
+        rf_pipelines.weight_upsample(w_copy, w_ds[:,:n], w_cutoff)
 
         return (i_copy, w_copy)
 
@@ -288,9 +295,10 @@ def emulate_pipeline(pipeline_json, intensity, weights, nds=1):
             return (i_copy, w_copy)
 
         if axis == 'AXIS_TIME':
-            (i_copy, w_copy) = wi_copy(intensity, weights, nt_chunk)
-            for it in xrange(0, nt, nt_chunk):
-                rf_pipelines.apply_polynomial_detrender(i_copy[:,(it):(it+nt_chunk)], w_copy[:,(it):(it+nt_chunk)], axis, polydeg, epsilon)
+            n = xdiv(nt_chunk, nds)
+            (i_copy, w_copy) = wi_copy(intensity, weights, n)
+            for it in xrange(0, nt_ds, n):
+                rf_pipelines.apply_polynomial_detrender(i_copy[:,(it):(it+n)], w_copy[:,(it):(it+n)], axis, polydeg, epsilon)
             return (i_copy, w_copy)
 
         raise RuntimeError('emulate_pipeline: unsupported polynomial_detrender axis "%s"' % axis)
@@ -324,10 +332,11 @@ def emulate_pipeline(pipeline_json, intensity, weights, nds=1):
             rf_pipelines.apply_intensity_clipper(i_copy, w_copy, axis, sigma, niter, iter_sigma, Df, Dt, two_pass)
             return (i_copy, w_copy)
 
-        (i_copy, w_copy) = wi_copy(intensity, weights, nt_chunk)
+        n = xdiv(nt_chunk, nds)
+        (i_copy, w_copy) = wi_copy(intensity, weights, n)
 
-        for it in xrange(0, nt, nt_chunk):
-            rf_pipelines.apply_intensity_clipper(i_copy[:,(it):(it+nt_chunk)], w_copy[:,(it):(it+nt_chunk)], axis, sigma, niter, iter_sigma, Df, Dt, two_pass)
+        for it in xrange(0, nt_ds, n):
+            rf_pipelines.apply_intensity_clipper(i_copy[:,(it):(it+n)], w_copy[:,(it):(it+n)], axis, sigma, niter, iter_sigma, Df, Dt, two_pass)
 
         return (i_copy, w_copy)
 
@@ -340,10 +349,11 @@ def emulate_pipeline(pipeline_json, intensity, weights, nds=1):
         nt_chunk = pipeline_json['nt_chunk']
         two_pass = pipeline_json['two_pass']
 
-        (i_copy, w_copy) = wi_copy(intensity, weights, nt_chunk)
+        n = xdiv(nt_chunk, nds)
+        (i_copy, w_copy) = wi_copy(intensity, weights, n)
 
-        for it in xrange(0, nt, nt_chunk):
-            rf_pipelines.apply_std_dev_clipper(i_copy[:,(it):(it+nt_chunk)], w_copy[:,(it):(it+nt_chunk)], axis, sigma, Df, Dt, two_pass)
+        for it in xrange(0, nt_ds, n):
+            rf_pipelines.apply_std_dev_clipper(i_copy[:,(it):(it+n)], w_copy[:,(it):(it+n)], axis, sigma, Df, Dt, two_pass)
     
         return (i_copy, w_copy)
 
@@ -355,13 +365,17 @@ def emulate_pipeline(pipeline_json, intensity, weights, nds=1):
 
 
 class initial_stream(rf_pipelines.wi_stream):
-    def __init__(self):
+    def __init__(self, nfreq=None):
         rf_pipelines.wi_stream.__init__(self, 'initial_stream')
-        self.nfreq = 2**rand.randint(0, 10)
-        self.nfreq *= rand.randint(128//self.nfreq + 1, 2048//self.nfreq + 1)
+        
+        if nfreq is None:
+            nfreq = 2**rand.randint(0, 10)
+            nfreq *= rand.randint(128//nfreq + 1, 2048//nfreq + 1)
+
+        self.nfreq = nfreq
         self.nt_tot = rand.randint(1000, 2000)
-        self.intensity = rand.standard_normal(size=(self.nfreq,self.nt_tot))
-        self.weights = rand.uniform(0.5, 1.0, size=(self.nfreq,self.nt_tot))
+        self.intensity = rand.standard_normal(size=(nfreq,self.nt_tot))
+        self.weights = rand.uniform(0.5, 1.0, size=(nfreq,self.nt_tot))
         self.nt_chunk = rand.randint(20, 50)
 
 
@@ -375,7 +389,7 @@ class initial_stream(rf_pipelines.wi_stream):
         n = min(self.nt_tot - pos, self.nt_chunk)
         intensity[:,:n] = self.intensity[:,pos:(pos+n)]
         weights[:,:n] = self.weights[:,pos:(pos+n)]
-        return True            
+        return True
 
 
 class final_transform(rf_pipelines.wi_transform):
@@ -445,3 +459,5 @@ niter = 100
 for iter in xrange(niter):
     print 'iteration %d/%d' % (iter, niter)
     run_test()
+
+print 'test-almost-everything: pass'
