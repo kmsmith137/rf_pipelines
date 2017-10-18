@@ -151,6 +151,7 @@ public:
     ring_buffer& operator=(const ring_buffer &) = delete;
 
     static std::string access_mode_to_string(int access_mode);
+    static void check_cdims(const std::vector<ssize_t> &cdims);
 
 protected:
     // These parameters are initialized by repeated calls to update_params(),

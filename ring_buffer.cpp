@@ -16,13 +16,7 @@ ring_buffer::ring_buffer(const vector<ssize_t> &cdims_, ssize_t nds_) :
     csize(prod(cdims_)),
     nds(nds_)
 {
-    if (cdims.size() >= 6)
-	throw runtime_error("rf_pipelines: attempt to construct high-dimensional ring buffer is probably unintentional");
-
-    for (size_t i = 0; i < cdims.size(); i++) {
-	if (cdims[i] <= 0)
-	    throw runtime_error("rf_pipelines::ring_buffer: expected all dimensions > 0");
-    }
+    check_cdims(cdims);
 
     if (nds <= 0)
 	throw runtime_error("rf_pipelines::ring_buffer: expected nds > 0");
@@ -265,6 +259,19 @@ string ring_buffer::access_mode_to_string(int access_mode)
 	return "ACCESS_APPEND";
 
     throw runtime_error("rf_pipelines: internal error: bad argument to ring_buffer::access_mode_to_string()");
+}
+
+
+// static member functon
+void ring_buffer::check_cdims(const vector<ssize_t> &cdims)
+{
+    if (cdims.size() >= 6)
+	throw runtime_error("rf_pipelines: attempt to construct high-dimensional ring buffer is probably unintentional");
+
+    for (size_t i = 0; i < cdims.size(); i++) {
+	if (cdims[i] <= 0)
+	    throw runtime_error("rf_pipelines::ring_buffer: expected all dimensions > 0");
+    }
 }
 
 
