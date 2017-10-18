@@ -251,6 +251,12 @@ inline ssize_t xmod(ssize_t m, ssize_t n)
     return m % n;
 }
 
+inline bool is_power_of_two(ssize_t n)
+{
+    rf_assert(n > 0);
+    return (n & (n-1)) == 0;
+}
+
 // Greatest common divisor
 inline ssize_t gcd(ssize_t m, ssize_t n)
 {
