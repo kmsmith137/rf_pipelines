@@ -248,47 +248,89 @@ using ring_buffer_dict = std::unordered_map<std::string, std::shared_ptr<ring_bu
 
 // -------------------------------------------------------------------------------------------------
 //
-// zoomable_tileset.
+// zoomable_tileset
 //
-// These should be constructed in _start_pipeline().
+// Virtual base class which represents one set of tiled plots for the web_viewer.
 //
-// Reminder: typical initialization looks something like this:
+// The high-level logic is as follows:
+// 
+//    - Each zoomable_tileset maintains a vector of one or more ring buffers (rbvec).
+//      The length of the vector (i.e. number of ring buffers) is subclass-dependent.
+//      For example, a bonsai plotter might maintain one ring buffer per dedispersion
+//      tree, and an intensity plotter might maintain two ring buffers (intensity, weights).
 //
-//   if ((this->out_mp->outdir.size() > 0) && (this->plot_params.is_initialized())) {
-//      auto zt = make_shared<zoomable_tileset_subclass> (this->plot_params, ...);
-//      this->add_zoomable_tileset(zt);
-//      this->rb_plot_intensity = this->add_plot_ring_buffer(zt, {nfreq}, nds, nt_chunk);
-//      this->rb_plot_weights = this->add_plot_ring_buffer(zt, {nfreq}, nds, nt_chunk);
-//   }
+//    - At each zoom level, there is an additional rbvec which is downsampled by a
+//      factor two, relative to the previous rbvec.  The zoomable_tileset defines a
+//      virtual downsample_rbvec() which fills each rbvec_t by downsampling the previous one.
 //
-// where this->plot_params has type zoomable_tileset::initializer, and this->plot_params.is_valid()
-// has been checked in a constructor.
+//    - The bottom-level (i.e. lowest zoom level) rbvec is filled incrementally as
+//      the pipeline runs.  Rather than defining a new virtual for this, we just do
+//      it in the usual pipeline-processing virtual (i.e. pipeline_object::_advance()
+//      or chunked_pipeline_object::_process_chunk()).
+//
+//    - At each zoom level, when enough data has accumulated to emit a plot, the
+//      zoomable_tileset defines a virtual which fills an RGB array from the rbvec.
 
 
 struct zoomable_tileset {
-    struct initializer {
-	std::string img_prefix;  // must be distinct for each tileset.
-	ssize_t img_nzoom = 0;   // must be the same for all tilesets (FIXME move to outdir_manager)
-	ssize_t img_nx = 0;      // must be the same for all tilesets (FIXME move to outdir_manager)
-	ssize_t img_ny = 0;      // can be chosen independently for each tileset.
-	ssize_t downsample_nt = 0;  // must be the same for all tilesets (FIXME move to outdir_manager)
+    
+    // At each zoom level, the zoomable_tileset maintains a vector of ring buffers (rbvec_t).  
+    // All ring buffers in the same rbvec_t have the same downsmapling factor 'nds', but the 
+    // value of nds differs by a factor two in consectutive zoom levels.
+
+    using rbvec_t = std::vector<std::shared_ptr<ring_buffer>>;
+
+    // Recall that the 'cdims' of a ring buffer are a vector<ssize_t> corresponding to all
+    // array dimensions other than time.  A zoomable_tileset has one set of cdims for each
+    // of its ring buffers, so zoomable_tileset::cdims is a vector<vector<ssize_t>>.
+    //
+    // Note that the number of ring buffers in the zoomable_tileset is cdims.size(), and
+    // the array dimension of ring buffer 'i' is (cdims[i].size()+1).
+
+    const std::vector<std::vector<ssize_t>> cdims;
+
+    // The 'ny_arr' field is the y-dimension of the rgb arrays emitted by the zoomable_tileset.
+    // This is initialized by the subclass constructor.  Note that ny_arr need not be the same
+    // as 'ny_img', the y-dimension of the png files which are emitted.  However, there is a 
+    // constrant that ny_arr be a divisor of ny_img.  Therefore, the subclass constructor needs
+    // to know the value of ny_pix, so that a suitable value of ny_arr may be chosen.
+    //
+    // If ny_arr < ny_pix, then there is generic pipeline logic which upsamples the array in
+    // the y-dimension.  This means that the zoomable_tileset does not need to worry about
+    // upsampling, but may need to downsample in the y-direction if a small ny_pix is allowed.
+
+    const ssize_t ny_arr;
+
+    // The downsampling factor 'nds' of the lowest zoom level is determined when the pipeline
+    // is bound.  The zoomable_tileset can specify a range of 'nds' values which are allowed.
+    // Setting either endpoint to zero disables it.
+
+    const ssize_t nds_min;
+    const ssize_t nds_max;
+
+    // Base class constructor.
+    zoomable_tileset(const std::vector<std::vector<ssize_t>> &cdims,
+		     ssize_t ny_arr, ssize_t nds_min = 0, ssize_t nds_max = 0);
 	
-	bool is_initialized() const;    // returns true iff all fields have been initialized
-	bool is_uninitialized() const;  // returns true iff no fields have been initialized
-	bool is_valid() const;          // returns (is_initialized() || is_unintialized())
-	void reset();
-    };
+    // Virtuals.
+    //
+    // Following a general convention in rf_pipelines, the 'pos' and 'nt' arguments
+    // to these routines do not have any downsampling factors applied!
+    //
+    // plot_rbvec(rgb_out, rb_in, pos, nt)
+    //   Creates an RGB image from ring buffer contents.
+    //   Can be called at any zoom level, so the downsampling factor of 'rb_in' can be arbitrary.
+    //   The output 'rgb_out' has shape (ny_arr, nt/nds, 3), where nds is the downsampling factor.
+    //
+    // downsample_rbvec(rb_out, rb_in, pos, nt)
+    //   Note that 'rb_out' has twice the downsampling factor of 'rb_in'.
+    //
+    // extend_bufs(rb_out, pos, nt)
+    //   By default, this zeroes the buffers, but this can be overridden.
 
-    const initializer ini_params;
-    uint8_t background_rgb[3];
-
-    zoomable_tileset(const initializer &ini_params, const uint8_t background_rgb[3]);
-    
-    // Triggers calls to downsample().
-    void advance();
-    
-    virtual void downsample(std::vector<ring_buffer> &dst, const std::vector<ring_buffer> &src) = 0;
-    virtual void make_plot() = 0;
+    virtual void plot_rbvec(uint8_t *rgb_out, rbvec_t &rb_in, ssize_t pos, ssize_t nt) = 0;
+    virtual void downsample_rbvec(rbvec_t &rb_out, rbvec_t &rb_in, ssize_t pos, ssize_t nt);
+    virtual void extend_rbvec(rbvec_t &rb_out, ssize_t pos, ssize_t nt);
 };
 
 
@@ -460,6 +502,12 @@ public:
     //     It is also responsible for calling get_buffer() or create_buffer(), for each ring buffer which will be
     //     accessed by the pipeline_object.  (See below for more info on these member functions.)
     //
+    //     Similarly, bind must call add_zoomable_tileset() for each zoomable_tileset which will be emitted
+    //     by the pipeline_object.  (Note that there are currently two redundant API's in rf_pipelines for
+    //     managing plots, the "zooomable_tileset" API which is called in bind(), and the "plot_group"
+    //     API which is called in start_pipeline().  I'm trying to phase out the plot_group API in favor
+    //     of the zoomable_tileset API.)
+    //
     //     Finally, _bind() may optionally add new pipeline attributes to 'json_attrs', or read values of existing attributes.
     //
     //
@@ -472,9 +520,11 @@ public:
     //
     // _start_pipeline(json_attrs): called just before pipeline starts running.
     //
-    //     The _start_pipeline() virtual is responsible for defining which plots are emitted by the pipeline_object.
-    //     Currently, there are two API's for doing this, the add_plot_group() API and the add_zoomable_tileset() API.
-    //     The long-term plan is to phase out add_plot_group(), and use add_zoomable_tileset() exclusively.
+    //     For pipeline_objects which use the deprecated plot_group API, the _start_pipeline() virtual
+    //     is responsible for calling add_plot_group().  (Note that there are currently two redundant 
+    //     API's in rf_pipelines for managing plots, the "zooomable_tileset" API which is called in bind(), 
+    //     and the "plot_group" API which is called in start_pipeline().  I'm trying to phase out the 
+    //     plot_group API in favor of the zoomable_tileset API.)
     //
     //     Optionally, _start_pipeline() can add new pipeline attributes to 'json_attrs', or read values of existing attributes.
     //     Note that there are two "rounds" of pipeline attribute propagation, one in _bind() and one in _start_pipeline().
@@ -544,13 +594,9 @@ public:
     std::shared_ptr<ring_buffer> get_buffer(ring_buffer_dict &rb_dict, const std::string &bufname);
     std::shared_ptr<ring_buffer> create_buffer(ring_buffer_dict &rb_dict, const std::string &bufname, const std::vector<ssize_t> &cdims, ssize_t nds);
 
-
-    // Helper functions called by _start_pipeline(), to manage plots (and other files, such as hdf5)
-    // which are created by the pipeline_object.
+    // This is the deprecated "plot_group" API for managing plots, which is called from start_pipeline().
     //
-    // FIXME: right now there are two plotting API's, one based on add_plot_group() and another
-    // based on add_zoomable_tileset().  I plan to phase out the plot_group API, and use the
-    // zoomable_tileset API exclusively.
+    // FIXME: phase this out in favor of the "zoomable_tileset" API!
     //
     // add_plot_group(): 
     //

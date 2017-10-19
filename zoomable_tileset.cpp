@@ -8,40 +8,72 @@ namespace rf_pipelines {
 #endif
 
 
-zoomable_tileset::zoomable_tileset(const zoomable_tileset::initializer &ini_params_, const uint8_t background_rgb_[3]) :
-    ini_params(ini_params_)
+zoomable_tileset::zoomable_tileset(const vector<vector<ssize_t>> &cdims_, ssize_t ny_arr_, ssize_t nds_min_, ssize_t nds_max_) :
+    cdims(cdims_), 
+    ny_arr(ny_arr_),
+    nds_min(nds_min_),
+    nds_max(nds_max_)
 {
-    this->background_rgb[0] = background_rgb_[0];
-    this->background_rgb[1] = background_rgb_[1];
-    this->background_rgb[2] = background_rgb_[2];
+    if (cdims.size() == 0)
+	throw runtime_error("rf_pipelines::zoomable_tileset constructor: expected number of ring buffers to be > 0");
+    
+    for (size_t i = 0; i < cdims.size(); i++)
+	ring_buffer::check_cdims(cdims[i]);
 
-    if (!ini_params.is_initialized())
-	throw runtime_error("zoomable_tileset: all fields { img_prefix, img_nzoom, img_nx, img_ny, downsample_nt } must be initialized");
+    if (ny_arr <= 0)
+	throw runtime_error("rf_pipelines::zoomable_tileset constructor: expected ny_arr > 0");
+    if (nds_min < 0)
+	throw runtime_error("rf_pipelines::zoomable_tileset constructor: expected nds_min >= 0");
+    if (nds_max < 0)
+	throw runtime_error("rf_pipelines::zoomable_tileset constructor: expected nds_max >= 0");
+    if ((nds_min > 0) && !is_power_of_two(nds_min))
+	throw runtime_error("rf_pipelines::zoomable_tileset constructor: expected nds_min to be a power of two");
+    if ((nds_max > 0) && !is_power_of_two(nds_max))
+	throw runtime_error("rf_pipelines::zoomable_tileset constructor: expected nds_max to be a power of two");
+    if ((nds_min > 0) && (nds_max > 0) && (nds_min > nds_max))
+	throw runtime_error("rf_pipelines::zoomable_tileset constructor: expected nds_min < nds_max");
 }
 
 
-bool zoomable_tileset::initializer::is_initialized() const
+// Default virtual
+void zoomable_tileset::downsample_rbvec(rbvec_t &rb_out, rbvec_t &rb_in, ssize_t pos, ssize_t nt)
 {
-    return (img_prefix.size() > 0) && (img_nzoom > 0) && (img_nx > 0) && (img_ny > 0) && (downsample_nt > 0);
+    for (size_t i = 0; i < rb_out.size(); i++) {
+	ssize_t nt_out = xdiv(nt, rb_out[i]->nds);
+	ssize_t csize = rb_out[i]->csize;
+	
+	ring_buffer_subarray a_out(rb_out[i], pos, pos+nt, ring_buffer::ACCESS_APPEND);
+	ring_buffer_subarray a_in(rb_in[i], pos, pos+nt, ring_buffer::ACCESS_READ);
+
+	ssize_t ostride = a_out.stride;
+	ssize_t istride = a_in.stride;
+
+	// FIXME (low-priority): assembly-language kernel would speed this up.
+	// But plotting is unlikely to be a bottleneck!
+
+	for (ssize_t j = 0; j < csize; j++) {
+	    float *p_out = a_out.data + j*ostride;
+	    float *p_in = a_in.data + j*istride;
+
+	    for (ssize_t k = 0; k < nt_out; k++)
+		p_out[k] = 0.5 * (p_in[2*k] + p_in[2*k+1]);
+	}
+    }
 }
 
-bool zoomable_tileset::initializer::is_uninitialized() const
+// Default virtual
+void zoomable_tileset::extend_rbvec(rbvec_t &rb_out, ssize_t pos, ssize_t nt)
 {
-    return (img_prefix.size() == 0) && (img_nzoom == 0) && (img_nx == 0) && (img_ny == 0) && (downsample_nt == 0);
-}
+    for (size_t i = 0; i < rb_out.size(); i++) {
+	ssize_t nt_out = xdiv(nt, rb_out[i]->nds);
+	ssize_t csize = rb_out[i]->csize;
 
-bool zoomable_tileset::initializer::is_valid() const
-{
-    return is_initialized() || is_uninitialized();
-}
+	ring_buffer_subarray a(rb_out[i], pos, pos+nt, ring_buffer::ACCESS_APPEND);
+	ssize_t stride = a.stride;
 
-void zoomable_tileset::initializer::reset()
-{
-    this->img_prefix = string();
-    this->img_nzoom = 0;
-    this->img_nx = 0;
-    this->img_ny = 0;
-    this->downsample_nt = 0;
+	for (ssize_t j = 0; j < csize; j++)
+	    memset(a.data + j*stride, 0, nt_out * sizeof(float));
+    }
 }
 
 
