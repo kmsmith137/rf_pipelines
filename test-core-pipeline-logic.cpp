@@ -154,7 +154,7 @@ void reference_pipeline_object::run_test(ssize_t nt_end)
     p->add(p1);
     p->add(p2);
 
-    pipeline_object::run_params params;
+    run_params params;
     params.outdir = "";
     params.verbosity = 0;
     p->run(params);

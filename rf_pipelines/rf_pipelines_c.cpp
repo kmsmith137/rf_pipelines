@@ -424,6 +424,29 @@ static void check_signals(ssize_t pos_lo, ssize_t pos_hi)
 }
 
 
+// Used to wrap pipeline_object::bind() and pipeline_object::run().
+static run_params make_run_params(const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity)
+{
+    run_params ret;
+
+    // Allow outdir=None
+    if (outdir.is_none())
+	ret.outdir = "";
+    else if (outdir.is_string())
+	ret.outdir = converter<string>::from_python(outdir, "outdir");
+    else
+	throw runtime_error("expected 'outdir' to be a string or None");
+
+    ret.clobber = clobber;    
+    ret.img_nzoom = img_nzoom;
+    ret.img_nds = img_nds;
+    ret.img_nx = img_nx;
+    ret.verbosity = verbosity;
+
+    return ret;
+}
+
+
 static void wrap_pipeline_object(extension_module &m)
 {
     std::function<pipeline_object* ()>
@@ -432,25 +455,21 @@ static void wrap_pipeline_object(extension_module &m)
     std::function<string& (pipeline_object *)>
 	_name = [](pipeline_object *self) -> string& { return self->name; };
 
-    std::function<Json::Value (pipeline_object *, const py_object &, int, bool)>
-	_run = [](pipeline_object *self, const py_object &outdir_, int verbosity, bool clobber)
+    std::function<void (pipeline_object *, const py_object &, bool, ssize_t, ssize_t, ssize_t, int)>
+	_bind = [](pipeline_object *self, const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity)
+	{
+	    run_params p = make_run_params(outdir, clobber, img_nzoom, img_nds, img_nx, verbosity);
+	    return self->bind(p);
+	};
+
+    std::function<Json::Value (pipeline_object *, const py_object &, bool, ssize_t, ssize_t, ssize_t, int)>
+	_run = [](pipeline_object *self, const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity)
 	{
 	    // FIXME for completeness, should allow python caller to specify a callback function.
 	    // (This should be called via a C++ wrapper which also calls check_signals().)
 
-	    pipeline_object::run_params params;
-	    params.verbosity = verbosity;
-	    params.clobber = clobber;
-	    params.callback = check_signals;
-
-	    if (outdir_.is_none())
-		params.outdir = "";
-	    else if (outdir_.is_string())
-		params.outdir = converter<string>::from_python(outdir_, "rf_pipelines.pipeline_object.run(): 'outdir'");
-	    else
-		throw runtime_error("rf_pipelines.pipeline_object.run(): expected 'outdir' to be a string or None");
-
-	    return self->run(params);
+	    run_params p = make_run_params(outdir, clobber, img_nzoom, img_nds, img_nx, verbosity);
+	    return self->run(p, check_signals);
 	};
 
     // __str__()
@@ -479,14 +498,10 @@ static void wrap_pipeline_object(extension_module &m)
 	    pipeline_object::register_json_deserializer(class_name, _constructor);
 	};
 
-    // For resolving overloaded bind() function type
-    using bind_t = void (pipeline_object::*)();
+    // doc_rp1, doc_rp2 are building blocks for doc_bind, doc_run, which both take a run_params.
+    string doc_rp1 = ("outdir='.', clobber=True, img_nzoom=4, img_nds=16, img_nx=256, verbosity=2");
 
-    string doc_run = ("run(outdir='.', verbosity=2, clobber=True) -> json\n"
-		      "\n"
-		      "High-level API: to run a pipeline, just call run().\n"
-		      "\n"
-		      "'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will\n"
+    string doc_rp2 = ("'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will\n"
 		      "be written, in addition to other transform-specific output files such as plots.\n"
 		      "\n"
 		      "If 'outdir' is an empty string, then the json file will not be written, and\n"
@@ -496,11 +511,26 @@ static void wrap_pipeline_object(extension_module &m)
 		      "If 'clobber' is false, then an exception will be thrown if the pipeline tries to\n"
 		      "overwrite an old rf_pipelines.json file.\n"
 		      "\n"
+		      "Plot-related params:\n"
+		      "   img_nzoom = number of zoom levels (FIXME currently hardcoded, should switch to adaptive)\n"
+		      "   img_nds = time downsampling factor of plots at lowest zoom level\n"
+		      "   img_nx = number of x-pixels (i.e. time axis) in each plot tile\n"
+		      "\n"
 		      "The meaning of the 'verbosity' argument is:\n"
 		      "    0 = no output\n"
 		      "    1 = high-level summary output (names of transforms, number of samples processed etc.)\n"
 		      "    2 = show all output files\n"
 		      "    3 = debug trace through pipeline");
+
+    string doc_bind = ("bind(" + doc_rp1 + ")\n"
+		       "\n"
+		       "Does global pipeline initializations, including ring buffer sizes.  Called automatically by run().\n"
+		       "\n" + doc_rp2);
+
+    string doc_run = ("run(" + doc_rp1 + ") -> json\n"
+		      "\n"
+		      "High-level API: to run a pipeline, just call run().\n"
+		      "\n" + doc_rp2);
 
     string doc_cs = ("get_preferred_chunk_size() -> integer\n"
 		     "\n"
@@ -578,8 +608,12 @@ static void wrap_pipeline_object(extension_module &m)
     pipeline_object_type.add_constructor(wrap_constructor(_init));
     pipeline_object_type.add_property("name", "Name of pipeline_object", _name);
 
-    pipeline_object_type.add_method("run", doc_run, wrap_method(_run, kwarg("outdir",py_object()), kwarg("verbosity",2), kwarg("clobber",true)));
-    pipeline_object_type.add_method("bind", "First step in pipeline: determines pipeline parameters such as ring buffer sizes", wrap_method(bind_t(&pipeline_object::bind)));
+    pipeline_object_type.add_method("run", doc_run, wrap_method(_run, kwarg("outdir",py_object()), kwarg("clobber",true), kwarg("img_nzoom",4), 
+								kwarg("img_nds",16), kwarg("img_nx",256), kwarg("verbosity",2)));
+
+    pipeline_object_type.add_method("bind", doc_bind, wrap_method(_bind, kwarg("outdir",py_object()), kwarg("clobber",true), kwarg("img_nzoom",4), 
+								  kwarg("img_nds",16), kwarg("img_nx",256), kwarg("verbosity",2)));
+							 
     pipeline_object_type.add_method("allocate", "Allocates all pipeline buffers", wrap_method(&pipeline_object::allocate));
     pipeline_object_type.add_method("deallocate", "Deallocates all pipeline buffers", wrap_method(&pipeline_object::deallocate));
     pipeline_object_type.add_method("reset", "Resets pipeline after run().", wrap_method(&pipeline_object::reset));

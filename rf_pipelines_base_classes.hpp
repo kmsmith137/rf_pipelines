@@ -83,6 +83,49 @@ struct plot_group;
 
 // -------------------------------------------------------------------------------------------------
 //
+// run_params: parameters which are specified before running a pipeline.
+//
+// When a pipeline is run, these parameters get incorporated into its 'json attributes',
+// which are available to all pipeline_objects in the _bind() virtual.  This is explained
+// in more detail below.
+
+
+struct run_params {
+    
+    // 'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will
+    // be written, in addition to other transform-specific output files such as plots. 
+    //
+    // If 'outdir' is an empty string, then the json file will not be written, and 
+    // any transform which tries to write an output file (such as a plotter_transform)
+    // will throw an exception.
+    //
+    // If 'clobber' is false, then an exception will be thrown if the pipeline tries to
+    // overwrite an old rf_pipelines.json file.
+    //
+    // Plot-related params:
+    //   img_nzoom = number of zoom levels (FIXME currently hardcoded, should switch to adaptive)
+    //   img_nds = time downsampling factor of plots at lowest zoom level
+    //   img_nx = number of x-pixels (i.e. time axis) in each plot tile
+    //
+    // The meaning of the 'verbosity' argument is:
+    //   0 = no output
+    //   1 = high-level summary output (names of transforms, number of samples processed etc.)
+    //   2 = log all output files
+    //   3 = debug trace through pipeline
+    //
+    // FIXME: verbosity not actually implemented yet.
+    
+    std::string outdir = ".";
+    bool clobber = true;
+    ssize_t img_nzoom = 4;
+    ssize_t img_nds = 16;
+    ssize_t img_nx = 256;
+    int verbosity = 2;
+};
+
+
+// -------------------------------------------------------------------------------------------------
+//
 // ring_buffer, ring_buffer_dict, ring_buffer_subarray
 //
 // An important note to keep in mind when using the ring_buffer!  The ring buffer can be
@@ -289,28 +332,25 @@ struct zoomable_tileset {
 
     const std::vector<std::vector<ssize_t>> cdims;
 
-    // The 'ny_arr' field is the y-dimension of the rgb arrays emitted by the zoomable_tileset.
-    // This is initialized by the subclass constructor.  Note that ny_arr need not be the same
-    // as 'ny_img', the y-dimension of the png files which are emitted.  However, there is a 
-    // constrant that ny_arr be a divisor of ny_img.  Therefore, the subclass constructor needs
-    // to know the value of ny_pix, so that a suitable value of ny_arr may be chosen.
+    // The 'ny_arr' field is the y-dimension of the rgb arrays emitted by the zoomable_tileset,
+    // and the 'nds_arr' field is the downsampling factor at the lowest zoom level of the zoomed
+    // tileset.
     //
-    // If ny_arr < ny_pix, then there is generic pipeline logic which upsamples the array in
-    // the y-dimension.  This means that the zoomable_tileset does not need to worry about
-    // upsampling, but may need to downsample in the y-direction if a small ny_pix is allowed.
+    // These are usually equal to 'img_ny' and 'img_nds', the y-dimension and downsampling
+    // factor of the png files which are emitted.  The img_* fields are members of struct
+    // run_params (see above), and are available to all pipeline_objects as json attributes
+    // during bind() (see below).
+    //
+    // However, if ny_arr is a divisor of img_ny, then rf_pipelines will automatically upsample.
+    // Likewise, if nds_arr is either a divisor or multiple of img_nds, then rf_pipelines will
+    // automatically either downsample (by calling the downsample_rbvec virtual) or upsample.
+    // The zoomed_tileset therefore has some flexibility in initializing ny_arr, nds_arr.
 
     const ssize_t ny_arr;
-
-    // The downsampling factor 'nds' of the lowest zoom level is determined when the pipeline
-    // is bound.  The zoomable_tileset can specify a range of 'nds' values which are allowed.
-    // Setting either endpoint to zero disables it.
-
-    const ssize_t nds_min;
-    const ssize_t nds_max;
+    const ssize_t nds_arr;
 
     // Base class constructor.
-    zoomable_tileset(const std::vector<std::vector<ssize_t>> &cdims,
-		     ssize_t ny_arr, ssize_t nds_min = 0, ssize_t nds_max = 0);
+    zoomable_tileset(const std::vector<std::vector<ssize_t>> &cdims, ssize_t ny_arr, ssize_t nds_arr);
 	
     // Virtuals.
     //
@@ -349,48 +389,23 @@ public:
     // but can be changed later to something more verbose.
     explicit pipeline_object(const std::string &name);
 
-    // High-level API: to run a pipeline, just call run().
+    // High-level API: to run a pipeline, just call run().	
+    //
+    // If 'callback' is specified, it will be called periodically as callback(pos_lo, pos_hi),
+    // where pos_lo is the number of samples which have been finalized by the pipeline, and
+    // pos_hi is the number of partially processed samples.  (Note pos_lo <= pos_hi.)
 
-    struct run_params {
-
-	// 'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will
-	// be written, in addition to other transform-specific output files such as plots. 
-	//
-	// If 'outdir' is an empty string, then the json file will not be written, and 
-	// any transform which tries to write an output file (such as a plotter_transform)
-	// will throw an exception.
-	//
-	// If 'clobber' is false, then an exception will be thrown if the pipeline tries to
-	// overwrite an old rf_pipelines.json file.
-	//
-	// The meaning of the 'verbosity' argument is:
-	//   0 = no output
-	//   1 = high-level summary output (names of transforms, number of samples processed etc.)
-	//   2 = show all output files
-	//   3 = debug trace through pipeline
-	//
-	// If 'callback' is specified, it will be called periodically as callback(pos_lo, pos_hi),
-	// where pos_lo is the number of samples which have been finalized by the pipeline, and
-	// pos_hi is the number of partially processed samples.  (Note pos_lo <= pos_hi.)
-	//
-	// FIXME: verbosity not actually implemented yet
-
-	std::string outdir = ".";
-	int verbosity = 2;
-	bool clobber = true;
-	std::function<void(ssize_t, ssize_t)> callback;
-    };
-	
-    Json::Value run(const run_params &params);
+    using callback_t = std::function<void(ssize_t,ssize_t)>;
+    Json::Value run(const run_params &params = run_params(), const callback_t &callback = callback_t());
 
     // A more fine-grained high-level API.
     // See comment at top of this source file for more explanation!
 
-    void bind();         // does global pipeline initializations (advances state UNBOUND -> BOUND)
-    void allocate();     // allocates all buffers (advances state BOUND -> ALLOCATED)
-    void reset();        // reverts state to ALLOCATED
-    void deallocate();   // reverts state to BOUND
-    void unbind();       // reverts state to UNBOUND
+    void bind(const run_params &params);  // does global pipeline initializations (advances state UNBOUND -> BOUND)
+    void allocate();                      // allocates all buffers (advances state BOUND -> ALLOCATED)
+    void reset();                         // reverts state to ALLOCATED
+    void deallocate();                    // reverts state to BOUND
+    void unbind();                        // reverts state to UNBOUND
 
     // Everything which follows is low-level stuff, which should not be needed by high-level users
     // of rf_pipelines, but may be needed if you're writing your own pipeline_object.
@@ -438,7 +453,7 @@ public:
     std::vector<std::shared_ptr<ring_buffer>> new_ring_buffers;    // ring buffers created by this pipeline object
     std::vector<std::shared_ptr<ring_buffer>> all_ring_buffers;    // all ring buffers used by this pipeline object (including new_ring_buffers)
 
-    // Initialized in start_pipeline().
+    // Initialized in bind().
     // Note: if the pipeline is run without an output directory, then 'out_mp' will be 
     // a nonempty pointer, but out_mp->outdir will be an empty string.
     std::shared_ptr<outdir_manager> out_mp;
@@ -479,8 +494,8 @@ public:
     // recurse into their children.  This should be done using the wrappers.
     // For example, pipeline::_bind() calls bind() in each child (not _bind()).
 
-    void bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in, ssize_t nt_maxlag, Json::Value &json_attrs);
-    void start_pipeline(const std::shared_ptr<outdir_manager> &mp, Json::Value &json_attrs);
+    void bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in, ssize_t nt_maxlag, Json::Value &json_attrs, const std::shared_ptr<outdir_manager> &out_mp);
+    void start_pipeline(Json::Value &json_attrs);
     void end_pipeline(Json::Value &json_output);
     ssize_t advance(ssize_t pos_hi, ssize_t pos_max);    
 
@@ -508,7 +523,9 @@ public:
     //     API which is called in start_pipeline().  I'm trying to phase out the plot_group API in favor
     //     of the zoomable_tileset API.)
     //
-    //     Finally, _bind() may optionally add new pipeline attributes to 'json_attrs', or read values of existing attributes.
+    //     Finally, _bind() may optionally add new pipeline attributes to 'json_attrs', or read existing attributes.
+    //     Note that each field of 'struct run_params' is incorported into the json_attrs, e.g. json_attrs['verbosity']
+    //     is defined.
     //
     //
     // _allocate(): does subclass-specific buffer allocation.

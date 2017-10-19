@@ -8,11 +8,10 @@ namespace rf_pipelines {
 #endif
 
 
-zoomable_tileset::zoomable_tileset(const vector<vector<ssize_t>> &cdims_, ssize_t ny_arr_, ssize_t nds_min_, ssize_t nds_max_) :
+zoomable_tileset::zoomable_tileset(const vector<vector<ssize_t>> &cdims_, ssize_t ny_arr_, ssize_t nds_arr_) :
     cdims(cdims_), 
     ny_arr(ny_arr_),
-    nds_min(nds_min_),
-    nds_max(nds_max_)
+    nds_arr(nds_arr_)
 {
     if (cdims.size() == 0)
 	throw runtime_error("rf_pipelines::zoomable_tileset constructor: expected number of ring buffers to be > 0");
@@ -22,16 +21,10 @@ zoomable_tileset::zoomable_tileset(const vector<vector<ssize_t>> &cdims_, ssize_
 
     if (ny_arr <= 0)
 	throw runtime_error("rf_pipelines::zoomable_tileset constructor: expected ny_arr > 0");
-    if (nds_min < 0)
-	throw runtime_error("rf_pipelines::zoomable_tileset constructor: expected nds_min >= 0");
-    if (nds_max < 0)
-	throw runtime_error("rf_pipelines::zoomable_tileset constructor: expected nds_max >= 0");
-    if ((nds_min > 0) && !is_power_of_two(nds_min))
-	throw runtime_error("rf_pipelines::zoomable_tileset constructor: expected nds_min to be a power of two");
-    if ((nds_max > 0) && !is_power_of_two(nds_max))
-	throw runtime_error("rf_pipelines::zoomable_tileset constructor: expected nds_max to be a power of two");
-    if ((nds_min > 0) && (nds_max > 0) && (nds_min > nds_max))
-	throw runtime_error("rf_pipelines::zoomable_tileset constructor: expected nds_min < nds_max");
+    if (nds_arr <= 0)
+	throw runtime_error("rf_pipelines::zoomable_tileset constructor: expected nds_arr > 0");
+    if (!is_power_of_two(nds_arr))
+	throw runtime_error("rf_pipelines::zoomable_tileset constructor: expected nds_arr to be a power of two");
 }
 
 

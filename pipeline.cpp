@@ -57,7 +57,7 @@ void pipeline::_bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
     this->nt_contig = 1;
 
     for (auto &p: this->elements) {
-	p->bind(rb_dict, nt_chunk_out, nt_maxlag + nt_maxgap, json_attrs);
+	p->bind(rb_dict, nt_chunk_out, nt_maxlag + nt_maxgap, json_attrs, this->out_mp);
 	this->nt_chunk_out = p->nt_chunk_out;
 	this->nt_maxgap += p->nt_maxgap;
     }
@@ -137,7 +137,7 @@ void pipeline::_deallocate()
 void pipeline::_start_pipeline(Json::Value &json_attrs)
 {
     for (auto &p: this->elements)
-	p->start_pipeline(this->out_mp, json_attrs);
+	p->start_pipeline(json_attrs);
 }
 
 void pipeline::_end_pipeline(Json::Value &json_output)

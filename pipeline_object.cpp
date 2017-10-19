@@ -46,7 +46,8 @@ void pipeline_object::_throw(const string &msg) const
 // bind(), unbind().
 
 
-void pipeline_object::bind()
+// This version of bind() is only called on a top-level pipeline.
+void pipeline_object::bind(const run_params &params)
 {
     if (this->state >= BOUND)
 	return;
@@ -58,12 +59,20 @@ void pipeline_object::bind()
     ring_buffer_dict rb_dict;
 
     this->json_attrs1 = Json::Value(Json::objectValue);
-    this->bind(rb_dict, n, n, json_attrs1);
+    json_attrs1["outdir"] = params.outdir;
+    json_attrs1["clobber"] = params.clobber;
+    json_attrs1["img_nzoom"] = Json::Int64(params.img_nzoom);
+    json_attrs1["img_nds"] = Json::Int64(params.img_nds);
+    json_attrs1["img_nx"] = Json::Int64(params.img_nx);
+    json_attrs1["verbosity"] = params.verbosity;
+
+    auto mp = make_shared<outdir_manager> (params.outdir, params.clobber);
+    this->bind(rb_dict, n, n, json_attrs1, mp);
 }
 
 // The non-virtual function bind() wraps the pure virtual function _bind().
-void pipeline_object::bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in_, ssize_t nt_maxlag_, Json::Value &json_attrs)
-{    
+void pipeline_object::bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in_, ssize_t nt_maxlag_, Json::Value &json_attrs, const shared_ptr<outdir_manager> &mp)
+{
     rf_assert(nt_chunk_in_ > 0);
     rf_assert(nt_maxlag_ > 0);
 
@@ -75,6 +84,7 @@ void pipeline_object::bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in_, ssiz
 
     this->nt_chunk_in = nt_chunk_in_;
     this->nt_maxlag = nt_maxlag_;
+    this->out_mp = mp;
     
     this->_bind(rb_dict, json_attrs);
 
@@ -148,6 +158,7 @@ void pipeline_object::unbind()
 
     this->all_ring_buffers.clear();
     this->new_ring_buffers.clear();
+    this->json_attrs1 = Json::Value();
     this->json_attrs2 = Json::Value();
 
     this->state = UNBOUND;
@@ -175,7 +186,7 @@ void pipeline_object::allocate()
 	return;
 
     if (this->state == UNBOUND)
-	this->bind();
+	_throw("allocate() called before bind()");
     
     for (auto &p: this->new_ring_buffers)
 	p->allocate();
@@ -214,16 +225,16 @@ void pipeline_object::_deallocate() { }
 // run() and friends
 
 
-Json::Value pipeline_object::run(const run_params &params)
+Json::Value pipeline_object::run(const run_params &params, const callback_t &callback)
 {
     if (this->state >= RUNNING)
 	_throw("Double call to pipeline_object::run(), maybe you're missing a call to reset(), deallocate(), or unbind()?");
 
+    this->bind(params);
     this->allocate();
 
-    auto mp = make_shared<outdir_manager> (params.outdir, params.clobber);
     this->json_attrs2 = Json::Value(Json::objectValue);
-    this->start_pipeline(this->out_mp, json_attrs2);
+    this->start_pipeline(json_attrs2);
 
     rf_assert(this->state == RUNNING);
 
@@ -241,8 +252,8 @@ Json::Value pipeline_object::run(const run_params &params)
 	    ssize_t n = this->advance(m, m);
 	    nt_end = min(nt_end, n);
 
-	    if (params.callback)
-		params.callback(pos_lo, pos_hi);
+	    if (callback)
+		callback(pos_lo, pos_hi);
 	}
     } catch (std::exception &e) {
 	exception_text = e.what();
@@ -320,11 +331,10 @@ ssize_t pipeline_object::advance(ssize_t pos_hi_, ssize_t pos_max_)
 }
 
 
-void pipeline_object::start_pipeline(const shared_ptr<outdir_manager> &mp, Json::Value &json_attrs)
+void pipeline_object::start_pipeline(Json::Value &json_attrs)
 {
     rf_assert(this->state == ALLOCATED);
 
-    this->out_mp = mp;
     this->plot_groups.clear();
     this->time_spent_in_transform = 0.0;
     
@@ -383,7 +393,6 @@ void pipeline_object::reset()
     this->pos_lo = 0;
     this->pos_hi = 0;
     this->pos_max = 0;
-    this->out_mp.reset();
     this->plot_groups.clear();
     this->time_spent_in_transform = 0.0;
     this->json_attrs2 = Json::Value();
