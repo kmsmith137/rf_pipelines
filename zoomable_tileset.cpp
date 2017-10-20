@@ -70,4 +70,84 @@ void zoomable_tileset::extend_rbvec(rbvec_t &rb_out, ssize_t pos, ssize_t nt)
 }
 
 
+// -------------------------------------------------------------------------------------------------
+
+
+zoomable_tileset_state::zoomable_tileset_state(const shared_ptr<zoomable_tileset> &zt_, const shared_ptr<outdir_manager> &mp_, const Json::Value &json_attrs, ssize_t img_ny_) :
+    zt(zt_),
+    mp(mp_),
+    img_nzoom(ssize_t_from_json(json_attrs, "img_nzoom")),
+    img_nds(ssize_t_from_json(json_attrs, "img_nds")),
+    img_nx(ssize_t_from_json(json_attrs, "img_nx")),
+    img_ny(img_ny_)
+{
+    if (!zt)
+	throw runtime_error("zoomable_tileset constructor: expected nonempty shared_ptr<zoomable_tileset>");
+    if (!mp)
+	throw runtime_error("zoomable_tileset constructor: expected nonempty shared_ptr<outdir_manager>");
+    if (img_nzoom <= 0)
+	throw runtime_error("zoomable_tileset constructor: expected img_nzoom > 0");
+    if (img_nds <= 0)
+	throw runtime_error("zoomable_tileset constructor: expected img_nds > 0");
+    if (!is_power_of_two(img_nds))
+	throw runtime_error("zoomable_tileset constructor: expected img_nds to be a power of two");
+    if (img_nx <= 0)
+	throw runtime_error("zoomable_tileset constructor: expected img_nx > 0");
+    if (img_ny <= 0)
+	throw runtime_error("zoomable_tileset constructor: expected img_ny > 0");
+    if (xdiv(img_ny, zt->ny_arr) != 0)
+	throw runtime_error("zoomable_tileset::ny_arr must be equal to, or a divisor of, img_ny");
+    
+    this->ds_offset = integer_log2(img_nds) - integer_log2(zt->nds_arr);
+
+    int nouter = img_nzoom + max(ds_offset,0);
+    int ninner = zt->cdims.size();
+
+    this->ring_buffers.resize(nouter);
+
+    for (int i = 0; i < nouter; i++) {
+	// FIXME I think this slightly overallocates the ring buffers.
+	int nds = zt->nds_arr * (1 << i);
+	int nt_contig = nds * (2 * img_nx);
+
+	this->ring_buffers[i].resize(ninner);
+
+	for (int j = 0; j < ninner; j++) {
+	    this->ring_buffers[i][j] = make_shared<ring_buffer> (zt->cdims[j], nds);
+	    this->ring_buffers[i][j]->update_params(nt_contig, nt_contig);   // (nt_contig, nt_maxlag)
+	}
+    }
+}
+
+
+// The arguments (nt_contig, nt_maxlag) have the same meaning as in ring_buffer::update_params().
+void zoomable_tileset_state::update_params(ssize_t nt_contig, ssize_t nt_maxlag)
+{
+    int ninner = zt->cdims.size();
+    int nt0 = zt->nds_arr * (2 * img_nx);
+
+    rf_assert(ring_buffers.size() > 0);
+    rf_assert(ring_buffers[0].size() == ninner);
+    
+    for (int i = 0; i < ninner; i++)
+	this->ring_buffers[0][i]->update_params(nt0 + nt_contig, nt0 + nt_maxlag);
+} 
+
+
+void zoomable_tileset_state::allocate()
+{
+    for (size_t i = 0; i < ring_buffers.size(); i++)
+	for (size_t j = 0; j < ring_buffers[i].size(); j++)
+	    ring_buffers[i][j]->allocate();
+}
+
+
+void zoomable_tileset_state::deallocate()
+{
+    for (size_t i = 0; i < ring_buffers.size(); i++)
+	for (size_t j = 0; j < ring_buffers[i].size(); j++)
+	    ring_buffers[i][j]->deallocate();
+}
+
+
 }  // namespace rf_pipelines

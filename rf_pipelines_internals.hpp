@@ -74,6 +74,39 @@ struct plot_group {
 };
 
 
+struct zoomable_tileset_state {
+    std::shared_ptr<zoomable_tileset> zt;
+    std::shared_ptr<outdir_manager> mp;
+
+    const ssize_t img_nzoom;  // from struct run_params (same for all zoomable_tilesets in pipeline)
+    const ssize_t img_nds;    // from struct run_params (same for all zoomable_tilesets in pipeline)
+    const ssize_t img_nx;     // from struct run_params (same for all zoomable_tilesets in pipeline)
+    const ssize_t img_ny;     // specified at construction (can be different for all zoomable_tilesets in pipeline)
+
+    // Outer index is zoom level.
+    std::vector<std::vector<std::shared_ptr<ring_buffer>>> ring_buffers;
+
+    // Always equal to (log2(img_nds) - log2(zt->nds_arr)).
+    // A positive value means ring buffer[0] is upsampled relative to the first set of plot tiles.
+    // A negative value means ring_buffer[0] is downsampled relative to the first set of plot tiles.
+    int ds_offset = 0;
+    
+    // This constructor should only be called via pipeline_object::add_zoomable_tileset().
+    zoomable_tileset_state(const std::shared_ptr<zoomable_tileset> &zt, 
+			   const std::shared_ptr<outdir_manager> &mp,
+			   const Json::Value &json_attrs,
+			   ssize_t img_ny);
+
+    // The arguments (nt_contig, nt_maxlag) have the same meaning as in ring_buffer::update_params().
+    void update_params(ssize_t nt_contig, ssize_t nt_maxlag);
+
+    void allocate();
+    void deallocate();
+
+    void _post_advance(...);
+};
+
+
 // -------------------------------------------------------------------------------------------------
 
 
@@ -90,6 +123,7 @@ extern rf_kernels::axis_type axis_type_from_json(const Json::Value &x, const std
 extern double double_from_json(const Json::Value &x, const std::string &k);
 extern int int_from_json(const Json::Value &x, const std::string &k);
 extern bool bool_from_json(const Json::Value &j, const std::string &k);
+extern ssize_t ssize_t_from_json(const Json::Value &j, const std::string &k);
 extern void add_json_object(Json::Value &dst, const Json::Value &src);
 
 
@@ -255,6 +289,18 @@ inline bool is_power_of_two(ssize_t n)
 {
     rf_assert(n > 0);
     return (n & (n-1)) == 0;
+}
+
+inline int integer_log2(int n)
+{
+    int ret = 0;
+    while ((1 << ret) < n)
+        ret++;
+
+    if (n != (1 << ret))
+	throw std::runtime_error("integer_log2 called with non-power-of-two argument");
+
+   return ret;
 }
 
 // Greatest common divisor

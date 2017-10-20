@@ -61,10 +61,6 @@ namespace rf_pipelines {
 //     the initial timestamp (FPGA count) isn't known until the pipeline is started, since
 //     we don't actually start listening for FRB network packets until then.
 //
-//   - Each pipeline_object decides which zoomable plots to emit for the web viewer.  (This
-//     is postponed to start_pipeline(), in order to detect the case where the pipeline is
-//     run without an output directory, and therefore can't emit any plots.)
-//
 // Next, the pipeline runs, and its state advances from RUNNING to DONE.
 // All plots and json output are written to disk here.
 // 
@@ -74,6 +70,9 @@ namespace rf_pipelines {
 //     pipeline_object::reset()        reverts state to ALLOCATED
 //     pipeline_object::deallocate()   reverts state to BOUND
 //     pipeline_object::unbind()       reverts state to UNBOUND
+//
+// Note that resetting the pipeline (without fully unbinding) is useful in a real-time pipeline,
+// but probably doesn't make sense in an offline analysus.
 
 
 // Defined in rf_pipelines_internals.hpp
