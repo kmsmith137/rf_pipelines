@@ -100,6 +100,8 @@ void pipeline_object::bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in_, ssiz
 
     for (auto &rb: this->all_ring_buffers)
 	rb->update_params(nt_contig, nt_maxlag + nt_maxgap);
+    for (auto &zt: this->zoomable_tilesets)
+	zt->update_params(nt_contig, nt_maxlag + nt_maxgap);
 
     this->state = BOUND;
 }
@@ -138,6 +140,23 @@ shared_ptr<ring_buffer> pipeline_object::create_buffer(ring_buffer_dict &rb_dict
 }
 
 
+// Should be called from _bind().
+std::vector<std::shared_ptr<ring_buffer>> 
+pipeline_object::add_zoomable_tileset(const std::shared_ptr<zoomable_tileset> &zt,
+				      const std::shared_ptr<outdir_manager> &mp,
+				      const Json::Value &json_attrs,
+				      ssize_t img_ny)
+{
+    if (this->state != UNBOUND)
+	_throw("pipeline_object::add_zoomable_tileset() called after pipeline_object is already bound");
+
+    auto ret = make_shared<zoomable_tileset_state> (zt, mp, json_attrs, img_ny);
+
+    this->zoomable_tilesets.push_back(ret);
+    return ret->ring_buffers[0];
+}
+
+
 void pipeline_object::unbind()
 {
     if (this->state == UNBOUND)
@@ -158,8 +177,10 @@ void pipeline_object::unbind()
 
     this->all_ring_buffers.clear();
     this->new_ring_buffers.clear();
+    this->zoomable_tilesets.clear();
     this->json_attrs1 = Json::Value();
     this->json_attrs2 = Json::Value();
+    this->out_mp.reset();
 
     this->state = UNBOUND;
 }
@@ -190,6 +211,8 @@ void pipeline_object::allocate()
     
     for (auto &p: this->new_ring_buffers)
 	p->allocate();
+    for (auto &p: this->zoomable_tilesets)
+	p->allocate();
 
     this->_allocate();
     this->state = ALLOCATED;
@@ -209,6 +232,8 @@ void pipeline_object::deallocate()
     this->_deallocate();
     
     for (auto &p: this->new_ring_buffers)
+	p->deallocate();
+    for (auto &p: this->zoomable_tilesets)
 	p->deallocate();
 
     this->state = BOUND;

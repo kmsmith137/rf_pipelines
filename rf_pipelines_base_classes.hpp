@@ -78,6 +78,7 @@ namespace rf_pipelines {
 // Defined in rf_pipelines_internals.hpp
 struct outdir_manager;
 struct plot_group;
+struct zoomable_tileset_state;
 
 
 // -------------------------------------------------------------------------------------------------
@@ -451,6 +452,7 @@ public:
     // Used internally, to keep track of which ring_buffers are bound to this pipeline_object.
     std::vector<std::shared_ptr<ring_buffer>> new_ring_buffers;    // ring buffers created by this pipeline object
     std::vector<std::shared_ptr<ring_buffer>> all_ring_buffers;    // all ring buffers used by this pipeline object (including new_ring_buffers)
+    std::vector<std::shared_ptr<zoomable_tileset_state>> zoomable_tilesets;
 
     // Initialized in bind().
     // Note: if the pipeline is run without an output directory, then 'out_mp' will be 
@@ -606,10 +608,17 @@ public:
     // Helper functions called by _bind(), to manage ring buffers which are used/created by the pipeline_object.
     //   get_buffer(): called for each pre-existing pipeline ring buffer which the pipeline_object uses.
     //   create_buffer(): called for each new pipeline ring buffer which the pipeline_object creates.
+    //   add_zoomable_tileset(): called to create a zoomable_tileset for the web viewer.
 
     std::shared_ptr<ring_buffer> get_buffer(ring_buffer_dict &rb_dict, const std::string &bufname);
     std::shared_ptr<ring_buffer> create_buffer(ring_buffer_dict &rb_dict, const std::string &bufname, const std::vector<ssize_t> &cdims, ssize_t nds);
 
+    std::vector<std::shared_ptr<ring_buffer>> add_zoomable_tileset(const std::shared_ptr<zoomable_tileset> &zt,
+								   const std::shared_ptr<outdir_manager> &mp,
+								   const Json::Value &json_attrs,
+								   ssize_t img_ny);
+
+    
     // This is the deprecated "plot_group" API for managing plots, which is called from start_pipeline().
     //
     // FIXME: phase this out in favor of the "zoomable_tileset" API!
