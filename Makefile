@@ -42,6 +42,7 @@ OFILES = badchannel_mask.o \
 	plot_utils.o \
 	polynomial_detrenders.o \
 	ring_buffer.o \
+	run_params.o \
 	spectrum_analyzer.o \
 	spline_detrenders.o \
 	std_dev_clippers.o \

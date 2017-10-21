@@ -13,9 +13,9 @@ namespace rf_pipelines {
 
 #ifndef HAVE_PNG
 
-void write_png(const string &filename, float *arr, float *weights, int m, int n, bool transpose, bool ytop_to_bottom)
+void write_rgb8_png(const string &filename, uint8_t *rgb, int m, int n, bool ymajor, bool ytop_to_bottom)
 {
-    throw runtime_error("write_png() was called, but this version of librf_pipelines wasn't compiled with libpng");
+    throw runtime_error("write_rgb8_png() was called, but this version of librf_pipelines wasn't compiled with libpng");
 }
 
 #else // HAVE_PNG

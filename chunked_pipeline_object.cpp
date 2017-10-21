@@ -42,6 +42,8 @@ void chunked_pipeline_object::finalize_nt_chunk()
 
     for (const auto &p: this->all_ring_buffers)
 	n = lcm(n, p->nds);
+    for (const auto &p: this->zoomable_tilesets)
+	n = lcm(n, p->nds_arr);
 
     this->nt_chunk = n * max(m/n, ssize_t(1));
     this->_check_nt_chunk();
@@ -57,6 +59,11 @@ void chunked_pipeline_object::_check_nt_chunk() const
     for (const auto &p: this->all_ring_buffers) {
 	if (nt_chunk % p->nds)
 	    _throw("nt_chunk (=" + to_string(nt_chunk) + ") must be a multiple of all ring buffer downsampling factors (found nds=" + to_string(p->nds) + ")");
+    }
+
+    for (const auto &p: this->zoomable_tilesets) {
+	if (nt_chunk % p->nds_arr)
+	    _throw("nt_chunk (=" + to_string(nt_chunk) + ") must be a multiple of all zoomable_tileset downsampling factors (found nds=" + to_string(p->nds_arr) + ")");
     }
 }
 

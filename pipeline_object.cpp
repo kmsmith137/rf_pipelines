@@ -52,6 +52,8 @@ void pipeline_object::bind(const run_params &params)
     if (this->state >= BOUND)
 	return;
 
+    params.check();
+
     ssize_t n = this->get_preferred_chunk_size();
     if (n <= 0)
 	_throw("this object cannot be first in pipeline, since its get_preferred_chunk_size() method is undefined");
@@ -140,17 +142,18 @@ shared_ptr<ring_buffer> pipeline_object::create_buffer(ring_buffer_dict &rb_dict
 }
 
 
-// Should be called from _bind().
-std::vector<std::shared_ptr<ring_buffer>> 
-pipeline_object::add_zoomable_tileset(const std::shared_ptr<zoomable_tileset> &zt,
-				      const std::shared_ptr<outdir_manager> &mp,
-				      const Json::Value &json_attrs,
-				      ssize_t img_ny)
+// Called from _bind().
+vector<shared_ptr<ring_buffer>> 
+pipeline_object::add_zoomable_tileset(const shared_ptr<zoomable_tileset> &zt, const Json::Value &json_attrs)
 {
     if (this->state != UNBOUND)
-	_throw("pipeline_object::add_zoomable_tileset() called after pipeline_object is already bound");
+	_throw("add_zoomable_tileset() called after pipeline_object is already bound");
+    if (!this->out_mp)
+	_throw("add_zoomable_tileset() internal error: 'out_mp' is an empty pointer.");
+    if (out_mp->outdir.size() == 0)
+	_throw("add_zoomable_tileset() should not be called if there is no pipeline outdir");
 
-    auto ret = make_shared<zoomable_tileset_state> (zt, mp, json_attrs, img_ny);
+    auto ret = make_shared<zoomable_tileset_state> (zt, out_mp, json_attrs);
 
     this->zoomable_tilesets.push_back(ret);
     return ret->ring_buffers[0];
@@ -252,6 +255,8 @@ void pipeline_object::_deallocate() { }
 
 Json::Value pipeline_object::run(const run_params &params, const callback_t &callback)
 {
+    params.check();
+
     if (this->state >= RUNNING)
 	_throw("Double call to pipeline_object::run(), maybe you're missing a call to reset(), deallocate(), or unbind()?");
 
@@ -350,6 +355,9 @@ ssize_t pipeline_object::advance(ssize_t pos_hi_, ssize_t pos_max_)
     if (pos_hi - pos_lo > nt_maxgap)
 	_throw("internal error: (pos_hi-pos_lo) > nt_maxgap after advance().");
 
+    for (const auto &p: this->zoomable_tilesets)
+	p->advance(this->pos_lo);
+
     this->time_spent_in_transform += time_diff(tv0, get_time());
 
     return ret;
@@ -384,6 +392,10 @@ void pipeline_object::end_pipeline(Json::Value &json_output)
 	_throw("end_pipeline(): internal error: Json::Value was not an Object as expected");
 
     this->_end_pipeline(json_output);
+
+    for (const auto &p: this->zoomable_tilesets)
+	p->flush();
+
     this->state = DONE;
 
     if (!json_output.isMember("name"))
@@ -391,7 +403,7 @@ void pipeline_object::end_pipeline(Json::Value &json_output)
     if (!json_output.isMember("cpu_time"))
 	json_output["cpu_time"] = this->time_spent_in_transform;
 
-    if (!json_output.isMember("plots") && (plot_groups.size() > 0)) {
+    if (plot_groups.size() > 0) {
 	for (const auto &g: plot_groups) {
 	    if (g.is_empty)
 		continue;
@@ -406,6 +418,12 @@ void pipeline_object::end_pipeline(Json::Value &json_output)
 
             json_output["plots"].append(jp);
 	}
+    }
+
+    for (const auto &p: this->zoomable_tilesets) {
+	// p->json_output is a JSON array.
+	for (const auto &j: p->json_output)
+	    json_output["plots"].append(j);
     }
 }
 
@@ -423,6 +441,8 @@ void pipeline_object::reset()
     this->json_attrs2 = Json::Value();
     
     for (auto &p: this->all_ring_buffers)
+	p->reset();
+    for (auto &p: this->zoomable_tilesets)
 	p->reset();
 
     this->_reset();

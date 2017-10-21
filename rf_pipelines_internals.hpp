@@ -75,35 +75,85 @@ struct plot_group {
 
 
 struct zoomable_tileset_state {
-    std::shared_ptr<zoomable_tileset> zt;
-    std::shared_ptr<outdir_manager> mp;
-
-    const ssize_t img_nzoom;  // from struct run_params (same for all zoomable_tilesets in pipeline)
-    const ssize_t img_nds;    // from struct run_params (same for all zoomable_tilesets in pipeline)
-    const ssize_t img_nx;     // from struct run_params (same for all zoomable_tilesets in pipeline)
-    const ssize_t img_ny;     // specified at construction (can be different for all zoomable_tilesets in pipeline)
-
-    // Outer index is zoom level.
-    std::vector<std::vector<std::shared_ptr<ring_buffer>>> ring_buffers;
-
-    // Always equal to (log2(img_nds) - log2(zt->nds_arr)).
-    // A positive value means ring buffer[0] is upsampled relative to the first set of plot tiles.
-    // A negative value means ring_buffer[0] is downsampled relative to the first set of plot tiles.
-    int ds_offset = 0;
-    
     // This constructor should only be called via pipeline_object::add_zoomable_tileset().
     zoomable_tileset_state(const std::shared_ptr<zoomable_tileset> &zt, 
 			   const std::shared_ptr<outdir_manager> &mp,
-			   const Json::Value &json_attrs,
-			   ssize_t img_ny);
+			   const Json::Value &json_attrs);
 
+    std::shared_ptr<zoomable_tileset> zt;
+    std::shared_ptr<outdir_manager> mp;
+
+    // Note: the parameters (img_nzoom, img_nds, img_nx) are the same for every tileset
+    // emitted by the pipeline.  These parameters are specified in 'struct run_params'
+    // (which is pipeline-global), and are converted to json_attrs in bind().
+    //
+    // The other four parameters can be different for each tileset, and are fields in
+    // 'struct zoomable_tileset'.
+
+    const std::string img_prefix;  // determines tile filenames as ${outdir}/${img_prefix}_${izoom}_${ifile}.png
+    const ssize_t img_nzoom;  // number of zoom levels plotted
+    const ssize_t img_nds;    // time downsampling of tiles at lowest zoom level (i.e. number of time samples per x-pixel)
+    const ssize_t img_nx;     // number of x-pixels per tile
+    const ssize_t img_ny;     // number of y-pixels per tile
+    const ssize_t nds_arr;    // time downsampling of ring buffer and RGB arrays at lowest zoom level
+    const ssize_t ny_arr;     // number of y-pixels in RGB arrays
+
+    bool is_allocated = false;
+    bool is_flushed = false;
+    ssize_t curr_pos = 0;
+
+    // Always equal to (log2(img_nds) - log2(zt->nds_arr)).
+    // Positive value means ring buffer[0] is upsampled relative to the first set of plot tiles.
+    // Negative value means ring_buffer[0] is downsampled relative to the first set of plot tiles.
+    int ds_offset = 0;
+
+    // Outer index is zoom level.
+    // First zoom level has nds = zt->nds_arr.
+    // If ds_offset > 0, then only ring buffer indices irb >= ds_offset get written directly to plot files.
+    std::vector<std::vector<std::shared_ptr<ring_buffer>>> ring_buffers;
+
+    // Number of blocks processed so far (per zoom level).
+    // One "block" is (zt->nds_arr * img_nx * (1<<irb)) time samples, where 'irb' is the outer index.
+    // For ring buffers irb >= ds_offset, blocks are in 1-1 correspondence with plot files.
+    std::vector<ssize_t> nblocks;   // length img_nzoom
+
+    // These buffers hold RGB tiles, which are separate from the ring_buffers.
+    // The 'rgb_zoom' array has logical shape (img_nzoom, zt->ny_arr, img_nx, 3)
+    std::vector<uint8_t *> rgb_zoom;
+
+    // In the case where y-upsampling is done (i.e. zt->ny_arr < img_ny), 
+    // we need an need auxiliary buffer of shape (img_ny, img_nx, 3).
+    uint8_t *rgb_us = nullptr;
+
+    Json::Value json_output;
+    
+    // Called by pipeline_object::bind().
     // The arguments (nt_contig, nt_maxlag) have the same meaning as in ring_buffer::update_params().
     void update_params(ssize_t nt_contig, ssize_t nt_maxlag);
 
+    // Called by pipeline_object::advance().
+    void advance(ssize_t pos);
+
+    // Called by pipeline_object::end_pipeline(), to flush unfinished tiles to disk.
+    void flush();
+
     void allocate();
     void deallocate();
+    void reset();
 
-    void _post_advance(...);
+    // Helper methods used internally.
+    void _advance_by_one_block(int irb);
+    void _emit_plot(int izoom, ssize_t iplot);
+    void _upsample_rgb(uint8_t *rgb_dst, const uint8_t *rgb_src, bool second_half);
+    void _initialize_json();
+
+    inline ssize_t nt_per_block(int irb)
+    {
+	return nds_arr * img_nx * (1 << ssize_t(irb));
+    }
+    
+    // Memory management.
+    std::vector<std::unique_ptr<uint8_t[]>> rgb_alloc;
 };
 
 

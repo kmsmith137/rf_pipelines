@@ -121,6 +121,8 @@ struct run_params {
     ssize_t img_nds = 16;
     ssize_t img_nx = 256;
     int verbosity = 2;
+
+    void check() const;
 };
 
 
@@ -331,26 +333,51 @@ struct zoomable_tileset {
     // the array dimension of ring buffer 'i' is (cdims[i].size()+1).
 
     const std::vector<std::vector<ssize_t>> cdims;
-
-    // The 'ny_arr' field is the y-dimension of the rgb arrays emitted by the zoomable_tileset,
-    // and the 'nds_arr' field is the downsampling factor at the lowest zoom level of the zoomed
-    // tileset.
+    
+    // Here is the complete list of plotting-related parameters:
     //
-    // These are usually equal to 'img_ny' and 'img_nds', the y-dimension and downsampling
-    // factor of the png files which are emitted.  The img_* fields are members of struct
-    // run_params (see above), and are available to all pipeline_objects as json attributes
-    // during bind() (see below).
+    //   img_prefix: determines tile filenames as ${outdir}/${img_prefix}_${izoom}_${ifile}.png
+    //   img_nds: time downsampling of tiles at lowest zoom level (i.e. number of time samples per x-pixel)
+    //   img_nzoom: number of zoom levels plotted
+    //   img_nx: number of x-pixels per tile
+    //   img_ny: number of y-pixels per tile
+    //   nds_arr: time downsampling of ring buffer and RGB arrays at lowest zoom level
+    //   ny_arr: number of y-pixels in RGB arrays
+    // 
+    // Note 1: the parameters (img_nzoom, img_nds, img_nx) are the same for every tileset
+    //   emitted by the pipeline.  These parameters are in 'struct run_params' (which is
+    //   pipeline-global), and are not available in 'struct zoomable_tileset'.
     //
-    // However, if ny_arr is a divisor of img_ny, then rf_pipelines will automatically upsample.
-    // Likewise, if nds_arr is either a divisor or multiple of img_nds, then rf_pipelines will
-    // automatically either downsample (by calling the downsample_rbvec virtual) or upsample.
-    // The zoomed_tileset therefore has some flexibility in initializing ny_arr, nds_arr.
+    // Note 2: the global parameter 'img_nds' need not be the same as 'nds_arr', although
+    //   there is a constraint that both must be powers of two.  From the persepective of
+    //   the zoomable_tileset, nds_arr is the parameter that "matters".  (More precisely,
+    //   when the lowest-level ring buffers are filled during pipeline processing, the
+    //   downsampling level of the buffers is nds_arr.)
+    //
+    //   In the case where img_nds and nds_arr are not equal, rf_pipelines will appropriately 
+    //   downsample or upsample before emitting plots.  This gives each pipeline_object the
+    //   flexibility to choose its internal downsampling level depending on what is most
+    //   convenient.
+    //
+    // Note 3: similarly, the parameters 'img_ny' and 'ny_arr' need not be equal, and
+    //   from the perspective of the zoomable_tileset, ny_arr is the one that "matters".
+    //   (More precisely, when the plot_rbvec() virtual is called, its output RGB array
+    //   has y-dimension ny_arr, not img_ny.)
+    //
+    //   Here there is a constraint that ny_arr is equal to, or a divisor of, img_ny.
+    //   This gives the pipeline_object the flexibility to choose ny_arr < img_ny, and
+    //   rf_pipelines will automatically upsample the images.  However, in the case where 
+    //   the "natural" y-dimension is larger than img_ny, there is no way to get automatic
+    //   downsampling - the pipeline_object must supply its own downsampling logic in this case.
 
+    const std::string img_prefix;
+    const ssize_t img_ny;
     const ssize_t ny_arr;
     const ssize_t nds_arr;
 
     // Base class constructor.
-    zoomable_tileset(const std::vector<std::vector<ssize_t>> &cdims, ssize_t ny_arr, ssize_t nds_arr);
+    zoomable_tileset(const std::vector<std::vector<ssize_t>> &cdims, const std::string &img_prefix,
+		     ssize_t img_ny, ssize_t ny_arr, ssize_t nds_arr);
 	
     // Virtuals.
     //
@@ -365,7 +392,7 @@ struct zoomable_tileset {
     // downsample_rbvec(rb_out, rb_in, pos, nt)
     //   Note that 'rb_out' has twice the downsampling factor of 'rb_in'.
     //
-    // extend_bufs(rb_out, pos, nt)
+    // extend_rbvec(rb_out, pos, nt)
     //   By default, this zeroes the buffers, but this can be overridden.
 
     virtual void plot_rbvec(uint8_t *rgb_out, rbvec_t &rb_in, ssize_t pos, ssize_t nt) = 0;
@@ -613,10 +640,11 @@ public:
     std::shared_ptr<ring_buffer> get_buffer(ring_buffer_dict &rb_dict, const std::string &bufname);
     std::shared_ptr<ring_buffer> create_buffer(ring_buffer_dict &rb_dict, const std::string &bufname, const std::vector<ssize_t> &cdims, ssize_t nds);
 
-    std::vector<std::shared_ptr<ring_buffer>> add_zoomable_tileset(const std::shared_ptr<zoomable_tileset> &zt,
-								   const std::shared_ptr<outdir_manager> &mp,
-								   const Json::Value &json_attrs,
-								   ssize_t img_ny);
+    // Called from bind().  
+    // The 'zt' arg should be a new zoomable_tileset object constructed by the caller.
+    // The 'json_attrs' arg should be the same as the 'json_attrs' argument to bind().
+    // The return value is a vector containing the ring buffers at the lowest zoom level (see comments in 'struct zoomable_tileset').
+    std::vector<std::shared_ptr<ring_buffer>> add_zoomable_tileset(const std::shared_ptr<zoomable_tileset> &zt, const Json::Value &json_attrs);
 
     
     // This is the deprecated "plot_group" API for managing plots, which is called from start_pipeline().
