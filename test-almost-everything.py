@@ -419,7 +419,7 @@ def run_test():
     t = [ rf_pipelines.pipeline_object.from_json(j) for j in tj ]
 
     p = rf_pipelines.pipeline([s] + t + [u])
-    p.bind()
+    p.bind(outdir=None, verbosity=0)
 
     # Check jsonization (test is slightly stronger if bind() comes first)
     tj2 = [ x.jsonize() for x in t ]

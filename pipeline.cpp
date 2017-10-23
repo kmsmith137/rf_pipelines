@@ -57,7 +57,7 @@ void pipeline::_bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
     this->nt_contig = 1;
 
     for (auto &p: this->elements) {
-	p->bind(rb_dict, nt_chunk_out, nt_maxlag + nt_maxgap, json_attrs, this->out_mp);
+	p->bind(get_params(), rb_dict, nt_chunk_out, nt_maxlag + nt_maxgap, json_attrs, this->out_mp);
 	this->nt_chunk_out = p->nt_chunk_out;
 	this->nt_maxgap += p->nt_maxgap;
     }

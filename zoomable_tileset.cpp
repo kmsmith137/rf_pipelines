@@ -90,31 +90,29 @@ inline shared_ptr<zoomable_tileset> _check_zt(const shared_ptr<zoomable_tileset>
 }
 
 
-zoomable_tileset_state::zoomable_tileset_state(const shared_ptr<zoomable_tileset> &zt_, const shared_ptr<outdir_manager> &mp_, const Json::Value &json_attrs) :
+zoomable_tileset_state::zoomable_tileset_state(const shared_ptr<zoomable_tileset> &zt_, const pipeline_object &p) :
     zt(_check_zt(zt_)),
-    mp(mp_),
+    mp(p.out_mp),
     img_prefix(zt_->img_prefix),
-    img_nzoom(ssize_t_from_json(json_attrs, "img_nzoom")),
-    img_nds(ssize_t_from_json(json_attrs, "img_nds")),
-    img_nx(ssize_t_from_json(json_attrs, "img_nx")),
+    img_nzoom(p._params.img_nzoom),
+    img_nds(p._params.img_nds),
+    img_nx(p._params.img_nx),
     img_ny(zt_->img_ny),
     nds_arr(zt_->nds_arr),
     ny_arr(zt_->ny_arr)
 {
-    if (!mp)
-	throw runtime_error("zoomable_tileset constructor: expected nonempty shared_ptr<outdir_manager>");
-    if (mp->outdir.size() == 0)
-	throw runtime_error("zoomable_tileset constructor: expected nonempty outdir_manager::outdir to be a nonempty string");
-
     // These asserts should have been checked previously, either in run_params::check()
     // or in the zoomable_tileset constructor.
 
+    rf_assert(mp);
+    rf_assert(mp->outdir.size() > 0);
     rf_assert(img_prefix.size() > 0);
     rf_assert((img_nzoom >= 1) && (img_nzoom <= 10));
     rf_assert((img_nds > 0) && is_power_of_two(img_nds));
     rf_assert((nds_arr > 0) && is_power_of_two(nds_arr));
     rf_assert((img_nx > 0) && (img_nx % 2 == 0));
     rf_assert((img_ny > 0) && (ny_arr > 0) && (img_ny % ny_arr == 0));
+    rf_assert(p.state == pipeline_object::BINDING);
     
     this->ds_offset = integer_log2(img_nds) - integer_log2(nds_arr);
 

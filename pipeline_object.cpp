@@ -49,45 +49,47 @@ void pipeline_object::_throw(const string &msg) const
 // This version of bind() is only called on a top-level pipeline.
 void pipeline_object::bind(const run_params &params)
 {
-    if (this->state >= BOUND)
-	return;
-
-    params.check();
+    if (this->state >= BOUND) {
+	string s = _params.mismatch(params);
+	if (s.size() == 0)
+	    return;
+	_throw("double call to bind() with mismatched " + s + ".  Maybe you forgot to call unbind()?");
+    }
 
     ssize_t n = this->get_preferred_chunk_size();
     if (n <= 0)
 	_throw("this object cannot be first in pipeline, since its get_preferred_chunk_size() method is undefined");
 
-    ring_buffer_dict rb_dict;
-
     this->json_attrs1 = Json::Value(Json::objectValue);
-    json_attrs1["outdir"] = params.outdir;
-    json_attrs1["clobber"] = params.clobber;
-    json_attrs1["img_nzoom"] = Json::Int64(params.img_nzoom);
-    json_attrs1["img_nds"] = Json::Int64(params.img_nds);
-    json_attrs1["img_nx"] = Json::Int64(params.img_nx);
-    json_attrs1["verbosity"] = params.verbosity;
 
-    auto mp = make_shared<outdir_manager> (params.outdir, params.clobber);
-    this->bind(rb_dict, n, n, json_attrs1, mp);
+    ring_buffer_dict rb_dict;
+    shared_ptr<outdir_manager> mp = make_shared<outdir_manager> (params.outdir, params.clobber);
+    
+    this->bind(params, rb_dict, n, n, json_attrs1, mp);
 }
 
 // The non-virtual function bind() wraps the pure virtual function _bind().
-void pipeline_object::bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in_, ssize_t nt_maxlag_, Json::Value &json_attrs, const shared_ptr<outdir_manager> &mp)
+void pipeline_object::bind(const run_params &params, ring_buffer_dict &rb_dict, ssize_t nt_chunk_in_, ssize_t nt_maxlag_, Json::Value &json_attrs, const shared_ptr<outdir_manager> &mp)
 {
     rf_assert(nt_chunk_in_ > 0);
     rf_assert(nt_maxlag_ > 0);
+    rf_assert(json_attrs.isObject());
+    rf_assert(mp);
+
+    params.check();
 
     if (name.size() == 0)
 	throw runtime_error("rf_pipelines: pipeline_object did not initialize 'name' field in its constructor");
 
     if (this->state != UNBOUND)
-	_throw("Double call to pipeline_object::bind().  This can happen if a pipeline_object is reused in a pipeline, or used in multiple pipelines.");
+	_throw("Double call to pipeline_object::bind(), suspect pipeline_object is reused in a pipeline, or used in multiple pipelines.");
 
+    this->_params = params;
     this->nt_chunk_in = nt_chunk_in_;
     this->nt_maxlag = nt_maxlag_;
     this->out_mp = mp;
-    
+    this->state = BINDING;
+
     this->_bind(rb_dict, json_attrs);
 
     rf_assert(nt_chunk_in == nt_chunk_in_);
@@ -109,11 +111,20 @@ void pipeline_object::bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in_, ssiz
 }
 
 
+const run_params &pipeline_object::get_params() const
+{
+    if (state == UNBOUND)
+	_throw("get_params() called on unbound pipeline_object");
+    
+    return this->_params;
+}
+
+
 // Should be called from _bind().
 shared_ptr<ring_buffer> pipeline_object::get_buffer(ring_buffer_dict &rb_dict, const string &bufname)
 {
-    if (this->state != UNBOUND)
-	_throw("pipeline_object::get_buffer() called after pipeline_object is already bound");
+    if (this->state != BINDING)
+	_throw("pipeline_object::get_buffer() called outside bind()");
     if (!has_key(rb_dict, bufname))
 	_throw("buffer '" + bufname + "' does not exist in pipeline");
 
@@ -127,8 +138,8 @@ shared_ptr<ring_buffer> pipeline_object::get_buffer(ring_buffer_dict &rb_dict, c
 // Should be called from _bind().
 shared_ptr<ring_buffer> pipeline_object::create_buffer(ring_buffer_dict &rb_dict, const string &bufname, const vector<ssize_t> &cdims, ssize_t nds)
 {
-    if (this->state != UNBOUND)
-	_throw("pipeline_object::create_buffer() called after pipeline_object is already bound");
+    if (this->state != BINDING)
+	_throw("pipeline_object::create_buffer() called outside bind()");
     if (has_key(rb_dict, bufname))
 	_throw("buffer '" + bufname + "' already exists in pipeline");
 
@@ -146,14 +157,14 @@ shared_ptr<ring_buffer> pipeline_object::create_buffer(ring_buffer_dict &rb_dict
 vector<shared_ptr<ring_buffer>> 
 pipeline_object::add_zoomable_tileset(const shared_ptr<zoomable_tileset> &zt, const Json::Value &json_attrs)
 {
-    if (this->state != UNBOUND)
-	_throw("add_zoomable_tileset() called after pipeline_object is already bound");
+    if (this->state != BINDING)
+	_throw("add_zoomable_tileset() called outside bind()");
     if (!this->out_mp)
 	_throw("add_zoomable_tileset() internal error: 'out_mp' is an empty pointer.");
     if (out_mp->outdir.size() == 0)
 	_throw("add_zoomable_tileset() should not be called if there is no pipeline outdir");
 
-    auto ret = make_shared<zoomable_tileset_state> (zt, out_mp, json_attrs);
+    auto ret = make_shared<zoomable_tileset_state> (zt, *this);
 
     this->zoomable_tilesets.push_back(ret);
     return ret->ring_buffers[0];
@@ -209,7 +220,7 @@ void pipeline_object::allocate()
     if (this->state >= ALLOCATED)
 	return;
 
-    if (this->state == UNBOUND)
+    if (this->state < BOUND)
 	_throw("allocate() called before bind()");
     
     for (auto &p: this->new_ring_buffers)

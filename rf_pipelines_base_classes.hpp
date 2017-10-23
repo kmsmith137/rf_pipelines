@@ -124,6 +124,11 @@ struct run_params {
     int verbosity = 2;
     bool debug = false;
 
+    // Verbose equality check.  If all fields of 'this' and 'p' are equal, the return value
+    // is an empty string.  Otherwise it is a comma-separated list of mismatched fields.
+    std::string mismatch(const run_params &p) const;
+    
+    // Throws exception if something is wrong.
     void check() const;
 };
 
@@ -441,13 +446,17 @@ public:
 
     enum {
 	UNBOUND = 0,
-	BOUND = 1,
-	ALLOCATED = 2,
-	RUNNING = 3,
-	DONE = 4
+	BINDING = 1,
+	BOUND = 2,
+	ALLOCATED = 3,
+	RUNNING = 4,
+	DONE = 5
     } state;
 
     std::string name;
+
+    // Can be called any time after bind().
+    const run_params &get_params() const;
 
     // General note: all time indices (for example pipeline_object::nt_chunk_*, or pipeline_object::pos_*)
     // use the "native" time resolution of the pipeline, i.e. they are not divided by any downsampling factor 'nds'.
@@ -488,6 +497,7 @@ public:
     // a nonempty pointer, but out_mp->outdir will be an empty string.
     std::shared_ptr<outdir_manager> out_mp;
     double time_spent_in_transform = 0.0;
+    run_params _params;
 
     // New plot_groups should be created in _start_pipeline(), by calling pipeline_object::add_plot_group().
     std::vector<plot_group> plot_groups;
@@ -524,7 +534,7 @@ public:
     // recurse into their children.  This should be done using the wrappers.
     // For example, pipeline::_bind() calls bind() in each child (not _bind()).
 
-    void bind(ring_buffer_dict &rb_dict, ssize_t nt_chunk_in, ssize_t nt_maxlag, Json::Value &json_attrs, const std::shared_ptr<outdir_manager> &out_mp);
+    void bind(const run_params &params, ring_buffer_dict &rb_dict, ssize_t nt_chunk_in, ssize_t nt_maxlag, Json::Value &json_attrs, const std::shared_ptr<outdir_manager> &out_mp);
     void start_pipeline(Json::Value &json_attrs);
     void end_pipeline(Json::Value &json_output);
     ssize_t advance(ssize_t pos_hi, ssize_t pos_max);    

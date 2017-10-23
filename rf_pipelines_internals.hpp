@@ -76,9 +76,7 @@ struct plot_group {
 
 struct zoomable_tileset_state {
     // This constructor should only be called via pipeline_object::add_zoomable_tileset().
-    zoomable_tileset_state(const std::shared_ptr<zoomable_tileset> &zt, 
-			   const std::shared_ptr<outdir_manager> &mp,
-			   const Json::Value &json_attrs);
+    zoomable_tileset_state(const std::shared_ptr<zoomable_tileset> &zt, const pipeline_object &p);
 
     std::shared_ptr<zoomable_tileset> zt;
     std::shared_ptr<outdir_manager> mp;
