@@ -11,10 +11,16 @@ namespace rf_pipelines {
 #endif
 
 
-ring_buffer::ring_buffer(const vector<ssize_t> &cdims_, ssize_t nds_) :
+// Only used for debugging.
+static std::random_device g_rd;
+static std::mt19937 g_rng(g_rd());
+
+
+ring_buffer::ring_buffer(const vector<ssize_t> &cdims_, ssize_t nds_, bool debug_) :
     cdims(cdims_), 
     csize(prod(cdims_)),
-    nds(nds_)
+    nds(nds_),
+    debug(debug_)
 {
     check_cdims(cdims);
 
@@ -61,11 +67,15 @@ void ring_buffer::allocate()
 
     if (stride % 32 == 0)
 	stride += 16;
+
+    // This strengthens unit tests a bit.
+    if (debug)
+	stride += 32 * randint(g_rng, 0, 8);
     
     this->buf = aligned_alloc<float> (csize * stride);
 
 #if RF_RB_DEBUG
-    cout << "ring_buffer::allocate(): nt_contig=" << nt_contig << ", nt_maxlag=" << nt_maxlag
+    cout << "ring_buffer::allocate(): nds=" << nds << ", nt_contig=" << nt_contig << ", nt_maxlag=" << nt_maxlag
 	 << ", period=" << period << ", stride=" << stride << endl;
 #endif
 }

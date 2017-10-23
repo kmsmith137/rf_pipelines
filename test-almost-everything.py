@@ -373,7 +373,7 @@ class initial_stream(rf_pipelines.wi_stream):
             nfreq *= rand.randint(128//nfreq + 1, 2048//nfreq + 1)
 
         self.nfreq = nfreq
-        self.nt_tot = rand.randint(1000, 2000)
+        self.nt_tot = rand.randint(10000, 40000)
         self.intensity = rand.standard_normal(size=(nfreq,self.nt_tot))
         self.weights = rand.uniform(0.5, 1.0, size=(nfreq,self.nt_tot))
         self.nt_chunk = rand.randint(20, 50)
@@ -419,14 +419,14 @@ def run_test():
     t = [ rf_pipelines.pipeline_object.from_json(j) for j in tj ]
 
     p = rf_pipelines.pipeline([s] + t + [u])
-    p.bind(outdir=None, verbosity=0)
+    p.bind(outdir=None, verbosity=0, debug=True)
 
     # Check jsonization (test is slightly stronger if bind() comes first)
     tj2 = [ x.jsonize() for x in t ]
     assert tj == tj2
 
     # First run
-    p.run(outdir=None, verbosity=0)
+    p.run(outdir=None, verbosity=0, debug=True)
     (i0,w0) = u.get_results()
 
     nt0 = i0.shape[1]

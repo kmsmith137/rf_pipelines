@@ -99,7 +99,8 @@ zoomable_tileset_state::zoomable_tileset_state(const shared_ptr<zoomable_tileset
     img_nx(p._params.img_nx),
     img_ny(zt_->img_ny),
     nds_arr(zt_->nds_arr),
-    ny_arr(zt_->ny_arr)
+    ny_arr(zt_->ny_arr),
+    debug(p._params.debug)
 {
     // These asserts should have been checked previously, either in run_params::check()
     // or in the zoomable_tileset constructor.
@@ -129,7 +130,7 @@ zoomable_tileset_state::zoomable_tileset_state(const shared_ptr<zoomable_tileset
 	int nt_contig = 2 * this->nt_per_block(i);
 
 	for (int j = 0; j < ninner; j++) {
-	    this->ring_buffers[i][j] = make_shared<ring_buffer> (zt->cdims[j], nds);
+	    this->ring_buffers[i][j] = make_shared<ring_buffer> (zt->cdims[j], nds, debug);
 	    this->ring_buffers[i][j]->update_params(nt_contig, nt_contig);   // (nt_contig, nt_maxlag)
 	}
     }

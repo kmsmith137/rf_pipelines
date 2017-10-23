@@ -122,7 +122,7 @@ def run_pipeline(pipeline_json, intensity_arr, weights_arr):
     p2 = final_transform()
     
     p = rf_pipelines.pipeline([p0,p1,p2])
-    p.run(outdir=None, verbosity=0)
+    p.run(outdir=None, verbosity=0, debug=True)
 
     (intensity, weights) = p2.get_results()
     return (intensity, weights)
@@ -165,7 +165,7 @@ def run_test():
     tf = final_transform()
 
     p = rf_pipelines.pipeline([ si, p0, ps, p2, tf ])
-    p.run(outdir=None, verbosity=0)
+    p.run(outdir=None, verbosity=0, debug=True)
     (i4,w4) = tf.get_results()
 
     eps_i = maxdiff((i3*w3)[:,:nt_tot],(i4*w4)[:,:nt_tot])

@@ -22,7 +22,7 @@ static vector<ssize_t> make_random_cdims(std::mt19937 &rng)
 
 static void test_ring_buffer(std::mt19937 &rng, const vector<ssize_t> &cdims, ssize_t nds, ssize_t nt_contig, ssize_t nt_maxlag)
 {
-    shared_ptr<ring_buffer> rb = make_shared<ring_buffer> (cdims, nds);
+    shared_ptr<ring_buffer> rb = make_shared<ring_buffer> (cdims, nds, true);   // debug=true
     rb->update_params(nt_contig * nds, nt_maxlag * nds);
     rb->allocate();
 

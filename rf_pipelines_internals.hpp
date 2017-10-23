@@ -95,6 +95,7 @@ struct zoomable_tileset_state {
     const ssize_t img_ny;     // number of y-pixels per tile
     const ssize_t nds_arr;    // time downsampling of ring buffer and RGB arrays at lowest zoom level
     const ssize_t ny_arr;     // number of y-pixels in RGB arrays
+    const bool debug;
 
     bool is_allocated = false;
     bool is_flushed = false;

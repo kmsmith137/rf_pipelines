@@ -113,6 +113,8 @@ struct run_params {
     //   2 = log all output files
     //   3 = debug trace through pipeline
     //
+    // If 'debug' is true, some extra debug tests are implemented.  This slows down
+    // pipeline processing, so should only be specified for debugging/testing.
     //
     // FIXME: verbosity not actually implemented yet.
     
@@ -157,9 +159,13 @@ public:
     const ssize_t csize;  // product of all cdims
     
     // Downsampling factor
-    const ssize_t nds;                 
+    const ssize_t nds;
 
-    ring_buffer(const std::vector<ssize_t> &cdims, ssize_t nds);
+    // If 'debug' is true, some extra debug tests are implemented.  This slows down
+    // pipeline processing, so should only be specified for debugging/testing.
+    const bool debug;
+
+    ring_buffer(const std::vector<ssize_t> &cdims, ssize_t nds, bool debug=false);
     ~ring_buffer();
 
     // The 'nt_contig' and 'nt_maxlag' arguments do not have the downsampling factor 'nds' applied.

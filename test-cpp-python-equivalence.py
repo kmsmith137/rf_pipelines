@@ -643,7 +643,7 @@ def test_transforms():
         stream = rf_pipelines.gaussian_noise_stream(nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample)
 
         p = rf_pipelines_c.pipeline([stream] + transform_chain)
-        p.run(outdir=None, verbosity=0)
+        p.run(outdir=None, verbosity=0, debug=True)
 
     print >>sys.stderr, 'test_transforms: pass'
 

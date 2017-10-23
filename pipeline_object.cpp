@@ -143,7 +143,7 @@ shared_ptr<ring_buffer> pipeline_object::create_buffer(ring_buffer_dict &rb_dict
     if (has_key(rb_dict, bufname))
 	_throw("buffer '" + bufname + "' already exists in pipeline");
 
-    auto ret = make_shared<ring_buffer> (cdims, nds);
+    auto ret = make_shared<ring_buffer> (cdims, nds, _params.debug);
 
     rb_dict[bufname] = ret;
     all_ring_buffers.push_back(ret);

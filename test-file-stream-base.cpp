@@ -252,6 +252,7 @@ int main(int argc, char **argv)
 	run_params params;
 	params.outdir = "";
 	params.verbosity = 0;
+	params.debug = true;
 	p->run(params);
 
 	rf_assert(tp->it_curr >= sp->_it1);

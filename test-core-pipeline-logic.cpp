@@ -157,6 +157,7 @@ void reference_pipeline_object::run_test(ssize_t nt_end)
     run_params params;
     params.outdir = "";
     params.verbosity = 0;
+    params.debug = true;
     p->run(params);
 
     vector<vector<float>> &buf = p2->vectorized_output;
