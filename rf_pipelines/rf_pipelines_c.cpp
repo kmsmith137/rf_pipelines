@@ -425,7 +425,7 @@ static void check_signals(ssize_t pos_lo, ssize_t pos_hi)
 
 
 // Used to wrap pipeline_object::bind() and pipeline_object::run().
-static run_params make_run_params(const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity)
+static run_params make_run_params(const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity, bool debug)
 {
     run_params ret;
 
@@ -442,6 +442,7 @@ static run_params make_run_params(const py_object &outdir, bool clobber, ssize_t
     ret.img_nds = img_nds;
     ret.img_nx = img_nx;
     ret.verbosity = verbosity;
+    ret.debug = debug;
 
     return ret;
 }
@@ -455,20 +456,20 @@ static void wrap_pipeline_object(extension_module &m)
     std::function<string& (pipeline_object *)>
 	_name = [](pipeline_object *self) -> string& { return self->name; };
 
-    std::function<void (pipeline_object *, const py_object &, bool, ssize_t, ssize_t, ssize_t, int)>
-	_bind = [](pipeline_object *self, const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity)
+    std::function<void (pipeline_object *, const py_object &, bool, ssize_t, ssize_t, ssize_t, int, bool)>
+	_bind = [](pipeline_object *self, const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity, bool debug)
 	{
-	    run_params p = make_run_params(outdir, clobber, img_nzoom, img_nds, img_nx, verbosity);
+	    run_params p = make_run_params(outdir, clobber, img_nzoom, img_nds, img_nx, verbosity, debug);
 	    return self->bind(p);
 	};
 
-    std::function<Json::Value (pipeline_object *, const py_object &, bool, ssize_t, ssize_t, ssize_t, int)>
-	_run = [](pipeline_object *self, const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity)
+    std::function<Json::Value (pipeline_object *, const py_object &, bool, ssize_t, ssize_t, ssize_t, int, bool)>
+	_run = [](pipeline_object *self, const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity, bool debug)
 	{
 	    // FIXME for completeness, should allow python caller to specify a callback function.
 	    // (This should be called via a C++ wrapper which also calls check_signals().)
 
-	    run_params p = make_run_params(outdir, clobber, img_nzoom, img_nds, img_nx, verbosity);
+	    run_params p = make_run_params(outdir, clobber, img_nzoom, img_nds, img_nx, verbosity, debug);
 	    return self->run(p, check_signals);
 	};
 
@@ -499,7 +500,7 @@ static void wrap_pipeline_object(extension_module &m)
 	};
 
     // doc_rp1, doc_rp2 are building blocks for doc_bind, doc_run, which both take a run_params.
-    string doc_rp1 = ("outdir='.', clobber=True, img_nzoom=4, img_nds=16, img_nx=256, verbosity=2");
+    string doc_rp1 = ("outdir='.', clobber=True, img_nzoom=4, img_nds=16, img_nx=256, verbosity=2, debug=False");
 
     string doc_rp2 = ("'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will\n"
 		      "be written, in addition to other transform-specific output files such as plots.\n"
@@ -520,7 +521,10 @@ static void wrap_pipeline_object(extension_module &m)
 		      "    0 = no output\n"
 		      "    1 = high-level summary output (names of transforms, number of samples processed etc.)\n"
 		      "    2 = show all output files\n"
-		      "    3 = debug trace through pipeline");
+		      "    3 = debug trace through pipeline\n"
+		      "\n"
+		      "If 'debug' is true, some extra debug tests are implemented.  This slows down\n"
+		      "pipeline processing, so should only be specified for debugging/testing.\n");
 
     string doc_bind = ("bind(" + doc_rp1 + ")\n"
 		       "\n"
@@ -609,10 +613,10 @@ static void wrap_pipeline_object(extension_module &m)
     pipeline_object_type.add_property("name", "Name of pipeline_object", _name);
 
     pipeline_object_type.add_method("run", doc_run, wrap_method(_run, kwarg("outdir",py_object()), kwarg("clobber",true), kwarg("img_nzoom",4), 
-								kwarg("img_nds",16), kwarg("img_nx",256), kwarg("verbosity",2)));
+								kwarg("img_nds",16), kwarg("img_nx",256), kwarg("verbosity",2), kwarg("debug",false)));
 
     pipeline_object_type.add_method("bind", doc_bind, wrap_method(_bind, kwarg("outdir",py_object()), kwarg("clobber",true), kwarg("img_nzoom",4), 
-								  kwarg("img_nds",16), kwarg("img_nx",256), kwarg("verbosity",2)));
+								  kwarg("img_nds",16), kwarg("img_nx",256), kwarg("verbosity",2), kwarg("debug",false)));
 							 
     pipeline_object_type.add_method("allocate", "Allocates all pipeline buffers", wrap_method(&pipeline_object::allocate));
     pipeline_object_type.add_method("deallocate", "Deallocates all pipeline buffers", wrap_method(&pipeline_object::deallocate));

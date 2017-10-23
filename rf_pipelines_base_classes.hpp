@@ -113,6 +113,7 @@ struct run_params {
     //   2 = log all output files
     //   3 = debug trace through pipeline
     //
+    //
     // FIXME: verbosity not actually implemented yet.
     
     std::string outdir = ".";
@@ -121,6 +122,7 @@ struct run_params {
     ssize_t img_nds = 16;
     ssize_t img_nx = 256;
     int verbosity = 2;
+    bool debug = false;
 
     void check() const;
 };
