@@ -306,6 +306,16 @@ Json::Value pipeline_object::run(const run_params &params, const callback_t &cal
     json_output["success"] = !exception_thrown;
     json_output["error_message"] = exception_text;
 
+    // I decided to put all run_params in the json output, even
+    // those whose usefulness is dubious!
+    json_output["outdir"] = _params.outdir;
+    json_output["clobber"] = _params.clobber;
+    json_output["img_nzoom"] = Json::Int64(_params.img_nzoom);
+    json_output["img_nds"] = Json::Int64(_params.img_nds);
+    json_output["img_nx"] = Json::Int64(_params.img_nx);
+    json_output["verbosity"] = _params.verbosity;
+    json_output["debug"] = _params.debug;
+
     add_json_object(json_output, this->json_attrs1);  // bind() attributes
     add_json_object(json_output, this->json_attrs2);  // start_pipeline() attributes
     
