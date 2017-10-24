@@ -1,6 +1,7 @@
 # Makefile.local must define the following variables
 #   LIBDIR      install dir for C++ libraries
 #   INCDIR      install dir for C++ headers
+#   BINDIR      install dir for executables (currently, all excutables are python scripts)
 #   PYDIR       install dir for python modules
 #   CPP         C++ compiler command line
 #
@@ -76,8 +77,11 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 
 TESTBINFILES = test-misc test-ring-buffer test-core-pipeline-logic test-file-stream-base
 
+# In scripts/
+SCRIPTS=rfp-run.py
+
 # Used in 'make clean'
-CLEANDIRS=. site rf_pipelines rf_pipelines/streams rf_pipelines/transforms rf_pipelines/retirement_home
+CLEANDIRS=. site rf_pipelines rf_pipelines/streams rf_pipelines/transforms rf_pipelines/retirement_home scripts
 
 # Used in 'make uninstall': header files which no longer exist, but did exist in previous versions of rf_pipelines
 DUMMY_INCFILES=chime_packetizer.hpp chime_file_stream_base.hpp reverter.hpp
@@ -100,6 +104,10 @@ endif
 
 ifndef PYDIR
 $(error Fatal: Makefile.local must define PYDIR variable)
+endif
+
+ifndef BINDIR
+$(error Fatal: Makefile.local must define BINDIR variable)
 endif
 
 
@@ -149,13 +157,15 @@ LIBS += -lrf_kernels -ljsoncpp
 all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so $(TESTBINFILES)
 
 install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
-	mkdir -p $(INCDIR)/ $(LIBDIR)/ $(PYDIR)/rf_pipelines/streams $(PYDIR)/rf_pipelines/transforms $(PYDIR)/rf_pipelines/retirement_home
+	mkdir -p $(INCDIR)/ $(LIBDIR)/ $(BINDIR)/ $(PYDIR)/rf_pipelines/streams $(PYDIR)/rf_pipelines/transforms $(PYDIR)/rf_pipelines/retirement_home
 	cp -f $(INCFILES) $(INCDIR)/
 	for f in $(PYFILES); do cp $$f $(PYDIR)/$$f; done
+	for f in $(SCRIPTS); do cp scripts/$$f $(BINDIR)/$$f; done
 	cp -f librf_pipelines.so $(LIBDIR)/
 
 uninstall:
 	for f in $(INCFILES) $(DUMMY_INCFILES); do rm -f $(INCDIR)/$$f; done
+	for f in $(SCRIPTS); do rm -f $(BINDIR)/$$f; done
 	rm -f $(LIBDIR)/librf_pipelines.so
 	rm -rf  $(PYDIR)/rf_pipelines_c.so $(PYDIR)/rf_pipelines/
 
