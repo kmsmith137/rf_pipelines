@@ -5,6 +5,62 @@
 #error "This source file needs to be compiled with C++11 support (g++ -std=c++11)"
 #endif
 
+// Abstract base classes
+// ---------------------
+//   pipeline_object
+//   chunked_pipeline_object
+//   wi_stream
+//   wi_transform
+//
+// Container classes
+// -----------------
+//   pipeline
+//   wi_sub_pipeline
+//
+// Streams
+// -------
+//   chime_stream_from_acqdir
+//   chime_stream_from_filename
+//   chime_stream_from_filename_list
+//   chime_frb_stream_from_filename
+//   chime_frb_stream_from_filename_list
+//   chime_frb_stream_from_glob
+//   chime_network_stream
+//   gaussian_noise_stream
+//
+// Detrenders
+// ----------
+//   spline_detrender
+//   polynomial_detrender
+//
+// Clippers
+// --------
+//   intensity_clipper
+//   std_dev_clipper
+//   mask_expander
+//
+// CHIME-specific
+// --------------
+//   chime_file_writer
+//   chime_packetizer
+//   chime_16k_spike_mask
+//   chime_16k_derippler
+//   chime_16k_stripe_analyzer
+//
+// Miscellaneous transforms
+// ------------------------
+//   adversarial_masker (*)
+//   badchannel_mask (*)
+//   bonsai_dedisperser (*) 
+//   frb_injector_transform (*)
+//   mask_filler (*) 
+//   noise_filler (*)
+//   plotter_transform (*)
+//   variance_estimator (*)
+//
+// (*) = python-only
+
+
 // ring_buffer, pipeline_object, etc.
 #include "rf_pipelines_base_classes.hpp"
 
@@ -14,7 +70,6 @@
 // A little hack so that all definitions still compile if optional dependencies are absent.
 namespace bonsai { class dedisperser; }
 namespace ch_frb_io { class intensity_network_stream; }
-
 
 namespace rf_pipelines {
 #if 0
@@ -48,6 +103,8 @@ protected:
     virtual void _deallocate() override;
     virtual void _start_pipeline(Json::Value &j) override;
     virtual void _end_pipeline(Json::Value &j) override;
+    virtual void _reset() override;
+    virtual void _unbind() override;
     
     virtual ssize_t get_preferred_chunk_size() override;
 
@@ -95,6 +152,79 @@ struct wi_sub_pipeline : pipeline {
 protected:
     virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
 };
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// "Utility" classes: mask_expander, pipeline_fork
+
+
+// mask_expander
+//
+// Experimental: expands the RFI mask, in a way which is intended to "fill gaps".
+//
+// It is assuemd that the caller has saved the weights at a previous point in the pipeline
+// (using pipeline_fork, see below).  We use the term "prev_mask" to mean the RFI mask at
+// this previous point in the pipeline, and "delta_mask" to mean the set of pixels which
+// are currently masked in the pipeline, but were not masked in the prev_mask.
+//
+// By default, the mask_expander actually expands the delta-mask, but this behavior
+// can be modified (see the 'alpha' parameter below).
+//
+// The expansion is done by computing exponential moving averages of the delta-mask in
+// both directions, and masking pixels when both averages are above a threshold.  This
+// will be written up in more detail later!
+//
+// Constructor arguments
+// ---------------------
+//
+// 'axis': currently, only AXIS_FREQ is implemented.  AXIS_TIME is coming soon!
+//
+// 'prev_wname': pipeline bufname of the saved weights (a string).  Note that in order
+//   to save the weights at a previous point in the pipeline, you can use a pipeline_fork
+//   whose input_bufname parameter is "WEIGHTS" and whose output_bufname is a string which
+//   uniquely identifies the saved weights (e.g. "WEIGHTS_SAVE1").  The 'prev_wname' argument
+//   to the mask_expander should be the same as the 'output_bufname' argument of the
+//   pipeline_fork.
+//
+// 'width': the decay width of the exponential moving average.  In the AXIS_FREQ case,
+//   this is expressed as a fraction of the frequency band, i.e. width=0.1 means that
+//   the characteristic width of the mask_expander is 10% of the full frequency band.
+//
+// 'threshold': value between 0 and 1 which determines how aggressive the mask_expander is.
+//   Low values correspond to more masking.  The numerical value can be roughly interpreted
+//   as the fraction of data which must be delta-masked before mask expansion will
+//   occur.  For example, if threshold=0.1, then mask expansion will occur in regions of
+//   the data where ~10% or more of the pixels are delta-masked.
+//
+// 'alpha': to explain this parameter, we first note that delta-masked pixels are
+//   "sources" for the mask_expander, and unmasked pixels are "sinks".  That is,
+//   mask expansion occurs in regions where the number of delta-masked pixels
+//   relative to the number of unmasked pixels is above a threshold.
+//
+//   The alpha paramaeter determines how the prev_mask is handled by the mask_expander.
+//   By default (alpha=0), prev-masked pixels are "neutral", i.e. they are neither
+//   sources nor sinks for the mask_expander.  
+//
+//   If 0 < alpha < 1, then prev-masked pixels are sinks for the mask_expander, i.e.
+//   they reduce the amount of mask expansion, and the amount of reduction is proportional
+//   to alpha.  If alpha=1, then prev_masked pixels are equivalent to unmasked pixels.
+//
+//   If -1 < alpha < 0, then prev-masked pixels are sources for the mask_expander, i.e.
+//   they increase the amount of mask expansion, and the amount of reduction is proportional
+//   to (-alpha).  If alpha=-1, then prev_masked pixels are equivalent to delta_masked pixels.
+
+extern std::shared_ptr<pipeline_object> make_mask_expander(rf_kernels::axis_type axis, const std::string &prev_wname, double width, double threshold, double alpha=0.0, ssize_t nt_chunk=0);
+
+
+// pipeline_fork
+//
+// Creates one or more new pipeline ring_buffers, by copying existing ring_buffers.
+// The 'bufnames' argument should be a list of (input_bufname, output_bufname) pairs.
+// Frequently, the input_bufname will be one of the built-in names "INTENSITY" or "WEIGHTS".
+
+
+extern std::shared_ptr<pipeline_object> make_pipeline_fork(const std::vector<std::pair<std::string,std::string>> &bufnames);
 
 
 // -------------------------------------------------------------------------------------------------

@@ -152,4 +152,4 @@ class variance_estimator(wi_transform):
                                   nt_chunk = j['nt_chunk'])
 
 
-pipeline_object.register_json_constructor('variance_estimator', variance_estimator.from_json)
+pipeline_object.register_json_deserializer('variance_estimator', variance_estimator.from_json)

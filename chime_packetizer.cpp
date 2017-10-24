@@ -29,8 +29,10 @@ struct chime_packetizer : public wi_transform {
     chime_packetizer(const std::string &dstname, int nfreq_per_packet, int nt_per_chunk, int nt_per_packet, float wt_cutoff, double target_gbps, int beam_id=0);
 
     virtual void _bind_transform(Json::Value &json_attrs) override;
+    virtual void _start_pipeline(Json::Value &json_attrs) override;
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
     virtual void _end_pipeline(Json::Value &json_output) override;
+    virtual void _reset() override;
 };
 
 
@@ -70,7 +72,6 @@ chime_packetizer::chime_packetizer(const string &dstname, int nfreq_coarse_per_p
 
 
 // Called after (nfreq, nds) are initialized.
-// FIXME what about nds?
 void chime_packetizer::_bind_transform(Json::Value &json_attrs)
 {
     constexpr int nfreq_coarse = ch_frb_io::constants::nfreq_coarse_tot;
@@ -78,9 +79,6 @@ void chime_packetizer::_bind_transform(Json::Value &json_attrs)
 
     if (nfreq % nfreq_coarse)
 	throw runtime_error("chime_packetizer: currently nfreq must be a multiple of " + to_string(nfreq_coarse) + " (see comment in rf_pipelines.hpp)");
-
-    if (nds != 1)
-	throw runtime_error("FIXME: chime_packetizer currently cannot be run in a downsampled sub-pipeline (this would be easy to fix)");
 
     if (!json_attrs.isMember("dt_sample"))
 	throw runtime_error("chime_packetizer: expected json_attrs to contain member 'dt_sample'");
@@ -93,12 +91,18 @@ void chime_packetizer::_bind_transform(Json::Value &json_attrs)
     this->ini_params.fpga_counts_per_sample = int(f+0.5);   // round to nearest integer
 
     if (fabs(f - ini_params.fpga_counts_per_sample) > 0.01) {
-	// We use a stringstream here since to_string() gives a weird formatting
+	// We use a stringstream here, since to_string() gives a weird formatting
 	stringstream ss;
 	ss << "chime_packetizer: currently dt_sample must be a multiple of " << seconds_per_fpga_count <<  " seconds (see comment in rf_pipelines.hpp)";
 	throw runtime_error(ss.str());
     }
 
+    // FIXME it would be nice to have an ini_params.check_validity() method to call here.
+}
+
+
+void chime_packetizer::_start_pipeline(Json::Value &json_attrs)
+{
     this->ostream = ch_frb_io::intensity_network_ostream::make(ini_params);
 }
 
@@ -107,12 +111,17 @@ void chime_packetizer::_process_chunk(float *intensity, ssize_t istride, float *
     this->ostream->send_chunk(intensity, istride, weights, wstride, pos * ini_params.fpga_counts_per_sample);
 }
 
-
 void chime_packetizer::_end_pipeline(Json::Value &json_output)
 {
-    bool join_network_thread = true;
-    ostream->end_stream(join_network_thread);
-    ostream.reset();
+    this->_reset();
+}
+
+void chime_packetizer::_reset()
+{
+    if (ostream) {
+	ostream->end_stream(true);  // join_network_thread=true
+	ostream.reset();
+    }
 }
 
 

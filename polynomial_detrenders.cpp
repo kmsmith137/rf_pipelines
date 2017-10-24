@@ -15,13 +15,17 @@ struct polynomial_detrender : public wi_transform
     const double epsilon;
 
     polynomial_detrender(rf_kernels::axis_type axis, int nt_chunk_, int polydeg, double epsilon_) :
-	wi_transform("polynomial_detrender", nt_chunk_),
+	wi_transform("polynomial_detrender"),
 	kernel(axis, polydeg),
 	epsilon(epsilon_)
     {
 	stringstream ss;
         ss << "polynomial_detrender(nt_chunk=" << nt_chunk_ << ", axis=" << axis << ", polydeg=" << polydeg << ", epsilon=" << epsilon_ << ")";
+
 	this->name = ss.str();
+	this->nt_chunk = nt_chunk_;
+	this->kernel_chunk_size = 8;
+	this->nds = 0;  // allows polynomial_detrender to run in a wi_sub_pipeline.
 	
 	if ((nt_chunk == 0) && (axis != rf_kernels::AXIS_FREQ))
 	    throw runtime_error("rf_pipelines::polynomial_detrender: nt_chunk must be specified (unless axis=AXIS_FREQ)");
@@ -29,7 +33,8 @@ struct polynomial_detrender : public wi_transform
 
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
     {
-	this->kernel.detrend(nfreq, nt_chunk, intensity, istride, weights, wstride, epsilon);
+	// Note xdiv(nt_chunk,nds) here
+	this->kernel.detrend(nfreq, xdiv(nt_chunk,nds), intensity, istride, weights, wstride, epsilon);
     }
 
     virtual Json::Value jsonize() const override
@@ -37,7 +42,7 @@ struct polynomial_detrender : public wi_transform
 	Json::Value ret;
 
 	ret["class_name"] = "polynomial_detrender";
-	ret["nt_chunk"] = int(this->get_orig_nt_chunk());
+	ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
 	ret["axis"] = rf_kernels::axis_type_to_string(this->kernel.axis);
 	ret["polydeg"] = this->kernel.polydeg;
 	ret["epsilon"] = this->epsilon;
@@ -70,7 +75,7 @@ shared_ptr<wi_transform> make_polynomial_detrender(int nt_chunk, rf_kernels::axi
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("polynomial_detrender", polynomial_detrender::from_json);
+	    pipeline_object::register_json_deserializer("polynomial_detrender", polynomial_detrender::from_json);
 	}
     } init;
 }

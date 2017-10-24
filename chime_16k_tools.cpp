@@ -27,10 +27,12 @@ struct chime_16k_spike_mask : public chunked_pipeline_object
 
 
     chime_16k_spike_mask(ssize_t nt_chunk_=0) :
-	chunked_pipeline_object("chime_16k_spike_mask", false, nt_chunk_)
-    { }
+	chunked_pipeline_object("chime_16k_spike_mask", false)
+    { 
+	this->nt_chunk = nt_chunk_;
+    }
 
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
+    virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
     {
 	this->rb_weights = this->get_buffer(rb_dict, "WEIGHTS");
 	
@@ -42,23 +44,26 @@ struct chime_16k_spike_mask : public chunked_pipeline_object
 
     virtual bool _process_chunk(ssize_t pos) override
     {
-	float *weights = rb_weights->get(pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
-	ssize_t wstride = rb_weights->get_stride();
+	ring_buffer_subarray weights(rb_weights, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
 
 	for (int ifreq_c = 0; ifreq_c < nfreq_c; ifreq_c++) {
-	    float *wrow = weights + (ifreq_c * nupfreq + 15) * wstride;
+	    float *wrow = weights.data + (ifreq_c * nupfreq + 15) * weights.stride;
 	    memset(wrow, 0, nt_chunk * sizeof(float));
 	}
 
-	rb_weights->put(weights, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
 	return true;
     }	
+
+    virtual void _unbindc() override
+    {
+	this->rb_weights.reset();
+    }
 
     virtual Json::Value jsonize() const override
     {
 	Json::Value ret;
 	ret["class_name"] = "chime_16k_spike_mask";
-	ret["nt_chunk"] = int(this->get_orig_nt_chunk());
+	ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
 	return ret;
     }
 
@@ -93,7 +98,7 @@ struct chime_16k_derippler : public chunked_pipeline_object
 
 
     chime_16k_derippler(double fudge_factor_=1.0, ssize_t nt_chunk_=0) :
-	chunked_pipeline_object("chime_16k_derippler", false, nt_chunk_),
+	chunked_pipeline_object("chime_16k_derippler", false),
 	fudge_factor(fudge_factor_)
     { 
 	constexpr float fl[nupfreq] = {
@@ -122,7 +127,7 @@ struct chime_16k_derippler : public chunked_pipeline_object
 	    this->multiplier[i] = 1.0 / (1.0 + fudge_factor * (fl[i] - 1.0));
     }
 
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
+    virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
     {
 	this->rb_intensity = this->get_buffer(rb_dict, "INTENSITY");
 	
@@ -134,30 +139,32 @@ struct chime_16k_derippler : public chunked_pipeline_object
 
     virtual bool _process_chunk(ssize_t pos) override
     {
-
-	float *intensity = rb_intensity->get(pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
-	ssize_t istride = rb_intensity->get_stride();
+	ring_buffer_subarray intensity(rb_intensity, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
 
 	for (int ifreq_c = 0; ifreq_c < nfreq_c; ifreq_c++) {
 	    for (int iupfreq = 0; iupfreq < nupfreq; iupfreq++) {
+		float *irow = intensity.data + (ifreq_c*nupfreq + iupfreq) * intensity.stride;
 		float t = multiplier[iupfreq];
-		float *p = intensity + (ifreq_c*nupfreq + iupfreq) * istride;
 		
 		for (int i = 0; i < nt_chunk; i++)
-		    p[i] *= t;
+		    irow[i] *= t;
 	    }
 	}
 
-	rb_intensity->put(intensity, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
 	return true;
     }	
+
+    virtual void _unbindc() override
+    {
+	this->rb_intensity.reset();
+    }
 
     virtual Json::Value jsonize() const override
     {
 	Json::Value ret;
 	ret["class_name"] = "chime_16k_derippler";
 	ret["fudge_factor"] = this->fudge_factor;
-	ret["nt_chunk"] = int(this->get_orig_nt_chunk());
+	ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
 	return ret;
     }
 
@@ -190,6 +197,13 @@ shared_ptr<wi_transform> make_chime_16k_stripe_analyzer(ssize_t Dt1, ssize_t Df2
 {
     throw runtime_error("rf_pipelines::make_chime_16k_stripe_analyzer() was called, but this rf_pipelines was compiled without HAVE_HDF5");
 }
+
+struct chime_16k_stripe_analyzer {
+    static shared_ptr<pipeline_object> from_json(const Json::Value &j)
+    {
+	throw runtime_error("rf_pipelines: attempt to deserialize chime_16k_stripe_analyzer, but this rf_pipelines was compiled without HAVE_HDF5");
+    }
+};
 
 #else // HAVE_HDF5
 
@@ -382,9 +396,9 @@ shared_ptr<wi_transform> make_chime_16k_stripe_analyzer(ssize_t Dt1, ssize_t Df2
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("chime_16k_derippler", chime_16k_derippler::from_json);
-	    pipeline_object::register_json_constructor("chime_16k_spike_mask", chime_16k_spike_mask::from_json);
-	    pipeline_object::register_json_constructor("chime_16k_stripe_analyzer", chime_16k_stripe_analyzer::from_json);
+	    pipeline_object::register_json_deserializer("chime_16k_derippler", chime_16k_derippler::from_json);
+	    pipeline_object::register_json_deserializer("chime_16k_spike_mask", chime_16k_spike_mask::from_json);
+	    pipeline_object::register_json_deserializer("chime_16k_stripe_analyzer", chime_16k_stripe_analyzer::from_json);
 	}
     } init;
 }

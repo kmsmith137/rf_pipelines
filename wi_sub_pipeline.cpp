@@ -10,9 +10,9 @@ namespace rf_pipelines {
 #endif
 
 
-// FIXME: the downsampler and upsampler use a default nt_chunk, which may not end up
-// satisfying the necessary divisibility conditions (must be a multiple of nds_out * S,
-// where S=8).
+// FIXME: wi_sub_pipeline is currently implemented as a subclass of 'pipeline',
+// but I think it would be cleaner to implement it as a subclass of 'chunked_pipeline_object',
+// with a member which is a shared_ptr<pipeline>.
 
 
 // -------------------------------------------------------------------------------------------------
@@ -28,7 +28,7 @@ struct downsampler : chunked_pipeline_object {
     const ssize_t Dt;
     rf_kernels::wi_downsampler kernel;
 
-    // Initialized in _bind_chunked().
+    // Initialized in _bindc().
     shared_ptr<ring_buffer> rb_intensity_in;
     shared_ptr<ring_buffer> rb_weights_in;
     shared_ptr<ring_buffer> rb_intensity_out;
@@ -37,20 +37,24 @@ struct downsampler : chunked_pipeline_object {
     ssize_t nds_out = 0;
     ssize_t nt_out = 0;
 
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
+    virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
     virtual bool _process_chunk(ssize_t pos) override;
+    virtual void _unbindc() override;
 };
 
 
 downsampler::downsampler(ssize_t Df_, ssize_t Dt_, ssize_t nt_chunk_) :
-    chunked_pipeline_object("wi_sub_downsampler", false, nt_chunk_),  // can_be_first=false
+    chunked_pipeline_object("wi_sub_downsampler", false),  // can_be_first=false
     Df(Df_),
     Dt(Dt_),
     kernel(Df_, Dt_)
-{ }
+{ 
+    this->nt_chunk = nt_chunk_;
+    rf_assert(nt_chunk > 0);
+}
 
 
-void downsampler::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
+void downsampler::_bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
 {
     this->rb_intensity_in = get_buffer(rb_dict, "INTENSITY_HIRES");
     this->rb_weights_in = get_buffer(rb_dict, "WEIGHTS_HIRES");
@@ -67,6 +71,8 @@ void downsampler::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_att
 
     this->nfreq_out = xdiv(rb_intensity_in->cdims[0], Df);
     this->nds_out = rb_intensity_in->nds * Dt;
+
+    rf_assert(nt_chunk % (8*nds_out) == 0);
     this->nt_out = xdiv(nt_chunk, nds_out);
 
     this->rb_intensity_out = create_buffer(rb_dict, "INTENSITY", { nfreq_out }, nds_out);
@@ -76,23 +82,27 @@ void downsampler::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_att
 
 bool downsampler::_process_chunk(ssize_t pos)
 {
-    float *int_in = rb_intensity_in->get(pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
-    float *wt_in = rb_weights_in->get(pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
-    float *int_out = rb_intensity_out->get(pos, pos + nt_chunk, ring_buffer::ACCESS_APPEND);
-    float *wt_out = rb_weights_out->get(pos, pos + nt_chunk, ring_buffer::ACCESS_APPEND);
+    ring_buffer_subarray i_in(rb_intensity_in, pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
+    ring_buffer_subarray w_in(rb_weights_in, pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
+    ring_buffer_subarray i_out(rb_intensity_out, pos, pos + nt_chunk, ring_buffer::ACCESS_APPEND);
+    ring_buffer_subarray w_out(rb_weights_out, pos, pos + nt_chunk, ring_buffer::ACCESS_APPEND);
 
-    kernel.downsample(this->nfreq_out, this->nt_out,
-		      int_out, rb_intensity_out->get_stride(), 
-		      wt_out, rb_weights_out->get_stride(),
-		      int_in, rb_intensity_in->get_stride(),
-		      wt_in, rb_weights_in->get_stride());
-    
-    rb_intensity_in->put(int_in, pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
-    rb_weights_in->put(wt_in, pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
-    rb_intensity_out->put(int_out, pos, pos + nt_chunk, ring_buffer::ACCESS_APPEND);
-    rb_weights_out->put(wt_out, pos, pos + nt_chunk, ring_buffer::ACCESS_APPEND);
+    kernel.downsample(this->nfreq_out, this->nt_out, 
+		      i_out.data, i_out.stride,
+		      w_out.data, w_out.stride,
+		      i_in.data, i_in.stride,
+		      w_in.data, w_in.stride);
 
     return true;
+}
+
+
+void downsampler::_unbindc()
+{
+    this->rb_intensity_in.reset();
+    this->rb_weights_in.reset();
+    this->rb_intensity_out.reset();
+    this->rb_weights_out.reset();
 }
 
 
@@ -110,27 +120,31 @@ struct upsampler : chunked_pipeline_object {
     const double w_cutoff;
     rf_kernels::weight_upsampler kernel;
 
-    // Initialized in _bind_chunked().
+    // Initialized in _bindc().
     shared_ptr<ring_buffer> rb_weights_in;
     shared_ptr<ring_buffer> rb_weights_out;
     ssize_t nfreq_in = 0;
+    ssize_t nds_in = 0;
     ssize_t nt_in = 0;
 
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
+    virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
     virtual bool _process_chunk(ssize_t pos) override;
 };
 
 
 upsampler::upsampler(ssize_t Df_, ssize_t Dt_, ssize_t nt_chunk_, double w_cutoff_) :
-    chunked_pipeline_object("wi_sub_upsampler", false, nt_chunk_),  // can_be_first=false
+    chunked_pipeline_object("wi_sub_upsampler", false),  // can_be_first=false
     Df(Df_),
     Dt(Dt_),
     w_cutoff(w_cutoff_),
     kernel(Df_, Dt_)
-{ }
+{ 
+    this->nt_chunk = nt_chunk_;
+    rf_assert(nt_chunk > 0);
+}
 
 
-void upsampler::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
+void upsampler::_bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
 {
     this->rb_weights_in = get_buffer(rb_dict, "WEIGHTS");
     this->rb_weights_out = get_buffer(rb_dict, "WEIGHTS_HIRES");
@@ -143,23 +157,19 @@ void upsampler::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs
 	_throw("expected nds_lores == nds_hires * Dt");
 
     this->nfreq_in = rb_weights_in->cdims[0];
-    this->nt_in = xdiv(nt_chunk, rb_weights_in->nds);
+    this->nds_in = rb_weights_in->nds;
+
+    rf_assert(nt_chunk % (8*nds_in) == 0);
+    this->nt_in = xdiv(nt_chunk, nds_in);
 }
 
 
 bool upsampler::_process_chunk(ssize_t pos)
 {
-    float *wt_in = rb_weights_in->get(pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
-    float *wt_out = rb_weights_out->get(pos, pos + nt_chunk, ring_buffer::ACCESS_RW);
+    ring_buffer_subarray w_in(rb_weights_in, pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
+    ring_buffer_subarray w_out(rb_weights_out, pos, pos + nt_chunk, ring_buffer::ACCESS_RW);
 
-    kernel.upsample(nfreq_in, nt_in, 
-		    wt_out, rb_weights_out->get_stride(), 
-		    wt_in, rb_weights_in->get_stride(), 
-		    w_cutoff);
-
-    rb_weights_in->put(wt_in, pos, pos + nt_chunk, ring_buffer::ACCESS_READ);
-    rb_weights_out->put(wt_out, pos, pos + nt_chunk, ring_buffer::ACCESS_RW);    
-    
+    kernel.upsample(nfreq_in, nt_in, w_out.data, w_out.stride, w_in.data, w_in.stride, w_cutoff);
     return true;
 }
 
@@ -242,13 +252,13 @@ void wi_sub_pipeline::_bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
     }
 
     // Choose nt_chunk for downsampler/upsampler.
-    ssize_t nt_chunk = ini_params.nt_chunk;  // can be zero
+    // The logic here is similar to chunked_pipeline_object::finalize_nt_chunk().
+
+    ssize_t nt_chunk = ini_params.nt_chunk;       // can be zero
     ssize_t min_nt_chunk = 8 * Dt * nds_in;  // nt_chunk must be a multiple of this
 
-    if (nt_chunk == 0) {
-	nt_chunk = (nt_chunk_in / min_nt_chunk) * min_nt_chunk;
-	nt_chunk = max(nt_chunk, min_nt_chunk);
-    }
+    if (nt_chunk == 0)
+	nt_chunk = max(nt_chunk_in/min_nt_chunk, ssize_t(1)) * min_nt_chunk;
     else if ((ini_params.nt_chunk % min_nt_chunk) != 0)
 	_throw("ini_params.nt_chunk (" + to_string(ini_params.nt_chunk) + " must be a multiple of " + to_string(min_nt_chunk) + " in this pipeline");
 
@@ -306,7 +316,7 @@ shared_ptr<wi_sub_pipeline> wi_sub_pipeline::from_json(const Json::Value &j)
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("wi_sub_pipeline", wi_sub_pipeline::from_json);
+	    pipeline_object::register_json_deserializer("wi_sub_pipeline", wi_sub_pipeline::from_json);
 	}
     } init;
 }

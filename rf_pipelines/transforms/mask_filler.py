@@ -83,4 +83,4 @@ class mask_filler(wi_transform):
                            nt_chunk = j['nt_chunk'])
 
 
-pipeline_object.register_json_constructor('mask_filler', mask_filler.from_json)
+pipeline_object.register_json_deserializer('mask_filler', mask_filler.from_json)

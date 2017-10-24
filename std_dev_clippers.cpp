@@ -23,7 +23,7 @@ struct std_dev_clipper_transform : public wi_transform
     unique_ptr<rf_kernels::std_dev_clipper> kernel;
 
     std_dev_clipper_transform(int Df_, int Dt_, rf_kernels::axis_type axis_, int nt_chunk_, double sigma_, bool two_pass_) :
-	wi_transform("std_dev_clipper", nt_chunk_),
+	wi_transform("std_dev_clipper"),
 	Df(Df_),
 	Dt(Dt_),
 	axis(axis_),
@@ -35,6 +35,9 @@ struct std_dev_clipper_transform : public wi_transform
            << ", Df=" << Df << ", Dt=" << Dt << ", two_pass=" << two_pass << ")";
 	
         this->name = ss.str();
+	this->nt_chunk = nt_chunk_;
+	this->kernel_chunk_size = 8*Dt;
+	this->nds = 0;  // allows std_dev_clipper to run in a wi_sub_pipeline
 	
 	if (nt_chunk == 0)
 	    throw runtime_error("rf_pipelines::std_dev_clipper: nt_chunk must be specified");
@@ -73,7 +76,7 @@ struct std_dev_clipper_transform : public wi_transform
 	ret["Dt"] = Dt;
 	ret["sigma"] = sigma;
 	ret["two_pass"] = two_pass;
-	ret["nt_chunk"] = int(this->get_orig_nt_chunk());
+	ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
 	ret["axis"] = rf_kernels::axis_type_to_string(axis);
 	
 	return ret;
@@ -96,7 +99,7 @@ struct std_dev_clipper_transform : public wi_transform
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("std_dev_clipper", std_dev_clipper_transform::from_json);
+	    pipeline_object::register_json_deserializer("std_dev_clipper", std_dev_clipper_transform::from_json);
 	}
     } init;
 }

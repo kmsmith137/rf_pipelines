@@ -16,13 +16,7 @@ ring_buffer::ring_buffer(const vector<ssize_t> &cdims_, ssize_t nds_) :
     csize(prod(cdims_)),
     nds(nds_)
 {
-    if (cdims.size() >= 6)
-	throw runtime_error("rf_pipelines: attempt to construct high-dimensional ring buffer is probably unintentional");
-
-    for (size_t i = 0; i < cdims.size(); i++) {
-	if (cdims[i] <= 0)
-	    throw runtime_error("rf_pipelines::ring_buffer: expected all dimensions > 0");
-    }
+    check_cdims(cdims);
 
     if (nds <= 0)
 	throw runtime_error("rf_pipelines::ring_buffer: expected nds > 0");
@@ -86,11 +80,8 @@ void ring_buffer::deallocate()
 }
 
 
-void ring_buffer::start()
+void ring_buffer::reset()
 {
-    rf_assert(buf != nullptr);
-    rf_assert(ap == nullptr);
-    
     this->curr_pos = 0;
     this->first_valid_sample = 0;
     this->last_valid_sample = 0;
@@ -108,13 +99,20 @@ float *ring_buffer::get(ssize_t pos0, ssize_t pos1, int mode)
     rf_assert(pos0 >= 0);
     rf_assert(pos0 <= pos1);
     rf_assert(pos1 - pos0 <= nt_contig);
+    rf_assert(pos0 % nds == 0);
+    rf_assert(pos1 % nds == 0);
     rf_assert(mode != ACCESS_NONE);
     rf_assert(buf != nullptr);
     rf_assert(ap == nullptr);
-    
+
+    // Set ap_pos* before applying downsampling factor.
+    // (Remaining fields 'ap' and 'ap_mode' will be set later.)
+    this->ap_pos0 = pos0;
+    this->ap_pos1 = pos1;
+
     // Apply downsampling factor
-    pos0 = xdiv(pos0, nds);
-    pos1 = xdiv(pos1, nds);
+    pos0 /= nds;
+    pos1 /= nds;
 
     if (mode == ACCESS_APPEND) {
 	// Range check and advance buffer
@@ -140,8 +138,6 @@ float *ring_buffer::get(ssize_t pos0, ssize_t pos1, int mode)
 	_mirror_initial(it1);
 
     this->ap = this->buf + it0;
-    this->ap_pos0 = pos0;
-    this->ap_pos1 = pos1;
     this->ap_mode = mode;
 
     return ap;
@@ -166,8 +162,8 @@ void ring_buffer::put(float *p, ssize_t pos0, ssize_t pos1, int mode)
 	return;
 
     // Cut-and-paste logic from ring_buffer::get(), for determining (it0,it1).
-    pos0 = xdiv(pos0, nds);
-    pos1 = xdiv(pos1, nds);
+    pos0 /= nds;
+    pos1 /= nds;
     ssize_t it0 = pos0 % period;
     ssize_t it1 = it0 + (pos1 - pos0);
 
@@ -263,6 +259,19 @@ string ring_buffer::access_mode_to_string(int access_mode)
 	return "ACCESS_APPEND";
 
     throw runtime_error("rf_pipelines: internal error: bad argument to ring_buffer::access_mode_to_string()");
+}
+
+
+// static member functon
+void ring_buffer::check_cdims(const vector<ssize_t> &cdims)
+{
+    if (cdims.size() >= 6)
+	throw runtime_error("rf_pipelines: attempt to construct high-dimensional ring buffer is probably unintentional");
+
+    for (size_t i = 0; i < cdims.size(); i++) {
+	if (cdims[i] <= 0)
+	    throw runtime_error("rf_pipelines::ring_buffer: expected all dimensions > 0");
+    }
 }
 
 

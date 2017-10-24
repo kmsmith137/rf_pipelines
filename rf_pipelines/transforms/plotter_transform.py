@@ -210,4 +210,4 @@ class plotter_transform(wi_transform):
                                  sigma_clip = j['sigma_clip'])
 
 
-pipeline_object.register_json_constructor('plotter_transform', plotter_transform.from_json)
+pipeline_object.register_json_deserializer('plotter_transform', plotter_transform.from_json)

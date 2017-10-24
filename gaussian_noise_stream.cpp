@@ -24,7 +24,7 @@ protected:
 
 public:
     gaussian_noise_stream(ssize_t nfreq_, ssize_t nt_tot_, double freq_lo_MHz_, double freq_hi_MHz_, double dt_sample_, double sample_rms_, ssize_t nt_chunk_, bool randomize_weights_) :
-	wi_stream("gaussian_noise_stream", nfreq_, nt_chunk_),
+	wi_stream("gaussian_noise_stream"),
 	nt_tot(nt_tot_),
 	freq_lo_MHz(freq_lo_MHz_),
 	freq_hi_MHz(freq_hi_MHz_),
@@ -34,6 +34,9 @@ public:
 	rng(std::random_device{}()),
 	gdist(0, sample_rms_)
     {
+	this->nfreq = nfreq_;
+	this->nt_chunk = nt_chunk_;
+
 	// Sanity-checking.
 	rf_assert(nfreq > 0);
 	rf_assert(nt_tot > 0);
@@ -97,7 +100,7 @@ public:
 	ret["freq_hi_MHz"] = freq_hi_MHz;
 	ret["dt_sample"] = dt_sample;
 	ret["sample_rms"] = sample_rms;
-	ret["nt_chunk"] = Json::Int64(this->get_orig_nt_chunk());
+	ret["nt_chunk"] = Json::Int64(this->get_prebind_nt_chunk());
 	ret["randomize_weights"] = randomize_weights;
 
 	return ret;
@@ -122,7 +125,7 @@ public:
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("gaussian_noise_stream", gaussian_noise_stream::from_json);
+	    pipeline_object::register_json_deserializer("gaussian_noise_stream", gaussian_noise_stream::from_json);
 	}
     } init;
 }

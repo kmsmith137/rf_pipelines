@@ -25,31 +25,32 @@ shared_ptr<wi_transform> make_chime_file_writer(const string &filename, bool clo
 
 struct chime_file_writer : public wi_transform {
     // Constructor args
-    string filename;
-    bool clobber;
-    int bitshuffle;
+    const string filename;
+    const bool clobber;
+    const int bitshuffle;
 
     // Stream params (not available until set_stream() gets called)
-    double freq_lo_MHz;
-    double freq_hi_MHz;
-    double dt_sample;
+    double freq_lo_MHz = 0.0;
+    double freq_hi_MHz = 0.0;
+    double dt_sample = 0.0;
 
     std::unique_ptr<ch_frb_io::intensity_hdf5_ofile> ofile;
     int ichunk = 0;
     
     // Used to repack 'intensity' and 'weights' into contiguous arrays
     // FIXME these can go away when ch_frb_io::intensity_hdf5_ofile::append_chunk() supports a 'stride' argument
-    std::vector<float> intensity_contig_buf;
-    std::vector<float> weights_contig_buf;
+    uptr<float> intensity_contig_buf;
+    uptr<float> weights_contig_buf;
 
 
     chime_file_writer(const string &filename_, bool clobber_, int bitshuffle_, ssize_t nt_chunk_) :
-	wi_transform("chime_file_writer", nt_chunk_),
+	wi_transform("chime_file_writer"),
 	filename(filename_),
 	clobber(clobber_), 
 	bitshuffle(bitshuffle_)
     {
 	this->name = "chime_file_writer(" + filename + ")";
+	this->nt_chunk = nt_chunk_;
     }
 
     
@@ -64,9 +65,13 @@ struct chime_file_writer : public wi_transform {
 	this->freq_lo_MHz = json_attrs["freq_lo_MHz"].asDouble();
 	this->freq_hi_MHz = json_attrs["freq_hi_MHz"].asDouble();
 	this->dt_sample = json_attrs["dt_sample"].asDouble();
+    }
 
-	this->intensity_contig_buf.resize(nfreq * nt_chunk);
-	this->weights_contig_buf.resize(nfreq * nt_chunk);
+
+    virtual void _allocate() override
+    {
+	this->intensity_contig_buf = make_uptr<float> (nfreq * nt_chunk);
+	this->weights_contig_buf = make_uptr<float> (nfreq * nt_chunk);
     }
 
 
@@ -96,11 +101,28 @@ struct chime_file_writer : public wi_transform {
 	this->ichunk++;
     }
 
+
     virtual void _end_pipeline(Json::Value &j) override
     {
 	// Resetting this pointer will close file
 	this->ofile.reset();
     }
+
+
+    virtual void _reset() override
+    {
+	// Resetting this pointer will close file
+	this->ofile.reset();
+	this->ichunk = 0;
+    }
+
+
+    virtual void _deallocate() override
+    {
+	this->intensity_contig_buf.reset();
+	this->weights_contig_buf.reset();
+    }
+
 
     virtual Json::Value jsonize() const override
     {
@@ -127,7 +149,7 @@ struct chime_file_writer : public wi_transform {
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("chime_file_writer", chime_file_writer::from_json);
+	    pipeline_object::register_json_deserializer("chime_file_writer", chime_file_writer::from_json);
 	}
     } init;
 }

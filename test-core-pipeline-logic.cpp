@@ -154,7 +154,7 @@ void reference_pipeline_object::run_test(ssize_t nt_end)
     p->add(p1);
     p->add(p2);
 
-    pipeline_object::run_params params;
+    run_params params;
     params.outdir = "";
     params.verbosity = 0;
     p->run(params);
@@ -316,19 +316,21 @@ struct rot2 : public chunked_pipeline_object {
 
     
     rot2(const rot2_params &params_, ssize_t nt_end_) :
-	chunked_pipeline_object("rot2", params_.can_be_first(), params_.nt_chunk),
+	chunked_pipeline_object("rot2", params_.can_be_first()),
 	params(params_),
 	nt_end(nt_end_),
 	rng_in0(params_.seed_in0),
 	rng_in1(params_.seed_in1)
     {
+	this->nt_chunk = params_.nt_chunk;
+
 	params.validate();
 	cos_theta = cos(params.theta);
 	sin_theta = sin(params.theta);
     }
 
     
-    // Helper for _bind_chunked()
+    // Helper for _bindc()
     void _bind_input(ring_buffer_dict &rb_dict, int ix, bool create, shared_ptr<ring_buffer> &buf, int &mode)
     {
 	if (create) {
@@ -345,7 +347,7 @@ struct rot2 : public chunked_pipeline_object {
     }
 
 
-    // Helper for _bind_chunked()
+    // Helper for _bindc()
     void _bind_output(ring_buffer_dict &rb_dict, int ix, bool create, shared_ptr<ring_buffer> &buf, int &mode, ring_buffer_subarray* &arr)
     {
 	if (ix == params.ix_in0) {
@@ -369,7 +371,7 @@ struct rot2 : public chunked_pipeline_object {
     }
     
 
-    virtual void _bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
+    virtual void _bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
     {
 	_bind_input(rb_dict, params.ix_in0, params.create_in0, buf_in0, mode_in0);
 	_bind_input(rb_dict, params.ix_in1, params.create_in1, buf_in1, mode_in1);

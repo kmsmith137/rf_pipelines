@@ -400,4 +400,4 @@ class Plotter():
         return arr
 
 
-pipeline_object.register_json_constructor('bonsai_dedisperser', bonsai_dedisperser.from_json)
+pipeline_object.register_json_deserializer('bonsai_dedisperser', bonsai_dedisperser.from_json)

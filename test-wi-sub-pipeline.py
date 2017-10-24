@@ -73,7 +73,10 @@ class initial_stream(rf_pipelines.wi_stream):
         if nt_chunk is None:
             nt_chunk = rand.randint(10,20)
 
-        rf_pipelines.wi_stream.__init__(self, 'replaying_stream', intensity_arr.shape[0], nt_chunk)
+        rf_pipelines.wi_stream.__init__(self, 'initial_stream')
+
+        self.nfreq = intensity_arr.shape[0]
+        self.nt_chunk = nt_chunk
         self.nt_tot = intensity_arr.shape[1]
         self.intensity_arr = intensity_arr
         self.weights_arr = weights_arr
@@ -97,7 +100,8 @@ class final_transform(rf_pipelines.wi_transform):
         if nt_chunk is None:
             nt_chunk = rand.randint(10,20)
 
-        rf_pipelines.wi_transform.__init__(self, "final_transform", nt_chunk=nt_chunk)
+        rf_pipelines.wi_transform.__init__(self, "final_transform")
+        self.nt_chunk = nt_chunk
         self.intensity_chunks = [ ]
         self.weight_chunks = [ ]
 

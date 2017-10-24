@@ -249,7 +249,7 @@ int main(int argc, char **argv)
 	vector<shared_ptr<pipeline_object>> v = { sp, tp };
 	auto p = make_shared<pipeline> (v, "test_pipeline");
 
-	pipeline_object::run_params params;
+	run_params params;
 	params.outdir = "";
 	params.verbosity = 0;
 	p->run(params);

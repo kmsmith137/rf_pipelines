@@ -28,6 +28,13 @@ shared_ptr<wi_transform> make_spectrum_analyzer(ssize_t Dt1, ssize_t Dt2)
     throw runtime_error("rf_pipelines::make_spectrum_analyzer() was called, but this rf_pipelines was compiled without HAVE_HDF5");
 }
 
+struct spectrum_analyzer {
+    static shared_ptr<pipeline_object> from_json(const Json::Value &j)
+    {
+	throw runtime_error("rf_pipelines: attempt to deserialize spectrum_analyzer, but this rf_pipelines was compiled without HAVE_HDF5");
+    }
+};
+
 #else // HAVE_HDF5
 
 struct spectrum_analyzer : public wi_transform
@@ -61,13 +68,13 @@ struct spectrum_analyzer : public wi_transform
 
 	this->nds = 1;
 	this->nt_chunk = Dt1 * Dt2;  // for convenience
+	this->ds_kernel = make_unique<rf_kernels::wi_downsampler> (1, Dt1);
     }
 
     virtual void _allocate() override
     {
 	rf_assert(nfreq > 0);
 
-	this->ds_kernel = make_unique<rf_kernels::wi_downsampler> (1, Dt1);
 	this->ds_intensity = make_uptr<float> (nfreq * Dt2);
 	this->ds_weights = make_uptr<float> (nfreq * Dt2);
 	this->h5_chunk = make_uptr<float> (nfreq);
@@ -124,9 +131,14 @@ struct spectrum_analyzer : public wi_transform
 	cout << "spectrum_analyzer: wrote " << h5_fullname << endl;
     }
 
+    virtual void _reset() override
+    {
+	this->h5_dset.reset();
+	this->h5_file.close();
+    }
+
     virtual void _deallocate() override
     {
-	this->ds_kernel.reset();
 	this->ds_intensity.reset();
 	this->ds_weights.reset();
 	this->h5_chunk.reset();
@@ -164,7 +176,7 @@ shared_ptr<wi_transform> make_spectrum_analyzer(ssize_t Dt1, ssize_t Dt2)
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("spectrum_analyzer", spectrum_analyzer::from_json);
+	    pipeline_object::register_json_deserializer("spectrum_analyzer", spectrum_analyzer::from_json);
 	}
     } init;
 }

@@ -30,7 +30,7 @@ struct intensity_clipper_transform : public wi_transform
 
     
     intensity_clipper_transform(int Df_, int Dt_, rf_kernels::axis_type axis_, int nt_chunk_, double sigma_, int niter_, double iter_sigma_, bool two_pass_)
-	: wi_transform("intensity_clipper", nt_chunk_),
+	: wi_transform("intensity_clipper"),
 	  Df(Df_),
 	  Dt(Dt_),
 	  axis(axis_),
@@ -45,15 +45,18 @@ struct intensity_clipper_transform : public wi_transform
 	   << ", Df=" << Df << ", Dt=" << Dt << ", two_pass=" << two_pass << ")";
 
 	this->name = ss.str();
+	this->nt_chunk = nt_chunk_;
+	this->kernel_chunk_size = 8 * Dt;
+	this->nds = 0;   // allows intensity_clipper to run in a wi_sub_pipeline.
 	
 	if ((nt_chunk == 0) && (axis != rf_kernels::AXIS_FREQ))
 	    throw runtime_error("rf_pipelines::intensity_clipper: nt_chunk must be specified (unless axis=AXIS_FREQ)");
 
 	// Can't construct the kernel yet, since 'nfreq' and 'nds' are not known until bind().
-	// However, for argument checking purposes, we construct a dummy kernel with Df=nfreq.
+	// However, for argument checking purposes, we construct a dummy kernel with (nfreq,nt_chunk)=(Df,8*Dt).
 	// FIXME eventually there will be a constructor argument 'allocate=false' that will make sense here.
 	
-	rf_kernels::intensity_clipper dummy(Df, nt_chunk, axis, sigma, Df, Dt, niter, iter_sigma, two_pass);
+	rf_kernels::intensity_clipper dummy(Df, 8*Dt, axis, sigma, Df, Dt, niter, iter_sigma, two_pass);
     }
 
     virtual ~intensity_clipper_transform() { }
@@ -65,6 +68,7 @@ struct intensity_clipper_transform : public wi_transform
 	    throw runtime_error("rf_pipelines::intensity_clipper: nfreq (=" + to_string(nfreq) 
 				+ ") is not divisible by frequency downsampling factor Df=" + to_string(Df));
 
+	// Note xdiv(nt_chunk, nds) here.
 	this->kernel = make_unique<rf_kernels::intensity_clipper> (nfreq, xdiv(nt_chunk,nds), axis, sigma, Df, Dt, niter, iter_sigma, two_pass);
     }
 
@@ -81,13 +85,18 @@ struct intensity_clipper_transform : public wi_transform
 	ret["Df"] = Df;
 	ret["Dt"] = Dt;
 	ret["axis"] = rf_kernels::axis_type_to_string(axis);
-	ret["nt_chunk"] = int(this->get_orig_nt_chunk());
+	ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
 	ret["sigma"] = sigma;
 	ret["niter"] = niter;
 	ret["iter_sigma"] = iter_sigma;
 	ret["two_pass"] = two_pass;
 
 	return ret;
+    }
+
+    virtual void _unbind_transform() override
+    {
+	this->kernel.reset();
     }
 
     static shared_ptr<intensity_clipper_transform> from_json(const Json::Value &j)
@@ -109,7 +118,7 @@ struct intensity_clipper_transform : public wi_transform
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("intensity_clipper", intensity_clipper_transform::from_json);
+	    pipeline_object::register_json_deserializer("intensity_clipper", intensity_clipper_transform::from_json);
 	}
     } init;
 }

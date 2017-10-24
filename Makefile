@@ -34,17 +34,22 @@ OFILES = badchannel_mask.o \
 	intensity_clippers.o \
 	json_utils.o \
 	lexical_cast.o \
+	mask_expander.o \
 	outdir_manager.o \
 	pipeline.o \
+	pipeline_fork.o \
 	pipeline_object.o \
+	plot_utils.o \
 	polynomial_detrenders.o \
 	ring_buffer.o \
+	run_params.o \
 	spectrum_analyzer.o \
 	spline_detrenders.o \
 	std_dev_clippers.o \
 	wi_sub_pipeline.o \
 	wi_stream.o \
-	wi_transform.o
+	wi_transform.o \
+	zoomable_tileset.o
 
 # Files that get installed in $(PYDIR)
 # Includes both Python source files and the extension module rf_pipelines_c.so (written in C++)
@@ -121,6 +126,11 @@ endif
 ifeq ($(HAVE_HDF5),y)
 	CPP += -DHAVE_HDF5
 	LIBS += -lhdf5_cpp -lhdf5
+endif
+
+ifeq ($(HAVE_PNG),y)
+	CPP += -DHAVE_PNG
+	LIBS += -lpng
 endif
 
 #To be uncommented when C++ pulse_adder transform is resurrected.

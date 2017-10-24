@@ -36,19 +36,28 @@ Clippers
 --------
   intensity_clipper
   std_dev_clipper
+  mask_expander
+
+CHIME-specific
+--------------
+  chime_file_writer
+  chime_packetizer
+  chime_16k_spike_mask
+  chime_16k_derippler
+  chime_16k_stripe_analyzer
 
 Miscellaneous transforms
 ------------------------
-  adversarial_masker
-  badchannel_mask
-  bonsai_dedisperser
-  chime_file_writer
-  chime_packetizer
-  frb_injector_transform
-  mask_filler
-  noise_filler
-  plotter_transform
-  variance_estimator
+  adversarial_masker (*)
+  badchannel_mask (*)
+  bonsai_dedisperser (*)
+  chime_file_writer (*)
+  chime_packetizer (*)
+  frb_injector_transform (*)
+  mask_filler (*) 
+  noise_filler (*)
+  plotter_transform (*)
+  variance_estimator (*)
 
 Utilities
 ---------
@@ -57,6 +66,8 @@ Utilities
   apply_std_dev_clipper
   weighted_mean_and_rms
   wi_downsample
+
+(*) = python-only
 """
 
 

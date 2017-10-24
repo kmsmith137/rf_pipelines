@@ -31,7 +31,7 @@ void pipeline::add(const shared_ptr<pipeline_object> &p)
 {
     if (p.get() == nullptr)
 	_throw("null pointer in pipeline constructor");
-    if (this->is_bound())
+    if (this->state != UNBOUND)
 	_throw("pipeline::add() was called after bind()");
     
     elements.push_back(p);    
@@ -57,7 +57,7 @@ void pipeline::_bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
     this->nt_contig = 1;
 
     for (auto &p: this->elements) {
-	p->bind(rb_dict, nt_chunk_out, nt_maxlag + nt_maxgap, json_attrs);
+	p->bind(rb_dict, nt_chunk_out, nt_maxlag + nt_maxgap, json_attrs, this->out_mp);
 	this->nt_chunk_out = p->nt_chunk_out;
 	this->nt_maxgap += p->nt_maxgap;
     }
@@ -137,7 +137,7 @@ void pipeline::_deallocate()
 void pipeline::_start_pipeline(Json::Value &json_attrs)
 {
     for (auto &p: this->elements)
-	p->start_pipeline(this->out_mp, json_attrs);
+	p->start_pipeline(json_attrs);
 }
 
 void pipeline::_end_pipeline(Json::Value &json_output)
@@ -148,11 +148,23 @@ void pipeline::_end_pipeline(Json::Value &json_output)
     }
 }
 
+void pipeline::_reset()
+{
+    for (auto &p: this->elements)
+	p->reset();
+}
+
+void pipeline::_unbind()
+{
+    for (auto &p: this->elements)
+	p->unbind();
+}
+
 
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("pipeline", pipeline::from_json);
+	    pipeline_object::register_json_deserializer("pipeline", pipeline::from_json);
 	}
     } init;
 }

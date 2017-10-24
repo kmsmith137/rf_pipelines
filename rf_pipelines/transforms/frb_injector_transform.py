@@ -198,4 +198,4 @@ class frb_injector_transform(wi_transform):
                                       nt_chunk = j['nt_chunk'])
                  
 
-pipeline_object.register_json_constructor('frb_injector_transform', frb_injector_transform.from_json)
+pipeline_object.register_json_deserializer('frb_injector_transform', frb_injector_transform.from_json)

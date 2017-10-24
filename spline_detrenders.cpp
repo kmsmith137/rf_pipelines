@@ -17,7 +17,7 @@ struct spline_detrender : public wi_transform
     std::unique_ptr<rf_kernels::spline_detrender> kernel;
 
     spline_detrender(int nt_chunk_, rf_kernels::axis_type axis_, int nbins_, double epsilon_) :
-	wi_transform("spline_detrender", nt_chunk_),
+	wi_transform("spline_detrender"),
 	nbins(nbins_),
 	epsilon(epsilon_),
 	axis(axis_)
@@ -27,12 +27,16 @@ struct spline_detrender : public wi_transform
 	    throw runtime_error("rf_pipelines::spline_detrender: only AXIS_FREQ is currently implemented");
 
 	// Superfluous for now, but will make sense when AXIS_TIME and/or AXIS_NONE are implemented.
-	if ((nt_chunk == 0) && (axis != rf_kernels::AXIS_FREQ))
+	if ((nt_chunk_ == 0) && (axis != rf_kernels::AXIS_FREQ))
 	    throw runtime_error("rf_pipelines::spline_detrender: nt_chunk must be specified (unless axis=AXIS_FREQ)");
 
 	stringstream ss;
         ss << "spline_detrender(nt_chunk=" << nt_chunk_ << ", axis=" << rf_kernels::axis_type_to_string(axis) << ", nbins=" << nbins << ", epsilon=" << epsilon << ")";
+
 	this->name = ss.str();
+	this->nt_chunk = nt_chunk_;
+	this->kernel_chunk_size = 8;
+	this->nds = 0;  // allows spline_detrender to run inside a wi_sub_pipeline.
     }
 
     // Called after this->nfreq is initialized.
@@ -43,8 +47,14 @@ struct spline_detrender : public wi_transform
 
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
     {
+	// Note xdiv(nt_chunk, nds) here.
 	rf_assert(kernel.get() != nullptr);
-	kernel->detrend(nt_chunk, intensity, istride, weights, wstride);
+	kernel->detrend(xdiv(nt_chunk,nds), intensity, istride, weights, wstride);
+    }
+
+    virtual void _unbind_transform() override
+    {
+	this->kernel.reset();
     }
 
     virtual Json::Value jsonize() const override
@@ -52,7 +62,7 @@ struct spline_detrender : public wi_transform
 	Json::Value ret;
 
 	ret["class_name"] = "spline_detrender";
-	ret["nt_chunk"] = int(this->get_orig_nt_chunk());
+	ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
 	ret["axis"] = rf_kernels::axis_type_to_string(rf_kernels::AXIS_FREQ);
 	ret["nbins"] = this->nbins;
 	ret["epsilon"] = this->epsilon;
@@ -75,7 +85,7 @@ struct spline_detrender : public wi_transform
 namespace {
     struct _init {
 	_init() {
-	    pipeline_object::register_json_constructor("spline_detrender", spline_detrender::from_json);
+	    pipeline_object::register_json_deserializer("spline_detrender", spline_detrender::from_json);
 	}
     } init;
 }

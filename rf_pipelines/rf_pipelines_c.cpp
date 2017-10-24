@@ -45,11 +45,11 @@ namespace pyclops {
 		string s = converter<string>::from_python(x);
 		const char *c = s.c_str();
 
-		if (!strcasecmp(c,"none"))
+		if (!strcasecmp(c,"none") || !strcasecmp(c,"axis_none"))
 		    return rf_kernels::AXIS_NONE;
-		if (!strcasecmp(c,"time"))
+		if (!strcasecmp(c,"time") || !strcasecmp(c,"axis_time"))
 		    return rf_kernels::AXIS_TIME;
-		if (!strcasecmp(c,"freq") || !strcasecmp(c,"frequency"))
+		if (!strcasecmp(c,"freq") || !strcasecmp(c,"axis_freq") || !strcasecmp(c,"frequency"))
 		    return rf_kernels::AXIS_FREQ;
 	    }
 
@@ -424,6 +424,29 @@ static void check_signals(ssize_t pos_lo, ssize_t pos_hi)
 }
 
 
+// Used to wrap pipeline_object::bind() and pipeline_object::run().
+static run_params make_run_params(const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity)
+{
+    run_params ret;
+
+    // Allow outdir=None
+    if (outdir.is_none())
+	ret.outdir = "";
+    else if (outdir.is_string())
+	ret.outdir = converter<string>::from_python(outdir, "outdir");
+    else
+	throw runtime_error("expected 'outdir' to be a string or None");
+
+    ret.clobber = clobber;    
+    ret.img_nzoom = img_nzoom;
+    ret.img_nds = img_nds;
+    ret.img_nx = img_nx;
+    ret.verbosity = verbosity;
+
+    return ret;
+}
+
+
 static void wrap_pipeline_object(extension_module &m)
 {
     std::function<pipeline_object* ()>
@@ -432,25 +455,21 @@ static void wrap_pipeline_object(extension_module &m)
     std::function<string& (pipeline_object *)>
 	_name = [](pipeline_object *self) -> string& { return self->name; };
 
-    std::function<Json::Value (pipeline_object *, const py_object &, int, bool)>
-	_run = [](pipeline_object *self, const py_object &outdir_, int verbosity, bool clobber)
+    std::function<void (pipeline_object *, const py_object &, bool, ssize_t, ssize_t, ssize_t, int)>
+	_bind = [](pipeline_object *self, const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity)
+	{
+	    run_params p = make_run_params(outdir, clobber, img_nzoom, img_nds, img_nx, verbosity);
+	    return self->bind(p);
+	};
+
+    std::function<Json::Value (pipeline_object *, const py_object &, bool, ssize_t, ssize_t, ssize_t, int)>
+	_run = [](pipeline_object *self, const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity)
 	{
 	    // FIXME for completeness, should allow python caller to specify a callback function.
 	    // (This should be called via a C++ wrapper which also calls check_signals().)
 
-	    pipeline_object::run_params params;
-	    params.verbosity = verbosity;
-	    params.clobber = clobber;
-	    params.callback = check_signals;
-
-	    if (outdir_.is_none())
-		params.outdir = "";
-	    else if (outdir_.is_string())
-		params.outdir = converter<string>::from_python(outdir_, "rf_pipelines.pipeline_object.run(): 'outdir'");
-	    else
-		throw runtime_error("rf_pipelines.pipeline_object.run(): expected 'outdir' to be a string or None");
-
-	    return self->run(params);
+	    run_params p = make_run_params(outdir, clobber, img_nzoom, img_nds, img_nx, verbosity);
+	    return self->run(p, check_signals);
 	};
 
     // __str__()
@@ -459,12 +478,12 @@ static void wrap_pipeline_object(extension_module &m)
     std::function<string (pipeline_object *)>
 	_str = [](pipeline_object *self) { return self->name; };
 
-    // Wrapped as staticmethod pipeline_object.register_json_constructor().
+    // Wrapped as staticmethod pipeline_object.register_json_deserializer().
     std::function<void (const string &, const py_object &)>
-	_register_json_constructor = [](const string &class_name, const py_object &f)
+	_register_json_deserializer = [](const string &class_name, const py_object &f)
 	{
 	    if (!f.is_callable())
-		throw runtime_error("rf_pipelines.pipeline_object.register_json_constructor(): Argument 'f' must be callable");
+		throw runtime_error("rf_pipelines.pipeline_object.register_json_deserializer(): Argument 'f' must be callable");
 
 	    // FIXME define generic std::function from-python converter?
 	    std::function<shared_ptr<pipeline_object> (const Json::Value &)>
@@ -476,17 +495,13 @@ static void wrap_pipeline_object(extension_module &m)
 		return converter<shared_ptr<pipeline_object>>::from_python(py_ret);
 	    };
 
-	    pipeline_object::register_json_constructor(class_name, _constructor);
+	    pipeline_object::register_json_deserializer(class_name, _constructor);
 	};
 
-    // For resolving overloaded bind() function type
-    using bind_t = void (pipeline_object::*)();
+    // doc_rp1, doc_rp2 are building blocks for doc_bind, doc_run, which both take a run_params.
+    string doc_rp1 = ("outdir='.', clobber=True, img_nzoom=4, img_nds=16, img_nx=256, verbosity=2");
 
-    string doc_run = ("run(outdir='.', verbosity=2, clobber=True) -> json\n"
-		      "\n"
-		      "High-level API: to run a pipeline, just call run().\n"
-		      "\n"
-		      "'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will\n"
+    string doc_rp2 = ("'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will\n"
 		      "be written, in addition to other transform-specific output files such as plots.\n"
 		      "\n"
 		      "If 'outdir' is an empty string, then the json file will not be written, and\n"
@@ -496,11 +511,26 @@ static void wrap_pipeline_object(extension_module &m)
 		      "If 'clobber' is false, then an exception will be thrown if the pipeline tries to\n"
 		      "overwrite an old rf_pipelines.json file.\n"
 		      "\n"
+		      "Plot-related params:\n"
+		      "   img_nzoom = number of zoom levels (FIXME currently hardcoded, should switch to adaptive)\n"
+		      "   img_nds = time downsampling factor of plots at lowest zoom level\n"
+		      "   img_nx = number of x-pixels (i.e. time axis) in each plot tile\n"
+		      "\n"
 		      "The meaning of the 'verbosity' argument is:\n"
 		      "    0 = no output\n"
 		      "    1 = high-level summary output (names of transforms, number of samples processed etc.)\n"
 		      "    2 = show all output files\n"
 		      "    3 = debug trace through pipeline");
+
+    string doc_bind = ("bind(" + doc_rp1 + ")\n"
+		       "\n"
+		       "Does global pipeline initializations, including ring buffer sizes.  Called automatically by run().\n"
+		       "\n" + doc_rp2);
+
+    string doc_run = ("run(" + doc_rp1 + ") -> json\n"
+		      "\n"
+		      "High-level API: to run a pipeline, just call run().\n"
+		      "\n" + doc_rp2);
 
     string doc_cs = ("get_preferred_chunk_size() -> integer\n"
 		     "\n"
@@ -517,7 +547,7 @@ static void wrap_pipeline_object(extension_module &m)
 		     "This staticmethod is the counterpart of the non-static method jsonize().\n"
 		     "It \"de-serializes\" json data, and returns a pipeline_object.");
 
-    string doc_rjc = ("register_json_constructor(class_name, f)\n"
+    string doc_rjc = ("register_json_deserializer(class_name, f)\n"
 		      "\n"
 		      "The 'f' argument should be a function f(x) whose single argument 'x' is a json-serialized\n"
 		      "object (e.g. output of the jsonize() method), and returns a pipeline_object instance.\n"
@@ -578,26 +608,34 @@ static void wrap_pipeline_object(extension_module &m)
     pipeline_object_type.add_constructor(wrap_constructor(_init));
     pipeline_object_type.add_property("name", "Name of pipeline_object", _name);
 
-    pipeline_object_type.add_method("run", doc_run, wrap_method(_run, kwarg("outdir",py_object()), kwarg("verbosity",2), kwarg("clobber",true)));
-    pipeline_object_type.add_method("bind", "First step in pipeline: determines pipeline parameters such as ring buffer sizes", wrap_method(bind_t(&pipeline_object::bind)));
+    pipeline_object_type.add_method("run", doc_run, wrap_method(_run, kwarg("outdir",py_object()), kwarg("clobber",true), kwarg("img_nzoom",4), 
+								kwarg("img_nds",16), kwarg("img_nx",256), kwarg("verbosity",2)));
+
+    pipeline_object_type.add_method("bind", doc_bind, wrap_method(_bind, kwarg("outdir",py_object()), kwarg("clobber",true), kwarg("img_nzoom",4), 
+								  kwarg("img_nds",16), kwarg("img_nx",256), kwarg("verbosity",2)));
+							 
     pipeline_object_type.add_method("allocate", "Allocates all pipeline buffers", wrap_method(&pipeline_object::allocate));
     pipeline_object_type.add_method("deallocate", "Deallocates all pipeline buffers", wrap_method(&pipeline_object::deallocate));
+    pipeline_object_type.add_method("reset", "Resets pipeline after run().", wrap_method(&pipeline_object::reset));
+    pipeline_object_type.add_method("unbind", "\"Unbinds\" pipeline, allowing its components to be used elsewhere", wrap_method(&pipeline_object::unbind));
+    
     pipeline_object_type.add_method("get_preferred_chunk_size", doc_cs, wrap_method(&pipeline_object::get_preferred_chunk_size));
 
     pipeline_object_type.add_method("jsonize", "jsonize(): returns json serialization of pipeline_object", wrap_method(&pipeline_object::jsonize));
     pipeline_object_type.add_staticmethod("from_json", doc_fj, wrap_func(&pipeline_object::from_json, "json_data"));
-    pipeline_object_type.add_staticmethod("register_json_constructor", doc_rjc, wrap_func(_register_json_constructor, "class_name", "f"));
+    pipeline_object_type.add_staticmethod("register_json_deserializer", doc_rjc, wrap_func(_register_json_deserializer, "class_name", "f"));
 
     pipeline_object_type.add_method("add_plot_group", doc_add_pg, _add_pg);
     pipeline_object_type.add_method("add_plot", doc_add_plot, _add_plot);
     pipeline_object_type.add_method("add_file", doc_add_file, _add_file);
 
-    // Decided to leave these unwrapped for now.
-    //   pipeline_object_type.add_method("_bind", ...)
+    // FIXME _bind() unwrapped for now, since ring_buffer class and friends are not python-wrapped
     pipeline_object_type.add_method("_allocate", "_allocate(): optional", wrap_method(&pipeline_object::_allocate));
     pipeline_object_type.add_method("_deallocate", "_deallocate(): optional", wrap_method(&pipeline_object::_deallocate));
     pipeline_object_type.add_method("_start_pipeline", "_start_pipeline(): optional", wrap_j(&pipeline_object::_start_pipeline));
     pipeline_object_type.add_method("_end_pipeline", "_end_pipeline(): optional", wrap_j(&pipeline_object::_end_pipeline));
+    pipeline_object_type.add_method("_unbind", "_unbind(): optional", wrap_method(&pipeline_object::_unbind));
+    pipeline_object_type.add_method("_reset", "_reset(): optional", wrap_method(&pipeline_object::_reset));
 
     // FIXME doesn't really work -- more complicated than I thought!
     pipeline_object_type.add_method("__str__", "", wrap_method(_str));
@@ -630,6 +668,7 @@ static void wrap_chunked_pipeline_object(extension_module &m)
     
     chunked_pipeline_object_type.add_constructor(wrap_constructor(_init));
     chunked_pipeline_object_type.add_property("nt_chunk", "Chunk size of chunked_pipeline_object", _nt_chunk);
+    chunked_pipeline_object_type.add_method("finalize_nt_chunk", "Initializes nt_chunk to a reasonable default, if not yet initialized", wrap_method(&chunked_pipeline_object::finalize_nt_chunk));
 
     m.add_type(chunked_pipeline_object_type);    
 }
@@ -641,8 +680,8 @@ static void wrap_chunked_pipeline_object(extension_module &m)
 
 
 struct py_wi_stream : wi_stream {
-    py_wi_stream(const string &name_, ssize_t nfreq_=0, ssize_t nt_chunk_=0) :
-	wi_stream(name_, nfreq_, nt_chunk_)
+    py_wi_stream(const string &name_) :
+	wi_stream(name_)
     { }
 
     // _fill_chunk() is the only pure virtual.
@@ -680,18 +719,20 @@ struct py_wi_stream : wi_stream {
     virtual void _start_pipeline(Json::Value &j) override { _upcall_nodef_j(wi_stream_type, this, "_start_pipeline", j); }
     virtual void _end_pipeline(Json::Value &j) override   { _upcall_nodef_j(wi_stream_type, this, "_end_pipeline", j); }
 
-    virtual void _allocate() override   { _upcall_nodef(wi_stream_type, this, "_allocate"); }
-    virtual void _deallocate() override { _upcall_nodef(wi_stream_type, this, "_deallocate"); }
+    virtual void _allocate() override       { _upcall_nodef(wi_stream_type, this, "_allocate"); }
+    virtual void _deallocate() override     { _upcall_nodef(wi_stream_type, this, "_deallocate"); }
+    virtual void _unbind_stream() override  { _upcall_nodef(wi_stream_type, this, "_unbind_stream"); }
+    virtual void _reset() override          { _upcall_nodef(wi_stream_type, this, "_reset"); }
 };
 
 
 static void wrap_wi_stream(extension_module &m)
 {
     // constructor for python subclasses of wi_stream
-    std::function<wi_stream* (const string &, ssize_t, ssize_t)>
-	_init = [](const string &name, ssize_t nfreq, ssize_t nt_chunk) -> wi_stream*
+    std::function<wi_stream* (const string &)>
+	_init = [](const string &name) -> wi_stream*
 	{
-	    return new py_wi_stream(name, nfreq, nt_chunk);
+	    return new py_wi_stream(name);
 	};
 
     // nfreq property
@@ -707,9 +748,10 @@ static void wrap_wi_stream(extension_module &m)
 	    return self->_fill_chunk(intensity.data, istride, weights.data, wstride, pos);
 	};
 
-    wi_stream_type.add_constructor(wrap_constructor(_init, "name", kwarg("nfreq",0), kwarg("nt_chunk",0)));
+    wi_stream_type.add_constructor(wrap_constructor(_init, "name"));
     wi_stream_type.add_property("nfreq", "Number of frequency channels", _nfreq);
     wi_stream_type.add_method("_bind_stream", "_bind_stream(j): optional", wrap_j(&wi_stream::_bind_stream));
+    wi_stream_type.add_method("_unbind_stream", "_unbind_stream(): optional", wrap_method(&wi_stream::_unbind_stream));
     
     wi_stream_type.add_method("_fill_chunk", "_fill_chunk(intensity, weights, pos)", 
 			      wrap_method(_fill_chunk, "intensity", "weights", "pos"));
@@ -724,8 +766,8 @@ static void wrap_wi_stream(extension_module &m)
 
 
 struct py_wi_transform : wi_transform {
-    py_wi_transform(const string &name_, ssize_t nt_chunk_=0, ssize_t nfreq_=0, ssize_t nds_=0) :
-	wi_transform(name_, nt_chunk_, nfreq_, nds_)
+    py_wi_transform(const string &name_) :
+	wi_transform(name_)
     { }
 
     // _process_chunk() is the only pure virtual.
@@ -773,10 +815,10 @@ static void wrap_wi_transform(extension_module &m)
     std::function<ssize_t& (wi_transform *)> _nds = [](wi_transform *self) -> ssize_t& { return self->nds; };
 
     // constructor for python subclasses of wi_transform
-    std::function<wi_transform* (const string&, ssize_t, ssize_t, ssize_t)>
-	_init = [](const string &name, ssize_t nt_chunk, ssize_t nfreq, ssize_t nds)
+    std::function<wi_transform* (const string&)>
+	_init = [](const string &name)
 	{
-	    return new py_wi_transform(name, nt_chunk, nfreq, nds);
+	    return new py_wi_transform(name);
 	};
 
     // python-callable wi_transform::_process_chunk()
@@ -788,10 +830,13 @@ static void wrap_wi_transform(extension_module &m)
 	    self->_process_chunk(intensity.data, istride, weights.data, wstride, pos);
 	};
 
-    wi_transform_type.add_constructor(wrap_constructor(_init, "name", kwarg("nt_chunk",0), kwarg("nfreq",0), kwarg("nds",0)));
+    wi_transform_type.add_constructor(wrap_constructor(_init, "name"));
+    wi_transform_type.add_property("kernel_chunk_size", "Kernel chunk size (optional)", _nfreq);
     wi_transform_type.add_property("nfreq", "Number of frequency channels", _nfreq);
     wi_transform_type.add_property("nds", "Time downsampling factor", _nds);
+
     wi_transform_type.add_method("_bind_transform", "_bind_transform(): optional", wrap_j(&wi_transform::_bind_transform));
+    wi_transform_type.add_method("_unbind_transform", "_unbind_transform(): optional", wrap_method(&wi_transform::_unbind_transform));
 
     wi_transform_type.add_method("_process_chunk", "_process_chunk(intensity, weights, pos)",
 				 wrap_method(_process_chunk, "intensity", "weights", "pos"));
@@ -844,6 +889,80 @@ static void wrap_containers(extension_module &m)
 
     m.add_type(pipeline_type);
     m.add_type(wi_sub_pipeline_type);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// wrap_utility_classes()
+
+
+static void wrap_utility_classes(extension_module &m)
+{
+    m.add_function("mask_expander",
+		   "mask_expander(axis, prev_wname, width, threshold, alpha=0.0, nt_chunk=0) -> pipeline_object\n"
+		   "\n"
+		   "Experimental: expands the RFI mask, in a way which is intended to \"fill gaps\".\n"
+		   "\n"
+		   "It is assuemd that the caller has saved the weights at a previous point in the pipeline\n"
+		   "(using pipeline_fork, see the 'pipeline_fork' docstring).  We use the term \"prev_mask\" to\n"
+		   "mean the RFI mask at this previous point in the pipeline, and \"delta_mask\" to mean the set\n"
+		   "of pixels which are currently masked in the pipeline, but were not masked in the prev_mask.\n"
+		   "\n"
+		   "By default, the mask_expander actually expands the delta-mask, but this behavior\n"
+		   "can be modified (see the 'alpha' parameter below).\n"
+		   "\n"
+		   "The expansion is done by computing exponential moving averages of the delta-mask in\n"
+		   "both directions, and masking pixels when both averages are above a threshold.  This\n"
+		   "will be written up in more detail later!\n"
+		   "\n"
+		   "Constructor arguments\n"
+		   "---------------------\n"
+		   "\n"
+		   "'axis': currently, only AXIS_FREQ is implemented.  AXIS_TIME is coming soon!\n"
+		   "\n"
+		   "'prev_wname': pipeline bufname of the saved weights (a string).  Note that in order\n"
+		   "  to save the weights at a previous point in the pipeline, you can use a pipeline_fork\n"
+		   "  whose input_bufname parameter is \"WEIGHTS\" and whose output_bufname is a string which\n"
+		   "  uniquely identifies the saved weights (e.g. \"WEIGHTS_SAVE1\").  The 'prev_wname' argument\n"
+		   "  to the mask_expander should be the same as the 'output_bufname' argument of the\n"
+		   "  pipeline_fork.\n"
+		   "\n"
+		   "'width': the decay width of the exponential moving average.  In the AXIS_FREQ case,\n"
+		   "  this is expressed as a fraction of the frequency band, i.e. width=0.1 means that\n"
+		   "  the characteristic width of the mask_expander is 10% of the full frequency band.\n"
+		   "\n"
+		   "'threshold': value between 0 and 1 which determines how aggressive the mask_expander is.\n"
+		   "  Low values correspond to more masking.  The numerical value can be roughly interpreted\n"
+		   "  as the fraction of data which must be delta-masked before mask expansion will\n"
+		   "  occur.  For example, if threshold=0.1, then mask expansion will occur in regions of\n"
+		   "  the data where ~10% or more of the pixels are delta-masked.\n"
+		   "\n"
+		   "'alpha': to explain this parameter, we first note that delta-masked pixels are\n"
+		   "  \"sources\" for the mask_expander, and unmasked pixels are \"sinks\".  That is,\n"
+		   "  mask expansion occurs in regions where the number of delta-masked pixels\n"
+		   "  relative to the number of unmasked pixels is above a threshold.\n"
+		   "\n"
+		   "  The alpha paramaeter determines how the prev_mask is handled by the mask_expander.\n"
+		   "  By default (alpha=0), prev-masked pixels are \"neutral\", i.e. they are neither\n"
+		   "  sources nor sinks for the mask_expander.\n"
+		   "\n"
+		   "  If 0 < alpha < 1, then prev-masked pixels are sinks for the mask_expander, i.e.\n"
+		   "  they reduce the amount of mask expansion, and the amount of reduction is proportional\n"
+		   "  to alpha.  If alpha=1, then prev_masked pixels are equivalent to unmasked pixels.\n"
+		   "\n"
+		   "  If -1 < alpha < 0, then prev-masked pixels are sources for the mask_expander, i.e.\n"
+		   "  they increase the amount of mask expansion, and the amount of reduction is proportional\n"
+		   "  to (-alpha).  If alpha=-1, then prev_masked pixels are equivalent to delta_masked pixels.\n",
+		   wrap_func(make_mask_expander, "axis", "prev_wname", "width", "threshold", kwarg("alpha",0.0), kwarg("nt_chunk",0)));
+		   
+    m.add_function("pipeline_fork",
+		   "pipeline_fork(bufnames) -> pipeline_object\n"
+		   "\n"
+		   "Creates one or more new pipeline ring_buffers, by copying existing ring_buffers.\n"
+		   "The 'bufnames' argument should be a list of (input_bufname, output_bufname) pairs.\n"
+		   "Frequently, the input_bufname will be one of the built-in names \"INTENSITY\" or \"WEIGHTS\".\n",
+		   wrap_func(make_pipeline_fork, "bufnames"));
 }
 
 
@@ -1088,20 +1207,20 @@ static void wrap_clippers(extension_module &m)
 		     "If the 'two_pass' flag is set, a more numerically stable but slightly slower algorithm will be used.");
 
     
-    string doc_sd = ("std_dev_clipper()\n"
-		     "\n"
-		     "std_dev_clipper: this \"clips\" an array by masking rows/columns whose standard deviation is an outlier.\n"
-		     "\n"
-		     "The 'axis' argument has the following meaning:\n"
-		     "   axis=0 or 'freq'   clip time samples whose variance in frequency is high\n"
-		     "   axis=1 or 'time'   clip frequency channels whose variance in time is high\n"
-		     "\n"
-		     "The (Df,Dt) args are downsampling factors on the frequency/time axes.\n"
-		     "If no downsampling is desired, set Df=Dt=1.\n"
-		     "\n"
-		     "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.\n"
-		     "\n"
-		     "If the 'two_pass' flag is set, a more numerically stable but slightly slower algorithm will be used.");
+    string doc_sdc = ("std_dev_clipper()\n"
+		      "\n"
+		      "std_dev_clipper: this \"clips\" an array by masking rows/columns whose standard deviation is an outlier.\n"
+		      "\n"
+		      "The 'axis' argument has the following meaning:\n"
+		      "   axis=0 or 'freq'   clip time samples whose variance in frequency is high\n"
+		      "   axis=1 or 'time'   clip frequency channels whose variance in time is high\n"
+		      "\n"
+		      "The (Df,Dt) args are downsampling factors on the frequency/time axes.\n"
+		      "If no downsampling is desired, set Df=Dt=1.\n"
+		      "\n"
+		      "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.\n"
+		      "\n"
+		      "If the 'two_pass' flag is set, a more numerically stable but slightly slower algorithm will be used.");
 
     
     // python-callable make_badchannel_mask()
@@ -1131,7 +1250,7 @@ static void wrap_clippers(extension_module &m)
 
     m.add_function("badchannel_mask", doc_bm, f_bm);
     m.add_function("intensity_clipper", doc_ic, f_ic);
-    m.add_function("std_dev_clipper", doc_sd, f_sd);
+    m.add_function("std_dev_clipper", doc_sdc, f_sd);
 }		   
 
 
@@ -1157,6 +1276,26 @@ static void apply_polynomial_detrender(io_arr2d intensity, io_arr2d weights, rf_
     int wstride = xdiv(weights.stride(0), sizeof(float));
 
     kernel.detrend(nfreq, nt, intensity.data, istride, weights.data, wstride, epsilon);
+}
+
+
+static void apply_spline_detrender(io_arr2d intensity, io_arr2d weights, rf_kernels::axis_type axis, int nbins, double epsilon=3.0e-4)
+{
+    if ((intensity.shape(0) != weights.shape(0)) || (intensity.shape(1) != weights.shape(1)))
+	throw runtime_error("rf_pipelines.apply_spline_detrender: 'intensity' and 'weights' arrays do not have the same shape");
+
+    if (axis != rf_kernels::AXIS_FREQ)
+	throw runtime_error("rf_pipelines.apply_spline_detrender: currently, only AXIS_FREQ is supported");
+    
+    int nfreq = intensity.shape(0);
+    int nt = intensity.shape(1);
+    int istride = xdiv(intensity.stride(0), sizeof(float));
+    int wstride = xdiv(weights.stride(0), sizeof(float));
+
+    // Additional argument checks will be performed in kernel constructor.
+    rf_kernels::spline_detrender kernel(nfreq, nbins, epsilon);
+
+    kernel.detrend(nt, intensity.data, istride, weights.data, wstride);
 }
 
 
@@ -1287,6 +1426,8 @@ static void wrap_kernels(extension_module &m)
 		     "'epsilon'.  I think that 1.0e-2 is a reasonable default here, but haven't\n"
 		     "experimented systematically.\n");
 
+    string doc_sd = ("apply_spline_detrender(intensity, weights, axis, nbins, epsilon=3.0e-4)\n");
+
     string doc_ic = ("apply_intensity_clipper(intensity, weights, axis, sigma, niter=1, iter_sigma=0.0, Df=1, Dt=1, two_pass=False)\n"
 		     "\n"
 		     "'Clips' an array by masking outlier intensities.\n"
@@ -1309,20 +1450,20 @@ static void wrap_kernels(extension_module &m)
 		     "\n"
 		     "If the 'two_pass' flag is set, then a more numerically stable but slightly slower algorithm will be used.\n");
 
-    string doc_sd = ("apply_std_dev_clipper(intensity, weights, axis, sigma, Df=1, Dt=1, two_pass=False)\n"
-		     "\n"
-		     "'Clips' an array by masking rows/columns whose standard deviation is an outlier.\n"
-		     "The masking is performed by setting elements of the weights array to zero.\n"
-		     "\n"
-		     "The 'axis' argument has the following meaning:\n"
-		     "   axis=0   clip time samples whose variance in frequency is high\n"
-		     "   axis=1   clip frequency channels whose variance in time is high\n"
-		     "\n"
-		     "The (Df,Dt) args are downsampling factors on the frequency/time axes.\n"
-		     "If no downsampling is desired, set Df=Dt=1.\n"
-		     "\n"
-		     "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.\n"
-		     "If the 'two_pass' flag is set, then a more numerically stable but slightly slower algorithm will be used.\n");
+    string doc_sdc = ("apply_std_dev_clipper(intensity, weights, axis, sigma, Df=1, Dt=1, two_pass=False)\n"
+		      "\n"
+		      "'Clips' an array by masking rows/columns whose standard deviation is an outlier.\n"
+		      "The masking is performed by setting elements of the weights array to zero.\n"
+		      "\n"
+		      "The 'axis' argument has the following meaning:\n"
+		      "   axis=0   clip time samples whose variance in frequency is high\n"
+		      "   axis=1   clip frequency channels whose variance in time is high\n"
+		      "\n"
+		      "The (Df,Dt) args are downsampling factors on the frequency/time axes.\n"
+		      "If no downsampling is desired, set Df=Dt=1.\n"
+		      "\n"
+		      "The 'sigma' argument is the threshold (in sigmas from the mean) for clipping.\n"
+		      "If the 'two_pass' flag is set, then a more numerically stable but slightly slower algorithm will be used.\n");
     
     string doc_ds = ("wi_downsample(intensity, weights, Df, Dt) -> (intensity, weights)\n"
 		     "\n"
@@ -1349,11 +1490,14 @@ static void wrap_kernels(extension_module &m)
     m.add_function("apply_polynomial_detrender", doc_pd,
 		   wrap_func(apply_polynomial_detrender, "intensity", "weights", "axis", "polydeg", kwarg("epsilon",1.0e-2)));
 
+    m.add_function("apply_spline_detrender", doc_sd,
+		   wrap_func(apply_spline_detrender, "intensity", "weights", "axis", "nbins", kwarg("epsilon",3.0e-4)));
+
     m.add_function("apply_intensity_clipper", doc_ic,
 		   wrap_func(apply_intensity_clipper, "intensity", "weights", "axis", "sigma", kwarg("niter",1),
 			     kwarg("iter_sigma",0.0), kwarg("Df",1), kwarg("Dt",1), kwarg("two_pass",false)));
 
-    m.add_function("apply_std_dev_clipper", doc_sd,
+    m.add_function("apply_std_dev_clipper", doc_sdc,
 		   wrap_func(apply_std_dev_clipper, "intensity", "weights", "axis", "sigma",
 			     kwarg("Df",1), kwarg("Dt",1), kwarg("two_pass",false)));
 
@@ -1386,6 +1530,7 @@ PyMODINIT_FUNC initrf_pipelines_c(void)
 
     // rf_pipelines_inventory.hpp
     wrap_containers(m);
+    wrap_utility_classes(m);
     wrap_chime_streams(m);
     wrap_chime_ostreams(m);
     wrap_misc_streams(m);

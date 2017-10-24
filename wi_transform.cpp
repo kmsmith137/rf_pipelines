@@ -8,23 +8,16 @@ namespace rf_pipelines {
 #endif
 
 
-wi_transform::wi_transform(const string &name_, ssize_t nt_chunk_, ssize_t nfreq_, ssize_t nds_) :
-    chunked_pipeline_object(name_, false, nt_chunk_),  // can_be_first=false
-    nfreq(nfreq_),
-    nds(nds_)
-{
-    if (nfreq < 0)
-	_throw("expected nfreq >= 0 in wi_transform constructor");
-    if (nds < 0)
-	_throw("expected nds >= 0 in wi_transform constructor");
-}
+wi_transform::wi_transform(const string &name_) :
+    chunked_pipeline_object(name_, false)  // can_be_first=false
+{ }
 
 
 // virtual override
-void wi_transform::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
+void wi_transform::_bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
 {
-    this->_save_nfreq = nfreq;
-    this->_save_nds = nds;
+    this->_prebind_nfreq = nfreq;
+    this->_prebind_nds = nds;
 
     this->rb_intensity = this->get_buffer(rb_dict, "INTENSITY");
     this->rb_weights = this->get_buffer(rb_dict, "WEIGHTS");
@@ -44,6 +37,8 @@ void wi_transform::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_at
 
     if ((expected_nfreq > 0) && (nfreq != expected_nfreq))
 	_throw("pipeline nfreq (" + to_string(nfreq) + ") doesn't match expected value (" + to_string(expected_nfreq) + ")");
+    if ((expected_nds == 1) && (nds != 1))
+	_throw("this transform does not (yet?) support downsampling, and cannot be used in a wi_sub_pipeline");
     if ((expected_nds > 0) && (nds != expected_nds))
 	_throw("pipeline nds (" + to_string(nds) + ") doesn't match expected value (" + to_string(expected_nds) + ")");
 
@@ -55,35 +50,68 @@ void wi_transform::_bind_chunked(ring_buffer_dict &rb_dict, Json::Value &json_at
 // virtual override
 bool wi_transform::_process_chunk(ssize_t pos)
 {
-    float *intensity = rb_intensity->get(pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
-    float *weights = rb_weights->get(pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
+    ring_buffer_subarray intensity(rb_intensity, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
+    ring_buffer_subarray weights(rb_weights, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
 
-    this->_process_chunk(intensity, rb_intensity->get_stride(), weights, rb_weights->get_stride(), pos);
-
-    rb_intensity->put(intensity, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
-    rb_weights->put(weights, pos, pos+nt_chunk, ring_buffer::ACCESS_RW);
+    this->_process_chunk(intensity.data, intensity.stride, weights.data, weights.stride, pos);
     return true;
 }
 
 
-// Default virtual
-void wi_transform::_bind_transform(Json::Value &json_attrs)
+void wi_transform::_unbindc()
 {
-    return;
+    this->_unbind_transform();
+    
+    this->rb_intensity.reset();
+    this->rb_weights.reset();
+
+    // We revert 'nfreq' and 'nds' to their "prebind" values.
+    this->nfreq = this->get_prebind_nfreq();
+    this->nds = this->get_prebind_nds();
 }
 
 
-ssize_t wi_transform::get_orig_nfreq() const
+// We override chunked_pipeline::finalize_nt_chunk() in order to incorporate 'kernel_chunk_size'.
+void wi_transform::finalize_nt_chunk()
 {
-    return is_bound() ? _save_nfreq : nfreq;
+    if (nt_chunk_in <= 0)
+	_throw("finalize_nt_chunk(): expected nt_chunk_in > 0.  Note that finalize_nt_chunk() should be called during bind(), after ring buffers are allocated");
+
+    // I don't think there is any way to fail this check, while passing the previous one, but you never know...
+    if (nds <= 0)
+	_throw("wi_transform::finalize_nt_chunk(): internal error: expected nds > 0");
+
+    if (nt_chunk > 0) {
+	this->_check_nt_chunk();
+	return;
+    }
+
+    ssize_t m = max(nt_chunk_in, ssize_t(512));
+    ssize_t n = max(kernel_chunk_size, ssize_t(1)) * nds;
+
+    this->nt_chunk = n * max(m/n, ssize_t(1));
+    this->_check_nt_chunk();
 }
 
 
-ssize_t wi_transform::get_orig_nds() const
+// We override chunked_pipeline::_check_nt_chunk() in order to incorporate 'kernel_chunk_size'.
+void wi_transform::_check_nt_chunk() const
 {
-    return is_bound() ? _save_nds : nds;
+    rf_assert(nds > 0);
+    rf_assert(nt_chunk > 0);
+    rf_assert(nt_chunk_in > 0);
+
+    if (nt_chunk % nds)
+	_throw("nt_chunk (=" + to_string(nt_chunk) + ") must be a multiple of nds (=" + to_string(nds) + ")");
+
+    if ((kernel_chunk_size > 0) && (nt_chunk % (kernel_chunk_size * nds)))
+	_throw("nt_chunk (=" + to_string(nt_chunk) + ") must be a multiple of kernel_chunk_size*nds (=" + to_string(kernel_chunk_size*nds) + ")");
 }
+
+
+// Default virtuals
+void wi_transform::_bind_transform(Json::Value &json_attrs) { }
+void wi_transform::_unbind_transform() { }
 
 
 }  // namespace rf_pipelines
-

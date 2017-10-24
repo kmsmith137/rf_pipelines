@@ -74,6 +74,89 @@ struct plot_group {
 };
 
 
+struct zoomable_tileset_state {
+    // This constructor should only be called via pipeline_object::add_zoomable_tileset().
+    zoomable_tileset_state(const std::shared_ptr<zoomable_tileset> &zt, 
+			   const std::shared_ptr<outdir_manager> &mp,
+			   const Json::Value &json_attrs);
+
+    std::shared_ptr<zoomable_tileset> zt;
+    std::shared_ptr<outdir_manager> mp;
+
+    // Note: the parameters (img_nzoom, img_nds, img_nx) are the same for every tileset
+    // emitted by the pipeline.  These parameters are specified in 'struct run_params'
+    // (which is pipeline-global), and are converted to json_attrs in bind().
+    //
+    // The other four parameters can be different for each tileset, and are fields in
+    // 'struct zoomable_tileset'.
+
+    const std::string img_prefix;  // determines tile filenames as ${outdir}/${img_prefix}_${izoom}_${ifile}.png
+    const ssize_t img_nzoom;  // number of zoom levels plotted
+    const ssize_t img_nds;    // time downsampling of tiles at lowest zoom level (i.e. number of time samples per x-pixel)
+    const ssize_t img_nx;     // number of x-pixels per tile
+    const ssize_t img_ny;     // number of y-pixels per tile
+    const ssize_t nds_arr;    // time downsampling of ring buffer and RGB arrays at lowest zoom level
+    const ssize_t ny_arr;     // number of y-pixels in RGB arrays
+
+    bool is_allocated = false;
+    bool is_flushed = false;
+    ssize_t curr_pos = 0;
+
+    // Always equal to (log2(img_nds) - log2(zt->nds_arr)).
+    // Positive value means ring buffer[0] is upsampled relative to the first set of plot tiles.
+    // Negative value means ring_buffer[0] is downsampled relative to the first set of plot tiles.
+    int ds_offset = 0;
+
+    // Outer index is zoom level.
+    // First zoom level has nds = zt->nds_arr.
+    // If ds_offset > 0, then only ring buffer indices irb >= ds_offset get written directly to plot files.
+    std::vector<std::vector<std::shared_ptr<ring_buffer>>> ring_buffers;
+
+    // Number of blocks processed so far (per zoom level).
+    // One "block" is (zt->nds_arr * img_nx * (1<<irb)) time samples, where 'irb' is the outer index.
+    // For ring buffers irb >= ds_offset, blocks are in 1-1 correspondence with plot files.
+    std::vector<ssize_t> nblocks;   // length img_nzoom
+
+    // These buffers hold RGB tiles, which are separate from the ring_buffers.
+    // The 'rgb_zoom' array has logical shape (img_nzoom, zt->ny_arr, img_nx, 3)
+    std::vector<uint8_t *> rgb_zoom;
+
+    // In the case where y-upsampling is done (i.e. zt->ny_arr < img_ny), 
+    // we need an need auxiliary buffer of shape (img_ny, img_nx, 3).
+    uint8_t *rgb_us = nullptr;
+
+    Json::Value json_output;
+    
+    // Called by pipeline_object::bind().
+    // The arguments (nt_contig, nt_maxlag) have the same meaning as in ring_buffer::update_params().
+    void update_params(ssize_t nt_contig, ssize_t nt_maxlag);
+
+    // Called by pipeline_object::advance().
+    void advance(ssize_t pos);
+
+    // Called by pipeline_object::end_pipeline(), to flush unfinished tiles to disk.
+    void flush();
+
+    void allocate();
+    void deallocate();
+    void reset();
+
+    // Helper methods used internally.
+    void _advance_by_one_block(int irb);
+    void _emit_plot(int izoom, ssize_t iplot);
+    void _upsample_rgb(uint8_t *rgb_dst, const uint8_t *rgb_src, bool second_half);
+    void _initialize_json();
+
+    inline ssize_t nt_per_block(int irb)
+    {
+	return nds_arr * img_nx * (1 << ssize_t(irb));
+    }
+    
+    // Memory management.
+    std::vector<std::unique_ptr<uint8_t[]>> rgb_alloc;
+};
+
+
 // -------------------------------------------------------------------------------------------------
 
 
@@ -90,7 +173,17 @@ extern rf_kernels::axis_type axis_type_from_json(const Json::Value &x, const std
 extern double double_from_json(const Json::Value &x, const std::string &k);
 extern int int_from_json(const Json::Value &x, const std::string &k);
 extern bool bool_from_json(const Json::Value &j, const std::string &k);
+extern ssize_t ssize_t_from_json(const Json::Value &j, const std::string &k);
 extern void add_json_object(Json::Value &dst, const Json::Value &src);
+
+
+// plot_utils.cpp
+
+// The 'rgb' array should have shape (m,n,3).
+//
+// The 'ymajor' flag controls whether the major (length-m) index of the array is the y-axis of the
+// plots, i.e. the plot dimensions are either (n,m) or (m,n) depending on whether ymajor is true or false.
+extern void write_rgb8_png(const std::string &filename, uint8_t *rgb, int m, int n, bool ymajor, bool ytop_to_bottom);
 
 
 // -------------------------------------------------------------------------------------------------
@@ -242,12 +335,31 @@ inline ssize_t xmod(ssize_t m, ssize_t n)
     return m % n;
 }
 
+inline bool is_power_of_two(ssize_t n)
+{
+    rf_assert(n > 0);
+    return (n & (n-1)) == 0;
+}
+
+inline int integer_log2(int n)
+{
+    int ret = 0;
+    while ((1 << ret) < n)
+        ret++;
+
+    if (n != (1 << ret))
+	throw std::runtime_error("integer_log2 called with non-power-of-two argument");
+
+   return ret;
+}
+
+// Greatest common divisor
 inline ssize_t gcd(ssize_t m, ssize_t n)
 {
     if (m < n)
 	std::swap(m, n);
-    if (n < 0)
-	throw std::runtime_error("gcd() called with negative argument");
+    if (n <= 0)
+	throw std::runtime_error("gcd() called with non-positive argument");
 
     while (n > 0) {
 	ssize_t d = m % n;
@@ -258,7 +370,13 @@ inline ssize_t gcd(ssize_t m, ssize_t n)
     return m;
 }
 
-// round up m to nearest multiple of n
+// Least common multiple
+inline ssize_t lcm(ssize_t m, ssize_t n)
+{
+    return (m*n) / gcd(m,n);
+}
+
+// Round up 'm' to nearest multiple of 'n'
 inline ssize_t round_up(ssize_t m, ssize_t n)
 {
     rf_assert(m >= 0);
