@@ -85,6 +85,7 @@ class bonsai_dedisperser(wi_transform):
         self.hdf5_output_filename = hdf5_output_filename
         self.use_analytic_normalization = use_analytic_normalization
         self.deallocate_between_substreams = deallocate_between_substreams
+        self._img_prefix = img_prefix  # special case: self.img_prefix has another meaning
         
         initially_allocated = not deallocate_between_substreams
         self.dedisperser = bonsai.Dedisperser(config_filename, fill_rfi_mask=fill_rfi_mask, allocate=initially_allocated, use_analytic_normalization=use_analytic_normalization)
@@ -284,7 +285,7 @@ class bonsai_dedisperser(wi_transform):
         return { 'class_name': 'bonsai_dedisperser',
                  'config_filename': self.config_filename,
                  'fill_rfi_mask': self.fill_rfi_mask,
-                 'img_prefix': self.img_prefix if self.make_plot else None,
+                 'img_prefix': self._img_prefix if self.make_plot else None,
                  'img_ndm': self.img_ndm if self.make_plot else 0,
                  'img_nt': self.img_nt if self.make_plot else 0,
                  'downsample_nt': self.downsample_nt[0] if self.make_plot else 0,
