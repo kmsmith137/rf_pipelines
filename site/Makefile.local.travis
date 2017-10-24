@@ -10,6 +10,9 @@ LIBDIR ?= $(HOME)/chime/lib
 # Directory where C++ header files will be installed
 INCDIR ?= $(HOME)/chime/include
 
+# Directory where executables will be installed (currently, all executables are python scripts)
+BINDIR ?= $(HOME)/chime/bin
+
 # Directory where Python modules will be installed
 PYDIR ?= $(HOME)/lib/python2.7/site-packages
 

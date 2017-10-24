@@ -10,6 +10,9 @@ LIBDIR=$(BASE)/lib
 # Directory where C++ header files will be installed
 INCDIR=$(BASE)/include
 
+# Directory where executables will be installed (currently, all executables are python scripts)
+BINDIR=$(BASE)/bin
+
 # Directory where Python modules will be installed
 PYDIR=$(BASE)/lib/python2.7/site-packages
 
