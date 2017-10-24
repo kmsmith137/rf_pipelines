@@ -32,7 +32,7 @@ args = parser.parse_args()
 ocount = 0
 if args.n:
     ocount += 1
-if args.run_name is not None:
+if args.wv_name is not None:
     ocount += 1
 
 if len(sys.argv) == 1:
@@ -59,6 +59,7 @@ if args.wv_name is not None:
 # Create pipeline object and run pipeline.
 
 
+import json
 import rf_pipelines
 
 p = [ ]
@@ -73,8 +74,8 @@ if len(p) > 1:
 
 
 
-if args.run_name is not None:
-    rf_pipelines.utils.run_for_web_viewer(args.run_name, p)
+if args.wv_name is not None:
+    rf_pipelines.utils.run_for_web_viewer(args.wv_name, p)
 else:
     assert args.nflag
     print >>sys.stderr, 'Running pipeline with no output directory'
