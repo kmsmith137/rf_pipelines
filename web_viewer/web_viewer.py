@@ -418,6 +418,13 @@ def get_tile(user, run, fname):
     return send_from_directory(dirname, fname)
 
 
+def make_navbar(user, run, zoom):
+    return '<p><center>[&nbsp;&nbsp;&nbsp;<a href="%s">Back to Users List</a>&nbsp;&nbsp;&nbsp;<a href="%s">Back to Your Runs</a>&nbsp;&nbsp;&nbsp;<a href="%s">' \
+        'Show Triggers</a>&nbsp;&nbsp;&nbsp;<a href="%s">Show Last Transform</a>&nbsp;&nbsp;&nbsp;]</center></p>' \
+        % (url_for('index'), url_for('runs', user=user), url_for('show_triggers', user=user, run=run, zoom=0), 
+           url_for('show_last_transform', user=user, run=run, zoom=zoom))
+
+
 @app.route("/<string:user>/<string:run>/show_tiles/<int:zoom>/<int:index1>/<int:index2>")
 def show_tiles(user, run, zoom, index1, index2):
     """Tiled image viewer! Shows all of the plots produced from a pipeline run at different zooms 
@@ -456,10 +463,7 @@ def show_tiles(user, run, zoom, index1, index2):
         display += '</tr><tr><td>&nbsp;</td></tr>'
 
     # Links to user and user/run pages
-    display += '<p><center>[&nbsp;&nbsp;&nbsp;<a href="%s">Back to Users List</a>&nbsp;&nbsp;&nbsp;<a href="%s">Back to Your Runs</a>&nbsp;&nbsp;&nbsp;<a href="%s">' \
-               'Show Triggers</a>&nbsp;&nbsp;&nbsp;<a href="%s">Show Last Transform</a>&nbsp;&nbsp;&nbsp;]</center></p>' \
-               % (url_for('index'), url_for('runs', user=user), url_for('show_triggers', user=user, run=run, zoom=0), 
-                  url_for('show_last_transform', user=user, run=run, zoom=zoom))
+    display += make_navbar(user, run, zoom)
 
     # Plots to be linked
     display += '<p> <center> [&nbsp;&nbsp;&nbsp;'
@@ -539,8 +543,7 @@ def show_last_transform(user, run, zoom):
 
     triggerList = p.fnames[-2]
     display = '<h3>Displaying Last Transform Plots at Zoom %s</h3>' % (p.max_zoom - zoom - 1)
-    display += '<p><center>[&nbsp;&nbsp;&nbsp;<a href="%s">Back to Users List</a>&nbsp;&nbsp;&nbsp;<a href="%s">Back to Your Runs</a>' \
-               '&nbsp;&nbsp;&nbsp;]</center></p>' % (url_for('index'), url_for('runs', user=user))
+    display += make_navbar(user, run, zoom)
     display += '<table cellspacing="0" cellpadding="0"><tr>'
 
     last_row = 0
@@ -583,8 +586,7 @@ def show_triggers(user, run, zoom):
 
     triggerList = p.fnames[-1]
     display = '<h3>Displaying Trigger Plots at Zoom %s</h3>' % (p.max_zoom - zoom - 1)
-    display += '<p><center>[&nbsp;&nbsp;&nbsp;<a href="%s">Back to Users List</a>&nbsp;&nbsp;&nbsp;<a href="%s">Back to Your Runs</a>' \
-               '&nbsp;&nbsp;&nbsp;]</center></p>' % (url_for('index'), url_for('runs', user=user))
+    display += make_navbar(user, run, zoom)
     display += '<table cellspacing="0" cellpadding="0"><tr>'
 
     last_row = 0
