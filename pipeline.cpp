@@ -85,7 +85,7 @@ ssize_t pipeline::_advance()
 	pos_lo = p->pos_lo;
 
 	if (_params.noisy())
-	    p->_print("advance " + to_string(m) + " -> " + to_string(pos_lo) + ": " + to_string(ret));
+	    p->_print("advance " + to_string(m) + " -> " + to_string(pos_lo));
     }
     
     return ret;

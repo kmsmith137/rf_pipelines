@@ -43,15 +43,14 @@ void pipeline_object::_throw(const string &msg) const
 
 void pipeline_object::_print(const string &msg) const
 {
-    if (state != UNBOUND)
-	cout << string(_params.container_depth*4 + 4, ' ');
+    if (state != UNBOUND) {
+	cout << string(_params.container_depth*4, ' ');
 
-    cout << "[";
+	if (_params.container_index >= 0)
+	    cout << "[" << _params.container_index << "]: ";
+    }
 
-    if ((state != UNBOUND) && (_params.container_index >= 0))
-	cout << _params.container_index << ": ";
-
-    cout << name << "]: " << msg << endl;
+    cout << msg << ": " << this->name << "\n";
 }
 
 
@@ -145,7 +144,7 @@ shared_ptr<ring_buffer> pipeline_object::get_buffer(ring_buffer_dict &rb_dict, c
     if (!has_key(rb_dict, bufname))
 	_throw("buffer '" + bufname + "' does not exist in pipeline");
     if (_params.verbosity >= 3)
-	cout << "    " << this->name << ": get_buffer(" << bufname << ")\n";
+	cout << "    bind(): get_buffer(" << bufname << "): " << this->name << "\n";
 
     auto ret = rb_dict[bufname];
     all_ring_buffers.push_back(ret);
@@ -162,7 +161,7 @@ shared_ptr<ring_buffer> pipeline_object::create_buffer(ring_buffer_dict &rb_dict
     if (has_key(rb_dict, bufname))
 	_throw("buffer '" + bufname + "' already exists in pipeline");
     if (_params.verbosity >= 3)
-	cout << "    " << this->name << ": create_buffer(" << bufname << ")\n";
+	cout << "    bind(): create_buffer(" << bufname << "): " << this->name << "\n";
 
     auto ret = make_shared<ring_buffer> (cdims, nds, _params.debug);
 
@@ -185,7 +184,7 @@ pipeline_object::add_zoomable_tileset(const shared_ptr<zoomable_tileset> &zt, co
     if (out_mp->outdir.size() == 0)
 	_throw("add_zoomable_tileset() should not be called if there is no pipeline outdir");
     if (_params.verbosity >= 3)
-	cout << "    " << this->name << ": add_zoomable_tileset(" << zt->img_prefix << ")\n";
+	cout << "    bind(): add_zoomable_tileset(" << zt->img_prefix << "): " << this->name << "\n";
 
     auto ret = make_shared<zoomable_tileset_state> (zt, *this);
 
