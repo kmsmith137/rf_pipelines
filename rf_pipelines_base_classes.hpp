@@ -84,10 +84,6 @@ struct zoomable_tileset_state;
 // -------------------------------------------------------------------------------------------------
 //
 // run_params: parameters which are specified before running a pipeline.
-//
-// When a pipeline is run, these parameters get incorporated into its 'json attributes',
-// which are available to all pipeline_objects in the _bind() virtual.  This is explained
-// in more detail below.
 
 
 struct run_params {
@@ -111,12 +107,10 @@ struct run_params {
     //   0 = no output
     //   1 = high-level summary output (names of transforms, number of samples processed etc.)
     //   2 = log all output files
-    //   3 = debug trace through pipeline
+    //   3+ = debug trace through pipeline (larger value means that debug messages are printed to higher depth)
     //
     // If 'debug' is true, some extra debug tests are implemented.  This slows down
     // pipeline processing, so should only be specified for debugging/testing.
-    //
-    // FIXME: verbosity not actually implemented yet.
     
     std::string outdir = ".";
     bool clobber = true;
@@ -125,6 +119,13 @@ struct run_params {
     ssize_t img_nx = 256;
     int verbosity = 2;
     bool debug = false;
+
+    // Used internally for formatting log messages when high verbosity is specified
+    int container_depth = 0;
+    int container_index = -1;
+
+    // See example usage in pipeline.cpp.
+    inline bool noisy() { return (verbosity >= container_depth + 4); }
 
     // Verbose equality check.  If all fields of 'this' and 'p' are equal, the return value
     // is an empty string.  Otherwise it is a comma-separated list of mismatched fields.
@@ -570,8 +571,6 @@ public:
     //     of the zoomable_tileset API.)
     //
     //     Finally, _bind() may optionally add new pipeline attributes to 'json_attrs', or read existing attributes.
-    //     Note that each field of 'struct run_params' is incorported into the json_attrs, e.g. json_attrs['verbosity']
-    //     is defined.
     //
     //
     // _allocate(): does subclass-specific buffer allocation.
@@ -739,6 +738,10 @@ public:
 
     // Helper: throws runtime_error with prefix "rf_pipelines: <name>: ..."
     void _throw(const std::string &msg) const;
+
+    // Helpers for printing log messages at high pipeline verbosity.
+    // For example usage, see pipeline.cpp.
+    void _print(const std::string &msg) const;
 
     // For debugging or internal use.
     static void _show_registered_json_deserializers();

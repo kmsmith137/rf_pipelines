@@ -521,7 +521,7 @@ static void wrap_pipeline_object(extension_module &m)
 		      "    0 = no output\n"
 		      "    1 = high-level summary output (names of transforms, number of samples processed etc.)\n"
 		      "    2 = show all output files\n"
-		      "    3 = debug trace through pipeline\n"
+		      "    3+ = debug trace through pipeline (larger value means that debug messages are printed to higher depth)\n"
 		      "\n"
 		      "If 'debug' is true, some extra debug tests are implemented.  This slows down\n"
 		      "pipeline processing, so should only be specified for debugging/testing.\n");

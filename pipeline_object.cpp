@@ -41,6 +41,20 @@ void pipeline_object::_throw(const string &msg) const
 }
 
 
+void pipeline_object::_print(const string &msg) const
+{
+    if (state != UNBOUND)
+	cout << string(_params.container_depth*4 + 4, ' ');
+
+    cout << "[";
+
+    if ((state != UNBOUND) && (_params.container_index >= 0))
+	cout << _params.container_index << ": ";
+
+    cout << name << "]: " << msg << endl;
+}
+
+
 // -------------------------------------------------------------------------------------------------
 //
 // bind(), unbind().
@@ -49,6 +63,9 @@ void pipeline_object::_throw(const string &msg) const
 // This version of bind() is only called on a top-level pipeline.
 void pipeline_object::bind(const run_params &params)
 {
+    if (params.verbosity >= 2)
+	cout << "rf_pipelines: bind() called\n";
+
     if (this->state >= BOUND) {
 	string s = _params.mismatch(params);
 	if (s.size() == 0)
@@ -127,6 +144,8 @@ shared_ptr<ring_buffer> pipeline_object::get_buffer(ring_buffer_dict &rb_dict, c
 	_throw("pipeline_object::get_buffer() called outside bind()");
     if (!has_key(rb_dict, bufname))
 	_throw("buffer '" + bufname + "' does not exist in pipeline");
+    if (_params.verbosity >= 3)
+	cout << "    " << this->name << ": get_buffer(" << bufname << ")\n";
 
     auto ret = rb_dict[bufname];
     all_ring_buffers.push_back(ret);
@@ -142,6 +161,8 @@ shared_ptr<ring_buffer> pipeline_object::create_buffer(ring_buffer_dict &rb_dict
 	_throw("pipeline_object::create_buffer() called outside bind()");
     if (has_key(rb_dict, bufname))
 	_throw("buffer '" + bufname + "' already exists in pipeline");
+    if (_params.verbosity >= 3)
+	cout << "    " << this->name << ": create_buffer(" << bufname << ")\n";
 
     auto ret = make_shared<ring_buffer> (cdims, nds, _params.debug);
 
@@ -163,6 +184,8 @@ pipeline_object::add_zoomable_tileset(const shared_ptr<zoomable_tileset> &zt, co
 	_throw("add_zoomable_tileset() internal error: 'out_mp' is an empty pointer.");
     if (out_mp->outdir.size() == 0)
 	_throw("add_zoomable_tileset() should not be called if there is no pipeline outdir");
+    if (_params.verbosity >= 3)
+	cout << "    " << this->name << ": add_zoomable_tileset(" << zt->img_prefix << ")\n";
 
     auto ret = make_shared<zoomable_tileset_state> (zt, *this);
 
@@ -219,10 +242,11 @@ void pipeline_object::allocate()
 {
     if (this->state >= ALLOCATED)
 	return;
-
     if (this->state < BOUND)
 	_throw("allocate() called before bind()");
-    
+    if ((_params.verbosity >= 2) && (_params.container_depth == 0))
+	cout << "rf_pipelines: allocate() called\n";
+
     for (auto &p: this->new_ring_buffers)
 	p->allocate();
     for (auto &p: this->zoomable_tilesets)
@@ -282,6 +306,9 @@ Json::Value pipeline_object::run(const run_params &params, const callback_t &cal
     // We wrap the advance() loop in try..except, so that if an exception is thrown, we
     // still call end_pipeline() to clean up, and write partially complete output files.
 
+    if (params.verbosity >= 2)
+	cout << "rf_pipelines: entering main advance loop\n";
+
     bool exception_thrown = false;
     string exception_text;
 
@@ -289,6 +316,9 @@ Json::Value pipeline_object::run(const run_params &params, const callback_t &cal
 	ssize_t nt_end = SSIZE_MAX;
     
 	while (this->pos_lo < nt_end) {
+	    if (params.verbosity >= 3)
+		cout << "rf_pipelines: main advance loop " << pos_hi << " -> " << (pos_hi + nt_chunk_in) << "\n";
+
 	    ssize_t m = pos_hi + nt_chunk_in;
 	    ssize_t n = this->advance(m, m);
 	    nt_end = min(nt_end, n);
@@ -300,6 +330,11 @@ Json::Value pipeline_object::run(const run_params &params, const callback_t &cal
 	exception_text = e.what();
 	exception_thrown = true;
 	// fall through...
+    }
+
+    if (params.verbosity >= 2) {
+	string s = exception_thrown ? "exception thrown" : "normal termination";
+	cout << "rf_pipelines: exiting advance() loop, pos=" << pos_lo << ", " << s << "\n";
     }
 
     Json::Value json_output(Json::objectValue);
@@ -318,7 +353,10 @@ Json::Value pipeline_object::run(const run_params &params, const callback_t &cal
 
     add_json_object(json_output, this->json_attrs1);  // bind() attributes
     add_json_object(json_output, this->json_attrs2);  // start_pipeline() attributes
-    
+
+    if (params.verbosity >= 2)
+	cout << "rf_pipelines: calling end_pipeline()\n";
+
     this->end_pipeline(json_output);
 
     // Try to write json file, even if exception was thrown.
@@ -389,6 +427,9 @@ void pipeline_object::start_pipeline(Json::Value &json_attrs)
 {
     rf_assert(this->state == ALLOCATED);
 
+    if ((_params.verbosity >= 2) && (_params.container_depth == 0))
+	cout << "rf_pipelines: start_pipeline() called\n";
+
     this->plot_groups.clear();
     this->time_spent_in_transform = 0.0;
     
@@ -408,6 +449,9 @@ void pipeline_object::start_pipeline(Json::Value &json_attrs)
 void pipeline_object::end_pipeline(Json::Value &json_output)
 {
     rf_assert(this->state == RUNNING);
+
+    if ((_params.verbosity >= 2) && (_params.container_depth == 0))
+	cout << "rf_pipelines: end_pipeline() called\n";
 
     if (!json_output.isObject())
 	_throw("end_pipeline(): internal error: Json::Value was not an Object as expected");

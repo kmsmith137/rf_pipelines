@@ -56,8 +56,14 @@ void pipeline::_bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
     this->nt_maxgap = 0;
     this->nt_contig = 1;
 
-    for (auto &p: this->elements) {
-	p->bind(get_params(), rb_dict, nt_chunk_out, nt_maxlag + nt_maxgap, json_attrs, this->out_mp);
+    for (size_t i = 0; i < elements.size(); i++) {
+	auto p = elements[i];
+
+	run_params params = this->get_params();
+	params.container_depth++;
+	params.container_index = i;
+
+	elements[i]->bind(params, rb_dict, nt_chunk_out, nt_maxlag + nt_maxgap, json_attrs, this->out_mp);
 	this->nt_chunk_out = p->nt_chunk_out;
 	this->nt_maxgap += p->nt_maxgap;
     }
@@ -70,10 +76,16 @@ ssize_t pipeline::_advance()
     ssize_t ret = SSIZE_MAX;
     this->pos_lo = pos_hi;
 
-    for (auto &p: this->elements) {
+    for (size_t i = 0; i < elements.size(); i++) {
+	auto p = elements[i];
+
+	ssize_t m = p->pos_lo;  // only needed for debug print
 	ssize_t n = p->advance(pos_lo, pos_max);
 	ret = min(ret, n);
 	pos_lo = p->pos_lo;
+
+	if (_params.noisy())
+	    p->_print("advance " + to_string(m) + " -> " + to_string(pos_lo) + ": " + to_string(ret));
     }
     
     return ret;
