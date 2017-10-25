@@ -419,10 +419,14 @@ def get_tile(user, run, fname):
 
 
 def make_navbar(user, run, zoom):
-    return '<p><center>[&nbsp;&nbsp;&nbsp;<a href="%s">Back to Users List</a>&nbsp;&nbsp;&nbsp;<a href="%s">Back to Your Runs</a>&nbsp;&nbsp;&nbsp;<a href="%s">' \
-        'Show Triggers</a>&nbsp;&nbsp;&nbsp;<a href="%s">Show Last Transform</a>&nbsp;&nbsp;&nbsp;]</center></p>' \
-        % (url_for('index'), url_for('runs', user=user), url_for('show_triggers', user=user, run=run, zoom=0), 
-           url_for('show_last_transform', user=user, run=run, zoom=zoom))
+    ret = '<p><center>[&nbsp;&nbsp;&nbsp;'
+    ret += '<a href="%s">Back to Users List</a>&nbsp;&nbsp;&nbsp;' % url_for('index')
+    ret += '<a href="%s">Back to Your Runs</a>&nbsp;&nbsp;&nbsp;' % url_for('runs', user=user)
+    ret += '<a href="%s">Show All Transforms</a>&nbsp;&nbsp;&nbsp;' % url_for('show_tiles', user=user, run=run, zoom=0, index1=0, index2=3)
+    # ret += '<a href="%s">Show Last Transform</a>&nbsp;&nbsp;&nbsp;]' % url_for('show_last_transform', user=user, run=run, zoom=zoom)
+    ret += '<a href="%s">Show Triggers</a>&nbsp;&nbsp;&nbsp;' % url_for('show_triggers', user=user, run=run, zoom=0)
+    ret += '</center></p>' 
+    return ret
 
 
 @app.route("/<string:user>/<string:run>/show_tiles/<int:zoom>/<int:index1>/<int:index2>")
