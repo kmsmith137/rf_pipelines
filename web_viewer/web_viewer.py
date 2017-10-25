@@ -51,6 +51,7 @@ class Parser():
       self.max_zoom -> int
       self.min_index -> int
       self.max_index[itransform][izoom] -> int
+      self.num_plots[izoom] -> int   (definition: num_plots[izoom] = max(self.max_index[:][izoom]))
 
     The 'itransform' index runs over all plot_groups (e.g. one or more waterfall plots, followed by one
     or more bonsai trigger plots).  
@@ -73,6 +74,7 @@ class Parser():
             self.min_zoom, self.min_index = 0, 0
             self.max_zoom = len(self.fnames[0])
             self.max_index = [[len(zoom) for zoom in transform] for transform in self.fnames]
+            self.num_plots = [ max(x[izoom] for x in self.max_index) for izoom in xrange(self.max_zoom) ]
 
         # In case a directory does not contain plots or transforms contain a different number of zoom levels
         else:
@@ -450,7 +452,7 @@ def show_tiles(user, run, zoom, index1, index2):
             'by the bonsai plotter. This pipeline run cannot be displayed.'
         return s
 
-    display = '<h3>Displaying Plots %d-%d at Zoom %d</h3>' % (index1, index2, (p.max_zoom - zoom - 1))  # account for resversal of zoom order in plotter
+    display = '<h3>Displaying Plots %d-%d (out of %d total) at Zoom %d</h3>' % (index1, index2, p.num_plots[zoom], (p.max_zoom - zoom - 1))  # account for resversal of zoom order in plotter
     display += '<table cellspacing="0" cellpadding="0">'
 
     for transform in reversed(range(len(p.fnames))):    # reversed to show triggers first
