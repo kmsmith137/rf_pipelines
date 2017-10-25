@@ -6,9 +6,10 @@ import argparse
 # ArgumentParser subclass, to customize the error message
 class MyParser(argparse.ArgumentParser):
     def error(self, message=None):
-        print >>sys.stderr, 'Usage: rfp-run.py [-n] [-w run_name] file1.json [file2.json file3.json ...]'
+        print >>sys.stderr, 'Usage: rfp-run.py [-n] [-w run_name] [-v verbosity] file1.json [file2.json file3.json ...]'
         print >>sys.stderr, '    -n: runs the pipeline with no output directory'
         print >>sys.stderr, '    -w: runs the pipeline in a directory which is indexed by the web viewer (frb1 only)'
+        print >>sys.stderr, '    -v: specifies pipeline verbosity (integer, default 2)'
 
         if message is not None:
             print >>sys.stderr, '\nError:', message
@@ -24,8 +25,9 @@ class MyParser(argparse.ArgumentParser):
 parser = MyParser()
 
 parser.add_argument('json_filenames', nargs='*')
-parser.add_argument('-n', action = 'store_true', help = 'runs the pipeline with no output directory')
-parser.add_argument('-w', dest = 'wv_name', help = 'runs the pipeline in a directory which is indexed by the web viewer (frb1 only)')
+parser.add_argument('-n', action='store_true', help='runs the pipeline with no output directory')
+parser.add_argument('-w', dest='wv_name', help='runs the pipeline in a directory which is indexed by the web viewer (frb1 only)')
+parser.add_argument('-v', dest='verbosity', default=2, help='pipeline verbosity (default 2)')
 
 args = parser.parse_args()
 
@@ -58,7 +60,6 @@ if args.wv_name is not None:
 #
 # Create pipeline object and run pipeline.
 
-
 import json
 import rf_pipelines
 
@@ -73,10 +74,9 @@ if len(p) > 1:
     p = rf_pipelines.pipeline(p)
 
 
-
 if args.wv_name is not None:
-    rf_pipelines.utils.run_for_web_viewer(args.wv_name, p)
+    rf_pipelines.utils.run_for_web_viewer(args.wv_name, p, verbosity=args.verbosity)
 else:
     assert args.nflag
     print >>sys.stderr, 'Running pipeline with no output directory'
-    p.run(outdir=None)
+    p.run(outdir=None, verbosity=args.verbosity)
