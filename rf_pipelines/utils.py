@@ -431,7 +431,7 @@ class Variance_Estimates():
 ####################################################################################################
 
 
-def run_for_web_viewer(run_name, p):
+def run_for_web_viewer(run_name, p, verbosity=2):
     """
     Runs a pipeline, with output directory chosen appropriately for the web viewer
     at frb1.physics.mcgill.ca.
@@ -440,6 +440,8 @@ def run_for_web_viewer(run_name, p):
     will look schematically like "(username)/(run_name)_(time)".
 
     The 'p' argument should be an rf_pipelines.pipeline_object.
+
+    The meaning of the 'verbosity' argument is the same as in f_pipelines.pipeline.run().
 
     FIXME: what's the best way to generalize this function so that it makes sense
     on machines other than frb1.physics.mcgill.ca?
@@ -456,7 +458,7 @@ def run_for_web_viewer(run_name, p):
     print >>sys.stderr, "creating temporary directory '%s' for running pipeline" % temp_dir
     os.makedirs(temp_dir)
 
-    p.run(outdir=temp_dir, clobber=False)
+    p.run(outdir=temp_dir, clobber=False, verbosity=verbosity)
 
     # Pipeline done, remove underscore from directory name.
     print >>sys.stderr, 'renaming %s -> %s' % (temp_dir, final_dir)
