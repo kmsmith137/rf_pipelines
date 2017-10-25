@@ -340,8 +340,8 @@ class Plotter():
         self.transform = transform       # Access transform parameters
         self.iplot = iplot               # Helpful for establishing plot group
         self.ny = ny                     # Number of y pixels that will be written
-        self.ix = np.zeros(self.transform.n_zoom)   # Keep track of what x position to add chunks to
-        self.ifile = np.zeros(self.transform.n_zoom)
+        self.ix = np.zeros(self.transform.n_zoom, dtype=np.int)   # Keep track of what x position to add chunks to
+        self.ifile = np.zeros(self.transform.n_zoom, dtype=np.int)
         self.plots = np.zeros((self.transform.n_zoom, self.ny, self.transform.img_nt))
 
         assert transform.n_zoom == len(self.transform.nt_chunk_ds)
