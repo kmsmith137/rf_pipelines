@@ -120,10 +120,8 @@ struct chime_16k_derippler : public chunked_pipeline_object
 	    1.28086420647
 	};
 
-	this->nt_chunk = nt_chunk_;
-
-	if ((fudge_factor < 0.0) || (fudge_factor > 2.0))
-	    _throw("fudge_factor must be between 0 and 2");
+	if ((fudge_factor < -1.0) || (fudge_factor > 2.0))
+	    _throw("fudge_factor must be between -1 and 2");
 
 	for (int i = 0; i < nupfreq; i++)
 	    this->multiplier[i] = 1.0 / (1.0 + fudge_factor * (fl[i] - 1.0));

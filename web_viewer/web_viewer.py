@@ -51,6 +51,7 @@ class Parser():
       self.max_zoom -> int
       self.min_index -> int
       self.max_index[itransform][izoom] -> int
+      self.num_plots[izoom] -> int   (definition: num_plots[izoom] = max(self.max_index[:][izoom]))
 
     The 'itransform' index runs over all plot_groups (e.g. one or more waterfall plots, followed by one
     or more bonsai trigger plots).  
@@ -73,6 +74,7 @@ class Parser():
             self.min_zoom, self.min_index = 0, 0
             self.max_zoom = len(self.fnames[0])
             self.max_index = [[len(zoom) for zoom in transform] for transform in self.fnames]
+            self.num_plots = [ max(x[izoom] for x in self.max_index) for izoom in xrange(self.max_zoom) ]
 
         # In case a directory does not contain plots or transforms contain a different number of zoom levels
         else:
@@ -418,6 +420,17 @@ def get_tile(user, run, fname):
     return send_from_directory(dirname, fname)
 
 
+def make_navbar(user, run, zoom):
+    ret = '<p><center>[&nbsp;&nbsp;&nbsp;'
+    ret += '<a href="%s">Back to Users List</a>&nbsp;&nbsp;&nbsp;' % url_for('index')
+    ret += '<a href="%s">Back to Your Runs</a>&nbsp;&nbsp;&nbsp;' % url_for('runs', user=user)
+    ret += '<a href="%s">Show All Transforms</a>&nbsp;&nbsp;&nbsp;' % url_for('show_tiles', user=user, run=run, zoom=0, index1=0, index2=3)
+    # ret += '<a href="%s">Show Last Transform</a>&nbsp;&nbsp;&nbsp;]' % url_for('show_last_transform', user=user, run=run, zoom=zoom)
+    ret += '<a href="%s">Show Triggers</a>&nbsp;&nbsp;&nbsp;' % url_for('show_triggers', user=user, run=run, zoom=0)
+    ret += '</center></p>' 
+    return ret
+
+
 @app.route("/<string:user>/<string:run>/show_tiles/<int:zoom>/<int:index1>/<int:index2>")
 def show_tiles(user, run, zoom, index1, index2):
     """Tiled image viewer! Shows all of the plots produced from a pipeline run at different zooms 
@@ -439,7 +452,7 @@ def show_tiles(user, run, zoom, index1, index2):
             'by the bonsai plotter. This pipeline run cannot be displayed.'
         return s
 
-    display = '<h3>Displaying Plots %d-%d at Zoom %d</h3>' % (index1, index2, (p.max_zoom - zoom - 1))  # account for resversal of zoom order in plotter
+    display = '<h3>Displaying Plots %d-%d (out of %d total) at Zoom %d</h3>' % (index1, index2, p.num_plots[zoom], (p.max_zoom - zoom - 1))  # account for resversal of zoom order in plotter
     display += '<table cellspacing="0" cellpadding="0">'
 
     for transform in reversed(range(len(p.fnames))):    # reversed to show triggers first
@@ -456,10 +469,7 @@ def show_tiles(user, run, zoom, index1, index2):
         display += '</tr><tr><td>&nbsp;</td></tr>'
 
     # Links to user and user/run pages
-    display += '<p><center>[&nbsp;&nbsp;&nbsp;<a href="%s">Back to Users List</a>&nbsp;&nbsp;&nbsp;<a href="%s">Back to Your Runs</a>&nbsp;&nbsp;&nbsp;<a href="%s">' \
-               'Show Triggers</a>&nbsp;&nbsp;&nbsp;<a href="%s">Show Last Transform</a>&nbsp;&nbsp;&nbsp;]</center></p>' \
-               % (url_for('index'), url_for('runs', user=user), url_for('show_triggers', user=user, run=run, zoom=0), 
-                  url_for('show_last_transform', user=user, run=run, zoom=zoom))
+    display += make_navbar(user, run, zoom)
 
     # Plots to be linked
     display += '<p> <center> [&nbsp;&nbsp;&nbsp;'
@@ -539,8 +549,7 @@ def show_last_transform(user, run, zoom):
 
     triggerList = p.fnames[-2]
     display = '<h3>Displaying Last Transform Plots at Zoom %s</h3>' % (p.max_zoom - zoom - 1)
-    display += '<p><center>[&nbsp;&nbsp;&nbsp;<a href="%s">Back to Users List</a>&nbsp;&nbsp;&nbsp;<a href="%s">Back to Your Runs</a>' \
-               '&nbsp;&nbsp;&nbsp;]</center></p>' % (url_for('index'), url_for('runs', user=user))
+    display += make_navbar(user, run, zoom)
     display += '<table cellspacing="0" cellpadding="0"><tr>'
 
     last_row = 0
@@ -583,8 +592,7 @@ def show_triggers(user, run, zoom):
 
     triggerList = p.fnames[-1]
     display = '<h3>Displaying Trigger Plots at Zoom %s</h3>' % (p.max_zoom - zoom - 1)
-    display += '<p><center>[&nbsp;&nbsp;&nbsp;<a href="%s">Back to Users List</a>&nbsp;&nbsp;&nbsp;<a href="%s">Back to Your Runs</a>' \
-               '&nbsp;&nbsp;&nbsp;]</center></p>' % (url_for('index'), url_for('runs', user=user))
+    display += make_navbar(user, run, zoom)
     display += '<table cellspacing="0" cellpadding="0"><tr>'
 
     last_row = 0
