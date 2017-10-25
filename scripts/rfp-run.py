@@ -27,7 +27,7 @@ parser = MyParser()
 parser.add_argument('json_filenames', nargs='*')
 parser.add_argument('-n', action='store_true', help='runs the pipeline with no output directory')
 parser.add_argument('-w', dest='wv_name', help='runs the pipeline in a directory which is indexed by the web viewer (frb1 only)')
-parser.add_argument('-v', dest='verbosity', default=2, help='pipeline verbosity (default 2)')
+parser.add_argument('-v', dest='verbosity', type=int, default=2, help='pipeline verbosity (default 2)')
 
 args = parser.parse_args()
 
