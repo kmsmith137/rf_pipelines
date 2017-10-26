@@ -277,6 +277,13 @@ void wi_sub_pipeline::_bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
 }
 
 
+// virutal override
+ssize_t wi_sub_pipeline::get_preferred_chunk_size()
+{
+    return 0;
+}
+
+
 // virtual override
 Json::Value wi_sub_pipeline::jsonize() const 
 {
