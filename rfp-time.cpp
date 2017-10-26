@@ -8,7 +8,7 @@ using namespace rf_pipelines;
 // Calls bind(), but not allocate().
 static shared_ptr<pipeline> make_pipeline(const vector<Json::Value> &v)
 {
-    auto p = shared_ptr<pipeline> ();
+    auto p = make_shared<pipeline> ();
     
     for (size_t i = 0; i < v.size(); i++)
 	p->add(pipeline_object::from_json(v[i]));
