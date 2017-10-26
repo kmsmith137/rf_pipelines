@@ -119,6 +119,8 @@ struct run_params {
     ssize_t img_nx = 256;
     int verbosity = 2;
     bool debug = false;
+    bool enable_timing = true;
+    bool recursive_timing = true;
 
     // Used internally for formatting log messages when high verbosity is specified
     int container_depth = 0;

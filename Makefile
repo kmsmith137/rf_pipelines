@@ -74,10 +74,13 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/retirement_home/polynomial_detrender.py \
 	rf_pipelines/retirement_home/std_dev_clipper.py
 
+# C++ binaries which are installed in $(BINDIR).
+BINFILES = rfp-time
 
+# C++ unit test binaries which are not installed in $(BINDIR).
 TESTBINFILES = test-misc test-ring-buffer test-core-pipeline-logic test-file-stream-base
 
-# In scripts/
+# Python scripts in scripts/, installed in $(BINDIR).
 SCRIPTS=rfp-run.py
 
 # Used in 'make clean'
@@ -154,23 +157,25 @@ LIBS += -lrf_kernels -ljsoncpp
 ####################################################################################################
 
 
-all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so $(TESTBINFILES)
+all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so $(BINFILES) $(TESTBINFILES)
 
 install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
 	mkdir -p $(INCDIR)/ $(LIBDIR)/ $(BINDIR)/ $(PYDIR)/rf_pipelines/streams $(PYDIR)/rf_pipelines/transforms $(PYDIR)/rf_pipelines/retirement_home
 	cp -f $(INCFILES) $(INCDIR)/
+	cp -f $(BINFILES) $(BINDIR)/
+	cp -f librf_pipelines.so $(LIBDIR)/
 	for f in $(PYFILES); do cp $$f $(PYDIR)/$$f; done
 	for f in $(SCRIPTS); do cp scripts/$$f $(BINDIR)/$$f; done
-	cp -f librf_pipelines.so $(LIBDIR)/
 
 uninstall:
 	for f in $(INCFILES) $(DUMMY_INCFILES); do rm -f $(INCDIR)/$$f; done
+	for f in $(BINFILES); do rm -f $(BINDIR)/$$f; done
 	for f in $(SCRIPTS); do rm -f $(BINDIR)/$$f; done
 	rm -f $(LIBDIR)/librf_pipelines.so
 	rm -rf  $(PYDIR)/rf_pipelines_c.so $(PYDIR)/rf_pipelines/
 
 clean:
-	rm -f $(TESTBINFILES) rf_pipeline_0.json
+	rm -f $(TESTBINFILES) $(BINFILES) rf_pipeline_0.json
 	for d in $(CLEANDIRS); do rm -f $$d/*~ $$d/*.o $$d/*.so $$d/*.pyc; done
 
 %.o: %.cpp $(INCFILES)
@@ -185,6 +190,9 @@ rf_pipelines/rf_pipelines_c.o: rf_pipelines/rf_pipelines_c.cpp $(INCFILES)
 rf_pipelines/rf_pipelines_c.so: rf_pipelines/rf_pipelines_c.o librf_pipelines.so
 	$(CPP) $(CPP_LFLAGS) -shared -o $@ $< -lrf_pipelines -lpyclops $(LIBS) $(LIBS_PYMODULE)
 
+
+rfp-time: rfp-time.o $(OFILES)
+	$(CPP) $(CPP_LFLAGS) -o $@ $^ $(LIBS)
 
 test-misc: test-misc.o $(OFILES)
 	$(CPP) $(CPP_LFLAGS) -o $@ $^ $(LIBS)
