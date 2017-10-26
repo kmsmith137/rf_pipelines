@@ -5,6 +5,23 @@ using namespace std;
 using namespace rf_pipelines;
 
 
+// Calls bind(), but not allocate().
+static shared_ptr<pipeline> make_pipeline(const vector<Json::Value> &v)
+{
+    auto p = shared_ptr<pipeline> ();
+    
+    for (size_t i = 0; i < v.size(); i++)
+	p->add(pipeline_object::from_json(v[i]));
+
+    run_params rp;
+    rp.outdir = "";
+    rp.verbosity = 0;
+
+    p->bind(rp);
+    return p;
+}
+
+
 // -------------------------------------------------------------------------------------------------
 
 
@@ -80,15 +97,19 @@ int main(int argc, char **argv)
     if (njson == 0)
 	usage();
 
-    for (size_t i = 0; i < json_filenames.size(); i++) {
+    // Read json files
+    for (int i = 0; i < njson; i++) {
 	std::ifstream f(json_filenames[i]);
 	if (f.fail()) {
 	    cerr << json_filenames[i] << ": couldn't open file\n";
 	    exit(1);
 	}
-
 	f >> json_values[i];
     }
+
+    // Construct and bind throwaway pipeline, so that some error checking
+    // happens before spawning worker threads.
+    make_pipeline(json_values);
 
     return 0;
 }

@@ -159,7 +159,7 @@ LIBS += -lrf_kernels -ljsoncpp
 
 all: librf_pipelines.so rf_pipelines/rf_pipelines_c.so $(BINFILES) $(TESTBINFILES)
 
-install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so
+install: librf_pipelines.so rf_pipelines/rf_pipelines_c.so $(BINFILES)
 	mkdir -p $(INCDIR)/ $(LIBDIR)/ $(BINDIR)/ $(PYDIR)/rf_pipelines/streams $(PYDIR)/rf_pipelines/transforms $(PYDIR)/rf_pipelines/retirement_home
 	cp -f $(INCFILES) $(INCDIR)/
 	cp -f $(BINFILES) $(BINDIR)/
