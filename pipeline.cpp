@@ -182,9 +182,17 @@ void pipeline::_unbind()
 void pipeline::_get_info(Json::Value &j)
 {
     j["pipeline"] = Json::Value(Json::arrayValue);
+    double mb_cumul = 0.0;
 
-    for (auto &p: this->elements)
-	j["pipeline"].append(p->get_info());
+    for (auto &p: this->elements) {
+	Json::Value jr = p->get_info();
+	double mb = double_from_json(jr, "mb_cumul");
+
+	j["pipeline"].append(jr);
+	mb_cumul += mb;
+    }
+
+    j["mb_cumul"] = mb_cumul;
 }
 
 
