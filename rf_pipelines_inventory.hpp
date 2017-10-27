@@ -88,6 +88,7 @@ public:
     
     explicit pipeline(const std::string &name="");
     explicit pipeline(const std::vector<std::shared_ptr<pipeline_object>> &elements, const std::string &name="");
+    explicit pipeline(const std::string &class_name, const std::string &name);   // for subclasses (e.g. wi_sub_pipeline)
 
     void add(const std::shared_ptr<pipeline_object> &p);
     inline int size() const { return elements.size(); }

@@ -8,8 +8,14 @@ namespace rf_pipelines {
 #endif
 
 
-chunked_pipeline_object::chunked_pipeline_object(const string &name_, bool can_be_first_) :
-    pipeline_object(name_),
+chunked_pipeline_object::chunked_pipeline_object(const string &class_name_, bool can_be_first_) :
+    pipeline_object(class_name_),
+    can_be_first(can_be_first_)
+{ }
+
+
+chunked_pipeline_object::chunked_pipeline_object(const string &class_name_, const string &name_, bool can_be_first_) :
+    pipeline_object(class_name_, name_),
     can_be_first(can_be_first_)
 { }
 

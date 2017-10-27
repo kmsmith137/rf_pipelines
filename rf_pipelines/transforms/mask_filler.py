@@ -22,11 +22,9 @@ class mask_filler(wi_transform):
     """
 
     def __init__(self, var_file, w_cutoff, nt_chunk=1024):
-        name = "mask_filler(var_file=%s, w_cutoff=%s, nt_chunk=%d)" % (var_file, w_cutoff, nt_chunk)
+        wi_transform.__init__(self, 'mask_filler')
 
-        # Call base class constructor
-        wi_transform.__init__(self, name)
-
+        self.name = "mask_filler(var_file=%s, w_cutoff=%s, nt_chunk=%d)" % (var_file, w_cutoff, nt_chunk)
         self.Variance = Variance_Estimates(var_file)
         self.var_file = var_file
         self.w_cutoff = w_cutoff

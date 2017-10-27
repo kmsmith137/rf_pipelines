@@ -9,8 +9,8 @@ namespace rf_pipelines {
 #endif
 
     
-chime_file_stream_base::chime_file_stream_base(const string &stream_name, const vector<string> &filename_list_, ssize_t nt_chunk_, ssize_t noise_source_align_) :
-    wi_stream(stream_name),
+chime_file_stream_base::chime_file_stream_base(const string &class_name, const vector<string> &filename_list_, ssize_t nt_chunk_, ssize_t noise_source_align_) :
+    wi_stream(class_name),
     filename_list(filename_list_),
     noise_source_align(noise_source_align_)
 {

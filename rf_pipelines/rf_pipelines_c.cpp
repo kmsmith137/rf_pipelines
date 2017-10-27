@@ -1,8 +1,11 @@
 // FIXME the big missing feature here is pythonizing 'class ring_buffer', and
 // extending the pythonization of 'pipeline_object' and 'chunked_pipeline_object'.
 //
-// Currently we can define wi_streams and wi_transforms from python, but not more
+// FIXME: currently we can define wi_streams and wi_transforms from python, but not more
 // general pipeline_objects.
+//
+// FIXME (minor): wi_stream, wi_transform constructors should have optional 'name' arg,
+// for consistency with C++ API.
 
 #include <pyclops.hpp>
 #include <rf_kernels.hpp>
@@ -456,6 +459,9 @@ static void wrap_pipeline_object(extension_module &m)
     std::function<string& (pipeline_object *)>
 	_name = [](pipeline_object *self) -> string& { return self->name; };
 
+    std::function<string& (pipeline_object *)>
+	_class_name = [](pipeline_object *self) -> string& { return self->class_name; };
+
     std::function<void (pipeline_object *, const py_object &, bool, ssize_t, ssize_t, ssize_t, int, bool)>
 	_bind = [](pipeline_object *self, const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity, bool debug)
 	{
@@ -611,6 +617,7 @@ static void wrap_pipeline_object(extension_module &m)
     
     pipeline_object_type.add_constructor(wrap_constructor(_init));
     pipeline_object_type.add_property("name", "Name of pipeline_object", _name);
+    pipeline_object_type.add_property("class_name", "Name of pipeline_object subclass", _class_name);
 
     pipeline_object_type.add_method("run", doc_run, wrap_method(_run, kwarg("outdir",py_object()), kwarg("clobber",true), kwarg("img_nzoom",4), 
 								kwarg("img_nds",16), kwarg("img_nx",256), kwarg("verbosity",2), kwarg("debug",false)));
@@ -684,8 +691,8 @@ static void wrap_chunked_pipeline_object(extension_module &m)
 
 
 struct py_wi_stream : wi_stream {
-    py_wi_stream(const string &name_) :
-	wi_stream(name_)
+    py_wi_stream(const string &class_name_) :
+	wi_stream(class_name_)
     { }
 
     // _fill_chunk() is the only pure virtual.
@@ -734,9 +741,9 @@ static void wrap_wi_stream(extension_module &m)
 {
     // constructor for python subclasses of wi_stream
     std::function<wi_stream* (const string &)>
-	_init = [](const string &name) -> wi_stream*
+	_init = [](const string &class_name) -> wi_stream*
 	{
-	    return new py_wi_stream(name);
+	    return new py_wi_stream(class_name);
 	};
 
     // nfreq property
@@ -752,7 +759,7 @@ static void wrap_wi_stream(extension_module &m)
 	    return self->_fill_chunk(intensity.data, istride, weights.data, wstride, pos);
 	};
 
-    wi_stream_type.add_constructor(wrap_constructor(_init, "name"));
+    wi_stream_type.add_constructor(wrap_constructor(_init, "class_name"));
     wi_stream_type.add_property("nfreq", "Number of frequency channels", _nfreq);
     wi_stream_type.add_method("_bind_stream", "_bind_stream(j): optional", wrap_j(&wi_stream::_bind_stream));
     wi_stream_type.add_method("_unbind_stream", "_unbind_stream(): optional", wrap_method(&wi_stream::_unbind_stream));
@@ -770,8 +777,8 @@ static void wrap_wi_stream(extension_module &m)
 
 
 struct py_wi_transform : wi_transform {
-    py_wi_transform(const string &name_) :
-	wi_transform(name_)
+    py_wi_transform(const string &class_name_) :
+	wi_transform(class_name_)
     { }
 
     // _process_chunk() is the only pure virtual.
@@ -820,9 +827,9 @@ static void wrap_wi_transform(extension_module &m)
 
     // constructor for python subclasses of wi_transform
     std::function<wi_transform* (const string&)>
-	_init = [](const string &name)
+	_init = [](const string &class_name)
 	{
-	    return new py_wi_transform(name);
+	    return new py_wi_transform(class_name);
 	};
 
     // python-callable wi_transform::_process_chunk()
@@ -834,7 +841,7 @@ static void wrap_wi_transform(extension_module &m)
 	    self->_process_chunk(intensity.data, istride, weights.data, wstride, pos);
 	};
 
-    wi_transform_type.add_constructor(wrap_constructor(_init, "name"));
+    wi_transform_type.add_constructor(wrap_constructor(_init, "class_name"));
     wi_transform_type.add_property("kernel_chunk_size", "Kernel chunk size (optional)", _nfreq);
     wi_transform_type.add_property("nfreq", "Number of frequency channels", _nfreq);
     wi_transform_type.add_property("nds", "Time downsampling factor", _nds);

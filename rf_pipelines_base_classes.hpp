@@ -427,10 +427,9 @@ struct zoomable_tileset {
 
 struct pipeline_object {
 public:
-    // Constructor for this abstract base class.
-    // The name must be initialized at construction (possibly to something simple like the class name),
-    // but can be changed later to something more verbose.
-    explicit pipeline_object(const std::string &name);
+    // Constructor for this abstract base class.  If 'name' is unspecified, it defaults
+    // to the class_name, but can be changed later to something more verbose.
+    explicit pipeline_object(const std::string &class_name, const std::string &name="");
 
     // High-level API: to run a pipeline, just call run().	
     //
@@ -462,6 +461,7 @@ public:
 	DONE = 5
     } state;
 
+    std::string class_name;
     std::string name;
 
     // Can be called any time after bind().
@@ -762,15 +762,14 @@ public:
 struct chunked_pipeline_object : public pipeline_object {
 public:
 
-    // Note: inherits 'name' member from pipeline_object base class.
-    //
-    // The name must be initialized at construction (possibly to something simple like the class name),
-    // but can be changed later to something more verbose.
+    // Note: inherits 'class_name' and 'name' members from pipeline_object base class.
+    // If 'name' is unspecified, it defaults to 'class_name', but can be changed later.
     //
     // The 'can_be_first' parameter should be true for stream-type objects which can be first in
     // a pipeline, and false for transform-type objects which process existing data.
 
-    chunked_pipeline_object(const std::string &name, bool can_be_first);
+    chunked_pipeline_object(const std::string &class_name, bool can_be_first);
+    chunked_pipeline_object(const std::string &class_name, const std::string &name, bool can_be_first);
 
     const bool can_be_first;
 
@@ -864,11 +863,9 @@ public:
 
 struct wi_stream : chunked_pipeline_object {
 public:
-
-    // Note: inherits 'name' member from base class.  The name must be initialized at construction 
-    // (say to something simple, like the class name), but can be changed later to something more verbose.
-
-    wi_stream(const std::string &name);
+    // Inherits 'class_name' and 'name' members from base class.
+    // If 'name' is unspecified, it defaults to 'class_name', but can be changed later.
+    explicit wi_stream(const std::string &class_name, const std::string &name="");
 
     // Note: inherits 'nt_chunk' member from base class.
     //
@@ -951,11 +948,9 @@ public:
 
 struct wi_transform : chunked_pipeline_object {
 public:
-
-    // Note: inherits 'name' member from base class.  The name must be initialized at construction 
-    // (say to something simple, like the class name), but can be changed later to something more verbose.
-
-    wi_transform(const std::string &name);
+    // Inherits 'class_name' and 'name' members from base class.
+    // If 'name' is unspecified, it defaults to 'class_name', but can be changed later.
+    explicit wi_transform(const std::string &class_name, const std::string &name="");
 
     // The rules for initializing 'nfreq' and 'nds' are as follows:
     //
@@ -1081,7 +1076,7 @@ public:
 
 class chime_file_stream_base : public wi_stream {
 public:
-    chime_file_stream_base(const std::string &stream_name, const std::vector<std::string> &filename_list, ssize_t nt_chunk, ssize_t noise_source_align);
+    chime_file_stream_base(const std::string &class_name, const std::vector<std::string> &filename_list, ssize_t nt_chunk, ssize_t noise_source_align);
     virtual ~chime_file_stream_base() { }
 
     // Throughout the CHIMEFRB backend, we represent times in seconds, but the raw packets use timestamps

@@ -8,8 +8,8 @@ namespace rf_pipelines {
 #endif
 
 
-wi_transform::wi_transform(const string &name_) :
-    chunked_pipeline_object(name_, false)  // can_be_first=false
+wi_transform::wi_transform(const string &class_name_, const string &name_) :
+    chunked_pipeline_object(class_name_, name_, false)  // can_be_first=false
 { }
 
 

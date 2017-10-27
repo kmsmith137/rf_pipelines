@@ -9,20 +9,27 @@ namespace rf_pipelines {
 
 
 pipeline::pipeline(const string &name_) :
-    pipeline_object(name_)
+    pipeline_object("pipeline", name_)
 {
     this->_update_name();
 }
 
 
 pipeline::pipeline(const vector<shared_ptr<pipeline_object>> &elements_, const string &name_) :
-    pipeline_object(name_),
+    pipeline_object("pipeline", name_),
     elements(elements_)
 {
     for (const auto &p: elements)
 	if (p.get() == nullptr)
 	    _throw("null pointer in pipeline constructor");
     
+    this->_update_name();
+}
+
+// For subclasses (e.g. wi_sub_pipeline)
+pipeline::pipeline(const string &class_name_, const string &name_) :
+    pipeline_object(class_name_, name_)
+{
     this->_update_name();
 }
 

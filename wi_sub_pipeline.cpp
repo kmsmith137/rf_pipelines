@@ -11,8 +11,11 @@ namespace rf_pipelines {
 
 
 // FIXME: wi_sub_pipeline is currently implemented as a subclass of 'pipeline',
-// but I think it would be cleaner to implement it as a subclass of 'chunked_pipeline_object',
-// with a member which is a shared_ptr<pipeline>.
+// but would it be cleaner to implement it as a subclass of 'pipeline_object'
+// (or 'chunked_pipeline_object') with a member which is a shared_ptr<pipeline>?
+//
+// Note: if this is done, make sure to update the json-parsing in the web viewer
+// and rfp-time.
 
 
 // -------------------------------------------------------------------------------------------------
@@ -180,7 +183,7 @@ bool upsampler::_process_chunk(ssize_t pos)
 
 
 wi_sub_pipeline::wi_sub_pipeline(const shared_ptr<pipeline_object> &sub_pipeline_, const initializer &ini_params_) :
-    pipeline("wi_sub_pipeline"),
+    pipeline("wi_sub_pipeline", ""),
     ini_params(ini_params_),
     sub_pipeline(sub_pipeline_)
 {
@@ -203,6 +206,22 @@ wi_sub_pipeline::wi_sub_pipeline(const shared_ptr<pipeline_object> &sub_pipeline
 	_throw("either ini_params.nds_out or ini_params.Dt must be specified");	
     if (ini_params.nds_out && ini_params.Dt && xmod(ini_params.nds_out, ini_params.Dt))
 	_throw("ini_params.nds_out must be a multiple of ini_params.Dt, if both are specified");
+
+    stringstream ss;
+    ss << "wi_sub_pipeline(";
+    if (ini_params.Df > 0)
+	ss << "Df=" << ini_params.Df;
+    if ((ini_params.Df > 0) && (ini_params.nfreq_out > 0))
+	ss << ",";
+    if (ini_params.nfreq_out > 0)
+	ss << "nfreq_out=" << ini_params.nfreq_out;
+    if (ini_params.Dt > 0)
+	ss << ",Dt=" << ini_params.Dt;
+    if (ini_params.nds_out > 0)
+	ss << ",nds_out=" << ini_params.nds_out;
+    ss << ")";
+
+    this->name = ss.str();
 }
 
 

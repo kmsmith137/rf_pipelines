@@ -22,17 +22,15 @@ class variance_estimator(wi_transform):
 
                  
     def __init__(self, var_filename, v1_chunk=128, v2_chunk=80, nt_chunk=1024):
-        name = "variance_estimator(var_filename=%s, v1_chunk=%d, v2_chunk=%d, nt_chunk=%d)" % (var_filename, v1_chunk, v2_chunk, nt_chunk)
+        wi_transform.__init__(self, 'variance_estimator')
 
         assert var_filename is not None
         assert isinstance(var_filename, basestring)   # if this fails, arguments are probably in the old ordering
 
-        # Call base class constructor
-        wi_transform.__init__(self, name)
-
         assert nt_chunk % v1_chunk == 0, \
             'For now, nt_chunk(=%d) must be a multiple of v1_chunk(=%d)' % (nt_chunk, v1_chunk)
 
+        self.name = "variance_estimator(var_filename=%s, v1_chunk=%d, v2_chunk=%d, nt_chunk=%d)" % (var_filename, v1_chunk, v2_chunk, nt_chunk)
         self.v1_chunk = v1_chunk
         self.v2_chunk = v2_chunk
         self.nt_chunk = nt_chunk

@@ -8,8 +8,8 @@ namespace rf_pipelines {
 #endif
 
 
-wi_stream::wi_stream(const string &name) :
-    chunked_pipeline_object(name, true)
+wi_stream::wi_stream(const string &class_name_, const string &name_) :
+    chunked_pipeline_object(class_name_, name_, true)
 { }
 
 

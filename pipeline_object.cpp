@@ -26,10 +26,14 @@ using json_registry_t = unordered_map<string, pipeline_object::json_deserializer
 static json_registry_t *json_registry = nullptr;   // global
 
 
-pipeline_object::pipeline_object(const string &name_) : 
+pipeline_object::pipeline_object(const string &class_name_, const string &name_) : 
     state(UNBOUND),
-    name(name_) 
-{ }
+    class_name(class_name_),
+    name((name_.size() > 0) ? name_ : class_name_)
+{
+    if (class_name.size() == 0)
+	throw runtime_error("rf_pipelines::pipeline_object constructor: 'class_name' must be a nonempty string");
+}
 
 pipeline_object::~pipeline_object() { }
 
@@ -462,6 +466,8 @@ void pipeline_object::end_pipeline(Json::Value &json_output)
 
     this->state = DONE;
 
+    if (!json_output.isMember("class_name"))
+	json_output["class_name"] = this->class_name;
     if (!json_output.isMember("name"))
 	json_output["name"] = this->name;
     if (!json_output.isMember("cpu_time"))

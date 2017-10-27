@@ -64,6 +64,8 @@ class bonsai_dedisperser(wi_transform):
                  plot_threshold1=6, plot_threshold2=10, event_outfile=None, L1Grouper_thr=7, L1Grouper_beam=0, 
                  L1Grouper_addr=None, plot_all_trees=False):
 
+        wi_transform.__init__(self, 'bonsai_dedisperser')
+
         # We import the bonsai module here, rather than at the top of the file, so that bonsai isn't
         # required to import rf_pipelines (but is required when you try to construct a bonsai_dedisperser).
         try:
@@ -76,10 +78,8 @@ class bonsai_dedisperser(wi_transform):
         else:
             self.make_plot = True
 
-        name = "bonsai_dedisperser('%s')" % config_filename
-        wi_transform.__init__(self, name)
-
         # Need to save all constructor arguments, for later use in jsonize()
+        self.name = "bonsai_dedisperser('%s')" % config_filename
         self.config_filename = config_filename
         self.fill_rfi_mask = fill_rfi_mask
         self.hdf5_output_filename = hdf5_output_filename
