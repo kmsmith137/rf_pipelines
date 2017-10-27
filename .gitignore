@@ -5,8 +5,8 @@
 *.py.swp
 Makefile.local
 
+rfp-time
 test-core-pipeline-logic
 test-file-stream-base
 test-misc
 test-ring-buffer
-
