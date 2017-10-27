@@ -70,9 +70,7 @@ for filename in args.json_filenames:
     x = rf_pipelines.pipeline_object.from_json(j)
     p.append(x)
 
-if len(p) > 1:
-    p = rf_pipelines.pipeline(p)
-
+p = rf_pipelines.pipeline(p) if (len(p) > 1) else p[0]
 
 if args.wv_name is not None:
     rf_pipelines.utils.run_for_web_viewer(args.wv_name, p, verbosity=args.verbosity)

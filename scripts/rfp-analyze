@@ -1,0 +1,63 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import argparse
+
+# ArgumentParser subclass, to customize the error message
+class MyParser(argparse.ArgumentParser):
+    def error(self, message=None):
+        print >>sys.stderr, 'Usage: rfp-analyze [-j JSON_OUTFILE] file1.json [file2.json file3.json ...]'
+        print >>sys.stderr, '    -j: dumps result of pipeline_object.get_info() to a json file'
+
+        if message is not None:
+            print >>sys.stderr, '\nError:', message
+
+        sys.exit(2)
+
+
+####################################################################################################
+#
+# Argument parsing, checking
+
+
+parser = MyParser()
+
+parser.add_argument('json_filenames', nargs='*')
+parser.add_argument('-j', dest='json_outfile', help='dumps result of pipeline_object.get_info() to a json file (must not already exist)')
+
+args = parser.parse_args()
+
+
+if len(sys.argv) == 1:
+    parser.error()
+if len(args.json_filenames) == 0:
+    parser.error('at least one json filename must be specified')
+if (args.json_outfile is not None) and os.path.exists(args.json_outfile):
+    parser.error("json outfile '%s' already exists" % args.json_outfile)
+
+
+####################################################################################################
+#
+# Create pipeline object and run pipeline.
+
+import json
+import rf_pipelines
+
+p = [ ]
+for filename in args.json_filenames:
+    f = open(filename, 'r')
+    j = json.load(f)
+    x = rf_pipelines.pipeline_object.from_json(j)
+    p.append(x)
+
+p = rf_pipelines.pipeline(p) if (len(p) > 1) else p[0]
+p.bind()
+
+j = p.get_info()
+
+if args.json_outfile is not None:
+    f = open(args.json_outfile, 'w')
+    json.dump(j, f, indent=4)
+    f.close()
+    print 'wrote', args.json_outfile

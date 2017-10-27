@@ -1,3 +1,5 @@
+// FIXME splitting this header (and others) into multiple source files is long overdue!
+
 #ifndef _RF_PIPELINES_BASE_CLASSES_HPP
 #define _RF_PIPELINES_BASE_CLASSES_HPP
 

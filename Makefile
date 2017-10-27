@@ -81,7 +81,8 @@ BINFILES = rfp-time
 TESTBINFILES = test-misc test-ring-buffer test-core-pipeline-logic test-file-stream-base
 
 # Python scripts in scripts/, installed in $(BINDIR).
-SCRIPTS=rfp-json-show.py \
+SCRIPTS = rfp-analyze \
+	rfp-json-show.py \
 	rfp-run.py
 
 # Used in 'make clean'
