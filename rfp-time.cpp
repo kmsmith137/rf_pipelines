@@ -1,5 +1,7 @@
+#include <mutex>
 #include <thread>
 #include <fstream>
+#include <condition_variable>
 #include "rf_pipelines_internals.hpp"
 
 using namespace std;
@@ -27,6 +29,8 @@ static void usage(const string &msg)
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// global_context
 
 
 struct global_context {
@@ -38,12 +42,22 @@ struct global_context {
     run_params rp;
 
     int ninputs = 0;
-    vector<string> input_filenames;
-    vector<Json::Value> input_json;
+    vector<string> input_filenames;  // length ninputs
+    vector<Json::Value> input_json;  // length ninputs
+
+    // One-time barrier, used to start pipelines simultaneously in all worker threads.
+    std::mutex barrier_lock;
+    std::condition_variable barrier_cv;
+    int barrier_count = 0;
+
+    // Length nthreads
+    vector<Json::Value> output_json;
 
     global_context(int argc, char **argv);
 
-    shared_ptr<pipeline_object> make_pipeline() const;
+    shared_ptr<pipeline> make_pipeline() const;
+
+    void wait_at_barrier();
 };
 
 
@@ -109,44 +123,122 @@ global_context::global_context(int argc, char **argv)
 	}
 	f >> input_json[i];
     }
+
+    this->output_json.resize(nthreads);
 }
 
 
 // Calls bind() but not allocate()
-shared_ptr<pipeline_object> global_context::make_pipeline() const
+shared_ptr<pipeline> global_context::make_pipeline() const
 {
-    shared_ptr<pipeline_object> ret;
-
-    if (ninputs == 1)
-	ret = pipeline_object::from_json(input_json[0]);
-    else {
-	auto p = make_shared<pipeline> ();
-	for (int i = 0; i < ninputs; i++)
-	    p->add(pipeline_object::from_json(input_json[i]));
-	ret = p;
-    }
+    auto ret = make_shared<pipeline> ();
+    for (int i = 0; i < ninputs; i++)
+	ret->add(pipeline_object::from_json(input_json[i]));
 
     ret->bind(this->rp);
     return ret;
 }
 
 
-// -------------------------------------------------------------------------------------------------
-//
-// Note: we use bare pointers and don't worry about memory leaks.
-
-
-static void worker_thread_main(const global_context &c, Json::Value *json_output)
+void global_context::wait_at_barrier()
 {
-    auto p = c.make_pipeline();
+    unique_lock<mutex> l(barrier_lock);
+    barrier_count++;
+    
+    if (barrier_count == nthreads) {
+	barrier_cv.notify_all();
+	return;
+    }
 
-    p->allocate();
-    *json_output = p->run(c.rp);
+    while (barrier_count < nthreads)
+        barrier_cv.wait(l);
 }
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// Worker thread
 
+
+static void pin_current_thread_to_core(int core_id)
+{
+#ifdef __APPLE__
+    if (core_id == 0)
+	cerr << "warning: pinning threads to cores is not implemented in osx\n";
+    return;
+#else
+    int hwcores = std::thread::hardware_concurrency();
+    
+    if ((core_id < 0) || (core_id >= hwcores))
+	throw runtime_error("pin_thread_to_core: core_id=" + to_string(core_id) + " is out of range (hwcores=" + to_string(hwcores) + ")");
+
+    pthread_t thread = pthread_self();
+
+    cpu_set_t cs;
+    CPU_ZERO(&cs);
+    CPU_SET(core_id, &cs);
+
+    int err = pthread_setaffinity_np(thread, sizeof(cs), &cs);
+    if (err)
+        throw runtime_error("pthread_setaffinity_np() failed");
+#endif
+}
+
+
+static void worker_thread_main(global_context *c, int thread_id)
+{
+    if (!c->Pflag)
+	pin_current_thread_to_core(thread_id);
+
+    auto p = c->make_pipeline();
+    p->allocate();
+    
+    c->wait_at_barrier();
+    c->output_json[thread_id] = p->run(c->rp);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// print_timing()
+
+
+template<typename T>
+static vector<Json::Value> _get(const vector<Json::Value> &v, const T &x)
+{
+    int n = v.size();
+    vector<Json::Value> ret(n);
+
+    for (int i = 0; i < n; i++)
+	ret[i] = v[i][x];
+
+    return ret;
+}
+
+
+static void print_timing(const vector<Json::Value> &v, const string &name, int indent_level)
+{
+    int n = v.size();
+    rf_assert(n > 0);
+
+    double cpu_time = 0.0;
+    for (int i = 0; i < n; i++)
+	cpu_time += double_from_json(v[i], "cpu_time") / n;
+
+    cout << "[" << cpu_time << " sec] " << name << endl;
+}
+
+
+static void print_timing(const global_context &c)
+{
+    auto j = _get(c.output_json, "pipeline");
+    
+    for (int i = 0; i < c.ninputs; i++)
+	print_timing(_get(j,i), c.input_filenames[i], 0);
+}
+
+
+// -------------------------------------------------------------------------------------------------
 
 
 int main(int argc, char **argv)
@@ -158,14 +250,16 @@ int main(int argc, char **argv)
     c.make_pipeline();
 
     vector<std::thread> threads;
-    vector<Json::Value> json_output(c.nthreads);
 
     for (int i = 0; i < c.nthreads; i++)
-	threads.push_back(std::thread(worker_thread_main, c, &json_output[i]));
+	threads.push_back(std::thread(worker_thread_main, &c, i));
 
     for (int i = 0; i < c.nthreads; i++)
 	threads[i].join();
 
-    cout << json_output[0];
+    // print_timing(c);
+
+    cout << c.output_json[0] << endl;
+
     return 0;
 }
