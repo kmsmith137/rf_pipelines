@@ -629,7 +629,8 @@ static void wrap_pipeline_object(extension_module &m)
     pipeline_object_type.add_method("deallocate", "Deallocates all pipeline buffers", wrap_method(&pipeline_object::deallocate));
     pipeline_object_type.add_method("reset", "Resets pipeline after run().", wrap_method(&pipeline_object::reset));
     pipeline_object_type.add_method("unbind", "\"Unbinds\" pipeline, allowing its components to be used elsewhere", wrap_method(&pipeline_object::unbind));
-    
+    pipeline_object_type.add_method("get_info", "Can be called any time after bind(), returns nested json object", wrap_method(&pipeline_object::get_info));
+
     pipeline_object_type.add_method("get_preferred_chunk_size", doc_cs, wrap_method(&pipeline_object::get_preferred_chunk_size));
 
     pipeline_object_type.add_method("jsonize", "jsonize(): returns json serialization of pipeline_object", wrap_method(&pipeline_object::jsonize));
@@ -729,6 +730,7 @@ struct py_wi_stream : wi_stream {
     virtual void _bind_stream(Json::Value &j) override    { _upcall_nodef_j(wi_stream_type, this, "_bind_stream", j); }
     virtual void _start_pipeline(Json::Value &j) override { _upcall_nodef_j(wi_stream_type, this, "_start_pipeline", j); }
     virtual void _end_pipeline(Json::Value &j) override   { _upcall_nodef_j(wi_stream_type, this, "_end_pipeline", j); }
+    virtual void _get_info(Json::Value &j) override       { _upcall_nodef_j(wi_stream_type, this, "_get_info", j); }
 
     virtual void _allocate() override       { _upcall_nodef(wi_stream_type, this, "_allocate"); }
     virtual void _deallocate() override     { _upcall_nodef(wi_stream_type, this, "_deallocate"); }
@@ -813,6 +815,7 @@ struct py_wi_transform : wi_transform {
     virtual void _bind_transform(Json::Value &j) override { _upcall_nodef_j(wi_transform_type, this, "_bind_transform", j); }
     virtual void _start_pipeline(Json::Value &j) override { _upcall_nodef_j(wi_transform_type, this, "_start_pipeline", j); }
     virtual void _end_pipeline(Json::Value &j) override   { _upcall_nodef_j(wi_transform_type, this, "_end_pipeline", j); }
+    virtual void _get_info(Json::Value &j) override       { _upcall_nodef_j(wi_transform_type, this, "_get_info", j); }
 
     virtual void _allocate() override { _upcall_nodef(wi_transform_type, this, "_allocate"); }
     virtual void _deallocate() override { _upcall_nodef(wi_transform_type, this, "_deallocate"); }

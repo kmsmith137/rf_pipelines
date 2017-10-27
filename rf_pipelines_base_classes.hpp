@@ -453,7 +453,9 @@ public:
     void reset();                         // reverts state to ALLOCATED
     void deallocate();                    // reverts state to BOUND
     void unbind();                        // reverts state to UNBOUND
-    Json::Value get_info();               // can be called any time after bind()
+
+    // Can be called any time after bind().
+    Json::Value get_info();
 
     // Everything which follows is low-level stuff, which should not be needed by high-level users
     // of rf_pipelines, but may be needed if you're writing your own pipeline_object.
