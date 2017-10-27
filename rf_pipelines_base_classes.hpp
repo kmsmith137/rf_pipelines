@@ -168,7 +168,10 @@ public:
     // pipeline processing, so should only be specified for debugging/testing.
     const bool debug;
 
-    ring_buffer(const std::vector<ssize_t> &cdims, ssize_t nds, bool debug=false);
+    // Optional (used in scripts/rfp-analyze).
+    const std::string name;
+
+    ring_buffer(const std::vector<ssize_t> &cdims, ssize_t nds, bool debug=false, const std::string &name = "");
     ~ring_buffer();
 
     // The 'nt_contig' and 'nt_maxlag' arguments do not have the downsampling factor 'nds' applied.
@@ -201,6 +204,8 @@ public:
     void put(float *p, ssize_t pos0, ssize_t pos1, int access_mode);
 
     ssize_t get_stride() const;
+
+    Json::Value get_info() const;
 
     // The ring_buffer is noncopyable, since it contains a bare pointer.
     // Move constructor/assignment would be trivial to implement, but I haven't needed it yet.
@@ -448,6 +453,7 @@ public:
     void reset();                         // reverts state to ALLOCATED
     void deallocate();                    // reverts state to BOUND
     void unbind();                        // reverts state to UNBOUND
+    Json::Value get_info();               // can be called any time after bind()
 
     // Everything which follows is low-level stuff, which should not be needed by high-level users
     // of rf_pipelines, but may be needed if you're writing your own pipeline_object.
@@ -534,6 +540,7 @@ public:
     virtual void _end_pipeline(Json::Value &json_output);
     virtual void _reset();
     virtual void _unbind();
+    virtual void _get_info(Json::Value &json_output);
 
     // Each of the following methods is a wrapper around the corresponding virtual function.
     // For example, bind() contains "generic" logic, and wraps _bind() which contains 

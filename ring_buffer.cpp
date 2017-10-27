@@ -16,11 +16,12 @@ static std::random_device g_rd;
 static std::mt19937 g_rng(g_rd());
 
 
-ring_buffer::ring_buffer(const vector<ssize_t> &cdims_, ssize_t nds_, bool debug_) :
+ring_buffer::ring_buffer(const vector<ssize_t> &cdims_, ssize_t nds_, bool debug_, const string &name_) :
     cdims(cdims_), 
     csize(prod(cdims_)),
     nds(nds_),
-    debug(debug_)
+    debug(debug_),
+    name(name_)
 {
     check_cdims(cdims);
 
@@ -208,6 +209,26 @@ ssize_t ring_buffer::get_stride() const
 {
     rf_assert(buf != nullptr);
     return stride;
+}
+
+
+Json::Value ring_buffer::get_info() const
+{
+    Json::Value j;
+    j["name"] = name;
+    j["cdims"] = Json::Value(Json::arrayValue);
+    j["csize"] = Json::Int64(csize);
+    j["nds"] = Json::Int64(nds);
+    j["nt_contig"] = Json::Int64(nt_contig);
+    j["nt_maxlag"] = Json::Int64(nt_maxlag);
+    j["period"] = Json::Int64(period);
+    j["stride"] = Json::Int64(stride);
+    j["mb"] = 4.0e-6 * double(stride) * double(csize);
+
+    for (ssize_t d: cdims)
+	j["cdims"].append(Json::Int64(d));
+
+    return j;
 }
 
 

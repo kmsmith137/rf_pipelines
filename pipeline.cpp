@@ -179,6 +179,14 @@ void pipeline::_unbind()
 	p->unbind();
 }
 
+void pipeline::_get_info(Json::Value &j)
+{
+    j["pipeline"] = Json::Value(Json::arrayValue);
+
+    for (auto &p: this->elements)
+	j["pipeline"].append(p->get_info());
+}
+
 
 namespace {
     struct _init {

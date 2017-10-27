@@ -167,7 +167,7 @@ shared_ptr<ring_buffer> pipeline_object::create_buffer(ring_buffer_dict &rb_dict
     if (_params.verbosity >= 3)
 	cout << "    bind(): create_buffer(" << bufname << "): " << this->name << "\n";
 
-    auto ret = make_shared<ring_buffer> (cdims, nds, _params.debug);
+    auto ret = make_shared<ring_buffer> (cdims, nds, _params.debug, bufname);
 
     rb_dict[bufname] = ret;
     all_ring_buffers.push_back(ret);
@@ -520,9 +520,42 @@ void pipeline_object::reset()
 }
 
 
+Json::Value pipeline_object::get_info() 
+{
+    if (state < BINDING)
+	_throw("rf_pipelines::pipeline_object::get_info() must be called after bind()\n");
+
+    Json::Value j(Json::objectValue);
+    double mb = 0.0;
+
+    j["class_name"] = this->class_name;
+    j["name"] = this->name;
+    j["nt_chunk_in"] = Json::Int64(this->nt_chunk_in);
+    j["nt_maxlag"] = Json::Int64(this->nt_maxlag);
+    j["nt_chunk_out"] = Json::Int64(this->nt_chunk_out);
+    j["nt_maxgap"] = Json::Int64(this->nt_maxgap);
+    j["nt_contig"] = Json::Int64(this->nt_contig);
+    j["ring_buffers"] = Json::Value(Json::arrayValue);
+
+    for (auto &p: this->new_ring_buffers) {
+	Json::Value jr = p->get_info();
+	j["ring_buffers"].append(jr);
+	mb += double_from_json(jr, "mb");
+    }
+
+    j["mb_local"] = mb;
+    j["mb_cumul"] = mb;
+    
+    this->_get_info(j);
+
+    return j;
+}
+
+
 // Default virtuals
 void pipeline_object::_start_pipeline(Json::Value &j) { }
 void pipeline_object::_end_pipeline(Json::Value &j) { }
+void pipeline_object::_get_info(Json::Value &j) { }
 void pipeline_object::_reset() { }
 
 

@@ -106,6 +106,7 @@ protected:
     virtual void _end_pipeline(Json::Value &j) override;
     virtual void _reset() override;
     virtual void _unbind() override;
+    virtual void _get_info(Json::Value &j) override;
     
     virtual ssize_t get_preferred_chunk_size() override;
 
