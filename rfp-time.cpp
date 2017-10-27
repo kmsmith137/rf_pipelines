@@ -217,6 +217,9 @@ static void worker_thread_main(global_context *c, int thread_id)
 // print_timing()
 
 
+using timing_dict_t = std::unordered_map<std::string, double>;
+
+
 template<typename T>
 static vector<Json::Value> _get(const vector<Json::Value> &v, const T &x)
 {
@@ -230,7 +233,7 @@ static vector<Json::Value> _get(const vector<Json::Value> &v, const T &x)
 }
 
 
-static void print_timing(const vector<Json::Value> &v, string name, int indent_level)
+static void print_timing(timing_dict_t &d, const vector<Json::Value> &v, string name, int indent_level)
 {
     int n = v.size();
     rf_assert(n > 0);
@@ -244,6 +247,10 @@ static void print_timing(const vector<Json::Value> &v, string name, int indent_l
     for (int i = 0; i < n; i++)
 	cpu_time += double_from_json(v[i], "cpu_time") / n;
 
+    if (!has_key(d, class_name))
+	d[class_name] = 0.0;
+    d[class_name] += cpu_time;
+
     cout << string(4*indent_level, ' ');
     cout << "[" << cpu_time << " sec] " << name << endl;
 
@@ -251,7 +258,7 @@ static void print_timing(const vector<Json::Value> &v, string name, int indent_l
 	auto v2 = _get(v, "pipeline");
 	int m = v2[0].size();
 	for (int j = 0; j < m; j++)
-	    print_timing(_get(v2,j), "", indent_level+1);
+	    print_timing(d, _get(v2,j), "", indent_level+1);
     }
     else if (class_name == "wi_sub_pipeline") {
 	auto v2 = _get(v, "pipeline");
@@ -260,28 +267,44 @@ static void print_timing(const vector<Json::Value> &v, string name, int indent_l
 	auto v3 = _get(v2, 1);
 	string c3 = string_from_json(v3[0], "class_name");
 
-	print_timing(_get(v2,0), "", indent_level+1);
+	print_timing(d, _get(v2,0), "", indent_level+1);
 
 	if (c3 != "pipeline")
-	    print_timing(v3, "", indent_level+1);
+	    print_timing(d, v3, "", indent_level+1);
 	else {
 	    v3 = _get(v3, "pipeline");
 	    int m = v3[0].size();
 	    for (int j = 0; j < m; j++)
-		print_timing(_get(v3,j), "", indent_level+1);
+		print_timing(d, _get(v3,j), "", indent_level+1);
 	}
 
-	print_timing(_get(v2,2), "", indent_level+1);
+	print_timing(d, _get(v2,2), "", indent_level+1);
     }
 }
 
 
 static void print_timing(const global_context &c)
 {
+    timing_dict_t d;
     auto j = _get(c.output_json, "pipeline");
-    
+
+    cout << "Time spent in each transform:\n";
     for (int i = 0; i < c.ninputs; i++)
-	print_timing(_get(j,i), c.input_filenames[i], 0);
+	print_timing(d, _get(j,i), c.input_filenames[i], 1);
+
+    vector<string> class_names;
+    for (const auto &p: d)
+	class_names.push_back(p.first);
+    
+    std::sort(class_names.begin(), class_names.end());
+
+    cout << "\nTotal time spent in each transform type:\n";
+    for (const auto &s: class_names) {
+	// Skip container classes
+	if ((s == "pipeline") || (s == "wi_sub_pipeline"))
+	    continue;
+	cout << "    " << s << ": " << d[s] << " sec\n";
+    }
 }
 
 
@@ -309,13 +332,13 @@ int main(int argc, char **argv)
     if (c.json_outfile.size() > 0) {
 	ofstream f(c.json_outfile);
 	if (f.fail()) {
-	    cout << "couldn't open json outfile '" << c.json_outfile << "'\n";
+	    cout << "Couldn't open json outfile '" << c.json_outfile << "'\n";
 	    exit(1);
 	}
 
 	f << c.output_json[0] << endl;
 	f.close();
-	cout << "wrote json outfile " << c.json_outfile << endl;
+	cout << "Wrote " << c.json_outfile << endl;
     }
 
     return 0;
