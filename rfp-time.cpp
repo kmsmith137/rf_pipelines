@@ -10,10 +10,11 @@ using namespace rf_pipelines;
 
 static void usage(const char *msg = nullptr)
 {
-    cerr << "Usage: rfp-time [-rP] [-t NTHREADS] file.json [file2.json file3.json ...]\n"
+    cerr << "Usage: rfp-time [-rP] [-t NTHREADS] [-j JSON_OUTFILE] file.json [file2.json file3.json ...]\n"
 	 << "   -t: change number of worker threads (default 1)\n"
 	 << "   -r: enable recursive timing of all transforms in pipeline\n"
-	 << "   -P: don't pin threads to cores (default is to pin threads, this should be done on an otherwise idle machine)\n";
+	 << "   -P: don't pin threads to cores (default is to pin threads, this should be done on an otherwise idle machine)\n"
+	 << "   -j: write json output from thread 0 to specified file (must not already exist)\n";
 
     if (msg)
 	cerr << "Error: " << msg << "\n";
@@ -52,6 +53,7 @@ struct global_context {
 
     // Length nthreads
     vector<Json::Value> output_json;
+    string json_outfile;
 
     global_context(int argc, char **argv);
 
@@ -93,6 +95,18 @@ global_context::global_context(int argc, char **argv)
 
 	    this->tflag = true;
 	}
+	else if (!strcmp(arg, "-j")) {
+	    if (iarg >= argc)
+		usage("couldn't parse [-j JSON_OUTFILE] argument");
+	    if (json_outfile.size() > 0)
+		usage("double [-j JSON_OUTFILE] argument specified");
+	    
+	    this->json_outfile = argv[iarg];
+	    iarg++;
+
+	    if (file_exists(json_outfile))
+		usage("json outfile '" + json_outfile + "' already exists");
+	}	    
 	else {
 	    if (arglen == 1)
 		usage();
@@ -257,9 +271,19 @@ int main(int argc, char **argv)
     for (int i = 0; i < c.nthreads; i++)
 	threads[i].join();
 
-    // print_timing(c);
+    print_timing(c);
 
-    cout << c.output_json[0] << endl;
+    if (c.json_outfile.size() > 0) {
+	ofstream f(c.json_outfile);
+	if (f.fail()) {
+	    cout << "couldn't open json outfile '" << c.json_outfile << "'\n";
+	    exit(1);
+	}
+
+	f << c.output_json[0] << endl;
+	f.close();
+	cout << "wrote json outfile " << c.json_outfile << endl;
+    }
 
     return 0;
 }
