@@ -58,16 +58,7 @@ void ring_buffer::allocate()
     if (buf != nullptr)
 	return;
 
-    // Memory alignment heuristics...
-
-    this->period = (nt_maxlag + nds - 1) / nds;
-    this->period = round_up(period, 32);
-
-    this->stride = period + (nt_contig + nds - 2) / nds;
-    this->stride = round_up(stride, 16);
-
-    if (stride % 32 == 0)
-	stride += 16;
+    this->_preallocate();
 
     // This strengthens unit tests a bit.
     if (debug)
@@ -79,6 +70,29 @@ void ring_buffer::allocate()
     cout << "ring_buffer::allocate(): nds=" << nds << ", nt_contig=" << nt_contig << ", nt_maxlag=" << nt_maxlag
 	 << ", period=" << period << ", stride=" << stride << endl;
 #endif
+}
+
+
+// _preallocate(): helper function which assigns 'period' and 'stride'.
+// This used to be part of allocate(), but factored out so that it can be called from get_info().
+// This is useful because get_info() can be called on an unallocated ring_buffer.
+
+void ring_buffer::_preallocate()
+{
+    rf_assert(nt_contig > 0);
+    rf_assert(nt_maxlag >= nt_contig);
+
+    // The memory alignment heuristics below are intended to improve L1 cache associativity.
+    // FIXME: some day, define a boolean flag for toggling this, to see how much it actually helps!
+
+    this->period = (nt_maxlag + nds - 1) / nds;
+    this->period = round_up(period, 32);
+
+    this->stride = period + (nt_contig + nds - 2) / nds;
+    this->stride = round_up(stride, 16);
+
+    if (stride % 32 == 0)
+	stride += 16;
 }
 
 
@@ -212,8 +226,10 @@ ssize_t ring_buffer::get_stride() const
 }
 
 
-Json::Value ring_buffer::get_info() const
+Json::Value ring_buffer::get_info()
 {
+    this->_preallocate();
+
     Json::Value j;
     j["name"] = name;
     j["cdims"] = Json::Value(Json::arrayValue);

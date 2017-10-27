@@ -207,7 +207,7 @@ public:
 
     ssize_t get_stride() const;
 
-    Json::Value get_info() const;
+    Json::Value get_info();
 
     // The ring_buffer is noncopyable, since it contains a bare pointer.
     // Move constructor/assignment would be trivial to implement, but I haven't needed it yet.
@@ -248,6 +248,7 @@ protected:
     void _mirror_initial(ssize_t it0);
     void _mirror_final(ssize_t it1);
     void _copy(ssize_t it_dst, ssize_t it_src, ssize_t n);
+    void _preallocate();
 
     friend struct ring_buffer_subarray;
 };
