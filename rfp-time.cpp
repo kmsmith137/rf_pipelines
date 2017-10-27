@@ -230,16 +230,49 @@ static vector<Json::Value> _get(const vector<Json::Value> &v, const T &x)
 }
 
 
-static void print_timing(const vector<Json::Value> &v, const string &name, int indent_level)
+static void print_timing(const vector<Json::Value> &v, string name, int indent_level)
 {
     int n = v.size();
     rf_assert(n > 0);
+
+    string class_name = string_from_json(v[0], "class_name");
+
+    if (name.size() == 0)
+	name = string_from_json(v[0], "name");
 
     double cpu_time = 0.0;
     for (int i = 0; i < n; i++)
 	cpu_time += double_from_json(v[i], "cpu_time") / n;
 
+    cout << string(4*indent_level, ' ');
     cout << "[" << cpu_time << " sec] " << name << endl;
+
+    if (class_name == "pipeline") {
+	auto v2 = _get(v, "pipeline");
+	int m = v2[0].size();
+	for (int j = 0; j < m; j++)
+	    print_timing(_get(v2,j), "", indent_level+1);
+    }
+    else if (class_name == "wi_sub_pipeline") {
+	auto v2 = _get(v, "pipeline");
+	rf_assert(v2[0].size() == 3);
+
+	auto v3 = _get(v2, 1);
+	string c3 = string_from_json(v3[0], "class_name");
+
+	print_timing(_get(v2,0), "", indent_level+1);
+
+	if (c3 != "pipeline")
+	    print_timing(v3, "", indent_level+1);
+	else {
+	    v3 = _get(v3, "pipeline");
+	    int m = v3[0].size();
+	    for (int j = 0; j < m; j++)
+		print_timing(_get(v3,j), "", indent_level+1);
+	}
+
+	print_timing(_get(v2,2), "", indent_level+1);
+    }
 }
 
 
