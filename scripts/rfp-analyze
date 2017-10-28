@@ -52,12 +52,30 @@ for filename in args.json_filenames:
     p.append(x)
 
 p = rf_pipelines.pipeline(p) if (len(p) > 1) else p[0]
-p.bind()
+p.bind(outdir=None, verbosity=0)
 
-j = p.get_info()
+j0 = p.get_info()
+
+
+####################################################################################################
+
+
+def _show_ring_buffers(j):
+    for r in j['ring_buffers']:
+        print '    %s: %.2f MB, cdims=%s, nds=%s, period=%s, nt_contig=%s, stride=%s' % (r['name'], r['mb'], r['cdims'], r['nds'], r['period'], r['nt_contig'], r['stride'])
+    if j['class_name'] not in [ 'pipeline', 'wi_sub_pipeline' ]:
+        return
+    for jj in j['pipeline']:
+        _show_ring_buffers(jj)
+
+
+print 'Total size of all ring buffers: %.2f MB' % j0['mb_cumul']
+print 'List of all ring buffers follows'
+_show_ring_buffers(j0)
+
 
 if args.json_outfile is not None:
     f = open(args.json_outfile, 'w')
-    json.dump(j, f, indent=4)
+    json.dump(j0, f, indent=4)
     f.close()
     print 'wrote', args.json_outfile
