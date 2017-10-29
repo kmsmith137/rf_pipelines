@@ -37,16 +37,19 @@ struct bonsai_dedisperser : public wi_transform {
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
     virtual void _end_pipeline(Json::Value &json_output) override;
     virtual void _deallocate() override;
+    
+    virtual Json::Value jsonize() const override;
+    static shared_ptr<bonsai_dedisperser> from_json(const Json::Value &j);
 };
 
 
 bonsai_dedisperser::bonsai_dedisperser(const shared_ptr<bonsai::dedisperser> &dp, const shared_ptr<bonsai::global_max_tracker> &tp) :
-    wi_transform("bonsai_dedisperser"),
+    wi_transform("bonsai_dedisperser_cpp"),
     dedisperser(dp), 
     max_tracker(tp)
 { 
     // initialize members of wi_transform base class
-    this->name = "bonsai_dedisperser(" + dp->config.name + ")";
+    this->name = "bonsai_dedisperser_cpp(" + dp->config.name + ")";
     this->nt_chunk = dedisperser->nt_chunk;
 }
 
@@ -121,6 +124,70 @@ void bonsai_dedisperser::_deallocate()
 }
 
 
+Json::Value bonsai_dedisperser::jsonize() const
+{
+    Json::Value ret;
+
+    // FIXME currently can't jsonize a bonsai_dedisperser which has not been
+    // initialized directly from a config file.  We also implicitly assume
+    // that the config_params hasn't been modified after it was constructed.
+    // Both of these can be improved!
+
+    if ((dedisperser->config.name == "") || (dedisperser->config.name == "config_params"))
+	_throw("currently, a bonsai_transform_cpp cannot be jsonized unless it was initialized from a config file");
+    if (dedisperser->get_nprocessors() > 0)
+	_throw("currently, a bonsai_transform_cpp cannot be jsonized unless it has no trigger_processors (in particular, 'track_global_max' and 'hdf5_output_file' must be disabled)");
+
+    ret["config_filename"] = dedisperser->config.name;
+
+    // FIXME the next code block will become bonsai::dedisperser::initializer::jsonize(),
+    // as soon as bonsai gets jsoncpp as an (optional?) dependency.
+
+    Json::Value jini;
+    jini["fill_rfi_mask"] = dedisperser->ini_params.fill_rfi_mask;
+    jini["allocate"] = dedisperser->ini_params.allocate;
+    jini["verbosity"] = dedisperser->ini_params.verbosity;
+    jini["file_type"] = dedisperser->ini_params.file_type;
+    jini["use_analytic_normalization"] = dedisperser->ini_params.use_analytic_normalization;
+    jini["estimate_cumulative_variance"] = dedisperser->ini_params.estimate_cumulative_variance;
+    jini["use_unnormalized_triggers"] = dedisperser->ini_params.use_unnormalized_triggers;
+    jini["force_unnormalized_triggers"] = dedisperser->ini_params.force_unnormalized_triggers;
+
+    ret["initializer"] = jini;
+    return ret;
+}
+
+
+shared_ptr<bonsai_dedisperser> bonsai_dedisperser::from_json(const Json::Value &j)
+{
+    bonsai::dedisperser::initializer ini_params;
+
+    const Json::Value &jini = j["initializer"];
+    ini_params.fill_rfi_mask = bool_from_json(jini, "fill_rfi_mask");
+    ini_params.allocate = bool_from_json(jini, "allocate");
+    ini_params.verbosity = int_from_json(jini, "verbosity");
+    ini_params.file_type = string_from_json(jini, "file_type");
+    ini_params.use_analytic_normalization = bool_from_json(jini, "use_analytic_normalization");
+    ini_params.estimate_cumulative_variance = bool_from_json(jini, "estimate_cumulative_variance");
+    ini_params.force_unnormalized_triggers = bool_from_json(jini, "force_unnormalized_triggers");
+
+    string config_filename = string_from_json(j, "config_filename");
+    auto dp = make_shared<bonsai::dedisperser> (config_filename, ini_params);
+    
+    shared_ptr<bonsai::global_max_tracker> tp;  // empty
+    return make_shared<bonsai_dedisperser> (dp, tp);
+}
+
+
+namespace {
+    struct _init {
+	_init() {
+	    pipeline_object::register_json_deserializer("bonsai_dedisperser_cpp", bonsai_dedisperser::from_json);
+	}
+    } init;
+}
+
+
 // -------------------------------------------------------------------------------------------------
 
 
@@ -155,8 +222,8 @@ shared_ptr<wi_transform> make_bonsai_dedisperser(const shared_ptr<bonsai::dedisp
 {
     if (!dp)
 	throw runtime_error("rf_pipelines: empty shared_ptr<bonsai::dedisperser> was passed to make_bonsai_dedisperser()");
-
-    shared_ptr<bonsai::global_max_tracker> tp;
+    
+    shared_ptr<bonsai::global_max_tracker> tp;  // empty
     return make_shared<bonsai_dedisperser> (dp, tp);
 }
 
@@ -164,4 +231,3 @@ shared_ptr<wi_transform> make_bonsai_dedisperser(const shared_ptr<bonsai::dedisp
 #endif  // HAVE_BONSAI
 
 }  // namespace rf_pipelines
-

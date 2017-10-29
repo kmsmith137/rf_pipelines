@@ -51,7 +51,7 @@
 // ------------------------
 //   adversarial_masker (*)
 //   badchannel_mask (*)
-//   bonsai_dedisperser (*) 
+//   bonsai_dedisperser (**) 
 //   frb_injector_transform (*)
 //   mask_filler (*) 
 //   noise_filler (*)
@@ -59,7 +59,7 @@
 //   variance_estimator (*)
 //
 // (*) = python-only
-
+// (**) = the bonsai_dedisperser currently has both python and C++ versions
 
 // ring_buffer, pipeline_object, etc.
 #include "rf_pipelines_base_classes.hpp"
