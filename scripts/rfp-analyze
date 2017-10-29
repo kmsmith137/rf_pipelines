@@ -118,6 +118,7 @@ print
 show_latency(j0, args.depth)
 
 print
+print 'Total latency: [%s + %s] (see detailed analysis above)' % (j0['nt_maxgap'], j0['nt_maxlag'])
 print 'Total size of all ring buffers: %.2f MB' % j0['mb_cumul']
 print
 print 'List of all ring buffers follows'
