@@ -648,6 +648,7 @@ static void wrap_pipeline_object(extension_module &m)
     pipeline_object_type.add_method("_end_pipeline", "_end_pipeline(): optional", wrap_j(&pipeline_object::_end_pipeline));
     pipeline_object_type.add_method("_unbind", "_unbind(): optional", wrap_method(&pipeline_object::_unbind));
     pipeline_object_type.add_method("_reset", "_reset(): optional", wrap_method(&pipeline_object::_reset));
+    pipeline_object_type.add_method("_get_info", "_get_info(): optional", wrap_j(&pipeline_object::_get_info));
 
     // FIXME doesn't really work -- more complicated than I thought!
     pipeline_object_type.add_method("__str__", "", wrap_method(_str));
