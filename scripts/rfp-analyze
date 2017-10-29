@@ -7,8 +7,10 @@ import argparse
 # ArgumentParser subclass, to customize the error message
 class MyParser(argparse.ArgumentParser):
     def error(self, message=None):
-        print >>sys.stderr, 'Usage: rfp-analyze [-j JSON_OUTFILE] file1.json [file2.json file3.json ...]'
-        print >>sys.stderr, '    -j: dumps result of pipeline_object.get_info() to a json file'
+        print >>sys.stderr, 'Usage: rfp-analyze [-r] [-d DEPTH] [-j JSON_OUTFILE] file1.json [file2.json file3.json ...]'
+        print >>sys.stderr, '    -r: runs pipeline, and computes some extra information'
+        print >>sys.stderr, '    -d: limits depth of latency analysis (integer)'
+        print >>sys.stderr, '    -j: dumps result of pipeline_object.get_info() to a json file (usually for debugging)'
 
         if message is not None:
             print >>sys.stderr, '\nError:', message
@@ -24,6 +26,8 @@ class MyParser(argparse.ArgumentParser):
 parser = MyParser()
 
 parser.add_argument('json_filenames', nargs='*')
+parser.add_argument('-r', action='store_true', help='runs pipeline, and computes some extra information')
+parser.add_argument('-d', dest='depth', type=int, help='limits depth of latency analysis (integer)')
 parser.add_argument('-j', dest='json_outfile', help='dumps result of pipeline_object.get_info() to a json file (must not already exist)')
 
 args = parser.parse_args()
@@ -54,24 +58,59 @@ for filename in args.json_filenames:
 p = rf_pipelines.pipeline(p) if (len(p) > 1) else p[0]
 p.bind(outdir=None, verbosity=0)
 
+if args.r:
+    p.run(outdir=None, verbosity=0)
+
 j0 = p.get_info()
 
 
 ####################################################################################################
 
 
-def _show_ring_buffers(j):
+def show_latency(j, depth, indent_level=0):
+    ind = '    ' * indent_level
+    print '%s[%s+%s] [%s->%s]  %s' % (ind, j['nt_maxgap'], j['nt_maxlag'], j['nt_chunk_in'], j['nt_chunk_out'], j['name'])
+
+    if (depth is not None) and (indent_level >= depth):
+        return
+
+    if j['class_name'] == 'pipeline':
+        for jj in j['pipeline']:
+            show_latency(jj, depth, indent_level+1)
+    elif j['class_name'] == 'wi_sub_pipeline':
+        assert (len(j['pipeline']) == 3) and (j['pipeline'][1]['class_name'] == 'pipeline')
+        show_latency(j['pipeline'][0], depth, indent_level+1)
+        for jj in j['pipeline'][1]['pipeline']:
+            show_latency(jj, depth, indent_level+1)
+        show_latency(j['pipeline'][2], depth, indent_level+1)
+
+
+def show_ring_buffers(j):
     for r in j['ring_buffers']:
         print '    %s: %.2f MB, cdims=%s, nds=%s, period=%s, nt_contig=%s, stride=%s' % (r['name'], r['mb'], r['cdims'], r['nds'], r['period'], r['nt_contig'], r['stride'])
     if j['class_name'] not in [ 'pipeline', 'wi_sub_pipeline' ]:
         return
     for jj in j['pipeline']:
-        _show_ring_buffers(jj)
+        show_ring_buffers(jj)
 
 
+print 'Latency analysis format: [nt_maxgap + nt_maxlag] [nt_chunk_in -> nt_chunk_out]'
+print
+print 'Reminder:'
+print
+print '   - nt_maxgap is the max allowed (pos_hi - pos_lo), after advance() is called,'
+print '     i.e. the max amount of data which has not been processed by the pipeline_object'
+print
+print '   - nt_maxlag is the max allowed (pos_max - pos_hi), before advance() is called,'
+print '     i.e. the max lag between the pipeline_object and incoming data'
+print
+
+show_latency(j0, args.depth)
+
+print
 print 'Total size of all ring buffers: %.2f MB' % j0['mb_cumul']
 print 'List of all ring buffers follows'
-_show_ring_buffers(j0)
+show_ring_buffers(j0)
 
 
 if args.json_outfile is not None:
