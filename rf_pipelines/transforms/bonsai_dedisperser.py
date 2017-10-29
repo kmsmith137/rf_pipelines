@@ -10,9 +10,10 @@ class bonsai_dedisperser(wi_transform):
     """
     Returns a "transform" which doesn't actually modify the data, it just runs the bonsai dedisperser.
 
-    FIXME: currently, there are two versions of the bonsai_dedisperser, written in C++ and python.  These
-    are jsonized as "bonsai_dedisperser_cpp" and "bonsai_dedisperser_python" respectively.  They will be
-    combined eventually!
+    FIXME: currently, there are two versions of the bonsai_dedisperser, written in python and C++.
+    From python, they are constructed as 'bonsai_dedisperser' and 'bonsai_dedisperser_cpp' respectively.
+    In the pipeline json output, they are represented as 'bonsai_dedisperser_python' and 'bonsai_dedisperser_cpp'.
+    The two versions of the bonsai_dedisperser will be combined eventually!
 
     Constructor arguments
     ---------------------
@@ -285,7 +286,7 @@ class bonsai_dedisperser(wi_transform):
 
 
     def jsonize(self):
-        return { 'class_name': 'bonsai_dedisperser',
+        return { 'class_name': 'bonsai_dedisperser_python',
                  'config_filename': self.config_filename,
                  'fill_rfi_mask': self.fill_rfi_mask,
                  'img_prefix': self._img_prefix if self.make_plot else None,

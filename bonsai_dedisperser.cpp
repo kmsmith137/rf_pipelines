@@ -141,6 +141,7 @@ Json::Value bonsai_dedisperser::jsonize() const
     if (dedisperser->get_nprocessors() > 0)
 	_throw("currently, a bonsai_transform_cpp cannot be jsonized unless it has no trigger_processors (in particular, 'track_global_max' and 'hdf5_output_file' must be disabled)");
 
+    ret["class_name"] = "bonsai_dedisperser_cpp";
     ret["config_filename"] = dedisperser->config.name;
 
     // FIXME the next code block will become bonsai::dedisperser::initializer::jsonize(),
