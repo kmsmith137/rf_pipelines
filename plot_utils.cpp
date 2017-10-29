@@ -113,10 +113,10 @@ void png_writer::write_rgb8(const string &filename, uint8_t *rgb_ymajor, int nx,
     // FIXME (low-priority, just curious): is it necessary to reallocate the 'png_structp' and 'png_infop' between writes?
     this->deallocate();
 
-    png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    this->png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     rf_assert(png_ptr);
 
-    info_ptr = png_create_info_struct(png_ptr);
+    this->info_ptr = png_create_info_struct(png_ptr);
     rf_assert(info_ptr);
 
     fp = fopen(filename.c_str(), "wb");
