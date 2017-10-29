@@ -89,9 +89,15 @@ def show_latency(j, depth, indent_level=0):
 def show_ring_buffers(j):
     for r in j['ring_buffers']:
         s = '    %s: %.2f MB, cdims=%s, nds=%s, period=%s, nt_contig=%s, stride=%s' % (r['name'], r['mb'], r['cdims'], r['nds'], r['period'], r['nt_contig'], r['stride'])
+
         if args.r:
-            s += ', high_water_mark=%s' % r['high_water_mark']
+            n1 = r['nget_mirror']
+            n2 = r['nget_tot']
+            f = float(n1)/float(n2) if (n2 > 0) else 0.0
+            s += ', high_water_mark=%s, mirror_frac=%g' % (r['high_water_mark'], f)
+
         print s
+
     if j['class_name'] not in [ 'pipeline', 'wi_sub_pipeline' ]:
         return
     for jj in j['pipeline']:

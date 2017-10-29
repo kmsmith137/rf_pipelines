@@ -237,6 +237,8 @@ protected:
     ssize_t first_valid_sample = 0;  // downsampling factor applied
     ssize_t last_valid_sample = 0;   // downsampling factor applied
     ssize_t high_water_mark = 0;     // downsampling factor applied (diagnostic)
+    ssize_t nget_tot = 0;            // downsampling factor applied (diagnostic)
+    ssize_t nget_mirror = 0;         // downsampling factor applied (diagnostic)
 
     // Is there an active pointer?
     float *ap = nullptr;
