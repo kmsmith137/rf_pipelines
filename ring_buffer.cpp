@@ -110,6 +110,7 @@ void ring_buffer::reset()
     this->curr_pos = 0;
     this->first_valid_sample = 0;
     this->last_valid_sample = 0;
+    this->high_water_mark = 0;
 }
 
 
@@ -164,6 +165,7 @@ float *ring_buffer::get(ssize_t pos0, ssize_t pos1, int mode)
 
     this->ap = this->buf + it0;
     this->ap_mode = mode;
+    this->high_water_mark = max(high_water_mark, it1);
 
     return ap;
 }
@@ -239,6 +241,7 @@ Json::Value ring_buffer::get_info()
     j["nt_maxlag"] = Json::Int64(nt_maxlag);
     j["period"] = Json::Int64(period);
     j["stride"] = Json::Int64(stride);
+    j["high_water_mark"] = Json::Int64(high_water_mark);
     j["mb"] = 4.0e-6 * double(stride) * double(csize);
 
     for (ssize_t d: cdims)

@@ -59,6 +59,7 @@ p = rf_pipelines.pipeline(p) if (len(p) > 1) else p[0]
 p.bind(outdir=None, verbosity=0)
 
 if args.r:
+    print 'Running pipeline (-r flag was specified), this may take some time...'
     p.run(outdir=None, verbosity=0)
 
 j0 = p.get_info()
@@ -87,7 +88,10 @@ def show_latency(j, depth, indent_level=0):
 
 def show_ring_buffers(j):
     for r in j['ring_buffers']:
-        print '    %s: %.2f MB, cdims=%s, nds=%s, period=%s, nt_contig=%s, stride=%s' % (r['name'], r['mb'], r['cdims'], r['nds'], r['period'], r['nt_contig'], r['stride'])
+        s = '    %s: %.2f MB, cdims=%s, nds=%s, period=%s, nt_contig=%s, stride=%s' % (r['name'], r['mb'], r['cdims'], r['nds'], r['period'], r['nt_contig'], r['stride'])
+        if args.r:
+            s += ', high_water_mark=%s' % r['high_water_mark']
+        print s
     if j['class_name'] not in [ 'pipeline', 'wi_sub_pipeline' ]:
         return
     for jj in j['pipeline']:
@@ -109,7 +113,9 @@ show_latency(j0, args.depth)
 
 print
 print 'Total size of all ring buffers: %.2f MB' % j0['mb_cumul']
+print
 print 'List of all ring buffers follows'
+
 show_ring_buffers(j0)
 
 
