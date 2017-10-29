@@ -10,6 +10,9 @@ class bonsai_dedisperser(wi_transform):
     """
     Returns a "transform" which doesn't actually modify the data, it just runs the bonsai dedisperser.
 
+    FIXME: currently, there are two versions of the bonsai_dedisperser, written in C++ and python.  These
+    are jsonized as "bonsai_dedisperser_cpp" and "bonsai_dedisperser_python" respectively.  They will be
+    combined eventually!
 
     Constructor arguments
     ---------------------

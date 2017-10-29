@@ -1,4 +1,7 @@
-// FIXME will implement jsonize() after json (de)serialization is added to bonsai.
+// FIXME: currently, there are two versions of the bonsai_dedisperser, written in python and C++.
+// From python, they are constructed as 'bonsai_dedisperser' and 'bonsai_dedisperser_cpp' respectively.
+// In the pipeline json output, they are represented as 'bonsai_dedisperser_python' and 'bonsai_dedisperser_cpp'.
+// The two versions of the bonsai_dedisperser will be combined eventually!
 
 #include "rf_pipelines_internals.hpp"
 

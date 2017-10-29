@@ -330,6 +330,11 @@ make_std_dev_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, int
 //
 // bonsai_dedisperser: a "transform" which doesn't actually modify the data, it just runs the bonsai dedisperser.  
 //
+// FIXME: currently, there are two versions of the bonsai_dedisperser, written in python and C++.
+// From python, they are constructed as 'bonsai_dedisperser' and 'bonsai_dedisperser_cpp' respectively.
+// In the pipeline json output, they are represented as 'bonsai_dedisperser_python' and 'bonsai_dedisperser_cpp'.
+// The two versions of the bonsai_dedisperser will be combined eventually!
+//
 // If the 'track_global_max' flag is set to true, then the following json output will be written:
 //   frb_global_max_trigger
 //   frb_global_max_trigger_dm

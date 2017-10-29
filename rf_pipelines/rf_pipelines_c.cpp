@@ -1527,6 +1527,35 @@ static void wrap_kernels(extension_module &m)
 			     kwarg("sigma",3.0), kwarg("two_pass",false)));
 }
 
+// -------------------------------------------------------------------------------------------------
+//
+// wrap_bonsai().
+
+
+static void wrap_bonsai(extension_module &m)
+{
+    string doc_bd = ("bonsai_dedisperser(config_filename, fill_rfi_mask=False, verbosity=1) -> pipeline_object\n"
+		     "\n"
+		     "A \"transform\" which doesn't actually modify the data, it just runs the bonsai dedisperser (C++ version)\n"
+		     "\n"
+		     "FIXME: currently, there are two versions of the bonsai_dedisperser, written in python and C++.\n"
+		     "From python, they are constructed as 'bonsai_dedisperser' and 'bonsai_dedisperser_cpp' respectively.\n"
+		     "In the pipeline json output, they are represented as 'bonsai_dedisperser_python' and 'bonsai_dedisperser_cpp'.\n"
+		     "The two versions of the bonsai_dedisperser will be combined eventually!\n");
+
+    std::function<shared_ptr<pipeline_object>(const string &, bool, int)>
+	f_bd = [](const string &config_filename, bool fill_rfi_mask, int verbosity) -> shared_ptr<pipeline_object>
+	{
+	    bonsai_initializer ini_params;
+	    ini_params.fill_rfi_mask = fill_rfi_mask;
+	    ini_params.verbosity = verbosity;
+	    
+	    return make_bonsai_dedisperser(config_filename, ini_params);
+	};
+
+    m.add_function("bonsai_dedisperser_cpp", doc_bd, wrap_func(f_bd, "config_filename", kwarg("fill_rfi_mask",false), kwarg("verbosity",1)));
+}
+
 
 // -------------------------------------------------------------------------------------------------
 
@@ -1552,6 +1581,7 @@ PyMODINIT_FUNC initrf_pipelines_c(void)
     wrap_detrenders(m);
     wrap_clippers(m);
     wrap_kernels(m);
+    wrap_bonsai(m);
 
     m.finalize();
 }
