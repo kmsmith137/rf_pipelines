@@ -640,7 +640,7 @@ shared_ptr<pipeline_object> pipeline_object::from_json(const Json::Value &x)
     json_deserializer_t f = _find_json_deserializer(class_name);
 
     if (f == NULL)
-	throw runtime_error("rf_pipelines::pipeline_object::from_json(): class_name='" + class_name + "' not found, maybe you're missing a call to pipeline_object::from_json_converter()?");
+	throw runtime_error("rf_pipelines::pipeline_object::from_json(): class_name='" + class_name + "' not found.  Maybe you're trying to use a python transform in C++ code?");
 
     shared_ptr<pipeline_object> ret = f(x);
 
