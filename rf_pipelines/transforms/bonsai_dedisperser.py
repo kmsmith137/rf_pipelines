@@ -102,7 +102,7 @@ class bonsai_dedisperser(wi_transform):
             self.dedisperser.add_processor(self.global_max_tracker)
 
         if hdf5_output_filename:
-            t = bonsai.trigger_hdf5_file_writer(hdf5_output_filename, nt_per_hdf5_file)
+            t = bonsai.trigger_hdf5_writer(hdf5_output_filename, nt_per_hdf5_file)
             self.dedisperser.add_processor(t)
             self.nt_per_hdf5_file = nt_per_hdf5_file
 

@@ -214,7 +214,7 @@ shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_filen
     }
 
     if (ini_params.hdf5_output_filename.size() > 0) {
-	auto t = make_shared<bonsai::trigger_hdf5_file_writer> (ini_params.hdf5_output_filename, ini_params.nt_per_hdf5_file);
+	auto t = bonsai::make_trigger_hdf5_writer(ini_params.hdf5_output_filename, ini_params.nt_per_hdf5_file);
 	dedisperser->add_processor(t);
     }
 
