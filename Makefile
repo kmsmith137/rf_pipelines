@@ -82,13 +82,13 @@ TESTBINFILES = test-misc test-ring-buffer test-core-pipeline-logic test-file-str
 
 # Python scripts in scripts/, installed in $(BINDIR).
 SCRIPTS = rfp-analyze \
-	rfp-json-show.py \
-	rfp-run.py
+	rfp-json-show \
+	rfp-run
 
 # Used in 'make clean'
 CLEANDIRS=. site rf_pipelines rf_pipelines/streams rf_pipelines/transforms rf_pipelines/retirement_home scripts
 
-# Used in 'make uninstall': header files which no longer exist, but did exist in previous versions of rf_pipelines
+# Used in 'make uninstall': files which no longer exist, but did exist in previous versions of rf_pipelines
 DUMMY_INCFILES=chime_packetizer.hpp chime_file_stream_base.hpp reverter.hpp
 
 
