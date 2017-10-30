@@ -1,8 +1,11 @@
 # Makefile.local for scinet.utoronto.ca
 
 HAVE_PSRFITS=n
-HAVE_CH_FRB_IO=n
+HAVE_SIMPULSE=y
+HAVE_CH_FRB_IO=y
 HAVE_BONSAI=y
+HAVE_HDF5=y
+HAVE_PNG=y
 
 # Directory where executables will be installed
 BINDIR=$(HOME)/bin
