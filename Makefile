@@ -1,7 +1,7 @@
 # Makefile.local must define the following variables
 #   LIBDIR      install dir for C++ libraries
 #   INCDIR      install dir for C++ headers
-#   BINDIR      install dir for executables (currently, all excutables are python scripts)
+#   BINDIR      install dir for executables
 #   PYDIR       install dir for python modules
 #   CPP         C++ compiler command line
 #

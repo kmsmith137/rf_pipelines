@@ -8,7 +8,7 @@ LIBDIR=$(HOME)/lib
 # Directory where C++ header files will be installed
 INCDIR=$(HOME)/include
 
-# Directory where executables will be installed (currently, all executables are python scripts)
+# Directory where executables will be installed
 BINDIR=$(HOME)/bin
 
 # Directory where Python modules will be installed
