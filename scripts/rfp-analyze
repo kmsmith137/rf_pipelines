@@ -94,7 +94,7 @@ def show_ring_buffers(j):
             n1 = r['nget_mirror']
             n2 = r['nget_tot']
             f = float(n1)/float(n2) if (n2 > 0) else 0.0
-            s += ', high_water_mark=%s, mirror_frac=%g' % (r['high_water_mark'], f)
+            s += ', optimal_period=%s, high_water_mark=%s, mirror_frac=%g' % (r['optimal_period'], r['high_water_mark'], f)
 
         print s
 

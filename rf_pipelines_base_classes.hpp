@@ -236,9 +236,13 @@ protected:
     ssize_t curr_pos = 0;            // downsampling factor applied
     ssize_t first_valid_sample = 0;  // downsampling factor applied
     ssize_t last_valid_sample = 0;   // downsampling factor applied
-    ssize_t high_water_mark = 0;     // downsampling factor applied (diagnostic)
-    ssize_t nget_tot = 0;            // downsampling factor applied (diagnostic)
-    ssize_t nget_mirror = 0;         // downsampling factor applied (diagnostic)
+
+    // Diagonstic info (reported by rfp-analyze -r)
+    // All of these are sample counts, with downsampling factor applied.
+    ssize_t high_water_mark = 0;
+    ssize_t optimal_period = 0;
+    ssize_t nget_tot = 0;
+    ssize_t nget_mirror = 0;
 
     // Is there an active pointer?
     float *ap = nullptr;

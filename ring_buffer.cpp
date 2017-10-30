@@ -111,6 +111,7 @@ void ring_buffer::reset()
     this->first_valid_sample = 0;
     this->last_valid_sample = 0;
     this->high_water_mark = 0;
+    this->optimal_period = 0;
     this->nget_tot = 0;
     this->nget_mirror = 0;
 }
@@ -168,6 +169,7 @@ float *ring_buffer::get(ssize_t pos0, ssize_t pos1, int mode)
     this->ap = this->buf + it0;
     this->ap_mode = mode;
     this->high_water_mark = max(high_water_mark, it1);
+    this->optimal_period = max(optimal_period, curr_pos - pos0);
     this->nget_tot += (it1 - it0);   // note: nget_mirror is updated in ring_buffer::_copy()
 
     return ap;
@@ -245,6 +247,7 @@ Json::Value ring_buffer::get_info()
     j["period"] = Json::Int64(period);
     j["stride"] = Json::Int64(stride);
     j["high_water_mark"] = Json::Int64(high_water_mark);
+    j["optimal_period"] = Json::Int64(optimal_period);
     j["nget_tot"] = Json::Int64(nget_tot);
     j["nget_mirror"] = Json::Int64(nget_mirror);
     j["mb"] = 4.0e-6 * double(stride) * double(csize);
