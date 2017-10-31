@@ -99,20 +99,14 @@ For each optional dependency below, there is a corresponding Makefile variable
 
   - **hdf5:** Widely-used file format for scientific data.
   
-    **Warning: rf_pipelines requires HDF5 version 1.8.11 or later,
-    but does not work with version 1.10.x.  This will be fixed eventually!**
+    You'll need to install HDF5 (including C++ support), if it's not already installed.
+    You'll also need the sp_hdf5 header-only C++ wrapper library (https://github.com/kmsmith137/sp_hdf5).
+    See the README.md file there for installation instructions.
 
-    Given these version constraints, I needed to build libhdf5 from source (note that
-    yum and homebrew want to install a version which is too old).  The following 
-    worked for me (assuming no root privileges):
-    ```
-    wget https://support.hdfgroup.org/ftp/HDF5/current18/src/hdf5-1.8.19.tar.gz
-    tar zxvf hdf5-1.8.19.tar.gz
-    cd hdf5-1.8.19
-    ./configure --prefix=$HOME --enable-cxx
-    make
-    make install
-    ```
+    **Note that sp_hdf5 requires HDF5 version 1.8.12 or later,
+    but does not work with version 1.10.x.  This will be fixed eventually!**
+    In the meantime, the sp_hdf5 README includes instructions for installing a version of HDF5
+    which is neither too old nor too new.
       
   - **psrfits_utils:** Utility library for working with search- and fold-mode PSRFITS pulsar data files.
     Needed for e.g. gbncc.  (Not needed for CHIME.)
