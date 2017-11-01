@@ -308,6 +308,81 @@ def json_str(obj, depth=1, indent=''):
     raise RuntimeError('rf_pipelines.json_str(): unrecognized object')
 
 
+
+def _json_compare(j1, j2, name1=None, name2=None):
+    """
+    Helper function for json_assert_equal().
+    Checks recursively whether json objects 'j1' and 'j2' are equal.
+
+    The return value is a quadruple (b, s, j1, j2, name1, name2), where:
+        b = True if equal, False if unequal (boolean)
+        s = One-line string diagnosing reason for inequality (empty string if b==False)
+        (j1,name1) = Mismatched argument 1 (None if b==False)
+        (j2,name2) = Mismatched argument 2 (None if b==False)
+    """
+
+    if name1 is None:
+        name1 = 'argument1'
+    if name2 is None:
+        name2 = 'argument2'
+
+    if j1.__class__ != j2.__class__:
+        s = 'type(%s)=%s, type(%s)=%s' % (name1, j1.__class__, name2, j2.__class__)
+        
+    if isinstance(j1, dict):
+        k1 = set(j1.keys())
+        k2 = set(j2.keys())
+        k12 = k1.difference(k2)
+        k21 = k2.difference(k1)
+
+        if (len(k12) > 0):
+            s = ', '.join(["'%s'" % x for x in k12])
+            s = '%s contains key(s) %s which are absent in %s' % (name1, s, name2)
+            return (False, s, j1, j2, name1, name2)
+
+        if (len(k21) > 0):
+            s = ', '.join(["'%s'" % x for x in k21])
+            s = '%s contains key(s) %s which are absent in %s' % (name2, s, name1)
+            return (False, s, j1, j2, name1, name2)
+
+        for k in k1:
+            n1 = '%s[%s]' % (name1, k)
+            n2 = '%s[%s]' % (name2, k)
+            t = _json_compare(j1[k], j2[k], n1, n2)
+            if not t[0]:
+                return t
+
+    elif isinstance(j1, list):
+        for i in xrange(len(j1)):
+            n1 = '%s[%d]'% (name1, i)
+            n2 = '%s[%d]'% (name2, i)
+            t = _json_compare(j1[i], j2[i], n1, n2)
+            if not t[0]:
+                return t
+
+    elif (j1 != j2):
+        s = '%s and %s are unequal' % (name1, name2)
+        return (False, s, j1, j2, name1, name2)
+
+    return (True, '', None, None, None, None)
+
+
+def json_assert_equal(j1, j2, name1=None, name2=None, verbose=True):
+    """Checks that json values j1,j2 are equal, in a verbose way."""
+
+    (b, s, j1, j2, name1, name2) = _json_compare(j1, j2, name1, name2)
+    
+    if b:
+        return
+
+    if verbose:
+        print '%s = %s' % (name1, json_str(j1))
+        print '%s = %s' % (name2, json_str(j2))
+        s += ', see diagnostic print-statements above'
+
+    raise RuntimeError(s)
+
+
 ####################################################################################################
 
 
