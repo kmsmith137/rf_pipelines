@@ -1,10 +1,23 @@
 - Version 16:
      
-     -
+     - At this point, the low-level logic in rf_pipelines was largely rewritten!  The
+       low-level building blocks (streams, transforms, etc.) have a different API now,
+       and any "pre-v16" code will need substantial changes to work "post-v16".
+
+       To make matters worse, due to the CHIME pre-deployment scramble, the changes are
+       mostly undocumented, and some pre-v15 functionality is not working yet.  See
+       MANUAL.md for current status.
+
+       In summary, everything is a little unstable right now, but will hopefully converge
+       to something stable, well-tested, and documented in a few more revisions.
+
+       This enormous commit is part of the "2017 Mega Merge" affecting many parts of the CHIMEFRB pipeline.
 
 - Version 15:
      
-     - 
+     - From Maya: multi-tree bonsai plotter
+
+     - From Masoud: integration with L1B (Alex Josephy's event grouping/sifting code)
 
 - Version 14:
 

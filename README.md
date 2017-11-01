@@ -172,3 +172,16 @@ For each optional dependency below, there is a corresponding Makefile variable
 	then you probably need to add your BINDIR to the $PATH environment variable.
 
     Feel free to email me if you have trouble!
+
+
+### TESTING
+
+There will be a `make test` Makefile target soon!  In the meantime:
+```
+./test-ring-buffer
+./test-core-pipeline-logic
+./test-file-stream-base
+./test-misc
+./test-wi-sub-pipeline.py
+./test-almost-everything.py
+```
