@@ -109,9 +109,6 @@ protected:
     virtual void _get_info(Json::Value &j) override;
     
     virtual ssize_t get_preferred_chunk_size() override;
-
-    std::string _default_name;
-    void _update_name();
 };
 
 

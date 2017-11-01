@@ -10,9 +10,7 @@ namespace rf_pipelines {
 
 pipeline::pipeline(const string &name_) :
     pipeline_object("pipeline", name_)
-{
-    this->_update_name();
-}
+{ }
 
 
 pipeline::pipeline(const vector<shared_ptr<pipeline_object>> &elements_, const string &name_) :
@@ -22,17 +20,12 @@ pipeline::pipeline(const vector<shared_ptr<pipeline_object>> &elements_, const s
     for (const auto &p: elements)
 	if (p.get() == nullptr)
 	    _throw("null pointer in pipeline constructor");
-    
-    this->_update_name();
 }
 
 // For subclasses (e.g. wi_sub_pipeline)
 pipeline::pipeline(const string &class_name_, const string &name_) :
     pipeline_object(class_name_, name_)
-{
-    this->_update_name();
-}
-
+{ }
 
 void pipeline::add(const shared_ptr<pipeline_object> &p)
 {
@@ -42,14 +35,6 @@ void pipeline::add(const shared_ptr<pipeline_object> &p)
 	_throw("pipeline::add() was called after bind()");
     
     elements.push_back(p);    
-    this->_update_name();
-}
-
-
-void pipeline::_update_name()
-{
-    if (name == _default_name)
-	name = _default_name = "pipeline<" + to_string(elements.size()) + ">";
 }
 
 
@@ -115,9 +100,7 @@ Json::Value pipeline::jsonize() const
     
     Json::Value ret;
     ret["class_name"] = "pipeline";
-
-    if (name != _default_name)
-	ret["name"] = name;
+    ret["name"] = name;
 
     for (size_t i = 0; i < elements.size(); i++)
 	ret["elements"].append(elements[i]->jsonize());
@@ -131,6 +114,7 @@ shared_ptr<pipeline> pipeline::from_json(const Json::Value &x)
     if (string_from_json(x,"class_name") != "pipeline")
 	throw runtime_error("rf_pipelines: expected class_name=\"pipeline\" in pipeline json constructor");
 
+    // Old versions of jsonize() didn't always include the 'name'.
     string name = x.isMember("name") ? string_from_json(x, "name") : "";
 
     vector<shared_ptr<pipeline_object>> elements;

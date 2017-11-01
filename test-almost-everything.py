@@ -200,7 +200,7 @@ def make_random_pipeline(nfreq_ds, nds, nelements, allow_downsampling=True):
     tl = make_random_transform_list(nfreq_ds // Df, nds * Dt, nelements)
 
     if (len(tl) > 1) or (rand.uniform() < 0.1):
-        ret = { 'class_name': 'pipeline', 'elements': tl }
+        ret = { 'class_name': 'pipeline', 'name': 'pipeline', 'elements': tl }
     else:
         ret = tl[0]
     
@@ -423,7 +423,7 @@ def run_test():
 
     # Check jsonization (test is slightly stronger if bind() comes first)
     tj2 = [ x.jsonize() for x in t ]
-    assert tj == tj2
+    rf_pipelines.utils.json_assert_equal(tj, tj2, name1='reference_json', name2='pipeline_json')
 
     # First run
     p.run(outdir=None, verbosity=0, debug=True)
@@ -454,6 +454,7 @@ def run_test():
 ####################################################################################################
 
 
+rand.seed(23)
 niter = 100
 
 for iter in xrange(niter):

@@ -286,7 +286,6 @@ void wi_sub_pipeline::_bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
     this->elements.push_back(make_shared<downsampler> (Df, Dt, nt_chunk));
     this->elements.push_back(sub_pipeline);
     this->elements.push_back(make_shared<upsampler> (Df, Dt, nt_chunk, ini_params.w_cutoff));
-    this->_update_name();
 
     ring_buffer_dict rb_dict2;    
     rb_dict2["INTENSITY_HIRES"] = rb_dict["INTENSITY"];
