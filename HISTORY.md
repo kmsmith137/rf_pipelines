@@ -1,11 +1,11 @@
 - Version 16:
      
-     - At this point, the low-level logic in rf_pipelines was largely rewritten!  The
+     - In v16, the low-level logic in rf_pipelines was largely rewritten!  The
        low-level building blocks (streams, transforms, etc.) have a different API now,
        and any "pre-v16" code will need substantial changes to work "post-v16".
 
        To make matters worse, due to the CHIME pre-deployment scramble, the changes are
-       mostly undocumented, and some pre-v15 functionality is not working yet.  See
+       mostly undocumented, and some pre-v16 functionality is not working yet.  See
        MANUAL.md for current status.
 
        In summary, everything is a little unstable right now, but will hopefully converge

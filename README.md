@@ -5,19 +5,33 @@ rf_pipelines: A plugin-based framework for processing channelized intensity data
 Note: this repo now includes the web viewer code which was previously
 in [mburhanpurkar/web_viewer](https://github.com/mburhanpurkar/web_viewer).
 
-Warning: At the moment, rf_pipelines is **undocumented**.
+In v16, the low-level logic in rf_pipelines was largely rewritten!  The
+low-level building blocks (streams, transforms, etc.) have a different API now,
+and any "pre-v16" code will need substantial changes to work "post-v16".
+This is part of the "2017 Mega Merge" affecting many parts of the CHIMEFRB pipeline.
+
+To make matters worse, due to the CHIME pre-deployment scramble, the new API
+is fragile and incomplete, and not all pre-v16 features are working.  We hope
+that everything will be finished and well-tested in a few more revisions.
+
+In the meantime, rf_pipelines is **undocumented**.
 This is a big problem, and fixing it is a high priority!
 (There used to be some minimal documentation and examples, but I temporarily removed them,
 since they were so out-of-date that they were more misleading than helpful.)
 
-In the meantime, if you're interested in running the real-time CHIME FRB pipeline,
-please refer to the [kmsmith137/ch_frb_l1](https://github.com/kmsmith137/ch_frb_l1/)
-repository, which does have reasonable documentation.  If you're interested in
-running the "offline" CHIME FRB pipeline (including the web viewer), you may
-find the example scripts in the [mrafieir/ch_frb_rfi](https://github.com/mrafieir/ch_frb_rfi/)
-repository useful.
+For now, the best we can offer is the following tidbits of documentation:
 
-Installation instructions follow.
+  - The rf_pipelines MANUAL.md, which is a placeholder briefly summarizing current status.
+
+  - The python docstrings, and comments in the C++ header files, do contain a lot of information.
+
+  - If you're interested in running the **real-time** CHIME FRB pipeline,
+    please refer to the [kmsmith137/ch_frb_l1](https://github.com/kmsmith137/ch_frb_l1/)
+    repository, which does have reasonable documentation.  
+
+  - If you're interested in running the **offline** CHIME FRB pipeline (including the web viewer), 
+    you may find the example scripts in the [mrafieir/ch_frb_rfi](https://github.com/mrafieir/ch_frb_rfi/)
+    repository useful.
 
 ### REQUIRED DEPENDENCIES
 
