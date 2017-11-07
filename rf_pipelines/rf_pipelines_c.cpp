@@ -1042,6 +1042,14 @@ static void wrap_chime_streams(extension_module &m)
 		   "\nIf the udp_port is zero, then the default chimefrb port will be used.",
 		   wrap_func((ns_t) make_chime_network_stream, kwarg("udp_port",0), kwarg("beam_id",0)));
 
+    m.add_function("chime_dummy_network_stream",
+		   "chime_dummy_network_stream(nt_tot, nupfreq=16, nt_per_packet=16, fpga_counts_per_sample=384, pool_gb=1.0)\n"
+		   "\n"
+		   "\"Dummy\" CHIME network stream, intended for timing.\n"
+		   "Returns a stream which decodes a preallocated ch_frb_io::assembled_chunk pool as the pipeline progresses,\n"
+		   "but does not actually receive packets over the network.  This allows the CPU cost of assembled_chunk\n"
+		   "decoding to be included in pipeline timings.  Default parameter values are appropriate for full CHIME.",
+		   wrap_func(make_dummy_chime_network_stream, "nt_tot", kwarg("nupfreq",16), kwarg("nt_per_packet",16), kwarg("fpga_counts_per_sample",384), kwarg("pool_gb",1.0)));
 
     m.add_function("chime_16k_spike_mask",
 		   "chime_16k_spike_mask(nt_chunk=0)\n"
