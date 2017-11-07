@@ -1,15 +1,17 @@
 import os
 import sys
 import time
+import json
+import glob
+import h5py
 import numpy as np
+import rf_pipelines_c
 
 try:
     import PIL.Image
 except:
     pass  # warning message has already been printed in rf_pipelines/__init__.py
 
-import h5py
-import glob
 
 
 def expand_array(arr, new_shape, axis):
@@ -381,6 +383,58 @@ def json_assert_equal(j1, j2, name1=None, name2=None, verbose=True):
         s += ', see diagnostic print-statements above'
 
     raise RuntimeError(s)
+
+
+def json_write(filename, p, clobber=False, verbose=True):
+    """
+    This helper function is sometimes used to write json files.
+    The argument 'p' must be an object of class rf_pipelines.pipeline_object.
+    
+    If 'filename' already exists, and clobber=True, it will be overwritten.
+
+    If 'filename' already exists, and clobber=False, then we check that
+    the json content of the file agrees with 'p'.
+    """
+
+    assert isinstance(filename, basestring)
+    assert isinstance(p, rf_pipelines_c.pipeline_object)
+    assert filename.endswith('.json')
+    
+    d = os.path.dirname(filename)
+    if (len(d) > 0) and (not os.path.exists(d)):
+        raise RuntimeError("Directory '%s' does not exist" % d)
+
+    j = p.jsonize()
+
+    if clobber or not os.path.exists(filename):
+        f = open(filename, 'w')
+        json.dump(j, f, indent=4)
+        print >>f, ''  # extra newline
+        del f          # close file
+
+        if verbose:
+            print 'wrote %s' % filename
+
+        return
+
+    # If we get here, then the file exists, and clobber=False.
+    # In this case, we check that the json content of the file agrees with 'p'.
+
+    jfile = json.load(open(filename))
+    (is_equal, s, j1, j2, name1, name2) = _json_compare(j, jfile, 'p', 'pfile')
+
+    if is_equal:
+        if verbose:
+            print '%s: not updated' % filename
+        return
+
+    if verbose:
+        print '%s = %s' % (name1, json_str(j1))
+        print '%s = %s' % (name2, json_str(j2))
+        s += ', see diagnostic print-statements above'
+
+    raise RuntimeError("'%s' already exists, and " % (filename))
+
 
 
 ####################################################################################################
