@@ -421,7 +421,7 @@ def json_write(filename, p, clobber=False, verbose=True):
     # In this case, we check that the json content of the file agrees with 'p'.
 
     jfile = json.load(open(filename))
-    (is_equal, s, j1, j2, name1, name2) = _json_compare(j, jfile, 'p', 'pfile')
+    (is_equal, s, j1, j2, name1, name2) = _json_compare(j, jfile, 'new_json', 'old_json')
 
     if is_equal:
         if verbose:
@@ -433,7 +433,7 @@ def json_write(filename, p, clobber=False, verbose=True):
         print '%s = %s' % (name2, json_str(j2))
         s += ', see diagnostic print-statements above'
 
-    raise RuntimeError("'%s' already exists, and " % (filename))
+    raise RuntimeError("'%s' already exists, and %s" % (filename, s))
 
 
 
