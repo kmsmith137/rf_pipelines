@@ -42,6 +42,8 @@ features which were not in v15 (for example, spline_detrender).
   <tr> <td>chime_frb_stream_from_filename</td> <td>C++</td> <td>Not sure</td>
   <tr> <td>chime_frb_stream_from_filename_list</td> <td>C++</td> <td>Not sure</td>
   <tr> <td>chime_frb_stream_from_glob</td> <td>C++</td> <td>Not sure</td>
+  <tr> <td>chime_network_stream</td> <td>C++</td> <td>Fully tested</td>
+  <tr> <td>chime_dummy_network_stream</td> <td>C++</td> <td>Fully tested</td>
   <tr> <td>gaussian_noise_stream</td> <td>C++</td> <td>Needs unit test</td>
   <tr> <td>psrfits_stream</td> <td> -- </td> <td>Not ported from v15 yet</td>
   <tr> <th colspan="3" align="center">Detrenders</td> </tr>
@@ -97,6 +99,7 @@ features which were not in v15 (for example, spline_detrender).
 	      - chime_file_stream
 	      - chime_frb_file_stream
           - chime_network_stream
+	  - chime_dummy_network_stream
 	  - gaussian_noise_stream
       - wi_transform
           - badchannel_mask
