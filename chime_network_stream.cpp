@@ -242,6 +242,7 @@ struct chime_dummy_network_stream : public wi_stream
 	ret["class_name"] = "chime_dummy_network_stream";
 	ret["nt_tot"] = Json::Int64(nt_tot);
 	ret["nupfreq"] = nupfreq;
+	ret["nt_per_packet"] = nt_per_packet;
 	ret["fpga_counts_per_sample"] = fpga_counts_per_sample;
 	ret["pool_gb"] = pool_gb;
 	return ret;
