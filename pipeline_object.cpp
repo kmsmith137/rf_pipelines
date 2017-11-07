@@ -315,6 +315,8 @@ Json::Value pipeline_object::run(const run_params &params, const callback_t &cal
     bool exception_thrown = false;
     string exception_text;
 
+    // Main run() loop follows.
+
     try {
 	ssize_t nt_end = SSIZE_MAX;
     
@@ -343,6 +345,8 @@ Json::Value pipeline_object::run(const run_params &params, const callback_t &cal
     Json::Value json_output(Json::objectValue);
     json_output["success"] = !exception_thrown;
     json_output["error_message"] = exception_text;
+    json_output["nsamples_fully_processed"] = Json::Int64(this->pos_lo);
+    json_output["nsamples_partially_processed"] = Json::Int64(this->pos_hi);
 
     // I decided to put all run_params in the json output, even
     // those whose usefulness is dubious!
