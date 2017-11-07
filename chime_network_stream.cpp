@@ -227,7 +227,7 @@ struct chime_dummy_network_stream : public wi_stream
 	rf_assert(this->nfreq == ch_frb_io::constants::nfreq_coarse_tot * chunk->nupfreq);
 	chunk->decode(intensity, weights, istride, wstride);
 
-	return (pos >= nt_tot);
+	return (pos < nt_tot);
     }
     
     virtual void _deallocate() override
