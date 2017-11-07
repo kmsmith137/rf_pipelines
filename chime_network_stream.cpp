@@ -25,7 +25,17 @@ shared_ptr<wi_stream> make_chime_network_stream(int udp_port, int beam_id)
     throw runtime_error("rf_pipelines::make_chime_network_stream() was called, but rf_pipelines was compiled without ch_frb_io");
 }
 
+shared_ptr<wi_stream> make_dummy_chime_network_stream(ssize_t nt_tot, int nupfreq, int nt_per_packet, int fpga_counts_per_sample, double pool_gb)
+{
+    throw runtime_error("rf_pipelines::make_dummy_chime_network_stream() was called, but rf_pipelines was compiled without ch_frb_io");
+}
+
 #else  // HAVE_CH_FRB_IO
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// chime_network_stream
 
 
 struct chime_network_stream : public wi_stream
@@ -133,6 +143,121 @@ void chime_network_stream::_end_pipeline(Json::Value &j)
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// chime_dummy_network_stream
+
+
+struct chime_dummy_network_stream : public wi_stream
+{
+    ssize_t nt_tot;
+    int nupfreq;
+    int nt_per_packet;
+    int fpga_counts_per_sample;
+    double pool_gb;
+
+    vector<shared_ptr<ch_frb_io::assembled_chunk>> chunk_pool;
+    ssize_t ichunk = 0;
+    ssize_t nchunks;
+    
+    chime_dummy_network_stream(ssize_t nt_tot_, int nupfreq_, int nt_per_packet_, int fpga_counts_per_sample_, double pool_gb_) :
+	wi_stream("chime_dummy_network_stream"),
+	nt_tot(nt_tot_),
+	nupfreq(nupfreq_),
+	nt_per_packet(nt_per_packet_),
+	fpga_counts_per_sample(fpga_counts_per_sample_),
+	pool_gb(pool_gb_)
+    {
+	if (nt_tot < 0)
+	    throw runtime_error("rf_pipelines::chime_dummy_network_stream constructor: expected nt_tot > 0");
+	if (nupfreq <= 0)
+	    throw runtime_error("rf_pipelines::chime_dummy_network_stream constructor: expected nupfreq > 0");
+	if (nt_per_packet <= 0)
+	    throw runtime_error("rf_pipelines::chime_dummy_network_stream constructor: expected nt_per_packet > 0");
+	if (!is_power_of_two(nt_per_packet))
+	    throw runtime_error("rf_pipelines::chime_dummy_network_stream constructor: expected nt_per_packet to be a power of two");
+	if (fpga_counts_per_sample <= 0)
+	    throw runtime_error("rf_pipelines::chime_dummy_network_stream constructor: expected fpga_counts_per_sample > 0");
+	if (pool_gb < 0.0)
+	    throw runtime_error("rf_pipelines::chime_dummy_network_stream constructor: expected pool_gb >= 0.0");
+	if (pool_gb > 100.0)
+	    throw runtime_error("rf_pipelines::chime_dummy_network_stream constructor: expected pool_gb <= 100.0");
+	
+	double gb_per_chunk = ch_frb_io::assembled_chunk::get_memory_slab_size(nupfreq, nt_per_packet);
+
+	this->nfreq = ch_frb_io::constants::nfreq_coarse_tot * nupfreq;
+	this->nt_chunk = ch_frb_io::constants::nt_per_assembled_chunk;
+	this->nchunks = ssize_t(pool_gb / gb_per_chunk) + 1;
+	this->chunk_pool.resize(nchunks);
+    }
+
+    virtual void _bind_stream(Json::Value &json_attrs) override
+    {
+	json_attrs["freq_lo_MHz"] = 400.0;
+	json_attrs["freq_hi_MHz"] = 800.0;
+	json_attrs["dt_sample"] = chime_file_stream_base::chime_seconds_per_fpga_count * fpga_counts_per_sample;
+    }
+
+    virtual void _start_pipeline(Json::Value &json_attrs) override
+    {
+	json_attrs["initial_fpga_count"] = 0;
+	json_attrs["fpga_counts_per_sample"] = this->fpga_counts_per_sample;
+    }
+
+    virtual void _allocate() override
+    {
+	std::random_device rd;
+	std::mt19937 rng(rd());
+
+	ch_frb_io::assembled_chunk::initializer ini_params;
+	ini_params.nupfreq = this->nupfreq;
+	ini_params.nt_per_packet = this->nt_per_packet;
+	ini_params.fpga_counts_per_sample = this->fpga_counts_per_sample;
+
+	for (ssize_t i = 0; i < nchunks; i++) {
+	    this->chunk_pool[i] = make_shared<ch_frb_io::assembled_chunk> (ini_params);
+	    this->chunk_pool[i]->randomize(rng);
+	}
+    }
+
+    virtual bool _fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
+    {
+	auto chunk = chunk_pool[ichunk % nchunks];
+	ichunk++;
+
+	rf_assert(this->nfreq == ch_frb_io::constants::nfreq_coarse_tot * chunk->nupfreq);
+	chunk->decode(intensity, weights, istride, wstride);
+
+	return (pos >= nt_tot);
+    }
+    
+    virtual void _deallocate() override
+    {
+	for (ssize_t i = 0; i < nchunks; i++)
+	    this->chunk_pool[i].reset();
+    }
+    
+    virtual Json::Value jsonize() const override
+    {
+	Json::Value ret;
+	ret["class_name"] = "chime_dummy_network_stream";
+	ret["nt_tot"] = Json::Int64(nt_tot);
+	ret["nupfreq"] = nupfreq;
+	ret["fpga_counts_per_sample"] = fpga_counts_per_sample;
+	ret["pool_gb"] = pool_gb;
+	return ret;
+    }
+
+    // Note: json deserialization defined later in file.
+};
+
+
+shared_ptr<wi_stream> make_dummy_chime_network_stream(ssize_t nt_tot, int nupfreq, int nt_per_packet, int fpga_counts_per_sample, double pool_gb)
+{
+    return make_shared<chime_dummy_network_stream> (nt_tot, nupfreq, nt_per_packet, fpga_counts_per_sample, pool_gb);
+}
+
+
+// -------------------------------------------------------------------------------------------------
 
 
 shared_ptr<wi_stream> make_chime_network_stream(const shared_ptr<ch_frb_io::intensity_network_stream> &stream, int beam_id)
@@ -153,7 +278,30 @@ shared_ptr<wi_stream> make_chime_network_stream(int udp_port, int beam_id)
     return make_chime_network_stream(stream, beam_id);
 }
 
-
 #endif  // HAVE_CH_FRB_IO
+
+
+// Json deserialization follows.
+// FIXME: currently implemented for dummy_chime_network_stream, but not chime_network_stream.
+
+static shared_ptr<wi_stream> dummy_chime_network_stream_from_json(const Json::Value &j)
+{
+    ssize_t nt_tot = ssize_t_from_json(j, "nt_tot");
+    int nupfreq = int_from_json(j, "nupfreq");
+    int nt_per_packet = int_from_json(j, "nt_per_packet");
+    int fpga_counts_per_sample = int_from_json(j, "fpga_counts_per_sample");
+    double pool_gb = double_from_json(j, "pool_gb");
+    
+    return make_dummy_chime_network_stream(nt_tot, nupfreq, nt_per_packet, fpga_counts_per_sample, pool_gb);
+}
+
+namespace {
+    struct _init {
+	_init() {
+	    pipeline_object::register_json_deserializer("chime_dummy_network_stream", dummy_chime_network_stream_from_json);
+	}
+    } init;
+}
+
 
 }   // namespace rf_pipelines

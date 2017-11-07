@@ -419,6 +419,11 @@ extern std::shared_ptr<wi_stream> make_chime_network_stream(const std::shared_pt
 // If the 'udp_port' argument is zero, then the default chimefrb port will be used.
 extern std::shared_ptr<wi_stream> make_chime_network_stream(int udp_port=0, int beam_id=0);
 
+// "Dummy" CHIME network stream, intended for timing.
+// Returns a stream which decodes a preallocated ch_frb_io::assembled_chunk pool as the pipeline progresses,
+// but does not actually receive packets over the network.  This allows the CPU cost of assembled_chunk
+// decoding to be included in pipeline timings.  Default parameter values are appropriate for full CHIME.
+extern std::shared_ptr<wi_stream> make_dummy_chime_network_stream(ssize_t nt_tot, int nupfreq=16, int nt_per_packet=16, int fpga_counts_per_sample=384, double pool_gb=1.0);
 
 // Experimental: masks "spikes" in 16K data.
 extern std::shared_ptr<chunked_pipeline_object> make_chime_16k_spike_mask(ssize_t nt_chunk=0);
