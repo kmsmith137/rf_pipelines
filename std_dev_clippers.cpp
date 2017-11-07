@@ -88,7 +88,7 @@ struct std_dev_clipper_transform : public wi_transform
 	int Dt = int_from_json(j, "Dt");
 	bool two_pass = bool_from_json(j, "two_pass");
 	double sigma = double_from_json(j, "sigma");
-	ssize_t nt_chunk = int_from_json(j, "nt_chunk");
+	ssize_t nt_chunk = ssize_t_from_json(j, "nt_chunk");
 	rf_kernels::axis_type axis = axis_type_from_json(j, "axis");
 
 	return make_shared<std_dev_clipper_transform> (Df, Dt, axis, nt_chunk, sigma, two_pass);	

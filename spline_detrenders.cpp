@@ -73,7 +73,7 @@ struct spline_detrender : public wi_transform
     static shared_ptr<spline_detrender> from_json(const Json::Value &j)
     {
 	int nbins = int_from_json(j, "nbins");
-	ssize_t nt_chunk = int_from_json(j, "nt_chunk");
+	ssize_t nt_chunk = ssize_t_from_json(j, "nt_chunk");
 	double epsilon = double_from_json(j, "epsilon");
 	rf_kernels::axis_type axis = axis_type_from_json(j, "axis");
 
