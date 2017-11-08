@@ -5,6 +5,8 @@ from os.path import isfile, isdir, exists, join
 from json import loads
 from math import ceil
 from flask import Flask, url_for, send_from_directory
+import traceback
+
 app = Flask(__name__)
 
 
@@ -42,8 +44,13 @@ class Parser():
     The Parser initialization logic is complex, because the rf_pipelines json file format has changed several
     times, and the Parser needs to autodetect the version, and successfully parse old versions.
 
-    Members
-    -------
+    The Parser contains the following members.
+
+      self.json_data -> json value
+      self.plot_parse_success -> bool
+      self.plot_parse_traceback -> string (if plots parsed successfully, an empty string)
+      self.s_per_sample
+      self.t0
 
       self.fnames[itransform][izoom][it] -> string
       self.ftimes[itransform][izoom][it] -> float
@@ -61,10 +68,24 @@ class Parser():
     """
 
     def __init__(self, path):
+        # Assign default values to all members.
+        self.json_data = { }
+        self.plot_parse_success = False
+        self.plot_parse_traceback = ""
+        self.s_per_sample = 1.0e-3
+        self.t0 = 0.0
+        self.fnames = [ ]  # stores file names (so the viewer can request them)
+        self.ftimes = [ ]  # stores timestamps (to be displayed for chime_stream_from_times())
+        self.min_zoom = None
+        self.min_index = None
+        self.max_zoom = None
+        self.max_index = None
+        self.num_plots = None
+
         # First, read everything in /data2/web_viewer, and extract file names and timestamps
         # Initializes self.fnames, self.ftimes.
         self._get_files(path) 
-
+        
         # Check whether there was anything of value in the run
         if len(self.fnames) == 0:
             self.fnames = self.ftimes = None
@@ -75,12 +96,6 @@ class Parser():
             self.max_zoom = len(self.fnames[0])
             self.max_index = [[len(zoom) for zoom in transform] for transform in self.fnames]
             self.num_plots = [ max(x[izoom] for x in self.max_index) for izoom in xrange(self.max_zoom) ]
-
-        # In case a directory does not contain plots or transforms contain a different number of zoom levels
-        else:
-            self.min_zoom, self.min_index = None, None
-            self.max_zoom = None
-            self.max_index = None
 
         
     def _get_files(self, path):
@@ -93,19 +108,24 @@ class Parser():
          [...]]
         """
 
-        self.fnames = [ ]  # stores file names (so the viewer can request them)
-        self.ftimes = [ ]  # stores timestamps (to be displayed for chime_stream_from_times())
-
         json_file = open(path + '/rf_pipeline_0.json').read()
-        json_data = loads(json_file)
+        self.json_output = loads(json_file)
 
-        # The 'v1' json file format was used until October 2017.
-        # The 'v2' json file format was used after this.
-        if 'cpu_time' in json_data:
-            self._get_files_v2(json_data)
-        else:
-            self._get_files_v1(json_data)
+        try:
+            # The 'v1' json file format was used until October 2017.
+            # The 'v2' json file format was used after this.
+            if 'cpu_time' in self.json_output:
+                self._get_files_v2(self.json_output)
+            else:
+                self._get_files_v1(self.json_output)
 
+        except Exception as e:
+            self.plot_parse_success = False
+            self.plot_parse_traceback = traceback.format_exc()
+            return
+
+        self.plot_parse_success = True
+            
 
     def _get_files_v1(self, json_data):
         """The 'v1' json file format was used until October 2017."""
@@ -427,9 +447,9 @@ def make_navbar(user, run, zoom):
     ret += '<a href="%s">Show All Transforms</a>&nbsp;&nbsp;&nbsp;' % url_for('show_tiles', user=user, run=run, zoom=0, index1=0, index2=3)
     # ret += '<a href="%s">Show Last Transform</a>&nbsp;&nbsp;&nbsp;]' % url_for('show_last_transform', user=user, run=run, zoom=zoom)
     ret += '<a href="%s">Show Triggers</a>&nbsp;&nbsp;&nbsp;' % url_for('show_triggers', user=user, run=run, zoom=0)
-    ret += '</center></p>' 
+    ret += ']</center></p>' 
     return ret
-
+    
 
 @app.route("/<string:user>/<string:run>/show_tiles/<int:zoom>/<int:index1>/<int:index2>")
 def show_tiles(user, run, zoom, index1, index2):
@@ -444,13 +464,22 @@ def show_tiles(user, run, zoom, index1, index2):
     if p is None:
         return "The run was not found, or its json file could not be parsed."
 
+    # Links to user and user/run pages
+    display = make_navbar(user, run, zoom)
+
+    if not p.plot_parse_success:
+        display += '<p>An error occurred when parsing plot filenames in the json file for this run.'
+        display += '<p><pre>%s</pre>' % p.plot_parse_traceback
+        return display
+        
     if p.fnames is None:
-        return 'No files found.'
+        display += '<p> No files found.'
+        return display
 
     if p.max_index is None:
-        s = 'The number of zoom levels produced by the pipeline plotter was unequal to the number of plots produced ' \
-            'by the bonsai plotter. This pipeline run cannot be displayed.'
-        return s
+        display += '<p> The number of zoom levels produced by the pipeline plotter was unequal to the number of plots produced '
+        display += 'by the bonsai plotter. This pipeline run cannot be displayed.'
+        return display
 
     display = '<h3>Displaying Plots %d-%d (out of %d total) at Zoom %d</h3>' % (index1, index2, p.num_plots[zoom], (p.max_zoom - zoom - 1))  # account for resversal of zoom order in plotter
     display += '<table cellspacing="0" cellpadding="0">'
@@ -467,9 +496,6 @@ def show_tiles(user, run, zoom, index1, index2):
             if p.check_image(transform, zoom, index):
                 display += '<td><img src="%s"></td>' % url_for('get_tile', user=user, run=run, fname=p.fnames[transform][zoom][index])
         display += '</tr><tr><td>&nbsp;</td></tr>'
-
-    # Links to user and user/run pages
-    display += make_navbar(user, run, zoom)
 
     # Plots to be linked
     display += '<p> <center> [&nbsp;&nbsp;&nbsp;'
@@ -577,22 +603,27 @@ def show_triggers(user, run, zoom):
 
     p = master_directories.get_parser(user, run)
 
-    if p is None:
-        return "The run was not found, or its json file could not be parsed."
+    # Links to user and user/run pages
+    display = make_navbar(user, run, zoom)
 
+    if not p.plot_parse_success:
+        display += '<p>An error occurred when parsing plot filenames in the json file for this run.'
+        display += '<p><pre>%s</pre>' % p.plot_parse_traceback
+        return display
+        
     if p.fnames is None:
-        return 'No files found.'
+        display += '<p> No files found.'
+        return display
 
     if p.max_index is None:
-        s = 'The number of zoom levels produced by the pipeline plotter was unequal to the number of plots produced ' \
-            'by the bonsai plotter. This pipeline run cannot be displayed.'
-        return s
+        display += '<p> The number of zoom levels produced by the pipeline plotter was unequal to the number of plots produced '
+        display += 'by the bonsai plotter. This pipeline run cannot be displayed.'
+        return display
 
     zoom = int(zoom)
 
     triggerList = p.fnames[-1]
     display = '<h3>Displaying Trigger Plots at Zoom %s</h3>' % (p.max_zoom - zoom - 1)
-    display += make_navbar(user, run, zoom)
     display += '<table cellspacing="0" cellpadding="0"><tr>'
 
     last_row = 0
