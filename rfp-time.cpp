@@ -233,22 +233,30 @@ static vector<Json::Value> _get(const vector<Json::Value> &v, const T &x)
 }
 
 
+static double _get_cpu_time(const vector<Json::Value> &v)
+{
+    double tot = 0.0;
+    for (size_t i = 0; i < v.size(); i++)
+	tot += double_from_json(v[i], "cpu_time");
+
+    return tot / v.size();
+}
+
+
 static void print_timing(timing_dict_t &d, const vector<Json::Value> &v, string name, int indent_level)
 {
     int n = v.size();
     rf_assert(n > 0);
 
     string class_name = string_from_json(v[0], "class_name");
+    double cpu_time = _get_cpu_time(v);
 
     if (name.size() == 0)
 	name = string_from_json(v[0], "name");
 
-    double cpu_time = 0.0;
-    for (int i = 0; i < n; i++)
-	cpu_time += double_from_json(v[i], "cpu_time") / n;
-
     if (!has_key(d, class_name))
 	d[class_name] = 0.0;
+
     d[class_name] += cpu_time;
 
     cout << string(4*indent_level, ' ');
@@ -305,6 +313,8 @@ static void print_timing(const global_context &c)
 	    continue;
 	cout << "    " << s << ": " << d[s] << " sec\n";
     }
+
+    cout << "\nGrand total: " << _get_cpu_time(c.output_json) << " sec\n";
 }
 
 
