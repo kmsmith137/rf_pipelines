@@ -109,7 +109,9 @@ class Parser():
         """
 
         json_file = open(path + '/rf_pipeline_0.json').read()
+
         self.json_output = loads(json_file)
+        assert isinstance(self.json_output, dict)
 
         try:
             # The 'v1' json file format was used until October 2017.
@@ -440,15 +442,38 @@ def get_tile(user, run, fname):
     return send_from_directory(dirname, fname)
 
 
-def make_navbar(user, run, zoom):
+def make_navbar(user, run, zoom=0):
     ret = '<p><center>[&nbsp;&nbsp;&nbsp;'
     ret += '<a href="%s">Back to Users List</a>&nbsp;&nbsp;&nbsp;' % url_for('index')
     ret += '<a href="%s">Back to Your Runs</a>&nbsp;&nbsp;&nbsp;' % url_for('runs', user=user)
+    ret += '<a href="%s">Run Info</a>&nbsp;&nbsp;&nbsp;' % url_for('run_info', user=user, run=run)
     ret += '<a href="%s">Show All Transforms</a>&nbsp;&nbsp;&nbsp;' % url_for('show_tiles', user=user, run=run, zoom=0, index1=0, index2=3)
     # ret += '<a href="%s">Show Last Transform</a>&nbsp;&nbsp;&nbsp;]' % url_for('show_last_transform', user=user, run=run, zoom=zoom)
     ret += '<a href="%s">Show Triggers</a>&nbsp;&nbsp;&nbsp;' % url_for('show_triggers', user=user, run=run, zoom=0)
     ret += ']</center></p>' 
     return ret
+
+
+@app.route("/<string:user>/<string:run>/run_info")
+def run_info(user, run):
+    """Shows general info for a run.  Currently bare-bones!"""
+
+    p = master_directories.get_parser(user, run)
+
+    if p is None:
+        return "The run was not found, or its json file could not be parsed."
+
+    # Links to user and user/run pages
+    display = make_navbar(user, run)
+    display += '<p><pre>\n'
+
+    for (k,v) in sorted(p.json_output.iteritems()):
+        if isinstance(v, list) or isinstance(v, dict):
+            continue
+        display += ('%s: %s\n' % (k, v))
+
+    display += '</pre>'
+    return display
     
 
 @app.route("/<string:user>/<string:run>/show_tiles/<int:zoom>/<int:index1>/<int:index2>")
