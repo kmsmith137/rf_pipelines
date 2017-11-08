@@ -47,6 +47,7 @@ class Parser():
     The Parser contains the following members.
 
       self.json_data -> json value
+      self.failed_run -> bool
       self.plot_parse_success -> bool
       self.plot_parse_traceback -> string (if plots parsed successfully, an empty string)
       self.s_per_sample
@@ -70,6 +71,7 @@ class Parser():
     def __init__(self, path):
         # Assign default values to all members.
         self.json_data = { }
+        self.failed_run = False
         self.plot_parse_success = False
         self.plot_parse_traceback = ""
         self.s_per_sample = 1.0e-3
@@ -112,6 +114,9 @@ class Parser():
 
         self.json_output = loads(json_file)
         assert isinstance(self.json_output, dict)
+
+        if self.json_output.has_key('success') and not self.json_output['success']:
+            self.failed_run = True
 
         try:
             # The 'v1' json file format was used until October 2017.
@@ -465,6 +470,10 @@ def run_info(user, run):
 
     # Links to user and user/run pages
     display = make_navbar(user, run)
+
+    if p.failed_run:
+        display += '<p><font color="red">This is a failed run.</font>\n'
+
     display += '<p><pre>\n'
 
     for (k,v) in sorted(p.json_output.iteritems()):
@@ -567,7 +576,10 @@ def show_tiles(user, run, zoom, index1, index2):
 
     display += '<h3>Displaying Plots %d-%d (out of %d total) at Zoom %d</h3>' % (index1, index2, p.num_plots[zoom], (p.max_zoom - zoom - 1))  # account for resversal of zoom order in plotter
 
-    display += '<table cellspacing="0" cellpadding="0">'
+    if p.failed_run:
+        display += '<p> <h4> <font color="red">[Note: This is a failed run, see <a href="%s">run info</a>]</font> </h4>\n' % url_for('run_info',user=user,run=run)
+
+    display += '<p> <table cellspacing="0" cellpadding="0">'
 
     for transform in reversed(range(len(p.fnames))):    # reversed to show triggers first
         display += '<tr>'
@@ -655,7 +667,11 @@ def show_triggers(user, run, zoom):
 
     triggerList = p.fnames[-1]
     display += '<h3>Displaying Trigger Plots at Zoom %s</h3>' % (p.max_zoom - zoom - 1)
-    display += '<table cellspacing="0" cellpadding="0"><tr>'
+    
+    if p.failed_run:
+        display += '<p> <h4> <font color="red">[Note: This is a failed run, see <a href="%s">run info</a>]</font> </h4>\n' % url_for('run_info',user=user,run=run)
+
+    display += '<p><table cellspacing="0" cellpadding="0"><tr>'
 
     last_row = 0
     current_row = 0
