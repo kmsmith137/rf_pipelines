@@ -186,9 +186,7 @@ class adversarial_masker(wi_transform):
 
             # If there is an overlap, then mask randomly
             if it0 < it1:
-                p = 0.50
-                a = np.random.choice(a=[False, True], size=weights[:, it0:it1].shape, p=[p, 1-p])
-                weights[a] = 0
+                weights[:, it0:it1] *= numpy.random.randint(0, 1, size=(self.nfreq,it1-it0))
 
                 
     def jsonize(self):
