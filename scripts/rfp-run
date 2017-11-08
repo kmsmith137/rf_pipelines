@@ -245,25 +245,35 @@ if args.nthreads == 1:
 
 async_runs = [ ]
 
-while (len(all_runs) > 0) or (len(async_runs) > 0):
-    asave = async_runs
-    async_runs = [ ]
+try:
+    # Main asynchronous run loop.
+    while (len(all_runs) > 0) or (len(async_runs) > 0):
+        asave = async_runs
+        async_runs = [ ]
 
-    # Have any async runs finished?
-    for (c,p) in asave:
-        if p.poll() is None:
-            async_runs.append((c,p))   # still running
-        else:
-            print 'Done:', c
+        # Have any async runs finished?
+        for (c,p) in asave:
+            if p.poll() is None:
+                async_runs.append((c,p))   # still running
+            else:
+                print 'Done:', c
 
-    # Start new async runs
-    while (len(all_runs) > 0) and (len(async_runs) < args.nthreads):
-        (rundir, json_filename_list) = all_runs[0]
-        del all_runs[0]
+        # Start new async runs
+        while (len(all_runs) > 0) and (len(async_runs) < args.nthreads):
+            (rundir, json_filename_list) = all_runs[0]
+            del all_runs[0]
 
-        (c,p) = start_asynchronous_pipeline_run(rundir, json_filename_list)
-        async_runs.append((c,p))
+            (c,p) = start_asynchronous_pipeline_run(rundir, json_filename_list)
+            async_runs.append((c,p))
         
-    # I am a caveman who does not know how to call select() from python,
-    # so I just call poll() in a loop.
-    time.sleep(0.1)
+        # I am a caveman who does not know how to call select() from python,
+        # so I just call poll() in a loop.
+        time.sleep(0.1)
+
+except:
+    # If an exception is thrown in the loop above (probably control-C),
+    # kill rfp-run subprocesses.
+    
+    for (c,p) in async_runs:
+        p.kill()
+        print 'Killed:', c
