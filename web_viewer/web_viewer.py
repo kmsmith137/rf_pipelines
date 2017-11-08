@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+21;4205;0c#!/usr/bin/env python
 
 from os import environ, listdir
 from os.path import isfile, isdir, exists, join
@@ -503,6 +503,7 @@ def show_tiles(user, run, zoom, index1, index2):
 
     if not p.plot_parse_success:
         display += '<p>An error occurred when parsing plot filenames in the json file for this run.'
+        display += '<p>It may be useful to look at <a href="%s">run info</a> for the run.' % url_for('run_info',user=user,run=run)
         display += '<p><pre>%s</pre>' % p.plot_parse_traceback
         return display
         
@@ -651,6 +652,7 @@ def show_triggers(user, run, zoom):
 
     if not p.plot_parse_success:
         display += '<p>An error occurred when parsing plot filenames in the json file for this run.'
+        display += '<p>It may be useful to look at <a href="%s">run info</a> for the run.' % url_for('run_info',user=user,run=run)
         display += '<p><pre>%s</pre>' % p.plot_parse_traceback
         return display
         
