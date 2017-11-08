@@ -577,6 +577,27 @@ class Variance_Estimates():
 ####################################################################################################
 
 
+def _try_to_rename(temp_dir, final_dir):
+    """
+    Helper for run_for_web_viewer(), called on exception-handling path.
+
+    If 'temp_dir' looks like a valid rf_pipelines output directory,
+    then rename (temp_dir -> final_dir).  If not, then return silently
+    (rather than throwing an exception).
+    """
+
+    try:
+        f = os.path.join(temp_dir, 'rf_pipeline_0.json')
+        json.load(open(f,'r'))   # throws exception if file does not exist, or unparseable
+
+        os.rename(temp_dir, final_dir)
+        print >>sys.stderr, 'renamed %s -> %s' % (temp_dir, final_dir)
+
+    except:
+        pass
+        
+    
+
 def run_for_web_viewer(run_name, p, verbosity=2):
     """
     Runs a pipeline, with output directory chosen appropriately for the web viewer
@@ -604,7 +625,11 @@ def run_for_web_viewer(run_name, p, verbosity=2):
     print >>sys.stderr, "creating temporary directory '%s' for running pipeline" % temp_dir
     os.makedirs(temp_dir)
 
-    p.run(outdir=temp_dir, clobber=False, verbosity=verbosity)
+    try:
+        p.run(outdir=temp_dir, clobber=False, verbosity=verbosity)
+    except:
+        _try_to_rename(temp_dir, final_dir)   # never raises exception
+        raise
 
     # Pipeline done, remove underscore from directory name.
     print >>sys.stderr, 'renaming %s -> %s' % (temp_dir, final_dir)
