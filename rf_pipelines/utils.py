@@ -385,6 +385,23 @@ def json_assert_equal(j1, j2, name1=None, name2=None, verbose=True):
     raise RuntimeError(s)
 
 
+def json_read(filename):
+    """
+    Returns a json value.
+
+    I use this wrapper because the built-in python json.load() doesn't give a
+    useful error message if it fails.  Using the wrapper, at least we get a
+    filename!  (FIXME: I think switching to the 'simplejson' library will help.)
+    """
+
+    f = open(filename, 'r')
+
+    try:
+        return json.load(f)
+    except:
+        raise RuntimeError("%s: couldn't parse json file" % filename)
+
+
 def json_write(filename, p, clobber=False, verbose=True):
     """
     This helper function is sometimes used to write json files.
