@@ -171,6 +171,8 @@ class bonsai_dedisperser(wi_transform):
     def _start_pipeline(self, json_attrs):
         # Calls to add_plot_group() must go here.
 
+        self.run_flag = False
+
         if not self.make_plot:
             return
 
@@ -189,6 +191,7 @@ class bonsai_dedisperser(wi_transform):
 
         # Send the inputs (intensity, weights) to the dedisperser.
         self.dedisperser.run(intensity, weights)
+        self.run_flag = True
 
         # Retrieve the outputs (trigger arrays) from the dedisperser.
         #
@@ -228,6 +231,12 @@ class bonsai_dedisperser(wi_transform):
  
 
     def _end_pipeline(self, json_output):
+        # There is a corner case where an exception is thrown early in pipeline
+        # processing, and _process_chunk() never gets called.
+
+        if not self.run_flag:
+            return
+
         if self.make_plot:
             # Helpful parameter for the web viewer
             json_output["n_plot_groups"] = 1 + self.plot_all_trees * (self.ntrees-1) 
