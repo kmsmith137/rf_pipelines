@@ -481,23 +481,8 @@ def show_tiles(user, run, zoom, index1, index2):
         display += 'by the bonsai plotter. This pipeline run cannot be displayed.'
         return display
 
-    display = '<h3>Displaying Plots %d-%d (out of %d total) at Zoom %d</h3>' % (index1, index2, p.num_plots[zoom], (p.max_zoom - zoom - 1))  # account for resversal of zoom order in plotter
-    display += '<table cellspacing="0" cellpadding="0">'
+    # Secondary navbar starts here
 
-    for transform in reversed(range(len(p.fnames))):    # reversed to show triggers first
-        display += '<tr>'
-        # First, add plot times 
-        for index in range(index1, index2 + 1):
-            if p.check_image(transform, zoom, index):
-                display += '<td>%s</td>' % p.ftimes[transform][zoom][index]
-        display += '</tr>'
-        # Now, add the images
-        for index in range(index1, index2 + 1):
-            if p.check_image(transform, zoom, index):
-                display += '<td><img src="%s"></td>' % url_for('get_tile', user=user, run=run, fname=p.fnames[transform][zoom][index])
-        display += '</tr><tr><td>&nbsp;</td></tr>'
-
-    # Plots to be linked
     display += '<p> <center> [&nbsp;&nbsp;&nbsp;'
 
     if p.check_set(zoom, index1 - 1):
@@ -552,6 +537,27 @@ def show_tiles(user, run, zoom, index1, index2):
     else:
         display += 'Zoom Out&nbsp;&nbsp;&nbsp;'
     display += ']</p> </center>'
+
+    # Secondary navbar ends here
+
+    display += '<h3>Displaying Plots %d-%d (out of %d total) at Zoom %d</h3>' % (index1, index2, p.num_plots[zoom], (p.max_zoom - zoom - 1))  # account for resversal of zoom order in plotter
+
+    display += '<table cellspacing="0" cellpadding="0">'
+
+    for transform in reversed(range(len(p.fnames))):    # reversed to show triggers first
+        display += '<tr>'
+        # First, add plot times 
+        for index in range(index1, index2 + 1):
+            if p.check_image(transform, zoom, index):
+                display += '<td>%s</td>' % p.ftimes[transform][zoom][index]
+        display += '</tr>'
+        # Now, add the images
+        for index in range(index1, index2 + 1):
+            if p.check_image(transform, zoom, index):
+                display += '<td><img src="%s"></td>' % url_for('get_tile', user=user, run=run, fname=p.fnames[transform][zoom][index])
+        display += '</tr><tr><td>&nbsp;</td></tr>'
+
+    display += '</table>'
     return display
 
 
@@ -623,7 +629,7 @@ def show_triggers(user, run, zoom):
     zoom = int(zoom)
 
     triggerList = p.fnames[-1]
-    display = '<h3>Displaying Trigger Plots at Zoom %s</h3>' % (p.max_zoom - zoom - 1)
+    display += '<h3>Displaying Trigger Plots at Zoom %s</h3>' % (p.max_zoom - zoom - 1)
     display += '<table cellspacing="0" cellpadding="0"><tr>'
 
     last_row = 0
