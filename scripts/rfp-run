@@ -6,10 +6,13 @@ import argparse
 # ArgumentParser subclass, to customize the error message
 class MyParser(argparse.ArgumentParser):
     def error(self, message=None):
-        print >>sys.stderr, 'Usage: rfp-run.py [-n] [-w run_name] [-v verbosity] file1.json [file2.json file3.json ...]'
+        print >>sys.stderr, 'Usage: rfp-run.py [-n] [-w run_name] [-v verbosity] [-t nthreads] file1.json [file2.json file3.json ...]'
+        print >>sys.stderr, 'Each json file should contain either a jsonized pipeline_object, or a \"run-list\" of (suffix, pipeline_object_json_filename) pairs'
         print >>sys.stderr, '    -n: runs the pipeline with no output directory'
         print >>sys.stderr, '    -w: runs the pipeline in a directory which is indexed by the web viewer (frb1 only)'
         print >>sys.stderr, '    -v: specifies pipeline verbosity (integer, default 2)'
+        print >>sys.stderr, '    -s: throws exception unless single pieline run (i.e. command-line args cannot be run-lists)'
+        print >>sys.stderr, '    -t: number of threads (default 1, note that multiple threads are only useful if at least one json file is a run-list)'
 
         if message is not None:
             print >>sys.stderr, '\nError:', message
@@ -26,8 +29,10 @@ parser = MyParser()
 
 parser.add_argument('json_filenames', nargs='*')
 parser.add_argument('-n', action='store_true', help='runs the pipeline with no output directory')
+parser.add_argument('-s', action='store_true', help='throws exception unless single pieline run (i.e. command-line args cannot be run-lists)')
 parser.add_argument('-w', dest='wv_name', help='runs the pipeline in a directory which is indexed by the web viewer (frb1 only)')
 parser.add_argument('-v', dest='verbosity', type=int, default=2, help='pipeline verbosity (default 2)')
+parser.add_argument('-t', dest='nthreads', type=int, default=1, help='number of threads (default 1, note that multiple threads are only useful if at least one json file is a run-list)')
 
 args = parser.parse_args()
 
@@ -43,6 +48,10 @@ if ocount != 1:
     parser.error('exactly one of the flags -n,-w must be specified')
 if len(args.json_filenames) == 0:
     parser.error('at least one json filename must be specified')
+if args.nthreads < 1:
+    parser.error('number of threads (i.e. argument to -t option) must be >= 1')
+if args.nthreads > 40:
+    parser.error('number of threads (i.e. argument to -t option) must be <= 40')
 
 for j in args.json_filenames:
     if not j.endswith('.json'):
@@ -58,23 +67,203 @@ if args.wv_name is not None:
 
 ####################################################################################################
 #
-# Create pipeline object and run pipeline.
+# Read json files and do some minimal sanity checking.
+#
+# The result is 'toplevel_filenames', a list of lists of pairs, where
+#    outer list index = index of command-line argument
+#    inner list index = index within run-list
+#    pair = (suffix, json_filename)
+#
+# If a command-line argument is a pipeline_object (rather than a run-list), then the
+# corresponding inner list will have length one, and the 'suffix' part of the pair
+# will be an empty string.
 
+
+import os
 import json
 import rf_pipelines
 
-p = [ ]
+
+def is_well_formed_run_list(j):
+    """Helper function: returns True if j is a list of (suffix, json_filename) pairs."""
+
+    if not isinstance(j, list) or (len(j) == 0):
+        return False
+
+    for jj in j:
+        return isinstance(jj,list) and (len(jj) == 2) and isinstance(jj[0], basestring) and isinstance(jj[1], basestring) and jj[1].endswith('.json')
+
+
+toplevel_filenames = [ ]
+
 for filename in args.json_filenames:
-    f = open(filename, 'r')
-    j = json.load(f)
-    x = rf_pipelines.pipeline_object.from_json(j)
-    p.append(x)
+    j = rf_pipelines.utils.json_read(filename)
+    
+    if isinstance(j, dict) and j.has_key('class_name'):
+        # This appears to be a jsonized pipeline_object.
+        # Sanity check: verify that dejsonization works.
 
-p = rf_pipelines.pipeline(p) if (len(p) > 1) else p[0]
+        rf_pipelines.pipeline_object.from_json(j)
+        toplevel_filenames.append([('',filename)])
+        continue
 
-if args.wv_name is not None:
-    rf_pipelines.utils.run_for_web_viewer(args.wv_name, p, verbosity=args.verbosity)
-else:
-    assert args.nflag
-    print >>sys.stderr, 'Running pipeline with no output directory'
-    p.run(outdir=None, verbosity=args.verbosity)
+    if not is_well_formed_run_list(j):
+        print '%s: not a pipeline_object, or a well-formed run-list consisting of (suffix, json_filename) pairs' % filename
+        sys.exit(1)
+
+    inner_filenames = [ ]
+
+    for (suffix, pre_filename2) in j:
+        filename2 = os.path.join(os.path.dirname(filename), pre_filename2)
+
+        if (len(suffix) == 0) or (suffix[0] == '_'):
+            raise RuntimeError("%s: run-list entry ('%s', '%s') looks suspicious" % (filename, suffix, filename2))
+        if not filename2.endswith('.json'):
+            raise RuntimeError("%s: run-list entry ('%s', '%s') looks suspicious (second element does not end in '.json')" % (filename, suffix, filename2))
+        if args.s:
+            raise RuntimeError("%s: run-list cannot be specified with -s" % filename2)
+
+        j2 = rf_pipelines.utils.json_read(filename2)
+
+        if (not isinstance(j2,dict)) or (not j2.has_key('class_name')):
+            raise RuntimeError("%s: expected pipeline_object (contained in run-list %s)" % (filename2, filename))
+
+        # Sanity check: verify that dejsonization works.
+        rf_pipelines.pipeline_object.from_json(j2)
+        inner_filenames.append(('_%s' % suffix, filename2))
+
+    toplevel_filenames.append(inner_filenames)
+
+
+total_pipeline_runs = 1
+
+for x in toplevel_filenames:
+    total_pipeline_runs *= len(x)
+    assert total_pipeline_runs > 0
+
+    if total_pipeline_runs > 1000:
+        raise RuntimeError('Total number of pipeline runs exceeds 1000, presumably unintentional')
+
+if (total_pipeline_runs > 1) and args.n:
+    raise RuntimeError('Run-lists cannot be specified with -n')
+
+if total_pipeline_runs < args.nthreads:
+    args.nthreads = total_pipeline_runs
+
+
+####################################################################################################
+#
+# Generate 'all_runs', a list of (rundir, json_filename_list) pairs.
+
+
+def generate_runs(base_rundir, base_filename_list, more_filenames):
+    """
+    Recursive helper function to generate (rundir, json_filename_list) pairs, where 'rundir' can be None
+    (but in this case there is only one (rundir, json_filename_list) pair generated).
+
+    The 'base_rundir' argument can be either a string or None.
+    The 'base_filename_list' argument should be a list of json filenames, containing pipeline_objects (not run-lists)
+    The 'more_filenames' argument has the same format as 'toplevel_filenames': a list of lists of (suffix, json_filename) pairs
+    """
+
+    if len(more_filenames) == 0:
+        yield (base_rundir, base_filename_list)
+        return
+
+    f0 = more_filenames[0]   # list of (suffix, json_filename) pairs
+    f1 = more_filenames[1:]  # j1 = list of lists of (suffix, json_filename) pairs
+
+    if base_rundir is None:
+        assert len(f0) == 1
+
+    for (suffix, f) in f0:
+        d = (base_rundir + suffix) if (base_rundir is not None) else None
+        for t in generate_runs(d, base_filename_list + [f], f1):
+            yield t
+
+
+all_runs = list(generate_runs(args.wv_name, [ ], toplevel_filenames))
+
+assert len(all_runs) == total_pipeline_runs
+
+if len(all_runs) > 1:
+    # Check that all rundirs are distinct.  (This catches weird corner cases, for example if
+    # one run-list contains suffixes ['a','a_b'], and another run-list contains suffixes ['b_c','c'],
+    # then there are two ways to form 'a_b_c'.)
+
+    s = set()
+
+    for (rundir, json_filename_list) in all_runs:
+        assert rundir is not None
+        if rundir in s:
+            raise RuntimeError("rundir '%s' appears more than once in master_run_list" % rundir)
+        s.add(rundir)
+
+
+####################################################################################################
+#
+# Run pipeline
+
+
+import time
+import subprocess
+
+
+def do_synchronous_pipeline_run(rundir, json_filename_list):
+    p = [ rf_pipelines.utils.json_read(f) for f in json_filename_list ]
+    p = [ rf_pipelines.pipeline_object.from_json(j) for j in p ]
+    p = rf_pipelines.pipeline(p) if (len(p) > 1) else p[0]
+
+    if rundir is not None:
+        rf_pipelines.utils.run_for_web_viewer(args.wv_name, p, verbosity=args.verbosity)
+    else:
+        assert args.nflag
+        print 'Running pipeline with no output directory'
+        p.run(outdir=None, verbosity=args.verbosity)
+
+
+def start_asynchronous_pipeline_run(rundir, json_filename_list):
+    assert rundir is not None
+    assert (len(json_filename_list) > 0) and all(f.endswith('.json') for f in json_filename_list)
+
+    arg_list = ['rfp-run', '-w', rundir, '-v', str(args.verbosity), '-s' ] + json_filename_list
+    cmd_line = ' '.join(arg_list)
+    print 'Starting:', cmd_line
+
+    # FIXME need to capture stdout, stderr
+    p = subprocess.Popen(arg_list, stdout=open('/dev/null','w'), stderr=open('/dev/null','w'))
+    return (cmd_line, p)
+    
+
+# Single-threaded case
+if args.nthreads == 1:
+    for (rundir, json_filename_list) in all_runs:
+        do_synchronous_pipeline_run(rundir, json_filename_list)
+    sys.exit(0)
+
+# Multi-threaded case follows.
+
+async_runs = [ ]
+
+while (len(all_runs) > 0) or (len(async_runs) > 0):
+    asave = async_runs
+    async_runs = [ ]
+
+    # Have any async runs finished?
+    for (c,p) in asave:
+        if p.poll() is None:
+            async_runs.append((c,p))   # still running
+        else:
+            print 'Done:', c
+
+    # Start new async runs
+    while (len(all_runs) > 0) and (len(async_runs) < args.nthreads):
+        (rundir, json_filename_list) = all_runs[0]
+        del all_runs[0]
+
+        (c,p) = start_asynchronous_pipeline_run(rundir, json_filename_list)
+        async_runs.append((c,p))
+        
+    # I am a caveman who does not know how to call select() from python,
+    # so I just call poll() in a loop.
+    time.sleep(0.1)
