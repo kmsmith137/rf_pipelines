@@ -6,12 +6,13 @@ import argparse
 # ArgumentParser subclass, to customize the error message
 class MyParser(argparse.ArgumentParser):
     def error(self, message=None):
-        print >>sys.stderr, 'Usage: rfp-run.py [-n] [-w run_name] [-v verbosity] [-t nthreads] file1.json [file2.json file3.json ...]'
+        print >>sys.stderr, 'Usage: rfp-run.py [-nls] [-w run_name] [-v verbosity] [-t nthreads] file1.json [file2.json file3.json ...]'
         print >>sys.stderr, 'Each json file should contain either a jsonized pipeline_object, or a \"run-list\" of (suffix, pipeline_object_json_filename) pairs'
         print >>sys.stderr, '    -n: runs the pipeline with no output directory'
+        print >>sys.stderr, '    -l: redirect stdout/stderr to log files in pipeline rundir'
+        print >>sys.stderr, '    -s: throws exception unless single pipeline run (i.e. no run-lists allowed), infrequently used'
         print >>sys.stderr, '    -w: runs the pipeline in a directory which is indexed by the web viewer (frb1 only)'
         print >>sys.stderr, '    -v: specifies pipeline verbosity (integer, default 2)'
-        print >>sys.stderr, '    -s: throws exception unless single pieline run (i.e. command-line args cannot be run-lists)'
         print >>sys.stderr, '    -t: number of threads (default 1, note that multiple threads are only useful if at least one json file is a run-list)'
 
         if message is not None:
@@ -29,7 +30,8 @@ parser = MyParser()
 
 parser.add_argument('json_filenames', nargs='*')
 parser.add_argument('-n', action='store_true', help='runs the pipeline with no output directory')
-parser.add_argument('-s', action='store_true', help='throws exception unless single pieline run (i.e. command-line args cannot be run-lists)')
+parser.add_argument('-s', action='store_true', help='throws exception unless single pipeline run (i.e. no run-lists allowed), infrequently used')
+parser.add_argument('-l', action='store_true', help='redirect stdout/stderr to log files in pipeline rundir')
 parser.add_argument('-w', dest='wv_name', help='runs the pipeline in a directory which is indexed by the web viewer (frb1 only)')
 parser.add_argument('-v', dest='verbosity', type=int, default=2, help='pipeline verbosity (default 2)')
 parser.add_argument('-t', dest='nthreads', type=int, default=1, help='number of threads (default 1, note that multiple threads are only useful if at least one json file is a run-list)')
@@ -215,7 +217,7 @@ def do_synchronous_pipeline_run(rundir, json_filename_list):
     p = rf_pipelines.pipeline(p) if (len(p) > 1) else p[0]
 
     if rundir is not None:
-        rf_pipelines.utils.run_for_web_viewer(args.wv_name, p, verbosity=args.verbosity)
+        rf_pipelines.utils.run_for_web_viewer(args.wv_name, p, verbosity=args.verbosity, redirect_to_log_files=args.l)
     else:
         assert args.nflag
         print 'Running pipeline with no output directory'
