@@ -428,17 +428,23 @@ static void check_signals(ssize_t pos_lo, ssize_t pos_hi)
 
 
 // Used to wrap pipeline_object::bind() and pipeline_object::run().
-static run_params make_run_params(const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity, bool debug)
+static run_params make_run_params(const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity, bool debug, const py_object &extra_attrs)
 {
     run_params ret;
 
-    // Allow outdir=None
+    // Allow outdir=None (equivalent to outdir="")
     if (outdir.is_none())
 	ret.outdir = "";
     else if (outdir.is_string())
 	ret.outdir = converter<string>::from_python(outdir, "outdir");
     else
 	throw runtime_error("expected 'outdir' to be a string or None");
+
+    // Allow extra_attrs=None (equivalent to extra_attrs={})
+    if (extra_attrs.is_none())
+	ret.extra_attrs = Json::Value(Json::objectValue);
+    else
+	ret.extra_attrs = converter<Json::Value>::from_python(extra_attrs, "extra_attrs");
 
     ret.clobber = clobber;    
     ret.img_nzoom = img_nzoom;
@@ -462,20 +468,20 @@ static void wrap_pipeline_object(extension_module &m)
     std::function<string& (pipeline_object *)>
 	_class_name = [](pipeline_object *self) -> string& { return self->class_name; };
 
-    std::function<void (pipeline_object *, const py_object &, bool, ssize_t, ssize_t, ssize_t, int, bool)>
-	_bind = [](pipeline_object *self, const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity, bool debug)
+    std::function<void (pipeline_object *, const py_object &, bool, ssize_t, ssize_t, ssize_t, int, bool, const py_object &)>
+	_bind = [](pipeline_object *self, const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity, bool debug, const py_object &extra_attrs)
 	{
-	    run_params p = make_run_params(outdir, clobber, img_nzoom, img_nds, img_nx, verbosity, debug);
+	    run_params p = make_run_params(outdir, clobber, img_nzoom, img_nds, img_nx, verbosity, debug, extra_attrs);
 	    return self->bind(p);
 	};
 
-    std::function<Json::Value (pipeline_object *, const py_object &, bool, ssize_t, ssize_t, ssize_t, int, bool)>
-	_run = [](pipeline_object *self, const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity, bool debug)
+    std::function<Json::Value (pipeline_object *, const py_object &, bool, ssize_t, ssize_t, ssize_t, int, bool, const py_object &)>
+	_run = [](pipeline_object *self, const py_object &outdir, bool clobber, ssize_t img_nzoom, ssize_t img_nds, ssize_t img_nx, int verbosity, bool debug, const py_object &extra_attrs)
 	{
 	    // FIXME for completeness, should allow python caller to specify a callback function.
 	    // (This should be called via a C++ wrapper which also calls check_signals().)
 
-	    run_params p = make_run_params(outdir, clobber, img_nzoom, img_nds, img_nx, verbosity, debug);
+	    run_params p = make_run_params(outdir, clobber, img_nzoom, img_nds, img_nx, verbosity, debug, extra_attrs);
 	    return self->run(p, check_signals);
 	};
 
@@ -506,7 +512,7 @@ static void wrap_pipeline_object(extension_module &m)
 	};
 
     // doc_rp1, doc_rp2 are building blocks for doc_bind, doc_run, which both take a run_params.
-    string doc_rp1 = ("outdir='.', clobber=True, img_nzoom=4, img_nds=16, img_nx=256, verbosity=2, debug=False");
+    string doc_rp1 = ("outdir='.', clobber=True, img_nzoom=4, img_nds=16, img_nx=256, verbosity=2, debug=False, extra_attrs=None");
 
     string doc_rp2 = ("'outdir' is the rf_pipelines output directory, where the rf_pipelines json file will\n"
 		      "be written, in addition to other transform-specific output files such as plots.\n"
@@ -530,7 +536,10 @@ static void wrap_pipeline_object(extension_module &m)
 		      "    3+ = debug trace through pipeline (larger value means that debug messages are printed to higher depth)\n"
 		      "\n"
 		      "If 'debug' is true, some extra debug tests are implemented.  This slows down\n"
-		      "pipeline processing, so should only be specified for debugging/testing.\n");
+		      "pipeline processing, so should only be specified for debugging/testing.\n"
+		      "\n"
+		      "If specified, 'extra_attrs' should be a dict containing extra json attributes for the pipeline run.\n"
+		      "These attributes will be passed to _bind() and _start_pipeline(), and also end up in the pipeline json output.\n");
 
     string doc_bind = ("bind(" + doc_rp1 + ")\n"
 		       "\n"
@@ -620,10 +629,12 @@ static void wrap_pipeline_object(extension_module &m)
     pipeline_object_type.add_property("class_name", "Name of pipeline_object subclass", _class_name);
 
     pipeline_object_type.add_method("run", doc_run, wrap_method(_run, kwarg("outdir",py_object()), kwarg("clobber",true), kwarg("img_nzoom",4), 
-								kwarg("img_nds",16), kwarg("img_nx",256), kwarg("verbosity",2), kwarg("debug",false)));
+								kwarg("img_nds",16), kwarg("img_nx",256), kwarg("verbosity",2), kwarg("debug",false),
+								kwarg("extra_attrs",py_object())));
 
     pipeline_object_type.add_method("bind", doc_bind, wrap_method(_bind, kwarg("outdir",py_object()), kwarg("clobber",true), kwarg("img_nzoom",4), 
-								  kwarg("img_nds",16), kwarg("img_nx",256), kwarg("verbosity",2), kwarg("debug",false)));
+								  kwarg("img_nds",16), kwarg("img_nx",256), kwarg("verbosity",2), kwarg("debug",false),
+								  kwarg("extra_attrs",py_object())));
 							 
     pipeline_object_type.add_method("allocate", "Allocates all pipeline buffers", wrap_method(&pipeline_object::allocate));
     pipeline_object_type.add_method("deallocate", "Deallocates all pipeline buffers", wrap_method(&pipeline_object::deallocate));

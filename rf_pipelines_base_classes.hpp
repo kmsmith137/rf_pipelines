@@ -113,6 +113,9 @@ struct run_params {
     //
     // If 'debug' is true, some extra debug tests are implemented.  This slows down
     // pipeline processing, so should only be specified for debugging/testing.
+    //
+    // If specified, 'extra_attrs' should be a json object containing extra attributes for the pipeline run.
+    // These attributes will be passed to _bind() and _start_pipeline(), and also end up in the pipeline json output.
     
     std::string outdir = ".";
     bool clobber = true;
@@ -121,8 +124,8 @@ struct run_params {
     ssize_t img_nx = 256;
     int verbosity = 2;
     bool debug = false;
-    bool enable_timing = true;
-    bool recursive_timing = true;
+
+    Json::Value extra_attrs = Json::Value(Json::objectValue);
 
     // Used internally for formatting log messages when high verbosity is specified
     int container_depth = 0;

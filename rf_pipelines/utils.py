@@ -644,7 +644,7 @@ class web_viewer_context_manager:
         return True
     
 
-def run_for_web_viewer(run_name, p, verbosity=2, redirect_to_log_files=False):
+def run_for_web_viewer(run_name, p, verbosity=2, redirect_to_log_files=False, extra_attrs=None):
     """
     Runs a pipeline, with output directory chosen appropriately for the web viewer
     at frb1.physics.mcgill.ca.
@@ -654,7 +654,8 @@ def run_for_web_viewer(run_name, p, verbosity=2, redirect_to_log_files=False):
 
     The 'p' argument should be an rf_pipelines.pipeline_object.
 
-    The meaning of the 'verbosity' argument is the same as in f_pipelines.pipeline.run().
+    For the meanings of the 'verbosity' and 'extra_attrs' arguments, see the
+    rf_pipelines.pipeline.run() docstring.
 
     If 'redirect_to_log_files' is True, then stdout/stderr of the running pipeline
     will be redirected to log files 'rf_pipeline_stdout.txt' and 'rf_pipeline_stderr.txt'
@@ -679,4 +680,4 @@ def run_for_web_viewer(run_name, p, verbosity=2, redirect_to_log_files=False):
         print 'rf_pipelines: redirecting output to log files in temp_dir, there will be no output while pipeline is running!'
 
     with web_viewer_context_manager(temp_dir, final_dir, redirect_to_log_files):
-        p.run(outdir=temp_dir, clobber=False, verbosity=verbosity)
+        p.run(outdir=temp_dir, clobber=False, verbosity=verbosity, extra_attrs=extra_attrs)
