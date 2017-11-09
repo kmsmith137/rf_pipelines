@@ -46,8 +46,11 @@ class Parser():
 
     The Parser contains the following members.
 
+      self.path -> string
       self.json_data -> json value
       self.failed_run -> bool
+      self.stdout_log -> string (or None)
+      self.stderr_log -> string (or None)
       self.plot_parse_success -> bool
       self.plot_parse_traceback -> string (if plots parsed successfully, an empty string)
       self.s_per_sample
@@ -70,8 +73,11 @@ class Parser():
 
     def __init__(self, path):
         # Assign default values to all members.
+        self.path = path
         self.json_data = { }
         self.failed_run = False
+        self.stdout_log = None
+        self.stderr_log = None
         self.plot_parse_success = False
         self.plot_parse_traceback = ""
         self.s_per_sample = 1.0e-3
@@ -117,6 +123,18 @@ class Parser():
 
         if self.json_output.has_key('success') and not self.json_output['success']:
             self.failed_run = True
+
+        try:
+            filename = join(self.path, 'rf_pipeline_stdout.txt')
+            self.stdout_log = open(filename,'r').read()
+        except:
+            pass
+
+        try:
+            filename = join(self.path, 'rf_pipeline_stderr.txt')
+            self.stderr_log = open(filename,'r').read()
+        except:
+            pass
 
         try:
             # The 'v1' json file format was used until October 2017.
@@ -474,6 +492,7 @@ def run_info(user, run):
     if p.failed_run:
         display += '<p><font color="red">This is a failed run.</font>\n'
 
+    display += '<h3>Pipeline json output (incomplete)</h3>\n'
     display += '<p><pre>\n'
 
     for (k,v) in sorted(p.json_output.iteritems()):
@@ -482,6 +501,15 @@ def run_info(user, run):
         display += ('%s: %s\n' % (k, v))
 
     display += '</pre>'
+
+    if p.stderr_log is not None:
+        display += '<p><h3>Pipeline stderr output</h3>\n'
+        display += '<p><pre>%s</pre>' % p.stderr_log
+
+    if p.stdout_log is not None:
+        display += '<p><h3>Pipeline stdout output</h3>\n'
+        display += '<p><pre>%s</pre>' % p.stdout_log
+
     return display
     
 
