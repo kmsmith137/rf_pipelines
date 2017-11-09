@@ -219,7 +219,7 @@ def do_synchronous_pipeline_run(rundir, json_filename_list):
 
     extra_attrs = { 'json_files': json_filename_list,
                     'command_line': (' '.join(sys.argv)),
-                    'cwd':, os.getcwd() }
+                    'cwd': os.getcwd() }
 
     if rundir is not None:
         rf_pipelines.utils.run_for_web_viewer(rundir, p, verbosity=args.verbosity, extra_attrs=extra_attrs, redirect_to_log_files = not args.i)
