@@ -138,7 +138,7 @@ def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False
 
     # A corner case..
     if wmax == 0.0:
-        print >>sys.stderr, '%s: array was completely masked, writing all-black image' % filename
+        print '%s: array was completely masked, writing all-black image' % filename
         rgb = np.zeros((arr.shape[0], arr.shape[1], 3), dtype=np.uint8)
         img = PIL.Image.fromarray(rgb)
         img.save(filename)
@@ -169,7 +169,7 @@ def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False
 
     img = PIL.Image.fromarray(rgb)
     img.save(filename)
-    print >>sys.stderr, 'wrote %s' % filename
+    print 'wrote %s' % filename
 
 
 def _downsample_2d(arr, new_nfreq, new_ntime):

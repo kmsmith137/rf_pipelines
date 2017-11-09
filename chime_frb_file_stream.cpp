@@ -172,7 +172,7 @@ shared_ptr<wi_stream> make_chime_frb_stream_from_glob(const string &glob_pattern
     bool allow_empty = false;
     vector<string> filename_list;
     list_glob(filename_list, glob_pattern, allow_empty);
-    cerr << glob_pattern << ": " << filename_list.size() << " data files found\n";
+    cout << glob_pattern << ": " << filename_list.size() << " data files found\n";
     return make_chime_frb_stream_from_filename_list(filename_list, nt_chunk, noise_source_align);
 }
 
