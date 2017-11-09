@@ -214,12 +214,16 @@ def do_synchronous_pipeline_run(rundir, json_filename_list):
     p = [ rf_pipelines.pipeline_object.from_json(j) for j in p ]
     p = rf_pipelines.pipeline(p) if (len(p) > 1) else p[0]
 
+    extra_attrs = { 'json_files': json_filename_list,
+                    'command_line': (' '.join(sys.argv)),
+                    'cwd':, os.getcwd() }
+
     if rundir is not None:
-        rf_pipelines.utils.run_for_web_viewer(args.wv_name, p, verbosity=args.verbosity)
+        rf_pipelines.utils.run_for_web_viewer(args.wv_name, p, verbosity=args.verbosity, extra_attrs=extra_attrs)
     else:
         assert args.nflag
         print 'Running pipeline with no output directory'
-        p.run(outdir=None, verbosity=args.verbosity)
+        p.run(outdir=None, verbosity=args.verbosity, extra_attrs=extra_attrs)
 
 
 def start_asynchronous_pipeline_run(rundir, json_filename_list):
