@@ -208,6 +208,7 @@ if len(all_runs) > 1:
 
 
 import time
+import traceback
 import subprocess
 
 
@@ -217,7 +218,7 @@ def do_synchronous_pipeline_run(rundir, json_filename_list):
     p = rf_pipelines.pipeline(p) if (len(p) > 1) else p[0]
 
     if rundir is not None:
-        rf_pipelines.utils.run_for_web_viewer(args.wv_name, p, verbosity=args.verbosity, redirect_to_log_files = not args.i)
+        rf_pipelines.utils.run_for_web_viewer(rundir, p, verbosity=args.verbosity, redirect_to_log_files = not args.i)
     else:
         assert args.nflag
         print 'Running pipeline with no output directory'
@@ -239,9 +240,18 @@ def start_asynchronous_pipeline_run(rundir, json_filename_list):
 
 # Single-threaded case
 if args.nthreads == 1:
+    exit_status = 0
+
     for (rundir, json_filename_list) in all_runs:
-        do_synchronous_pipeline_run(rundir, json_filename_list)
-    sys.exit(0)
+        print 'rfp-run: rundir=%s, json_files=%s' % (rundir, json_filename_list)
+
+        try:
+            do_synchronous_pipeline_run(rundir, json_filename_list)
+        except:
+            traceback.print_exc(file=sys.stderr)
+            exit_status = 1
+            
+    sys.exit(exit_status)
 
 # Multi-threaded case follows.
 
