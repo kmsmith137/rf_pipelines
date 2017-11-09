@@ -1,4 +1,4 @@
-21;4205;0c#!/usr/bin/env python
+#!/usr/bin/env python
 
 from os import environ, listdir
 from os.path import isfile, isdir, exists, join
