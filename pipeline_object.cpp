@@ -370,17 +370,9 @@ Json::Value pipeline_object::run(const run_params &params, const callback_t &cal
 
     // Try to write json file, even if exception was thrown.
     if (params.outdir.size() > 0) {
-	string json_filename = params.outdir + "/rf_pipeline_0.json";
-	ofstream f(json_filename);
-
-	if (f.fail())
-	    _throw("couldn't open output file " + json_filename);
-
-	Json::StyledWriter w;
-	f << w.write(json_output);
-
-	if (params.verbosity >= 2)
-	    cout << "wrote " << json_filename << endl;
+	bool noisy = (params.verbosity >= 2);
+	string filename = params.outdir + "/rf_pipeline_0.json";
+	json_write(filename, json_output, noisy);
     }
 
     // FIXME add boolean flag to deallocate on pipeline exit.

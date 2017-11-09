@@ -2,6 +2,7 @@
 
 #include <cstring>
 #include <sstream>
+#include <fstream>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
@@ -15,6 +16,21 @@ namespace rf_pipelines {
 #if 0
 };  // pacify emacs c-mode!
 #endif
+
+
+void json_write(const string &filename, const Json::Value &j, bool noisy)
+{
+    ofstream f(filename);
+	
+    if (f.fail())
+	throw runtime_error(filename + ": couldn't open file for writing");
+    
+    Json::StyledWriter w;
+    f << w.write(j);
+    
+    if (noisy >= 2)
+	cout << "wrote " << filename << endl;
+}
 
 
 static const Json::Value &get_member(const Json::Value &j, const string &k)
