@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+#
+# Note: the environment variable RF_PIPELINE_ATTRS can be used to pass additional pipeline attributes.
+# These will be passed to the _bind() and _start_pipeline() methods of all pipeline_objects, and are
+# also written to the pipeline's json output.
+
 
 import sys
 import argparse
@@ -204,12 +209,23 @@ if len(all_runs) > 1:
 
 ####################################################################################################
 #
-# Run pipeline
+# Run pipeline (single-threaded case)
 
 
+import copy
 import time
 import traceback
 import subprocess
+
+extra_attrs = { }
+
+if os.environ.has_key('RF_PIPELINE_ATTRS'):
+    extra_attrs = json.loads(os.environ['RF_PIPELINE_ATTRS'])
+if os.environ.has_key('RF_PIPELINES_ATTRS'):
+    print >>sys.stderr, 'warning: environment variable $RF_PIPELINES_ATTRS was initialized, did you mean to use $RF_PIPELINE_ATTRS?'
+
+if args.nthreads > 1:
+    extra_attrs['command_line_parent'] = (' '.join(sys.argv))
 
 
 def do_synchronous_pipeline_run(rundir, json_filename_list):
@@ -217,30 +233,18 @@ def do_synchronous_pipeline_run(rundir, json_filename_list):
     p = [ rf_pipelines.pipeline_object.from_json(j) for j in p ]
     p = rf_pipelines.pipeline(p) if (len(p) > 1) else p[0]
 
-    extra_attrs = { 'json_files': json_filename_list,
-                    'command_line': (' '.join(sys.argv)),
-                    'cwd': os.getcwd() }
+    extra_attrs2 = copy.copy(extra_attrs)
+    extra_attrs2['cwd'] = os.getcwd()
+    extra_attrs2['json_files'] = json_filename_list
+    extra_attrs2['command_line'] = (' '.join(sys.argv))
 
     if rundir is not None:
-        rf_pipelines.utils.run_for_web_viewer(rundir, p, verbosity=args.verbosity, extra_attrs=extra_attrs, redirect_to_log_files = not args.i)
+        rf_pipelines.utils.run_for_web_viewer(rundir, p, verbosity=args.verbosity, extra_attrs=extra_attrs2, redirect_to_log_files = not args.i)
     else:
         assert args.nflag
         print 'Running pipeline with no output directory'
         p.run(outdir=None, verbosity=args.verbosity, extra_attrs=extra_attrs)
 
-
-def start_asynchronous_pipeline_run(rundir, json_filename_list):
-    assert rundir is not None
-    assert (len(json_filename_list) > 0) and all(f.endswith('.json') for f in json_filename_list)
-
-    arg_list = ['rfp-run', '-w', rundir, '-v', str(args.verbosity), '-s' ] + json_filename_list
-    cmd_line = ' '.join(arg_list)
-    print 'Starting:', cmd_line
-
-    # FIXME need to capture stdout, stderr
-    p = subprocess.Popen(arg_list, stdout=open('/dev/null','w'), stderr=open('/dev/null','w'))
-    return (cmd_line, p)
-    
 
 # Single-threaded case
 if args.nthreads == 1:
@@ -257,8 +261,26 @@ if args.nthreads == 1:
             
     sys.exit(exit_status)
 
-# Multi-threaded case follows.
 
+####################################################################################################
+#
+# Run pipeline (multi-threaded case)
+
+
+def start_asynchronous_pipeline_run(rundir, json_filename_list):
+    assert rundir is not None
+    assert (len(json_filename_list) > 0) and all(f.endswith('.json') for f in json_filename_list)
+
+    arg_list = ['rfp-run', '-w', rundir, '-v', str(args.verbosity), '-s' ] + json_filename_list
+    cmd_line = ' '.join(arg_list)
+    env = copy.copy(os.environ)
+    env['RF_PIPELINE_ATTRS'] = json.dumps(extra_attrs)
+
+    # FIXME need to capture stdout, stderr
+    print 'Starting:', cmd_line
+    p = subprocess.Popen(arg_list, stdout=open('/dev/null','w'), stderr=open('/dev/null','w'))
+    return (cmd_line, p)
+    
 async_runs = [ ]
 
 try:
