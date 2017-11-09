@@ -9,6 +9,9 @@ import traceback
 
 app = Flask(__name__)
 
+# where we will search for users/runs/plots
+web_viewer_root = environ.get('WEB_VIEWER_ROOT', 'static/plots')
+
 
 """
 This is web viewer for the L1 pipeline. Currently, it retrieves files from the /data2/web_viewer directory, 
@@ -409,11 +412,8 @@ class Crawler():
                     s += self.pipeline_dir[user][run].__str__()
         return s
 
-# where we will search for users/runs/plots
-path = environ.get('WEB_VIEWER_ROOT', 'static/plots')
-print 'web_viewer root: %s' % path
 
-master_directories = Crawler(path)     # dirs contains a dictionary in the form {'user1': {'run1': Parser1, 'run2': Parser2, ...}, ...}
+master_directories = Crawler(web_viewer_root)
 
 
 ####################################################################################################
@@ -436,8 +436,14 @@ def index():
 def runs(user):
     """Displays links to the pipeline runs for a particular user."""
 
-    display = '<h3>%s\'s pipeline runs</h3>\n' % user
-    display += '<p>[&nbsp;&nbsp;&nbsp;<a href="%s">Back to List of Users</a>&nbsp;&nbsp;&nbsp;]\n' % url_for('index')
+    toplevel_runs = master_directories.get_sorted_runs(user)
+
+    display = '<p><center>[&nbsp;&nbsp;&nbsp;<a href="%s">Back to List of Users</a>&nbsp;&nbsp;&nbsp;]</center>\n' % url_for('index')
+    display += '<p><h3>%s\'s pipeline runs</h3>\n' % user
+
+    if len(toplevel_runs) >= 16:
+        display += '<p>Reminder: to clean up old runs, go to %s/%s and delete subdirectories by hand.\n' % (web_viewer_root, user)
+
     display += '<p><ul>\n'
 
     for (prefix, runs) in master_directories.get_sorted_runs(user):
@@ -461,7 +467,7 @@ def runs(user):
 @app.route("/<string:user>/<string:run>/get_tile/<string:fname>")
 def get_tile(user, run, fname):
     """Returns single image tile."""
-    dirname = '%s/%s/%s' % (path, user, run)
+    dirname = '%s/%s/%s' % (web_viewer_root, user, run)
     return send_from_directory(dirname, fname)
 
 
