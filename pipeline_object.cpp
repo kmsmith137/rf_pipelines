@@ -66,6 +66,8 @@ void pipeline_object::_print(const string &msg) const
 // This version of bind() is only called on a top-level pipeline.
 void pipeline_object::bind(const run_params &params)
 {
+    params.check();
+
     if (params.verbosity >= 2)
 	cout << "rf_pipelines: bind() called\n";
 
@@ -80,7 +82,7 @@ void pipeline_object::bind(const run_params &params)
     if (n <= 0)
 	_throw("this object cannot be first in pipeline, since its get_preferred_chunk_size() method is undefined");
 
-    this->json_attrs1 = Json::Value(Json::objectValue);
+    this->json_attrs1 = params.extra_attrs;
 
     ring_buffer_dict rb_dict;
     shared_ptr<outdir_manager> mp = make_shared<outdir_manager> (params.outdir, params.clobber);
