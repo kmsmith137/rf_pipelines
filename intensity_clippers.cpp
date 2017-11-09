@@ -74,8 +74,6 @@ struct intensity_clipper_transform : public wi_transform
 
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
     {
-	if (pos >= 10000)
-	    throw runtime_error("DOH");
 	this->kernel->clip(intensity, istride, weights, wstride);
     }
 

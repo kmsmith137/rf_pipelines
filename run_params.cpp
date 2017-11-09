@@ -37,7 +37,7 @@ string run_params::mismatch(const run_params &p) const
 
 void run_params::check() const
 {
-    if (extra_attrs.isObject())
+    if (!extra_attrs.isObject())
 	throw runtime_error("rf_pipelines: run_params::extra_attrs must be a Json::Object");
 
     if ((img_nzoom < 1) || (img_nzoom > 10))
