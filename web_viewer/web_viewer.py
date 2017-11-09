@@ -496,9 +496,9 @@ def run_info(user, run):
     display = make_navbar(user, run)
 
     if p.failed_run:
-        display += '<p><font color="red">This is a failed run.</font>\n'
+        display += '<p><h3><font color="red">This is a failed run.</font></h3>\n'
 
-    display += '<h3>Pipeline json output (incomplete)</h3>\n'
+    display += '<h3>Pipeline json output (partial)</h3>\n'
     display += '<p><pre>\n'
 
     for (k,v) in sorted(p.json_output.iteritems()):
@@ -509,11 +509,11 @@ def run_info(user, run):
     display += '</pre>'
 
     if p.stderr_log is not None:
-        display += '<p><h3>Pipeline stderr output</h3>\n'
+        display += '<p><h3>Pipeline stderr log</h3>\n'
         display += '<p><pre>%s</pre>' % p.stderr_log
 
     if p.stdout_log is not None:
-        display += '<p><h3>Pipeline stdout output</h3>\n'
+        display += '<p><h3>Pipeline stdout log</h3>\n'
         display += '<p><pre>%s</pre>' % p.stdout_log
 
     return display
