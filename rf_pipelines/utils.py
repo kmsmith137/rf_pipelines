@@ -577,28 +577,73 @@ class Variance_Estimates():
 ####################################################################################################
 
 
-def _try_to_rename(temp_dir, final_dir):
-    """
-    Helper for run_for_web_viewer(), called on exception-handling path.
+class web_viewer_context_manager:
+    """Helper class for run_for_web_viewer(): manages I/O redirection to log files, and renaming tmp_dir -> final_dir."""
 
-    If 'temp_dir' looks like a valid rf_pipelines output directory,
-    then rename (temp_dir -> final_dir).  If not, then return silently
-    (rather than throwing an exception).
-    """
+    def __init__(self, tmp_dir, final_dir, redirect_to_logfiles):
+        assert sys.stdout.fileno() == 1
+        assert sys.stderr.fileno() == 2
 
-    try:
-        f = os.path.join(temp_dir, 'rf_pipeline_0.json')
-        json.load(open(f,'r'))   # throws exception if file does not exist, or unparseable
+        self.tmp_dir = tmp_dir
+        self.final_dir = final_dir
+        self.redirect_to_logfiles = redirect_to_logfiles
 
-        os.rename(temp_dir, final_dir)
-        print >>sys.stderr, 'renamed %s -> %s' % (temp_dir, final_dir)
+        if os.path.exists(self.tmp_dir):
+            raise RuntimeError("web viewer temporary directory '%s' already exists" % self.tmp_dir)
+        if os.path.exists(self.final_dir):
+            raise RuntimeError("web viewer output directory '%s' already exists" % self.tmp_dir)
 
-    except:
-        pass
-        
+        os.makedirs(self.tmp_dir)
+
+        if self.redirect_to_logfiles:
+            self.stdout_log_filename = os.path.join(self.tmp_dir, 'rf_pipeline_stdout.txt')
+            self.stderr_log_filename = os.path.join(self.tmp_dir, 'rf_pipeline_stderr.txt')
+
+            self.stdout_log_file = open(self.stdout_log_filename, 'w')
+            self.stderr_log_file = open(self.stderr_log_filename, 'w')
+
+
+    def __enter__(self):
+        if self.redirect_to_logfiles:
+            self.stdout_save = os.dup(sys.stdout.fileno())
+            self.stderr_save = os.dup(sys.stderr.fileno())
+            
+            os.dup2(self.stdout_log_file.fileno(), sys.stdout.fileno())
+            os.dup2(self.stderr_log_file.fileno(), sys.stderr.fileno())
+
+
+    def __exit__(self, etype, value, tb):
+        if self.redirect_to_logfiles:
+            os.dup2(self.stdout_save, sys.stdout.fileno())
+            os.dup2(self.stderr_save, sys.stderr.fileno())
+            os.close(self.stdout_save)
+            os.close(self.stderr_save)
+            
+            if etype is not None:
+                traceback.print_exception(etype, value, tb, file=self.stderr_log_file)
+
+        if self._maybe_rename():
+            print 'rf_pipelines: pipeline json file successfully written to', self.final_dir
+        elif self.redirect_to_logfiles:
+            print 'rf_pipelines: pipeline json file could not be written, suggest inspecting log files rf_pipeline_std*.txt in the temporary directory', self.tmp_dir
+        else:
+            print 'rf_pipelines: pipeline json file could not be written, there may be some useful info in the temporary directory', self.tmp_dir
+
+
+    def _maybe_rename(self):
+        """Returns true if pipeline output json file exists, is parseable, and directory rename succeeds."""
+
+        try:
+            filename = os.path.join(self.tmp_dir, 'rf_pipeline_0.json')
+            json.load(open(filename, 'r'))
+            os.rename(self.tmp_dir, self.final_dir)
+        except:
+            return False
+
+        return True
     
 
-def run_for_web_viewer(run_name, p, verbosity=2):
+def run_for_web_viewer(run_name, p, verbosity=2, redirect_to_log_files=False):
     """
     Runs a pipeline, with output directory chosen appropriately for the web viewer
     at frb1.physics.mcgill.ca.
@@ -610,11 +655,16 @@ def run_for_web_viewer(run_name, p, verbosity=2):
 
     The meaning of the 'verbosity' argument is the same as in f_pipelines.pipeline.run().
 
+    If 'redirect_to_log_files' is True, then stdout/stderr of the running pipeline
+    will be redirected to log files 'rf_pipeline_stdout.txt' and 'rf_pipeline_stderr.txt'
+    in the web viewer directory.
+
     FIXME: what's the best way to generalize this function so that it makes sense
     on machines other than frb1.physics.mcgill.ca?
     """
     
     assert isinstance(run_name, basestring)
+    assert isinstance(p, rf_pipelines_c.pipeline_object)
 
     # Directory names beginning with underscore are pipeline runs in progress.
     basename = '%s-%s' % (run_name, time.strftime('%y-%m-%d-%X'))
@@ -622,15 +672,10 @@ def run_for_web_viewer(run_name, p, verbosity=2):
     temp_dir = os.path.join(dirname, '_' + basename)
     final_dir = os.path.join(dirname, basename)
 
-    print >>sys.stderr, "creating temporary directory '%s' for running pipeline" % temp_dir
-    os.makedirs(temp_dir)
+    print 'rf_pipelines: starting web_viewer run, temp_dir=%s, final_dir=%s' % (temp_dir, final_dir)
 
-    try:
+    if redirect_to_log_files:
+        print 'rf_pipelines: redirecting output to log files in temp_dir, there will be no output while pipeline is running!'
+
+    with web_viewer_context_manager(temp_dir, final_dir, redirect_to_log_files):
         p.run(outdir=temp_dir, clobber=False, verbosity=verbosity)
-    except:
-        _try_to_rename(temp_dir, final_dir)   # never raises exception
-        raise
-
-    # Pipeline done, remove underscore from directory name.
-    print >>sys.stderr, 'renaming %s -> %s' % (temp_dir, final_dir)
-    os.rename(temp_dir, final_dir)
