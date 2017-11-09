@@ -191,7 +191,7 @@ shared_ptr<wi_stream> make_chime_stream_from_acqdir(const string &dirname, ssize
     bool allow_empty = false;
     vector<string> filename_list;
     list_chime_acqdir(filename_list, dirname, allow_empty);
-    cerr << dirname << ": " << filename_list.size() << " data files found in acqdir\n";
+    cout << dirname << ": " << filename_list.size() << " data files found in acqdir\n";
 
     if ((nfiles > 0) && (nfiles < (ssize_t)filename_list.size()))
 	filename_list.resize(nfiles);

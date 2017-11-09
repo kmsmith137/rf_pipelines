@@ -138,7 +138,7 @@ def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False
 
     # A corner case..
     if wmax == 0.0:
-        print >>sys.stderr, '%s: array was completely masked, writing all-black image' % filename
+        print '%s: array was completely masked, writing all-black image' % filename
         rgb = np.zeros((arr.shape[0], arr.shape[1], 3), dtype=np.uint8)
         img = PIL.Image.fromarray(rgb)
         img.save(filename)
@@ -169,7 +169,7 @@ def write_png(filename, arr, weights=None, transpose=False, ytop_to_bottom=False
 
     img = PIL.Image.fromarray(rgb)
     img.save(filename)
-    print >>sys.stderr, 'wrote %s' % filename
+    print 'wrote %s' % filename
 
 
 def _downsample_2d(arr, new_nfreq, new_ntime):
@@ -580,13 +580,13 @@ class Variance_Estimates():
 class web_viewer_context_manager:
     """Helper class for run_for_web_viewer(): manages I/O redirection to log files, and renaming tmp_dir -> final_dir."""
 
-    def __init__(self, tmp_dir, final_dir, redirect_to_logfiles):
+    def __init__(self, tmp_dir, final_dir, redirect_to_log_files):
         assert sys.stdout.fileno() == 1
         assert sys.stderr.fileno() == 2
 
         self.tmp_dir = tmp_dir
         self.final_dir = final_dir
-        self.redirect_to_logfiles = redirect_to_logfiles
+        self.redirect_to_log_files = redirect_to_log_files
 
         if os.path.exists(self.tmp_dir):
             raise RuntimeError("web viewer temporary directory '%s' already exists" % self.tmp_dir)
@@ -595,7 +595,7 @@ class web_viewer_context_manager:
 
         os.makedirs(self.tmp_dir)
 
-        if self.redirect_to_logfiles:
+        if self.redirect_to_log_files:
             self.stdout_log_filename = os.path.join(self.tmp_dir, 'rf_pipeline_stdout.txt')
             self.stderr_log_filename = os.path.join(self.tmp_dir, 'rf_pipeline_stderr.txt')
 
@@ -604,7 +604,7 @@ class web_viewer_context_manager:
 
 
     def __enter__(self):
-        if self.redirect_to_logfiles:
+        if self.redirect_to_log_files:
             self.stdout_save = os.dup(sys.stdout.fileno())
             self.stderr_save = os.dup(sys.stderr.fileno())
             
@@ -613,7 +613,7 @@ class web_viewer_context_manager:
 
 
     def __exit__(self, etype, value, tb):
-        if self.redirect_to_logfiles:
+        if self.redirect_to_log_files:
             os.dup2(self.stdout_save, sys.stdout.fileno())
             os.dup2(self.stderr_save, sys.stderr.fileno())
             os.close(self.stdout_save)
@@ -624,7 +624,7 @@ class web_viewer_context_manager:
 
         if self._maybe_rename():
             print 'rf_pipelines: pipeline json file successfully written to', self.final_dir
-        elif self.redirect_to_logfiles:
+        elif self.redirect_to_log_files:
             print 'rf_pipelines: pipeline json file could not be written, suggest inspecting log files rf_pipeline_std*.txt in the temporary directory', self.tmp_dir
         else:
             print 'rf_pipelines: pipeline json file could not be written, there may be some useful info in the temporary directory', self.tmp_dir
