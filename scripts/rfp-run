@@ -361,7 +361,7 @@ class asynchronous_pipeline_run:
 
         self._print_indented('[stdout]', self.stdout_str)
         self._print_indented('[stderr]', self.stderr_str)
-        return (exit_status == 0)
+        return exit_status
         
 
     def kill(self):
@@ -383,6 +383,8 @@ class thread_pool:
         self.run_list = [ x for x in run_list ]   # shallow copy
         self.nthreads = nthreads
         self.running_threads = [ ]
+        self.num_successful = 0
+        self.num_failed = 0
 
 
     def __enter__(self):
@@ -434,15 +436,29 @@ class thread_pool:
             if t.stderr_fd in read_fds:
                 t.read_stderr()
             if (t.stdout_fd in done_fds) or (t.stderr_fd in done_fds):
-                t.wait()
+                exit_status = t.wait()
+                if exit_status == 0:
+                    self.num_successful += 1
+                else:
+                    self.num_failed += 1
 
         self.running_threads = [ t for t in self.running_threads if (t.pid > 0) ]
 
     
     def run(self):
+        t0 = time.time()
+
         while (len(self.running_threads) > 0) or (len(self.run_list) > 0):
             self._spawn()
             self._poll()
+
+        t1 = time.time()
+
+        print 
+        print 'rfp-run: all done!'
+        print 'rfp-run: number of successful runs:', self.num_successful
+        print 'rfp-run: number of failed runs:', self.num_failed
+        print 'rfp-run: total elapsed time: %g seconds' % (t1-t0)
     
 
     def __exit__(self, etype, value, tb):
