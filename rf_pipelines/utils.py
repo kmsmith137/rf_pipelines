@@ -5,6 +5,7 @@ import json
 import glob
 import h5py
 import traceback
+import subprocess
 import numpy as np
 import rf_pipelines_c
 
@@ -600,17 +601,21 @@ class web_viewer_context_manager:
             self.stdout_log_filename = os.path.join(self.tmp_dir, 'rf_pipeline_stdout.txt')
             self.stderr_log_filename = os.path.join(self.tmp_dir, 'rf_pipeline_stderr.txt')
 
-            self.stdout_log_file = open(self.stdout_log_filename, 'w')
-            self.stderr_log_file = open(self.stderr_log_filename, 'w')
+            self.tee_subprocess = subprocess.Popen(['tee', self.stderr_log_filename], stdin=subprocess.PIPE, stdout=sys.stderr.fileno())
+            self.stdout_log_fileobj = open(self.stdout_log_filename, 'w')   # write to stdout logfile directly
+            self.stderr_log_fileobj = self.tee_subprocess.stdin             # write to stderr logfile through tee
 
 
     def __enter__(self):
         if self.redirect_to_log_files:
+            sys.stdout.flush()
+            sys.stderr.flush()
+
             self.stdout_save = os.dup(sys.stdout.fileno())
             self.stderr_save = os.dup(sys.stderr.fileno())
             
-            os.dup2(self.stdout_log_file.fileno(), sys.stdout.fileno())
-            os.dup2(self.stderr_log_file.fileno(), sys.stderr.fileno())
+            os.dup2(self.stdout_log_fileobj.fileno(), sys.stdout.fileno())
+            os.dup2(self.stderr_log_fileobj.fileno(), sys.stderr.fileno())
 
 
     def __exit__(self, etype, value, tb):
@@ -621,9 +626,13 @@ class web_viewer_context_manager:
             os.dup2(self.stderr_save, sys.stderr.fileno())
             os.close(self.stdout_save)
             os.close(self.stderr_save)
-            
+
+            self.stdout_log_fileobj.close()
+            self.stderr_log_fileobj.close()
+            self.tee_subprocess.wait()
+
             if etype is not None:
-                traceback.print_exception(etype, value, tb, file=self.stderr_log_file)
+                self._try_to_append_traceback(self.stderr_log_filename, etype, value, tb)
 
         if self._maybe_rename():
             what = 'json file and log files' if self.redirect_to_log_files else 'json file'
@@ -634,6 +643,14 @@ class web_viewer_context_manager:
             print 'rf_pipelines: pipeline json file could not be written, there may be some useful info in the temporary directory', self.tmp_dir
 
 
+    def _try_to_append_traceback(self, filename, etype, value, tb):
+        try:
+            f = open(filename, 'a')
+            traceback.print_exception(etype, value, tb, file=f)
+        except:
+            pass
+
+            
     def _maybe_rename(self):
         """Returns true if pipeline output json file exists, is parseable, and directory rename succeeds."""
 
@@ -680,7 +697,7 @@ def run_for_web_viewer(run_name, p, verbosity=2, redirect_to_log_files=False, ex
     print 'rf_pipelines: starting web_viewer run, temp_dir=%s, final_dir=%s' % (temp_dir, final_dir)
 
     if redirect_to_log_files:
-        print 'rf_pipelines: redirecting output to log files in temp_dir, there will be no output while pipeline is running!'
+        print 'rf_pipelines: redirecting output to log files in temp_dir, there will be little or no output while pipeline is running!'
 
     with web_viewer_context_manager(temp_dir, final_dir, redirect_to_log_files):
         p.run(outdir=temp_dir, clobber=False, verbosity=verbosity, extra_attrs=extra_attrs)
