@@ -7,15 +7,18 @@ from os.path import join
 from sys import stderr
 
 
-def get_times(file):
+def get_times(file, noisy=True):
     """Returns [start_time, end_time] for an .h5 file."""
-    print 'Examining', file
+
+    if noisy:
+        print 'Examining', file
+
     f = File(file, 'r')
     timestamp_array = f['index_map']['time'][:]
     return timestamp_array[0], timestamp_array[-1]
 
 
-def chime_stream_from_times(dirname, t0, t1, nt_chunk=0, noise_source_align=0):
+def chime_stream_from_times(dirname, t0, t1, nt_chunk=0, noise_source_align=0, noisy=True):
     """Calls chime_stream_from_filename_list for a specific time range from a directory.
     Helpful for re-running small subsections of acquisitions as seen on the web viewer
     (which displays the starting timestamp of each plot)."""
@@ -32,16 +35,16 @@ def chime_stream_from_times(dirname, t0, t1, nt_chunk=0, noise_source_align=0):
     # the very last file has been written completely to disk. This is not
     # true when files are being copied over. In this case, the last file 
     # is still inaccessible, hence h5py.File fails.
-    #assert t0 < get_times(files_with_paths[-1])[1], \
+    #assert t0 < get_times(files_with_paths[-1],noisy)[1], \
     #    'First time index must be less than final time index for acquisition'
 
-    assert t1 > get_times(files_with_paths[0])[0], \
+    assert t1 > get_times(files_with_paths[0],noisy)[0], \
         'Second time index must be greater than the first time index for the acquisition'
 
     # Search for start index
     start, end = -1, -1
     for i in range(len(files_with_paths) - 1):
-        if t0 < get_times(files_with_paths[i + 1])[0]:
+        if t0 < get_times(files_with_paths[i+1],noisy)[0]:
             start = i
             break
     if start == -1:
@@ -50,7 +53,7 @@ def chime_stream_from_times(dirname, t0, t1, nt_chunk=0, noise_source_align=0):
 
     # Search for end index
     for i in range(start, len(files_with_paths)):
-        if t1 < get_times(files_with_paths[i])[1]:
+        if t1 < get_times(files_with_paths[i],noisy)[1]:
             end = i + 1
             break
     if end == -1:
