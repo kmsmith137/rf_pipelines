@@ -215,7 +215,6 @@ if len(all_runs) > 1:
 import copy
 import time
 import traceback
-import subprocess
 
 extra_attrs = { }
 
@@ -267,51 +266,189 @@ if args.nthreads == 1:
 # Run pipeline (multi-threaded case)
 
 
-def start_asynchronous_pipeline_run(rundir, json_filename_list):
-    assert rundir is not None
-    assert (len(json_filename_list) > 0) and all(f.endswith('.json') for f in json_filename_list)
+import select
+import signal
+import subprocess
 
-    arg_list = ['rfp-run', '-w', rundir, '-v', str(args.verbosity), '-s' ] + json_filename_list
-    cmd_line = ' '.join(arg_list)
-    env = copy.copy(os.environ)
-    env['RF_PIPELINE_ATTRS'] = json.dumps(extra_attrs)
 
-    # FIXME need to capture stdout, stderr
-    print 'Starting:', cmd_line
-    p = subprocess.Popen(arg_list, stdout=open('/dev/null','w'), stderr=open('/dev/null','w'))
-    return (cmd_line, p)
-    
-async_runs = [ ]
+class asynchronous_pipeline_run:
+    def __init__(self, rundir, json_filename_list):
+        assert rundir is not None
+        assert (len(json_filename_list) > 0) and all(f.endswith('.json') for f in json_filename_list)
 
-try:
-    # Main asynchronous run loop.
-    while (len(all_runs) > 0) or (len(async_runs) > 0):
-        asave = async_runs
-        async_runs = [ ]
+        arg_list = ['rfp-run', '-w', rundir, '-v', str(args.verbosity), '-s' ] + json_filename_list
+        env = copy.copy(os.environ)
+        env['RF_PIPELINE_ATTRS'] = json.dumps(extra_attrs)
 
-        # Have any async runs finished?
-        for (c,p) in asave:
-            if p.poll() is None:
-                async_runs.append((c,p))   # still running
-            else:
-                print 'Done:', c
+        (stdout_rfd, stdout_wfd) = os.pipe()
+        (stderr_rfd, stderr_wfd) = os.pipe()
 
-        # Start new async runs
-        while (len(all_runs) > 0) and (len(async_runs) < args.nthreads):
-            (rundir, json_filename_list) = all_runs[0]
-            del all_runs[0]
+        command_line = ' '.join(arg_list)
+        print 'Starting:', command_line
 
-            (c,p) = start_asynchronous_pipeline_run(rundir, json_filename_list)
-            async_runs.append((c,p))
+        child_pid = os.fork()
+
+        if child_pid == 0:
+            # In child process.
+            os.dup2(stdout_wfd, 1)
+            os.dup2(stderr_wfd, 2)
+            os.close(stdout_rfd)
+            os.close(stderr_rfd)
+            os.execvpe(arg_list[0], arg_list, env)
+            raise RuntimeError('os.execvpe() returned?!')
+
+        # In parent process
+        os.close(stdout_wfd)
+        os.close(stderr_wfd)
+
+        self.pid = child_pid
+        self.command_line = command_line
+        self.stdout_fd = stdout_rfd
+        self.stderr_fd = stderr_rfd
+        self.stdout_str = ''
+        self.stderr_str = ''
+
+
+    @staticmethod
+    def _print_indented(label, text):
+        if len(text) == 0:
+            return
+
+        print '   ', label
         
-        # I am a caveman who does not know how to call select() from python,
-        # so I just call poll() in a loop.
-        time.sleep(0.1)
+        for line in text.split('\n'):
+            print '       ', line
 
-except:
-    # If an exception is thrown in the loop above (probably control-C),
-    # kill rfp-run subprocesses.
+
+    def _close(self):
+        os.close(self.stdout_fd)
+        os.close(self.stderr_fd)
+        
+        self.pid = 0
+        self.stdout_fd = -1
+        self.stderr_fd = -1
+
+
+    def read_stdout(self):
+        s = os.read(self.stdout_fd, 4096)
+        self.stdout_str += s
+        return len(s)
+
+
+    def read_stderr(self):
+        s = os.read(self.stderr_fd, 4096)
+        self.stderr_str += s
+        return len(s)
+
+
+    def wait(self):
+        # self.pid is set to zero when the child process dies.
+        assert self.pid > 0
+
+        while self.read_stdout() > 0:
+            pass
+
+        while self.read_stderr() > 0:
+            pass
+
+        (pid, exit_status) = os.waitpid(self.pid, 0)
+        assert pid == self.pid
+
+        self._close()
+
+        status_str = 'Succeeded' if (exit_status == 0) else 'FAILED'
+        print '%s: %s' % (status_str, self.command_line)
+
+        self._print_indented('[stdout]', self.stdout_str)
+        self._print_indented('[stderr]', self.stderr_str)
+        return (exit_status == 0)
+        
+
+    def kill(self):
+        if self.pid <= 0:
+            return
+
+        try:
+            os.kill(self.pid, signal.SIGKILL)
+            self._close()
+            print 'Killed:', self.command_line
+        except:
+            pass   # Swallow exception, since kill() only gets called from exception handler anyway.
+
+
+class thread_pool:
+    def __init__(self, run_list, nthreads):
+        """The 'run_list' argument should be a list of (rundir, json_filename_list) pairs."""
+        
+        self.run_list = [ x for x in run_list ]   # shallow copy
+        self.nthreads = nthreads
+        self.running_threads = [ ]
+
+
+    def __enter__(self):
+        return self
+
+        
+    def _spawn(self):
+        while (len(self.running_threads) < self.nthreads) and (len(self.run_list) > 0):
+            (rundir, json_filename_list) = self.run_list[0]
+            del self.run_list[0]
+
+            t = asynchronous_pipeline_run(rundir, json_filename_list)
+            self.running_threads.append(t)
+
+
+    def _poll(self):
+        if len(self.running_threads) == 0:
+            return
+
+        all_fds = set()
+        read_fds = set()
+        done_fds = set()
+
+        for t in self.running_threads:
+            all_fds.add(t.stdout_fd)
+            all_fds.add(t.stderr_fd)
+            
+        p = select.poll()
+        for fd in all_fds:
+            p.register(fd)
+
+        for (fd, event) in p.poll():
+            if event == select.POLLIN:
+                read_fds.add(fd)
+            elif event == select.POLLHUP:
+                done_fds.add(fd)
+            else:
+                raise RuntimeError('select.poll.poll() returned unrecognized event type')
+
+        unrecognized_fds = read_fds.union(done_fds).difference(all_fds)
+        unrecognized_fds = unrecognized_fds.difference(all_fds)
+
+        if len(unrecognized_fds) > 0:
+            raise RuntimeError('select.poll.poll() returned unrecognized file descriptor')
+
+        for t in self.running_threads:
+            if t.stdout_fd in read_fds:
+                t.read_stdout()
+            if t.stderr_fd in read_fds:
+                t.read_stderr()
+            if (t.stdout_fd in done_fds) or (t.stderr_fd in done_fds):
+                t.wait()
+
+        self.running_threads = [ t for t in self.running_threads if (t.pid > 0) ]
+
     
-    for (c,p) in async_runs:
-        p.kill()
-        print 'Killed:', c
+    def run(self):
+        while (len(self.running_threads) > 0) or (len(self.run_list) > 0):
+            self._spawn()
+            self._poll()
+    
+
+    def __exit__(self, etype, value, tb):
+        for t in self.running_threads:
+            t.kill()
+        
+
+with thread_pool(all_runs, args.nthreads) as p:
+    p.run()
