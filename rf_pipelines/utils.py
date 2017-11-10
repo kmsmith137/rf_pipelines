@@ -615,6 +615,8 @@ class web_viewer_context_manager:
 
     def __exit__(self, etype, value, tb):
         if self.redirect_to_log_files:
+            sys.stdout.flush()
+            sys.stderr.flush()
             os.dup2(self.stdout_save, sys.stdout.fileno())
             os.dup2(self.stderr_save, sys.stderr.fileno())
             os.close(self.stdout_save)
@@ -624,7 +626,8 @@ class web_viewer_context_manager:
                 traceback.print_exception(etype, value, tb, file=self.stderr_log_file)
 
         if self._maybe_rename():
-            print 'rf_pipelines: pipeline json file successfully written to', self.final_dir
+            what = 'json file and log files' if self.redirect_to_log_files else 'json file'
+            print 'rf_pipelines: pipeline %s successfully written to %s' % (what, self.final_dir)
         elif self.redirect_to_log_files:
             print 'rf_pipelines: pipeline json file could not be written, suggest inspecting log files rf_pipeline_std*.txt in the temporary directory', self.tmp_dir
         else:
