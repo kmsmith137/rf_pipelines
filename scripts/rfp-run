@@ -315,8 +315,12 @@ class asynchronous_pipeline_run:
             return
 
         print '   ', label
-        
-        for line in text.split('\n'):
+
+        lines = text.split('\n')
+        if lines[-1] == '':
+            del lines[-1]
+
+        for line in lines:
             print '       ', line
 
 
@@ -383,6 +387,8 @@ class thread_pool:
         self.run_list = [ x for x in run_list ]   # shallow copy
         self.nthreads = nthreads
         self.running_threads = [ ]
+        self.initial_size = len(run_list)
+        self.initial_time = time.time()
         self.num_successful = 0
         self.num_failed = 0
 
@@ -442,23 +448,27 @@ class thread_pool:
                 else:
                     self.num_failed += 1
 
+        n = len(self.running_threads)
         self.running_threads = [ t for t in self.running_threads if (t.pid > 0) ]
+
+        threads_exited = len(self.running_threads) < n
+        runs_remaining = len(self.run_list) + len(self.running_threads)
+
+        if threads_exited and (runs_remaining > 0):
+            plural = '' if (runs_remaining == 1) else 's'
+            elapsed_time = time.time() - self.initial_time
+            print '    [%d run%s remaining, elapsed time %g seconds]' % (runs_remaining, plural, elapsed_time)
 
     
     def run(self):
-        t0 = time.time()
-
         while (len(self.running_threads) > 0) or (len(self.run_list) > 0):
             self._spawn()
             self._poll()
 
-        t1 = time.time()
-
-        print 
-        print 'rfp-run: all done!'
-        print 'rfp-run: number of successful runs:', self.num_successful
-        print 'rfp-run: number of failed runs:', self.num_failed
-        print 'rfp-run: total elapsed time: %g seconds' % (t1-t0)
+        print
+        print 'Number of successful runs:', self.num_successful
+        print 'Number of failed runs:', self.num_failed
+        print 'Total elapsed time: %g seconds' % (time.time() - self.initial_time)
     
 
     def __exit__(self, etype, value, tb):
