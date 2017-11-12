@@ -1,34 +1,73 @@
 #!/usr/bin/env python
-#
-# Note: the environment variable RF_PIPELINE_ATTRS can be used to pass additional pipeline attributes.
-# These will be passed to the _bind() and _start_pipeline() methods of all pipeline_objects, and are
-# also written to the pipeline's json output.
-
 
 import sys
 import argparse
 
-# ArgumentParser subclass, to customize the error message
+
+####################################################################################################
+#
+# Argument parsing, checking
+
+
+# Got a little carried away here, and wrote an argparse.ArgumentParser 
+# subclass, to customize error reporting...
+
 class MyParser(argparse.ArgumentParser):
+    def print_usage(self, file=None):
+        if file is None:
+            file = sys.stdout
+
+        print >>file, 'Usage: rfp-run [-nosh] [-w run_name] [-v verbosity] [-t nthreads] file1.json [file2.json file3.json ...]'
+        print >>file, 'Each json file should contain either a jsonized pipeline_object, or a \"run-list\" of [suffix, json_filename] pairs'
+        print >>file, '    -n: runs the pipeline with no output directory'
+        print >>file, '    -o: show stdout during pipeline run (by default, stdout is suppressed, but stderr is shown)'
+        print >>file, '    -s: throws exception unless single pipeline run (i.e. no run-lists allowed), infrequently used'
+        print >>file, '    -w: runs the pipeline in a directory which is indexed by the web viewer (frb1 only)'
+        print >>file, '    -v: specifies pipeline verbosity (integer, default 2)'
+        print >>file, '    -t: number of threads (default 1, note that multiple threads are only useful if at least one json file is a run-list)'
+        print >>file, '    -h: show longer help message and exit'
+
+
     def error(self, message=None):
-        print >>sys.stderr, 'Usage: rfp-run.py [-nos] [-w run_name] [-v verbosity] [-t nthreads] file1.json [file2.json file3.json ...]'
-        print >>sys.stderr, 'Each json file should contain either a jsonized pipeline_object, or a \"run-list\" of (suffix, pipeline_object_json_filename) pairs'
-        print >>sys.stderr, '    -n: runs the pipeline with no output directory'
-        print >>sys.stderr, '    -o: show stdout during pipeline run (by default, stdout is suppressed, but stderr is shown)'
-        print >>sys.stderr, '    -s: throws exception unless single pipeline run (i.e. no run-lists allowed), infrequently used'
-        print >>sys.stderr, '    -w: runs the pipeline in a directory which is indexed by the web viewer (frb1 only)'
-        print >>sys.stderr, '    -v: specifies pipeline verbosity (integer, default 2)'
-        print >>sys.stderr, '    -t: number of threads (default 1, note that multiple threads are only useful if at least one json file is a run-list)'
+        self.print_usage(sys.stderr)
 
         if message is not None:
             print >>sys.stderr, '\nError:', message
 
         sys.exit(2)
 
+    
+    def print_help(self, file=None):
+        self.print_usage(file)
 
-####################################################################################################
-#
-# Argument parsing, checking
+        print >>file
+        print >>file, "The rfp-run utility runs a pipeline from the command line.  The pipeline is constructed from a sequence of"
+        print >>file, "pipeline_objects which have previously been serialized with jsonize(), and specified on the command line."
+        print >>file
+        print >>file, 'Alternatively, each command-line json file can be a \"run-list\" which points to a list of pipeline_object json files.'
+        print >>file, 'In this case, multiple pipeline runs are performed in batch processing mode.'
+        print >>file
+        print >>file, "A run-list file is just a json file containing a list of [suffix, json_filename] string pairs.  The run-list 'suffix'"
+        print >>file, "is a short string such as 'run1' which is appended to the web viewer run_name, so that we get a unique run_name for"
+        print >>file, "each run.  The run-list 'json_filename' is interpreted relative to the directory containing the run-list (not the"
+        print >>file, "current working directory).  The run-list file format is intended to be minimal enough that run-lists are easy to"
+        print >>file, "make by hand.  There are lots of examples of run-lists in https://github.com/mrafieir/ch_frb_rfi."
+        print >>file
+        print >>file, "If the -w flag is specified, then the run will be viewable in the web viewer after it completes.  Exactly one of the -w,-n"
+        print >>file, "flags must be specified."
+        print >>file
+        print >>file, "If multiple threads are specified with -t NTHREADS, then multiple pipeline runs will be performed in parallel.  This only helps"
+        print >>file, "if run-lists are being used (so that there is more than one pipeline run to perform).  It often makes sense to set NTHREADS equal"
+        print >>file, "to the number of cores in the node."
+        print >>file
+        print >>file, "By default, the pipeline's stdout is not displayed to the screen, whereas stderr is.  Generally speaking, in rf_pipelines, we"
+        print >>file, "try to observe a convention where stderr is used to report warnings and unusual events, and stdout is used to report routine"
+        print >>file, "events.  If the -o flag is specified, then both stdout and stderr will be displayed.  Note that for a web viewer run (-w),"
+        print >>file, "stdout always gets written to a log file, which can be viewed afterwards in the web viewer."
+        print >>file
+        print >>file, "The optional environment variable RF_PIPELINE_ATTRS contains additional pipeline attributes (specified as a json object of"
+        print >>file, "(key,value) pairs, serialized to a single string).  These attributes will be passed to the _bind() and _start_pipeline()"
+        print >>file, "methods of all pipeline_objects, and are also written to the pipeline's json output."
 
 
 parser = MyParser()
@@ -113,7 +152,7 @@ for filename in args.json_filenames:
     j = rf_pipelines.utils.json_read(filename)
     
     if isinstance(j, dict) and j.has_key('class_name'):
-        # This appears to be a jsonized pipeline_object.
+        # Case 1: command-line json file is a pipeline_object.
         # Sanity check: verify that dejsonization works.
 
         rf_pipelines.pipeline_object.from_json(j)
@@ -123,6 +162,8 @@ for filename in args.json_filenames:
     if not is_well_formed_run_list(j):
         print '%s: not a pipeline_object, or a well-formed run-list consisting of (suffix, json_filename) pairs' % filename
         sys.exit(1)
+
+    # Case 2: command-line json file is a run-list.
 
     inner_filenames = [ ]
 
@@ -138,8 +179,11 @@ for filename in args.json_filenames:
 
         j2 = rf_pipelines.utils.json_read(filename2)
 
-        if (not isinstance(j2,dict)) or (not j2.has_key('class_name')):
-            raise RuntimeError("%s: expected pipeline_object (contained in run-list %s)" % (filename2, filename))
+        if is_well_formed_run_list(j2):
+            raise RuntimeError('run-lists cannot contain run-lists (%s contains %s)' % (filename, pre_filename2))
+        elif not isinstance(j2,dict) or not j2.has_key('class_name'):
+            print '%s: not a pipeline_object, or a well-formed run-list consisting of (suffix, json_filename) pairs' % filename2
+            sys.exit(1)
 
         # Sanity check: verify that dejsonization works.
         rf_pipelines.pipeline_object.from_json(j2)
