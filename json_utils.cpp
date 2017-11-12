@@ -28,7 +28,7 @@ void json_write(const string &filename, const Json::Value &j, bool noisy)
     Json::StyledWriter w;
     f << w.write(j);
     
-    if (noisy >= 2)
+    if (noisy)
 	cout << "wrote " << filename << endl;
 }
 
