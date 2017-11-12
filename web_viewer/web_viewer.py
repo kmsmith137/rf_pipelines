@@ -536,8 +536,9 @@ def show_tiles(user, run, zoom, index1, index2):
     display = make_navbar(user, run, zoom)
 
     if not p.plot_parse_success:
-        display += '<p>An error occurred when parsing plot filenames in the json file for this run.'
-        display += '<p>It may be useful to look at <a href="%s">run info</a> for the run.' % url_for('run_info',user=user,run=run)
+        display += '<p>An error occurred when parsing plot filenames in the json file for this run.\n'
+        display += '<p>It may be useful to look at <a href="%s">run info</a> for the run.\n' % url_for('run_info',user=user,run=run)
+        display += "<p>Traceback follows (this is a traceback of the web viewer's parsing of the json file, not the pipeline run):\n"
         display += '<p><pre>%s</pre>' % p.plot_parse_traceback
         return display
         
