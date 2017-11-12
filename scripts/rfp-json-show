@@ -6,9 +6,13 @@ import argparse
 # ArgumentParser subclass, to customize the error message
 class MyParser(argparse.ArgumentParser):
     def error(self, message=None):
-        print >>sys.stderr, 'Usage: rfp-json-show.py [-d DEPTH] file.json [x y ...]'
-        print >>sys.stderr, 'The arguments "x y ..." are either string field names, or integer list indices'
-        print >>sys.stderr, 'The -d flag expands output to specified depth (default 1)'
+        print >>sys.stderr, 'Usage: rfp-json-show [-d DEPTH] file.json [key1 key2 ...]'
+        print >>sys.stderr, '   The -d flag expands output to specified depth (default 1)'
+        print >>sys.stderr
+        print >>sys.stderr, '   The "keys" are applied sequentially to the json object, before printing it.'
+        print >>sys.stderr, '   For example, if file.json contains an Object x whose "f" member is a list, then'
+        print >>sys.stderr, '      rfp-json-show.py file.json f 3'
+        print >>sys.stderr, '   will print x["f"][3] instead of printing x.'
 
         if message is not None:
             print >>sys.stderr, '\nError:', message
