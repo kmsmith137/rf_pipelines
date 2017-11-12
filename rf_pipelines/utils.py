@@ -577,18 +577,21 @@ class Variance_Estimates():
 
 
 ####################################################################################################
+#
+# run_for_web_viewer()
 
 
 class web_viewer_context_manager:
     """Helper class for run_for_web_viewer(): manages I/O redirection to log files, and renaming tmp_dir -> final_dir."""
 
-    def __init__(self, tmp_dir, final_dir, redirect_to_log_files):
+    def __init__(self, tmp_dir, final_dir, show_stdout=False, show_stderr=True):
         assert sys.stdout.fileno() == 1
         assert sys.stderr.fileno() == 2
 
         self.tmp_dir = tmp_dir
         self.final_dir = final_dir
-        self.redirect_to_log_files = redirect_to_log_files
+        self.show_stdout = show_stdout
+        self.show_stderr = show_stderr
 
         if os.path.exists(self.tmp_dir):
             raise RuntimeError("web viewer temporary directory '%s' already exists" % self.tmp_dir)
@@ -597,50 +600,56 @@ class web_viewer_context_manager:
 
         os.makedirs(self.tmp_dir)
 
-        if self.redirect_to_log_files:
-            self.stdout_log_filename = os.path.join(self.tmp_dir, 'rf_pipeline_stdout.txt')
-            self.stderr_log_filename = os.path.join(self.tmp_dir, 'rf_pipeline_stderr.txt')
+        self.stdout_log_filename = os.path.join(self.tmp_dir, 'rf_pipeline_stdout.txt')
+        self.stderr_log_filename = os.path.join(self.tmp_dir, 'rf_pipeline_stderr.txt')
+        
+        if show_stdout:
+            self.stdout_tee = subprocess.Popen(['tee', self.stdout_log_filename], stdin=subprocess.PIPE)
+        if show_stderr:
+            self.stderr_tee = subprocess.Popen(['tee', self.stderr_log_filename], stdin=subprocess.PIPE, stdout=sys.stderr.fileno())
 
-            self.tee_subprocess = subprocess.Popen(['tee', self.stderr_log_filename], stdin=subprocess.PIPE, stdout=sys.stderr.fileno())
-            self.stdout_log_fileobj = open(self.stdout_log_filename, 'w')   # write to stdout logfile directly
-            self.stderr_log_fileobj = self.tee_subprocess.stdin             # write to stderr logfile through tee
+        self.stdout_log_fileobj = self.stdout_tee.stdin if show_stdout else open(self.stdout_log_filename, 'w')
+        self.stderr_log_fileobj = self.stderr_tee.stdin if show_stderr else open(self.stderr_log_filename, 'w')
 
 
     def __enter__(self):
-        if self.redirect_to_log_files:
-            sys.stdout.flush()
-            sys.stderr.flush()
+        sys.stdout.flush()
+        sys.stderr.flush()
+        
+        self.stdout_save = os.dup(sys.stdout.fileno())
+        self.stderr_save = os.dup(sys.stderr.fileno())
+        
+        os.dup2(self.stdout_log_fileobj.fileno(), sys.stdout.fileno())
+        os.dup2(self.stderr_log_fileobj.fileno(), sys.stderr.fileno())
 
-            self.stdout_save = os.dup(sys.stdout.fileno())
-            self.stderr_save = os.dup(sys.stderr.fileno())
-            
-            os.dup2(self.stdout_log_fileobj.fileno(), sys.stdout.fileno())
-            os.dup2(self.stderr_log_fileobj.fileno(), sys.stderr.fileno())
+        return self
 
 
     def __exit__(self, etype, value, tb):
-        if self.redirect_to_log_files:
-            sys.stdout.flush()
-            sys.stderr.flush()
-            os.dup2(self.stdout_save, sys.stdout.fileno())
-            os.dup2(self.stderr_save, sys.stderr.fileno())
-            os.close(self.stdout_save)
-            os.close(self.stderr_save)
+        sys.stdout.flush()
+        sys.stderr.flush()
 
-            self.stdout_log_fileobj.close()
-            self.stderr_log_fileobj.close()
-            self.tee_subprocess.wait()
+        os.dup2(self.stdout_save, sys.stdout.fileno())
+        os.dup2(self.stderr_save, sys.stderr.fileno())
 
-            if etype is not None:
-                self._try_to_append_traceback(self.stderr_log_filename, etype, value, tb)
+        os.close(self.stdout_save)
+        os.close(self.stderr_save)
+
+        self.stdout_log_fileobj.close()
+        self.stderr_log_fileobj.close()
+
+        if self.show_stdout:
+            self.stdout_tee.wait()
+        if self.show_stderr:
+            self.stderr_tee.wait()
+
+        if etype is not None:
+            self._try_to_append_traceback(self.stderr_log_filename, etype, value, tb)
 
         if self._maybe_rename():
-            what = 'json file and log files' if self.redirect_to_log_files else 'json file'
-            print 'rf_pipelines: pipeline %s successfully written to %s' % (what, self.final_dir)
-        elif self.redirect_to_log_files:
-            print 'rf_pipelines: pipeline json file could not be written, suggest inspecting log files rf_pipeline_std*.txt in the temporary directory', self.tmp_dir
+            print 'rf_pipelines: pipeline json/log files successfully written to %s' % self.final_dir
         else:
-            print 'rf_pipelines: pipeline json file could not be written, there may be some useful info in the temporary directory', self.tmp_dir
+            print 'rf_pipelines: pipeline json file could not be written, suggest inspecting log files rf_pipeline_std*.txt in the temporary directory', self.tmp_dir
 
 
     def _try_to_append_traceback(self, filename, etype, value, tb):
@@ -664,7 +673,7 @@ class web_viewer_context_manager:
         return True
     
 
-def run_for_web_viewer(run_name, p, verbosity=2, redirect_to_log_files=False, extra_attrs=None):
+def run_for_web_viewer(run_name, p, verbosity=2, show_stdout=False, show_stderr=True, extra_attrs=None):
     """
     Runs a pipeline, with output directory chosen appropriately for the web viewer
     at frb1.physics.mcgill.ca.
@@ -676,10 +685,11 @@ def run_for_web_viewer(run_name, p, verbosity=2, redirect_to_log_files=False, ex
 
     For the meanings of the 'verbosity' and 'extra_attrs' arguments, see the
     rf_pipelines.pipeline.run() docstring.
-
-    If 'redirect_to_log_files' is True, then stdout/stderr of the running pipeline
-    will be redirected to log files 'rf_pipeline_stdout.txt' and 'rf_pipeline_stderr.txt'
-    in the web viewer directory.
+    
+    While the pipeline is running, stdout/stderr may or may not be suppressed, depending
+    on the value of 'show_stdout' and 'show_stderr' flags.  In any case, stdout/stderr
+    will be written to log files 'rf_pipeline_stdout.txt' and 'rf_pipeline_stderr.txt'
+    in the output director (and can be viewed in the web viewer).
 
     FIXME: what's the best way to generalize this function so that it makes sense
     on machines other than frb1.physics.mcgill.ca?
@@ -696,8 +706,56 @@ def run_for_web_viewer(run_name, p, verbosity=2, redirect_to_log_files=False, ex
 
     print 'rf_pipelines: starting web_viewer run, temp_dir=%s, final_dir=%s' % (temp_dir, final_dir)
 
-    if redirect_to_log_files:
-        print 'rf_pipelines: redirecting output to log files in temp_dir, there will be little or no output while pipeline is running!'
+    if not show_stdout:
+        print 'rf_pipelines: redirecting stdout to log file, there will be little or no output while pipeline is running!'
 
-    with web_viewer_context_manager(temp_dir, final_dir, redirect_to_log_files):
+    with web_viewer_context_manager(temp_dir, final_dir, show_stdout, show_stderr):
         p.run(outdir=temp_dir, clobber=False, verbosity=verbosity, extra_attrs=extra_attrs)
+
+
+####################################################################################################
+
+
+class anonymous_run_context_manager:
+    def __init__(self, show_stdout=False, show_stderr=True):
+        self.show_stdout = show_stdout
+        self.show_stderr = show_stderr
+        self.dev_null = open('/dev/null', 'w')
+
+
+    def __enter__(self):
+        sys.stdout.flush()
+        sys.stderr.flush()
+
+        if not self.show_stdout:
+            self.stdout_save = os.dup(sys.stdout.fileno())
+            os.dup2(self.dev_null.fileno(), sys.stdout.fileno())
+
+        if not self.show_stderr:
+            self.stderr_save = os.dup(sys.stderr.fileno())
+            os.dup2(self.dev_null.fileno(), sys.stderr.fileno())
+
+        return self
+
+
+    def __exit__(self, etype, value, tb):
+        sys.stdout.flush()
+        sys.stderr.flush()
+
+        if not self.show_stdout:
+            os.dup2(self.stdout_save, sys.stdout.fileno())
+            os.close(self.stdout_save)
+
+        if not self.show_stderr:
+            os.dup2(self.stderr_save, sys.stderr.fileno())
+            os.close(self.stderr_save)
+
+
+def run_anonymously(p, verbosity=2, show_stdout=False, show_stderr=True, extra_attrs=None):
+    assert isinstance(p, rf_pipelines_c.pipeline_object)
+
+    if not show_stdout:
+        print 'rf_pipelines: redirecting stdout to log file, there will be little or no output while pipeline is running!'
+
+    with anonymous_run_context_manager(show_stdout, show_stderr):
+        p.run(outdir=None, verbosity=verbosity, extra_attrs=extra_attrs)

@@ -11,10 +11,10 @@ import argparse
 # ArgumentParser subclass, to customize the error message
 class MyParser(argparse.ArgumentParser):
     def error(self, message=None):
-        print >>sys.stderr, 'Usage: rfp-run.py [-ins] [-w run_name] [-v verbosity] [-t nthreads] file1.json [file2.json file3.json ...]'
+        print >>sys.stderr, 'Usage: rfp-run.py [-nos] [-w run_name] [-v verbosity] [-t nthreads] file1.json [file2.json file3.json ...]'
         print >>sys.stderr, 'Each json file should contain either a jsonized pipeline_object, or a \"run-list\" of (suffix, pipeline_object_json_filename) pairs'
-        print >>sys.stderr, '    -i: interactive mode: stdout/stderr are not redirected to log files'
-        print >>sys.stderr, '    -n: runs the pipeline with no output directory (implies -i)'
+        print >>sys.stderr, '    -n: runs the pipeline with no output directory'
+        print >>sys.stderr, '    -o: show stdout during pipeline run (by default, stdout is suppressed, but stderr is shown)'
         print >>sys.stderr, '    -s: throws exception unless single pipeline run (i.e. no run-lists allowed), infrequently used'
         print >>sys.stderr, '    -w: runs the pipeline in a directory which is indexed by the web viewer (frb1 only)'
         print >>sys.stderr, '    -v: specifies pipeline verbosity (integer, default 2)'
@@ -34,8 +34,8 @@ class MyParser(argparse.ArgumentParser):
 parser = MyParser()
 
 parser.add_argument('json_filenames', nargs='*')
-parser.add_argument('-i', action='store_true', help='interactive mode: stdout/stderr are not redirected to log files')
-parser.add_argument('-n', action='store_true', help='runs the pipeline with no output directory (implies -i)')
+parser.add_argument('-n', action='store_true', help='runs the pipeline with no output directory')
+parser.add_argument('-o', action='store_true', help='show stdout during pipeline run (by default, stdout is suppressed, but stderr is shown)')
 parser.add_argument('-s', action='store_true', help='throws exception unless single pipeline run (i.e. no run-lists allowed), infrequently used')
 parser.add_argument('-w', dest='wv_name', help='runs the pipeline in a directory which is indexed by the web viewer (frb1 only)')
 parser.add_argument('-v', dest='verbosity', type=int, default=2, help='pipeline verbosity (default 2)')
@@ -88,6 +88,12 @@ if args.wv_name is not None:
 
 import os
 import json
+import copy
+import time
+import select
+import signal
+import traceback
+import subprocess
 import rf_pipelines
 
 
@@ -151,9 +157,6 @@ for x in toplevel_filenames:
     if total_pipeline_runs > 1000:
         raise RuntimeError('Total number of pipeline runs exceeds 1000, presumably unintentional')
 
-if (total_pipeline_runs > 1) and args.n:
-    raise RuntimeError('Run-lists cannot be specified with -n')
-
 if total_pipeline_runs < args.nthreads:
     args.nthreads = total_pipeline_runs
 
@@ -165,7 +168,7 @@ if total_pipeline_runs < args.nthreads:
 
 def generate_runs(base_rundir, base_filename_list, more_filenames):
     """
-    Recursive helper function to generate (rundir, json_filename_list) pairs, where 'rundir' can be None
+    Recursive helper function to generate (rundir, json_filename_list) pairs, where 'rundir' can be None.
     (but in this case there is only one (rundir, json_filename_list) pair generated).
 
     The 'base_rundir' argument can be either a string or None.
@@ -180,9 +183,6 @@ def generate_runs(base_rundir, base_filename_list, more_filenames):
     f0 = more_filenames[0]   # list of (suffix, json_filename) pairs
     f1 = more_filenames[1:]  # j1 = list of lists of (suffix, json_filename) pairs
 
-    if base_rundir is None:
-        assert len(f0) == 1
-
     for (suffix, f) in f0:
         d = (base_rundir + suffix) if (base_rundir is not None) else None
         for t in generate_runs(d, base_filename_list + [f], f1):
@@ -193,7 +193,7 @@ all_runs = list(generate_runs(args.wv_name, [ ], toplevel_filenames))
 
 assert len(all_runs) == total_pipeline_runs
 
-if len(all_runs) > 1:
+if (total_pipeline_runs > 1) and (not args.n):
     # Check that all rundirs are distinct.  (This catches weird corner cases, for example if
     # one run-list contains suffixes ['a','a_b'], and another run-list contains suffixes ['b_c','c'],
     # then there are two ways to form 'a_b_c'.)
@@ -209,12 +209,8 @@ if len(all_runs) > 1:
 
 ####################################################################################################
 #
-# Run pipeline (single-threaded case)
+# Set up RF_PIPELINE_ATTRS environment variable
 
-
-import copy
-import time
-import traceback
 
 extra_attrs = { }
 
@@ -227,7 +223,15 @@ if args.nthreads > 1:
     extra_attrs['command_line_parent'] = (' '.join(sys.argv))
 
 
-def do_synchronous_pipeline_run(rundir, json_filename_list):
+
+####################################################################################################
+#
+# Run pipeline, case 1: single-run case.
+
+
+if len(all_runs) == 1:
+    (rundir, json_filename_list) = all_runs[0]
+
     p = [ rf_pipelines.utils.json_read(f) for f in json_filename_list ]
     p = [ rf_pipelines.pipeline_object.from_json(j) for j in p ]
     p = rf_pipelines.pipeline(p) if (len(p) > 1) else p[0]
@@ -238,45 +242,29 @@ def do_synchronous_pipeline_run(rundir, json_filename_list):
     extra_attrs2['command_line'] = (' '.join(sys.argv))
 
     if rundir is not None:
-        rf_pipelines.utils.run_for_web_viewer(rundir, p, verbosity=args.verbosity, extra_attrs=extra_attrs2, redirect_to_log_files = not args.i)
+        rf_pipelines.utils.run_for_web_viewer(rundir, p, verbosity=args.verbosity, extra_attrs=extra_attrs2, show_stdout=args.o)
     else:
-        assert args.nflag
-        print 'Running pipeline with no output directory'
-        p.run(outdir=None, verbosity=args.verbosity, extra_attrs=extra_attrs)
+        rf_pipelines.utils.run_anonymously(p, verbosity=args.verbosity, extra_attrs=extra_attrs, show_stdout=args.o)
 
-
-# Single-threaded case
-if args.nthreads == 1:
-    exit_status = 0
-
-    for (rundir, json_filename_list) in all_runs:
-        print 'rfp-run: rundir=%s, json_files=%s' % (rundir, json_filename_list)
-
-        try:
-            do_synchronous_pipeline_run(rundir, json_filename_list)
-        except:
-            traceback.print_exc(file=sys.stderr)
-            exit_status = 1
-            
-    sys.exit(exit_status)
+    sys.exit(0)
 
 
 ####################################################################################################
 #
-# Run pipeline (multi-threaded case)
-
-
-import select
-import signal
-import subprocess
+# Run pipeline, case 2: multi-run case.
+#
+# Each run happens in its own subprocess.
 
 
 class asynchronous_pipeline_run:
     def __init__(self, rundir, json_filename_list):
-        assert rundir is not None
         assert (len(json_filename_list) > 0) and all(f.endswith('.json') for f in json_filename_list)
 
-        arg_list = ['rfp-run', '-w', rundir, '-v', str(args.verbosity), '-s' ] + json_filename_list
+        # Note that 'rundir' can be None.
+        iflag = ['-o'] if args.o else []
+        wflag = ['-w', rundir] if (rundir is not None) else ['-n']
+        arg_list = ['rfp-run', '-v', str(args.verbosity), '-s' ] + iflag + wflag + json_filename_list
+
         env = copy.copy(os.environ)
         env['RF_PIPELINE_ATTRS'] = json.dumps(extra_attrs)
 
@@ -475,6 +463,8 @@ class thread_pool:
         for t in self.running_threads:
             t.kill()
         
+
+print 'Total number of pipeline runs:', len(all_runs)
 
 with thread_pool(all_runs, args.nthreads) as p:
     p.run()
