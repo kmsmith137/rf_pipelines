@@ -13,6 +13,36 @@ rather than systematic documentation.  Fixing this is a high priority!
   - [Current status](#user-content-current-status)
   - [Class hierarchy](#user-content-class-hierarchy)
 
+
+### OVERVIEW
+
+  - Any object of type `rf_pipelines.pipeline_object` can now be serialized to a json file.
+    This is the starting point for running the pipeline with the `rfp-run` utility (see below),
+    timing the pipeline with `rfp-time`, or specifying an RFI transform chain in the real-time
+    L1 server ([https://github.com/kmsmith137/ch_frb_l1](https://github.com/kmsmith137/ch_frb_l1)).
+
+    To write an rf_pipelines json file, the syntax is
+    ```
+    j = p.jsonize()    # where p is an object of type rf_pipelines.pipeline_object
+    rf_pipelines.json_write(filename, j)
+    ```
+    To read an rf_pipelines json file, the syntax is
+    ```
+    j = rf_pipelines.json_read(filename)
+    p = rf_pipelines.pipeline_object.from_json(j)   # returns an object of type rf_pipelines.pipeline_object
+    ```
+
+<a name="command-line-utilities"></a>
+### COMMAND-LINE UTILITIES
+
+- rfp-run.  See ch_frb_rfi for lots of examples!
+
+- rfp-time.  See ch_frb_rfi for lots of examples!
+
+- rfp-analyze
+
+- rfp-json-show
+
 <a name="current-status"></a>
 ### CURRENT STATUS
 
