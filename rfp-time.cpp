@@ -12,7 +12,6 @@ static void usage(const char *msg = nullptr)
 {
     cerr << "Usage: rfp-time [-rP] [-t NTHREADS] [-j JSON_OUTFILE] file.json [file2.json file3.json ...]\n"
 	 << "   -t: change number of worker threads (default 1)\n"
-	 << "   -r: enable recursive timing of all transforms in pipeline\n"
 	 << "   -P: don't pin threads to cores (default is to pin threads, this should be done on an otherwise idle machine)\n"
 	 << "   -j: write json output from thread 0 to specified file (must not already exist)\n";
 
@@ -35,7 +34,6 @@ static void usage(const string &msg)
 
 
 struct global_context {
-    bool rflag = false;   // -r: enable recursive timing of all transforms in pipeline
     bool tflag = false;   // -t: change number of worker threads (default 1)
     bool Pflag = false;   // -P: don't pin threads to cores (default is to pin threads)
     int nthreads = 1;
@@ -112,9 +110,7 @@ global_context::global_context(int argc, char **argv)
 		usage();
 
 	    for (int j = 1; j < arglen; j++) {
-		if (arg[j] == 'r')
-		    this->rflag = true;
-		else if (arg[j] == 'P')
+		if (arg[j] == 'P')
 		    this->Pflag = true;
 		else
 		    usage("unrecognized flag '-" + string(1,arg[j]) + "'");
@@ -296,6 +292,9 @@ static void print_timing(const global_context &c)
     timing_dict_t d;
     auto j = _get(c.output_json, "pipeline");
 
+    ssize_t nsamples_fully_processed = ssize_t_from_json(c.output_json[0], "nsamples_fully_processed");
+    ssize_t nsamples_partially_processed = ssize_t_from_json(c.output_json[0], "nsamples_partially_processed");
+
     cout << "Time spent in each transform:\n";
     for (int i = 0; i < c.ninputs; i++)
 	print_timing(d, _get(j,i), c.input_filenames[i], 1);
@@ -314,7 +313,10 @@ static void print_timing(const global_context &c)
 	cout << "    " << s << ": " << d[s] << " sec\n";
     }
 
-    cout << "\nGrand total: " << _get_cpu_time(c.output_json) << " sec\n";
+    cout << "\n"
+	 << "Grand total: " << _get_cpu_time(c.output_json) << " sec\n"
+	 << "Number of samples fully processed: " << nsamples_fully_processed << "\n"
+	 << "Number of samples partially processed: " << nsamples_partially_processed << "\n";
 }
 
 
@@ -328,6 +330,19 @@ int main(int argc, char **argv)
     // Construct and bind throwaway pipeline, so that some error checking
     // happens before spawning worker threads.
     c.make_pipeline();
+
+    cout << "Command line:";
+    for (int i = 0; i < argc; i++)
+	cout << " " << argv[i];
+    cout << "\n";
+
+    if (c.nthreads > 1) {
+	if (!c.Pflag)
+	    cout << "Each timing thread will be pinned to its own core (can be disabled with rfp-time -P)\n";
+	cout << "Spawning " << c.nthreads << " timing threads\n";
+    }
+
+    cout << endl;
 
     vector<std::thread> threads;
 
