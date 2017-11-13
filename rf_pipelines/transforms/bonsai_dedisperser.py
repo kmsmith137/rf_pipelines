@@ -6,6 +6,12 @@ from rf_pipelines.utils import write_png, triggers_png, upsample
 from rf_pipelines.L1b import L1Grouper
 
 
+def reldist(x, y):
+    num = abs(x-y)
+    den = abs(x) + abs(y) + 0.0
+    return (num/den) if (den > 0.0) else 0.0
+
+
 class bonsai_dedisperser(wi_transform):
     """
     Returns a "transform" which doesn't actually modify the data, it just runs the bonsai dedisperser.
@@ -155,9 +161,25 @@ class bonsai_dedisperser(wi_transform):
 
 
     def _bind_transform(self, json_data):
+        for key in [ 'freq_lo_MHz', 'freq_hi_MHz', 'dt_sample' ]:
+            if not json_data.has_key(key):
+                raise RuntimeError("bonsai_dedisperser: expected json_attrs to contain member '%s'" % key)
+
         if self.nfreq != self.dedisperser.nfreq:
             raise RuntimeError("rf_pipelines: number of frequencies in stream (nfreq=%d) does not match bonsai config file '%s' (nfreq=%d)" 
                                % (self.nfreq, self.config_filename, self.dedisperser.nfreq))
+
+        if reldist(json_data['freq_lo_MHz'], self.dedisperser.freq_lo_MHz) > 1.0e-4:
+            raise RuntimeError("rf_pipelines: value of 'freq_lo_MHz' in stream (%s) does not match bonsai config file '%s' (%s)" 
+                               % (json_data['freq_lo_MHz'], self.config_filename, self.dedisperser.freq_lo_MHz))
+
+        if reldist(json_data['freq_hi_MHz'], self.dedisperser.freq_hi_MHz) > 1.0e-4:
+            raise RuntimeError("rf_pipelines: value of 'freq_hi_MHz' in stream (%s) does not match bonsai config file '%s' (%s)" 
+                               % (json_data['freq_hi_MHz'], self.config_filename, self.dedisperser.freq_hi_MHz))
+
+        if reldist(json_data['dt_sample'], self.dedisperser.dt_sample) > 1.0e-4:
+            raise RuntimeError("rf_pipelines: value of 'dt_sample' in stream (%s) does not match bonsai config file '%s' (%s)" 
+                               % (json_data['dt_sample'], self.config_filename, self.dedisperser.dt_sample))
 
 
     def _allocate(self):
