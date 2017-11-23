@@ -59,8 +59,8 @@ bonsai_dedisperser::bonsai_dedisperser(const shared_ptr<bonsai::dedisperser> &dp
 
 void bonsai_dedisperser::_allocate()
 {
-    if (this->dedisperser->state == bonsai::dedisperser::DEALLOCATED)
-	this->dedisperser->allocate();
+    // If dedisperser is already allocated, this no-ops.
+    this->dedisperser->allocate();
 }
 
 
@@ -123,6 +123,7 @@ void bonsai_dedisperser::_end_pipeline(Json::Value &json_output)
 
 void bonsai_dedisperser::_deallocate()
 {
+    // If dedisperser is already deallocated, this no-ops.
     this->dedisperser->deallocate();
 }
 
