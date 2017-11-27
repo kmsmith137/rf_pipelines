@@ -1,3 +1,7 @@
+- Version 17:
+
+     - Very minor changes, needed for consistency with bonsai v12
+
 - Version 16:
      
      - In v16, the low-level logic in rf_pipelines was largely rewritten!  The
