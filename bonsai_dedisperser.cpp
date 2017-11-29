@@ -109,6 +109,10 @@ void bonsai_dedisperser::_process_chunk(float *intensity, ssize_t istride, float
 
 void bonsai_dedisperser::_start_pipeline(Json::Value &json_attrs)
 {
+    // Pass json_attrs to all bonsai::trigger_processors, by serializing to a string
+    // and using bonsai's "opaque_context" string.  If a trigger_processor wants to
+    // use the attributes, it will need to deserialize the string to json.
+
     string s = json_stringify(json_attrs);
     dedisperser->set_opaque_context(s);
 }
