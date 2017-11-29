@@ -38,6 +38,7 @@ struct bonsai_dedisperser : public wi_transform {
     virtual void _bind_transform(Json::Value &json_attrs) override;
     virtual void _allocate() override;
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual void _start_pipeline(Json::Value &json_attrs) override;
     virtual void _end_pipeline(Json::Value &json_output) override;
     virtual void _deallocate() override;
     
@@ -103,6 +104,13 @@ void bonsai_dedisperser::_process_chunk(float *intensity, ssize_t istride, float
 {
     // Note: rf_pipelines and bonsai use the same frequency channel ordering (highest-to-lowest), so we can pass the arrays and stride "as is"
     dedisperser->run(intensity, istride, weights, wstride);
+}
+
+
+void bonsai_dedisperser::_start_pipeline(Json::Value &json_attrs)
+{
+    string s = json_stringify(json_attrs);
+    dedisperser->set_opaque_context(s);
 }
 
 
