@@ -18,6 +18,13 @@ namespace rf_pipelines {
 #endif
 
 
+string json_stringify(const Json::Value &j)
+{
+    Json::StyledWriter w;
+    return w.write(j);
+}
+
+
 void json_write(const string &filename, const Json::Value &j, bool noisy)
 {
     ofstream f(filename);
@@ -25,8 +32,7 @@ void json_write(const string &filename, const Json::Value &j, bool noisy)
     if (f.fail())
 	throw runtime_error(filename + ": couldn't open file for writing");
     
-    Json::StyledWriter w;
-    f << w.write(j);
+    f << json_stringify(j);
     
     if (noisy)
 	cout << "wrote " << filename << endl;
