@@ -1,3 +1,7 @@
+- Version 18:
+
+     - Very minor changes, needed for consistency with bonsai v13
+
 - Version 17:
 
      - Very minor changes, needed for consistency with bonsai v12
