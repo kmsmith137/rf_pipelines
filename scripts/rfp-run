@@ -91,7 +91,7 @@ if args.n:
 if args.wv_name is not None:
     ocount += 1
 if args.W:
-    ocout += 1
+    ocount += 1
 
 if len(sys.argv) == 1:
     parser.error()
@@ -195,7 +195,7 @@ for filename in args.json_filenames:
 
         # Sanity check: verify that dejsonization works.
         rf_pipelines.pipeline_object.from_json(j2)
-        inner_filenames.append(('_%s' % suffix, filename2))
+        inner_filenames.append(('%s' % suffix, filename2))
 
     toplevel_filenames.append(inner_filenames)
 
@@ -257,7 +257,8 @@ def generate_runs(base_rundir, base_filename_list, more_filenames):
             yield t
 
 
-all_runs = list(generate_runs(args.wv_name, [ ], toplevel_filenames))
+base_rundir = '' if args.W else args.wv_name
+all_runs = list(generate_runs(base_rundir, [ ], toplevel_filenames))
 
 assert len(all_runs) == total_pipeline_runs
 assert all((rd is None) or (len(rd) > 0) for (rd,f) in all_runs)
