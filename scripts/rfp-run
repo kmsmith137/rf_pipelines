@@ -17,12 +17,13 @@ class MyParser(argparse.ArgumentParser):
         if file is None:
             file = sys.stdout
 
-        print >>file, 'Usage: rfp-run [-nosh] [-w run_name] [-v verbosity] [-t nthreads] file1.json [file2.json file3.json ...]'
+        print >>file, 'Usage: rfp-run [-Wnosh] [-w run_name] [-v verbosity] [-t nthreads] file1.json [file2.json file3.json ...]'
         print >>file, 'Each json file should contain either a jsonized pipeline_object, or a \"run-list\" of [suffix, json_filename] pairs'
         print >>file, '    -n: runs the pipeline with no output directory'
         print >>file, '    -o: show stdout during pipeline run (by default, stdout is suppressed, but stderr is shown)'
         print >>file, '    -s: throws exception unless single pipeline run (i.e. no run-lists allowed), infrequently used'
-        print >>file, '    -w: runs the pipeline in a directory which is indexed by the web viewer (frb1 only)'
+        print >>file, '    -w: runs the pipeline in a directory which is indexed by the web viewer, with explicitly specified run_name'
+        print >>file, '    -W: runs the pipeline in a directory which is indexed by the web viewer (run-list only, run_names will be obtained from run-list)'
         print >>file, '    -v: specifies pipeline verbosity (integer, default 2)'
         print >>file, '    -t: number of threads (default 1, note that multiple threads are only useful if at least one json file is a run-list)'
         print >>file, '    -h: show longer help message and exit'
@@ -53,8 +54,8 @@ class MyParser(argparse.ArgumentParser):
         print >>file, "current working directory).  The run-list file format is intended to be minimal enough that run-lists are easy to"
         print >>file, "make by hand.  There are lots of examples of run-lists in https://github.com/mrafieir/ch_frb_rfi."
         print >>file
-        print >>file, "If the -w flag is specified, then the run will be viewable in the web viewer after it completes.  Exactly one of the -w,-n"
-        print >>file, "flags must be specified."
+        print >>file, "If the -w or -W flag is specified, then the run will be viewable in the web viewer after it completes."
+        print >>file, "Exactly one of the -w,-n flags must be specified."
         print >>file
         print >>file, "If multiple threads are specified with -t NTHREADS, then multiple pipeline runs will be performed in parallel.  This only helps"
         print >>file, "if run-lists are being used (so that there is more than one pipeline run to perform).  It often makes sense to set NTHREADS equal"
@@ -76,9 +77,11 @@ parser.add_argument('json_filenames', nargs='*')
 parser.add_argument('-n', action='store_true', help='runs the pipeline with no output directory')
 parser.add_argument('-o', action='store_true', help='show stdout during pipeline run (by default, stdout is suppressed, but stderr is shown)')
 parser.add_argument('-s', action='store_true', help='throws exception unless single pipeline run (i.e. no run-lists allowed), infrequently used')
-parser.add_argument('-w', dest='wv_name', help='runs the pipeline in a directory which is indexed by the web viewer (frb1 only)')
+parser.add_argument('-w', dest='wv_name', help='runs the pipeline in a directory which is indexed by the web viewer, with explicitly specified run_name')
 parser.add_argument('-v', dest='verbosity', type=int, default=2, help='pipeline verbosity (default 2)')
 parser.add_argument('-t', dest='nthreads', type=int, default=1, help='number of threads (default 1, note that multiple threads are only useful if at least one json file is a run-list)')
+parser.add_argument('-W', action='store_true', help='runs the pipeline in a directory which is indexed by the web viewer (run-list only, run_names will be obtained from run-list)')
+
 
 args = parser.parse_args()
 
@@ -87,11 +90,13 @@ if args.n:
     ocount += 1
 if args.wv_name is not None:
     ocount += 1
+if args.W:
+    ocout += 1
 
 if len(sys.argv) == 1:
     parser.error()
 if ocount != 1:
-    parser.error('exactly one of the flags -n,-w must be specified')
+    parser.error('exactly one of the flags -n,-w,-W must be specified')
 if len(args.json_filenames) == 0:
     parser.error('at least one json filename must be specified')
 if args.nthreads < 1:
@@ -104,7 +109,7 @@ for j in args.json_filenames:
         parser.error("filename '%s' does not end in .json, currently treated as an error" % j)
 
 if args.wv_name is not None:
-    if args.wv_name.startswith('_') or args.wv_name.endswith('.json'):
+    if args.wv_name.startswith('_') or args.wv_name.endswith('.json') or (len(args.wv_name) == 0):
         parser.error("invalid web viewer run name '%s" % args.wv_name)
     for s in args.wv_name:
         if s.isspace() or (s == '/'):
@@ -147,6 +152,8 @@ def is_well_formed_run_list(j):
 
 
 toplevel_filenames = [ ]
+have_runlists = False
+
 
 for filename in args.json_filenames:
     j = rf_pipelines.utils.json_read(filename)
@@ -166,6 +173,7 @@ for filename in args.json_filenames:
     # Case 2: command-line json file is a run-list.
 
     inner_filenames = [ ]
+    have_runlists = True
 
     for (suffix, pre_filename2) in j:
         filename2 = os.path.join(os.path.dirname(filename), pre_filename2)
@@ -192,6 +200,9 @@ for filename in args.json_filenames:
     toplevel_filenames.append(inner_filenames)
 
 
+if args.W and not have_runlists:
+    raise RuntimeError('if the -W flag is specified, at least one json file must contain a run-list')
+
 total_pipeline_runs = 1
 
 for x in toplevel_filenames:
@@ -215,7 +226,11 @@ def generate_runs(base_rundir, base_filename_list, more_filenames):
     Recursive helper function to generate (rundir, json_filename_list) pairs, where 'rundir' can be None.
     (but in this case there is only one (rundir, json_filename_list) pair generated).
 
-    The 'base_rundir' argument can be either a string or None.
+    The 'base_rundir' argument can be either:
+      - None: no rundir allowed (happens iff -n flag was specified)
+      - Empty string: no rundir defined yet (happens iff -W flag was specified, and runlist has not been processed yet)
+      - Nonempty string: rundir is defined
+
     The 'base_filename_list' argument should be a list of json filenames, containing pipeline_objects (not run-lists)
     The 'more_filenames' argument has the same format as 'toplevel_filenames': a list of lists of (suffix, json_filename) pairs
     """
@@ -228,7 +243,16 @@ def generate_runs(base_rundir, base_filename_list, more_filenames):
     f1 = more_filenames[1:]  # j1 = list of lists of (suffix, json_filename) pairs
 
     for (suffix, f) in f0:
-        d = (base_rundir + suffix) if (base_rundir is not None) else None
+        # d = new base_rundir, formed from base_rundir and suffix.
+        if base_rundir is None:
+            d = None
+        elif len(suffix) == 0:
+            d = base_rundir
+        elif len(base_rundir) == 0:
+            d = suffix
+        else:
+            d = base_rundir + '_' + suffix
+
         for t in generate_runs(d, base_filename_list + [f], f1):
             yield t
 
@@ -236,6 +260,7 @@ def generate_runs(base_rundir, base_filename_list, more_filenames):
 all_runs = list(generate_runs(args.wv_name, [ ], toplevel_filenames))
 
 assert len(all_runs) == total_pipeline_runs
+assert all((rd is None) or (len(rd) > 0) for (rd,f) in all_runs)
 
 if (total_pipeline_runs > 1) and (not args.n):
     # Check that all rundirs are distinct.  (This catches weird corner cases, for example if
