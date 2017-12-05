@@ -1,0 +1,27 @@
+{
+   "nsamples" : 65536,
+   "ringbuf_stride" : 261120,
+   "t0" : 0,
+   "t1" : 65.536000000000001,
+   "transforms" : [
+      {
+         "cpu_time" : 4.9999999999999996e-06,
+         "name" : "exception_monitor"
+      },
+      {
+         "cpu_time" : 0.024498000000000009,
+         "name" : "frb_injector_transform"
+      },
+      {
+         "cpu_time" : 13.754401999999995,
+         "frb_global_max_trigger" : 29.65977668762207,
+         "frb_global_max_trigger_dm" : 10.284083340283127,
+         "frb_global_max_trigger_tfinal" : 35.256,
+         "name" : "bonsai_dedisperser('bonsai_config.txt')"
+      },
+      {
+         "cpu_time" : 18.139493000000002,
+         "name" : "variance_estimator(v1_chunk=128, v2_chunk=64, nt_chunk=65536)"
+      }
+   ]
+}

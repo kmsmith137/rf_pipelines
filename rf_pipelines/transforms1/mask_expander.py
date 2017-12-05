@@ -48,7 +48,7 @@ class mask_expander(rf_pipelines.py_wi_transform):
         assert axis in (None, 0, 1), "axis must be None (planar; freq and time), 0 (along freq; constant time), or 1 (along time; constant freq)."
 
         name = 'mask_expander(thr=%f, axis=%s, nt_chunk=%d)' % (thr, axis, nt_chunk)
-        rf_pipelines.py_wi_transform.__init__(self, name)
+        rf_pipelines.py_wi_transform.__init__(name)
 
         self.thr = thr
         self.axis = axis

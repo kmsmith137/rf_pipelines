@@ -1,0 +1,47 @@
+# Here is an example bonsai config file.
+#
+# Reminder: the utility program 'bonsai-show-config' will validate a config file,
+# and show useful information, such as the maximum DM and pulse width of the seach.
+#
+# Reminder: for systematic documentation of the config parameters, see bonsai/MANUAL.md.
+
+
+# ------------------------------  input parameters  ------------------------------
+
+# Number of frequency channels
+nfreq = 1024
+
+# Frequency band
+freq_lo_MHz = 400.0
+freq_hi_MHz = 800.0
+
+# Sample duration in seconds
+dt_sample = 1.0e-3
+
+
+# ------------------------------  dedisperser parameters  ------------------------------
+
+
+# Bonsai dedispersion is incremental: the input data is passed to the dedisperser in "chunks",
+# and the result of the dedispersion for the chunk is available immediately.  
+#
+# The 'nt_chunk' parameter defines the number of time samples in a chunk.  
+# Each chunk of input data is a 2D array of shape (nfreq, nt_chunk).
+
+nt_chunk = 1024
+
+
+# Now we need to define one or more 'trees' which comprise the dedipserser.
+# This collection of trees has been constructed to give a fairly optimal dedispersion
+# to max DM 1680.  See bonsai/MANUAL.md for more discussion.
+
+ntrees = 5
+nups = [ 2, 1, 1, 1, 1 ]
+nds = [ 1, 1, 2, 4, 8 ]
+tree_size = 4096
+
+# These are the coarse-graining factors, used when constructing coarse-grained triggers
+# from fine-grained triggers (see bonsai/MANUAL.md for explanation)
+
+dm_coarse_graining_factor = 16
+time_coarse_graining_factor = 16

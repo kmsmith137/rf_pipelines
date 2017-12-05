@@ -1,0 +1,108 @@
+{
+   "nsamples" : 66560,
+   "ringbuf_stride" : 7152,
+   "t0" : 2100.5074431999997,
+   "t1" : 2187.7489663999877,
+   "transforms" : [
+      {
+         "name" : "exception_monitor",
+         "time" : 0.00010999999999999987
+      },
+      {
+         "name" : "plotter_transform",
+         "plots" : [
+            {
+               "files" : [
+                  [
+                     {
+                        "filename" : "raw_chime_zoom0_0.0.png",
+                        "it0" : 0,
+                        "nx" : 1200
+                     },
+                     {
+                        "filename" : "raw_chime_zoom0_1.0.png",
+                        "it0" : 19200,
+                        "nx" : 1200
+                     },
+                     {
+                        "filename" : "raw_chime_zoom0_2.0.png",
+                        "it0" : 38400,
+                        "nx" : 1200
+                     },
+                     {
+                        "filename" : "raw_chime_zoom0_3.0.png",
+                        "it0" : 57600,
+                        "nx" : 1200
+                     }
+                  ]
+               ],
+               "it0" : 0,
+               "it1" : 76800,
+               "name" : "waterfall",
+               "nt_per_pix" : 16,
+               "ny" : 512
+            }
+         ],
+         "time" : 1.1729780000000005
+      },
+      {
+         "name" : "badchannel_mask(/data/pathfinder/rfi_masks/rfi_20160705.dat)",
+         "time" : 0.015707000000000006
+      },
+      {
+         "name" : "polynomial_detrender_cpp(nt_chunk=1024, axis=1, polydeg=4, epsilon=0.01)",
+         "time" : 0.159497
+      },
+      {
+         "name" : "plotter_transform",
+         "plots" : [
+            {
+               "files" : [
+                  [
+                     {
+                        "filename" : "detrended_chime_zoom0_0.0.png",
+                        "it0" : 0,
+                        "nx" : 1200
+                     },
+                     {
+                        "filename" : "detrended_chime_zoom0_1.0.png",
+                        "it0" : 19200,
+                        "nx" : 1200
+                     },
+                     {
+                        "filename" : "detrended_chime_zoom0_2.0.png",
+                        "it0" : 38400,
+                        "nx" : 1200
+                     },
+                     {
+                        "filename" : "detrended_chime_zoom0_3.0.png",
+                        "it0" : 57600,
+                        "nx" : 1200
+                     }
+                  ]
+               ],
+               "it0" : 0,
+               "it1" : 76800,
+               "name" : "waterfall",
+               "nt_per_pix" : 16,
+               "ny" : 512
+            }
+         ],
+         "time" : 1.0912150000000005
+      },
+      {
+         "frb_global_max_trigger" : 0.1827189177274704,
+         "frb_global_max_trigger_dm" : 0.26959107431551799,
+         "frb_global_max_trigger_tfinal" : 53.708062720000001,
+         "max_dm" : [ 137.99693116525577, 275.99386233051155, 551.98772466102309 ],
+         "name" : "bonsai_dedisperser(bonsai_config.hdf5)",
+         "time" : 5.8563789999999987,
+         "trigger_files" : [
+            "./triggers_0.hdf5",
+            "./triggers_1.hdf5",
+            "./triggers_2.hdf5",
+            "./triggers_3.hdf5"
+         ]
+      }
+   ]
+}

@@ -51,7 +51,7 @@ class variance_estimator(rf_pipelines.py_wi_transform):
     def process_chunk(self, t0, t1, intensity, weights, pp_intensity, pp_weights):
         print intensity.shape
         I = np.flipud( intensity )
-        D = FDMT.FDMT(I, 400, 800, 8*1024, 'int64')
+        D = FDMT.FDMT(I, 400, 800, 1024, 'int64')
         print cart.argmaxnd(D)
         deltat = cart.argmaxnd(D)[0]
         time = cart.argmaxnd(D)[1]

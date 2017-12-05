@@ -62,6 +62,7 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/bb_dedisperser.py \
 	rf_pipelines/transforms/bonsai_dedisperser.py \
 	rf_pipelines/transforms/frb_injector_transform.py \
+	rf_pipelines/transforms/fdmt_transform.py \
 	rf_pipelines/transforms/plotter_transform.py \
 	rf_pipelines/transforms/badchannel_mask.py \
 	rf_pipelines/transforms/polynomial_detrender.py \
@@ -84,7 +85,7 @@ TESTBINFILES=run-unit-tests \
 CLEANDIRS=. site rf_pipelines rf_pipelines/streams rf_pipelines/transforms \
 	examples/example1_toy examples/example2_gbncc examples/example3_chime
 
-LIBS=-ljsoncpp
+LIBS=-ljsoncpp -ldedisp
 
 
 ####################################################################################################
@@ -165,4 +166,3 @@ time-clippers: time-clippers.cpp $(INCFILES) $(KERNEL_INCFILES) librf_pipelines.
 
 time-detrenders: time-detrenders.cpp $(INCFILES) $(KERNEL_INCFILES) librf_pipelines.so
 	$(CPP) $(CPP_LFLAGS) -o $@ $< -lrf_pipelines $(LIBS)
-
