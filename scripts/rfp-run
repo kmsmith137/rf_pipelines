@@ -55,7 +55,9 @@ class MyParser(argparse.ArgumentParser):
         print >>file, "make by hand.  There are lots of examples of run-lists in https://github.com/mrafieir/ch_frb_rfi."
         print >>file
         print >>file, "If the -w or -W flag is specified, then the run will be viewable in the web viewer after it completes."
-        print >>file, "Exactly one of the -w,-n flags must be specified."
+        print >>file, "The -W flag is recommended when processing 'run-lists', and will construct web viewer names from the run-list data."
+        print >>file, "The -w flag is similar but prepends its <run_name> argument to the web viewer name, and is required if there are no run-lists."
+        print >>file, "Exactly one of the -w,-W,-n flags must be specified."
         print >>file
         print >>file, "If multiple threads are specified with -t NTHREADS, then multiple pipeline runs will be performed in parallel.  This only helps"
         print >>file, "if run-lists are being used (so that there is more than one pipeline run to perform).  It often makes sense to set NTHREADS equal"

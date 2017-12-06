@@ -178,12 +178,13 @@ This will be expanded into more complete documentation later!
 
 - **rfp-run:**  Runs a pipeline from the command line.  Can run in "batch mode", and use multiple cores in parallel.
   ```
-  Usage: rfp-run [-nosh] [-w run_name] [-v verbosity] [-t nthreads] file1.json [file2.json file3.json ...]
+  Usage: rfp-run [-Wnosh] [-w run_name] [-v verbosity] [-t nthreads] file1.json [file2.json file3.json ...]
   Each json file should contain either a jsonized pipeline_object, or a "run-list" of [suffix, json_filename] pairs
       -n: runs the pipeline with no output directory
       -o: show stdout during pipeline run (by default, stdout is suppressed, but stderr is shown)
       -s: throws exception unless single pipeline run (i.e. no run-lists allowed), infrequently used
-      -w: runs the pipeline in a directory which is indexed by the web viewer (frb1 only)
+      -w: runs the pipeline in a directory which is indexed by the web viewer, with explicitly specified run_name
+      -W: runs the pipeline in a directory which is indexed by the web viewer (run-list only, run_names will be obtained from run-list)
       -v: specifies pipeline verbosity (integer, default 2)
       -t: number of threads (default 1, note that multiple threads are only useful if at least one json file is a run-list)
       -h: show longer help message and exit
@@ -200,8 +201,10 @@ This will be expanded into more complete documentation later!
   current working directory).  The run-list file format is intended to be minimal enough that run-lists are easy to
   make by hand.  There are lots of examples of run-lists in [https://github.com/mrafieir/ch_frb_rfi](https://github.com/mrafieir/ch_frb_rfi).
 
-  If the -w flag is specified, then the run will be viewable in the web viewer after it completes.  Exactly one of the -w,-n
-  flags must be specified.
+  If the -w or -W flag is specified, then the run will be viewable in the web viewer after it completes.
+  The -W flag is recommended when processing 'run-lists', and will construct web viewer names from the run-list data.
+  The -w flag is similar but prepends its <run_name> argument to the web viewer name, and is required if there are no run-lists.
+  Exactly one of the -w,-W,-n flags must be specified.
 
   If multiple threads are specified with -t NTHREADS, then multiple pipeline runs will be performed in parallel.  This only helps
   if run-lists are being used (so that there is more than one pipeline run to perform).  It often makes sense to set NTHREADS equal
