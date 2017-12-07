@@ -1548,7 +1548,7 @@ static void wrap_kernels(extension_module &m)
 
 // -------------------------------------------------------------------------------------------------
 //
-// wrap_bonsai().
+// Dedispersers.
 
 
 static void wrap_bonsai(extension_module &m)
@@ -1576,6 +1576,28 @@ static void wrap_bonsai(extension_module &m)
 }
 
 
+static void wrap_bb_dedisperser(extension_module &m)
+{
+    string doc_bb = ("bb_dedisperser(dm_start, dm_end, dm_tol, pulse_width_ms, nt_in, verbosity=1)");
+
+    std::function<shared_ptr<pipeline_object>(double, double, double, double, ssize_t, int)>
+	f_bb = [](double dm_start, double dm_end, double dm_tol, double pulse_width_ms, ssize_t nt_in, int verbosity) -> shared_ptr<pipeline_object>
+	{
+	    bb_dedisperser_initializer ini_params;
+	    ini_params.dm_start = dm_start;
+	    ini_params.dm_end = dm_end;
+	    ini_params.dm_tol = dm_tol;
+	    ini_params.pulse_width_ms = pulse_width_ms;
+	    ini_params.nt_in = nt_in;
+	    ini_params.verbosity = verbosity;
+
+	    return make_bb_dedisperser(ini_params);
+	};
+
+    m.add_function("bb_dedisperser", doc_bb, wrap_func(f_bb, "dm_start", "dm_end", "dm_tol", "pulse_width_ms", "nt_in", kwarg("verbosity",1)));
+}
+
+
 // -------------------------------------------------------------------------------------------------
 
 
@@ -1600,7 +1622,10 @@ PyMODINIT_FUNC initrf_pipelines_c(void)
     wrap_detrenders(m);
     wrap_clippers(m);
     wrap_kernels(m);
+
+    // Dedispersers
     wrap_bonsai(m);
+    wrap_bb_dedisperser(m);
 
     m.finalize();
 }
