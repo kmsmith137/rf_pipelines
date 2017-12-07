@@ -1,5 +1,12 @@
+// FIXME need to assert somehow that total stream length is a multiple of nt_chunk!
+// OK for now since we only use the bb_dedisperser through the frb_olympics, which
+// has its own mechanism for placing this assert.  However it exposes a general
+// limitation of rf_pipelines!
+//
+// Artificial limitation: hardcoded quantization parameters, data must have (mean,rms) ~ (0,1).
+
 #include "rf_pipelines_internals.hpp"
-#include "dedisp.h"
+#include <dedisp.h>
 
 using namespace std;
 
@@ -12,8 +19,15 @@ namespace rf_pipelines {
 // to the rf_pipelines API.  It does this by subclassing rf_pipelines::wi_transform,
 // and defining the approporiate virtual functions.
 
+
+static string dedisp_errmsg(dedisp_error error)
+{
+    return dedisp_get_error_string(error);    // (const char *) -> std::string
+}
+
+
 /* byte2quant is a utility function which coverts input to unsigned range */
-dedisp_float tounsigned(dedisp_float f)
+inline dedisp_float tounsigned(dedisp_float f)
 {
     dedisp_float v = f + 127.5f;
     dedisp_float r = v;
@@ -29,7 +43,7 @@ dedisp_float tounsigned(dedisp_float f)
     return r;
 }
 
-dedisp_byte bytetoquant(dedisp_float f)
+inline dedisp_byte bytetoquant(dedisp_float f)
 {
 	dedisp_float v = f + 127.5f;
 	dedisp_byte r;
@@ -48,210 +62,170 @@ dedisp_byte bytetoquant(dedisp_float f)
 	return r;
 }
 
-struct bb_dedisperser : public wi_transform {
-    // Constructor arguments
-    dedisp_float dm_start;
-    dedisp_float dm_end;
-    dedisp_float dm_tol;
-    dedisp_float pulse_width_ms;
 
-    dedisp_plan plan;
+struct bb_dedisperser_initializer {
+    // FIXME currently, nt_in must be known in advance!
+    ssize_t nt_in = 0;
+    int verbosity = 1;
 
-    float max_trigger;
-    float max_trigger_dm;
-    float max_trigger_tfinal;
-
-    int device_idx;
-
-    dedisp_size  nchans;
-    dedisp_float dt; 
-    dedisp_float f0;
-    dedisp_float df;
-    dedisp_size nsamps;
-    dedisp_error error;
-    // Additional class members (for example, the dedisp_plan object) can be added here.
-
-    bb_dedisperser(double dm_start_, double dm_end_, double dm_tol_, double pulse_width_ms_);
-
-    // The behavior of bb_dedisperser (or any subclass of wi_transform) is defined by
-    // implementing these virtual functions.  For documentation on what needs to be
-    // implemented, see comments in rf_pipelines.hpp.
-
-    virtual void set_stream(const wi_stream &stream) override;
-    virtual void start_substream(int isubstream, double t0) override;
-    
-    virtual void process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride) override;
-    virtual void end_substream() override;
+    // Used to determine list of trial DM's.
+    // Negative initializers are to catch unintialized values.
+    // FIXME is it safe to set dm_start==0 or pulse_width_ms==0?  (Just need to check dedisp source code.)
+    double dm_start = -1.0;
+    double dm_end = -1.0;
+    double dm_tol = -1.0;
+    double pulse_width_ms = -1.0;
 };
 
 
-bb_dedisperser::bb_dedisperser(double dm_start_, double dm_end_, double dm_tol_, double pulse_width_ms_) :
-    dm_start(dm_start_),
-    dm_end(dm_end_),
-    dm_tol(dm_tol_),
-    pulse_width_ms(pulse_width_ms_)
-{ 
-    // Initialize this->name
-    //cout << "Inside bb_dedisperser constructor "<< endl;
+struct bb_dedisperser : public wi_transform {
+    // Initialized in constructor
+    const bb_dedisperser_initializer ini_params;
+
+    // Initialized in _bind_transform()
+    double freq_lo_MHz = 0.0;
+    double freq_hi_MHz = 0.0;
+    double dt_sample = 0.0;
+
+    // Initialized in _allocate()
+    ssize_t ndm = 0;
+    ssize_t nt_out = 0;
+    ssize_t max_delay = 0;
+    dedisp_plan plan = NULL;
+    uptr_t<uint8_t> in8;    // shape (nt_in, nfreq)
+    uptr_t<float> out32;    // shape (ndm, nt_out)
+
+    float max_trigger = 0.0;
+    float max_trigger_dm = 0.0;
+    float max_trigger_tfinal = 0.0;
+
+    bb_dedisperser(const bb_dedisperser_initializer &ini_params);
+
+    virtual void _bind_transform(Json::Value &json_attrs) override;
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    
+    virtual void _allocate() override;
+    virtual void _deallocate() override;
+};
+
+
+bb_dedisperser::bb_dedisperser(const bb_dedisperser_initializer &ini_params_) :
+    wi_transform("bb_dedisperser"),
+    ini_params(ini_params_)
+{
+    if (ini_params.dm_start <= 0.0)
+	throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected dm_start > 0.0");
+    if (ini_params.dm_end <= ini_params.dm_start)
+	throw runtime_error("rf_pipelines::bb_dedisperser constructor: must have dm_end > dm_start");
+    if (ini_params.dm_tol <= 0.0)
+	throw runtime_error("rf_pipelines::bb_dedisperser constructor: must have dm_tol > 0.0");
+    if (ini_params.pulse_width_ms < 0.0)
+	throw runtime_error("rf_pipelines::bb_dedisperser constructor: must have pulse_width_ms > 0.0");
+    if (ini_params.nt_in <= 0)
+	throw runtime_error("rf_pipelines::bb_dedisperser constructor: must have nt_in > 0");
+    
+    // Initialize this->name.
     stringstream ss;
-    ss << "bb_dedisperser(dm_start=" << dm_start << ",dm_end=" << dm_end
-       << ",dm_tol=" << dm_tol << ",pulse_width_ms=" << pulse_width_ms << ")";
+    ss << "bb_dedisperser(dm_start=" << ini_params.dm_start
+       << ",dm_end=" << ini_params.dm_end
+       << ",dm_tol=" << ini_params.dm_tol
+       << ",pulse_width_ms=" << ini_params.pulse_width_ms << ")";
 
     this->name = ss.str();
+}
+
+
+virtual void bb_dedispserser::_bind_transform(Json::Value &json_attrs) override
+{
+    if (!json_attrs.isMember("freq_lo_MHz") || !json_attrs.isMember("freq_hi_MHz"))
+	throw runtime_error("bonsai_dedisperser: expected json_attrs to contain members 'freq_lo_MHz' and 'freq_hi_MHz'");
+
+    if (!json_attrs.isMember("dt_sample"))
+	throw runtime_error("bonsai_dedisperser: expected json_attrs to contain member 'dt_sample'");
+    
+    this->freq_lo_MHz = json_attrs["freq_lo_MHz"].asDouble();
+    this->freq_hi_MHz = json_attrs["freq_hi_MHz"].asDouble();
+    this->dt_sample = json_attrs["dt_sample"].asDouble();
+}
+
+
+void bb_dedisperser::_allocate()
+{
+    rf_assert(this->plan == nullptr);
+
+    int device_idx = 0;    // FIXME should determine this somehow
+    dedisp_error error;
+    
+    error = dedisp_set_device(device_idx);
+    if (error != DEDISP_NO_ERROR)
+	throw runtime_error("ERROR: Could not set GPU device: " + dedisp_errmsg(error));
+
+    // Channel width in MHz
+    xxxx;  // POSITIVE OR NEGATIVE??
+    double df = float(this->freq_hi_MHz - this->freq_lo_MHz) / this->nfreq;
+    
+    error = dedisp_create_plan(&plan, this->nfreq, this->dt_sample, this->freq_hi_MHz, df);
+    if (error != DEDISP_NO_ERROR)
+	throw runtime_error("ERROR: Could not create dedispersion plan: " + dedisp_errmsg(error));
+
+    error = dedisp_generate_dm_list(plan, ini_params.dm_start, ini_params.dm_end, ini_params.pulse_width_ms, ini_params.dm_tol);
+    if (error != DEDISP_NO_ERROR)
+	throw runtime_error("ERROR: Failed to generate dm list: " + dedisp_errmsg(error));
+
+    if (verbosity >= 1)
+	cout << "bb_dedisperser: number of trial DM's = " << dedisp_get_dm_count(plan);
+
+    this->ndm = dedisp_get_dm_count(plan);
+    this->max_delay = dedisp_get_max_delay(plan);
+    this->nt_out = ini_params.
 	
-    this->max_trigger = 0.0;
-    this->max_trigger_dm = 0.0;
-    this->max_trigger_tfinal = 0.0;
-    this->device_idx = 0;
-
-    this->nchans = 0;
-    this->dt = 0;
-    this->f0 = 0;
-    this->df = 0;
-    this->nsamps = 0;
-
-    //cout << "Done work inside constructor. Exiting!"<< endl;
-
+    this->in8 = make_utpr<uint8_t> (nt_in * nfreq);
+    this->out32 = make_uptr<float> (ndm * nt_out);
 }
 
-// Placeholders for virtual functions follow.
 
-void bb_dedisperser::set_stream(const wi_stream &stream)
+void bb_dedisperser::_start_pipeline(Json::Value &json_attrs)
 {
-    //throw std::runtime_error("bb_dedisperser::set_stream() called but not implemented yet");
-
-    //cout << "Inside set_stream" << endl;
-    //cout << "\nnt_maxwrite is : " << stream.nt_maxwrite << endl;
-    //cout << "\nnt_chunks is : " << stream.nt_chunk << endl;
-    //cout << "\nnfreq is : " << stream.nfreq << endl;
-	//cout << "\ndt_sample : " << stream.dt_sample << endl;
-	//cout << "\nnsamps : " << stream.nt_tot << endl;
-
-	//Original definition
-    this->nfreq = stream.nfreq;
-    this->nt_chunk = 65536;
-    this->nt_prepad = 0;
-    this->nt_postpad = 0;
-
-    this->nchans = stream.nfreq;
-    this->dt = stream.dt_sample; // assuming no downsampling
-    this->f0 = stream.freq_hi_MHz;
-    this->df = float(stream.freq_hi_MHz - stream.freq_lo_MHz)/ this->nchans;
-    this->nsamps = 65536;
-    
-    error = dedisp_set_device(this->device_idx);
-    if(error != DEDISP_NO_ERROR )
-   	{
-		cout << "\nERROR: Could not set GPU device : %s\n " << dedisp_get_error_string(error) << endl;	
-    }
-
-
-    //cout << "Device set " <<endl;
-
-
-    error = dedisp_create_plan(&plan, this->nchans, this->dt, this->f0, this->df);
-    if( error != DEDISP_NO_ERROR) 
-	{
-		cout << "\nERROR: Could not create dedispersion plan" << endl;
-    }
-
-    //cout << "Plan created " << endl;
-
-	//cout << "DM start is "<<dm_start << endl;
-    dedisp_float *dm_list = (dedisp_float*) malloc( 800 * 4);
-    for (int i = 0; i < 800; i++)
-    {
-        dm_list[i] = i + 100;
-
-    }
-    error = dedisp_set_dm_list(plan, dm_list, 800);
-    if( error != DEDISP_NO_ERROR) 
-	{
-	    cout << "\nERROR: Failed to generate dm list" << endl;
-    }
-
-    //cout << "DM list generated!" << endl;
-    //cout << "Exiting set_stream()" << endl;
+    this->runflag = false;
 }
+	
 
-void bb_dedisperser::start_substream(int isubstream, double t0)
+void bb_dedisperser::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
 {
+    rf_assert(this->plan != nullptr);
     
-	//cout << "Inside start_substream()! " << endl;
-    if( isubstream > 0) 
-	{
-        throw std::runtime_error("bb_dedisperser::start_substream() called with isubstream > 0");
+    int nt_valid = xx;
+
+    // Check weights
+
+    for (int ifreq = 0; ifreq < nfreq; ifreq++) {
+	for (int it = 0; it < nt_valid; it++)
+	    rf_assert(weights[ifreq*wstride + it] == 1.0);
+	for (int it = nt_valid; it < nt_chunk; it++)
+	    rf_assert(weights[ifreq*wstride + it] == 0.0);
     }
 
-    //cout << "Exiting start_substream()! " << endl;
-}
+    // Quantize and copy
+    
+    for (int ifreq = 0; ifreq < nfreq; ifreq++)
+	for (int it = 0; it < nt_valid; it++)
+	    in8[(pos+it)*nfreq + ifreq] = bytetoquant(10. * intensity[ifreq*istride+it]);
 
-void bb_dedisperser::process_chunk(double t0, double t1, float *intensity, float *weights, ssize_t stride, float *pp_intensity, float *pp_weights, ssize_t pp_stride)
-{
-
-    //cout << "Inside process_chunk" << endl;
+    if (runflag || xx)
+	return;
     
-	dedisp_size local_dm_count = dedisp_get_dm_count(this->plan);
-    dedisp_size local_max_delay = dedisp_get_max_delay(this->plan);
-    dedisp_size local_nsamps_computed = dedisp_size(this->nsamps- local_max_delay);
-    //dedisp_size local_nsamps = dedisp_size((t0 - t1)/this->dt);
-    
-	const dedisp_float *dmlist;
-    dmlist = dedisp_get_dm_list(this->plan);
-    
-	//cout << this->nsamps << endl;
-    //cout << local_dm_count << endl;
-	//cout << local_nsamps_computed << endl;
-   
-    int in_nbits = 8;
-	int out_nbits = 32;	
-	dedisp_float *output = (dedisp_float*)malloc((this->nsamps - local_max_delay) * local_dm_count * (out_nbits/8));
-    dedisp_byte *input = (dedisp_byte*)malloc(this->nsamps * this->nchans * (in_nbits/8));
-    
-    float maximum = 0.0;
-	float minima = 0.0;
-	float maxima = 0.0;
-    if (input == NULL)
-   	{
-		cout << "\nERROR: Failed to allocate output array \n" << endl;
+    error = dedisp_execute(plan, nsamps,
+			   input, in_nbits,
+			   (dedisp_byte *)output, out_nbits,
+			   DEDISP_USE_DEFAULT);
+    if( error != DEDISP_NO_ERROR ) {
+	printf("\nERROR: Failed to execute dedispersion plan: %s\n",
+	       dedisp_get_error_string(error));
+	return -1;
     }
-
-	//cout << "nchans is : " << this->nchans << endl;
-	//cout << "\n nt_chunk is : "<< this->nt_chunk << endl;
-	//cout << "\n stride is : "<< stride << endl;
     
-    for(dedisp_size ns = 0; ns < this->nsamps; ns++) 
-	{
-		for(dedisp_size nc = 0; nc < this->nchans; nc++) 
-		{
-			// Inverted to time major order for dedisp usage
-			//cout << stride << endl;	
-	       	if (minima > intensity[ns+(stride*nc)])
-			{
-				minima = intensity[ns+(stride*nc)];
-			}
-			
-			if (maxima < intensity[ns+(stride*nc)])
-			{
-				maxima = intensity[ns+(stride*nc)];
-			}
-
-			input[(ns*this->nchans)+nc] = bytetoquant(intensity[ns+(stride*nc)]*10);
-			
-			//cout << input[(ns*this->nchans)+nc] << endl;
-			//cout << intensity[ns+(stride*nc)] << endl;
-		}
-    }	
-	//cout << maxima << endl;
-	//cout <<  minima << endl;
-    //cout << "Inversion Done" << endl;
-
+    this->runflag = true;
     
-    if (output == NULL) 
-	{
-		cout << "\nERROR: Failed to allocate output array \n" << endl;
-    }
-
     error = dedisp_execute( this->plan, this->nsamps, input, in_nbits, (dedisp_byte *)output, out_nbits, DEDISP_USE_DEFAULT);
 
     if( error != DEDISP_NO_ERROR ) 
@@ -291,18 +265,12 @@ void bb_dedisperser::process_chunk(double t0, double t1, float *intensity, float
     free(input);
 }
 
-void bb_dedisperser::end_substream()
+
+void bb_dedisperser::_end_substream(Json::Value &json_outputs)
 {
-    //cout << "Inside end_substream" << endl;
-    dedisp_destroy_plan(this->plan);
+    if (!runflag)
+	xxx;
     
-
-    // After the dedisperser has run to completion, you should have values of the FRB DM,
-    // arrival time, and signal-to-noise.  In general, rf_pipelines transforms communicate
-    // their outputs by setting fields in their JSON output (this will end up in a pipeline
-    // output file named something like 'rf_pipelines_0.json').  The syntax below shows
-    // how to do this!
-
     // Placeholder values
     double sn = 30.0;
     //double dm = 100.0;
@@ -310,9 +278,21 @@ void bb_dedisperser::end_substream()
 
     // Initialize fields in JSON output.
     //this->json_per_substream["frb_sn"] = sn;
-    this->json_per_substream["frb_global_max_trigger_dm"] = this->max_trigger_dm;
-    this->json_per_substream["frb_global_max_trigger_tfinal"] = this->max_trigger_tfinal;
-	this->json_per_substream["frb_global_max_trigger"] = this->max_trigger;
+    json_outputs["frb_global_max_trigger_dm"] = this->max_trigger_dm;
+    json_outputs["frb_global_max_trigger_tfinal"] = this->max_trigger_tfinal;
+    json_outputs["frb_global_max_trigger"] = this->max_trigger;
+}
+
+
+void bb_dedisperser::_deallocate()
+{
+    rf_assert(this->plan != nullptr);
+
+    dedisp_destroy_plan(this->plan);
+    this->plan = nullptr;
+    
+    this->in8.reset();
+    this->out32.reset();
 }
 
 
@@ -324,9 +304,9 @@ void bb_dedisperser::end_substream()
 // allows the implementation of struct bb_dedisperser to be "hidden" from the rest of rf_pipelines.
 
 
-std::shared_ptr<wi_transform> make_bb_dedisperser(double dm_start, double dm_end, double dm_tol, double pulse_width_ms)
+std::shared_ptr<wi_transform> make_bb_dedisperser(const bb_dedisperser_initializer &ini_params);
 {
-    return std::make_shared<bb_dedisperser> (dm_start, dm_end, dm_tol, pulse_width_ms);
+    return std::make_shared<bb_dedisperser> (ini_params);
 }
 
 
