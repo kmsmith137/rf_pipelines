@@ -1,3 +1,7 @@
+- Version 19:
+
+     - Minor changes to rfp-run, made during CHIME commissioning
+
 - Version 18:
 
      - Very minor changes, needed for consistency with bonsai v13
