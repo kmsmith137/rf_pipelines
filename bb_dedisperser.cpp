@@ -6,7 +6,10 @@
 // FIXME artificial limitation: hardcoded quantization parameters, data must have (mean,rms) ~ (0,1).
 
 #include "rf_pipelines_internals.hpp"
+
+#ifdef HAVE_DEDISP
 #include <dedisp.h>
+#endif
 
 using namespace std;
 
@@ -15,9 +18,14 @@ namespace rf_pipelines {
 };  // pacify emacs c-mode
 #endif
 
-// The 'bb_dedisperser' wrapper class converts Ben Barsdell's 'dedisp' GPU code
-// to the rf_pipelines API.  It does this by subclassing rf_pipelines::wi_transform,
-// and defining the approporiate virtual functions.
+#ifndef HAVE_DEDISP
+
+shared_ptr<wi_transform> make_bb_dedisperser(const bb_dedisperser_initializer &ini_params)
+{
+    throw runtime_error("make_bonsai_dedisperser() was called, but this rf_pipelines instance was compiled without dedisp.  You need to set HAVE_DEDISP=y in Makefile.local and recompile.");
+}
+
+#else  // HAVE_DEDISP
 
 
 // -------------------------------------------------------------------------------------------------
@@ -46,21 +54,6 @@ inline uint8_t quantize(float x)
 
 
 // -------------------------------------------------------------------------------------------------
-
-
-struct bb_dedisperser_initializer {
-    // FIXME currently, nt_in must be known in advance!
-    ssize_t nt_in = 0;
-    int verbosity = 1;
-
-    // Used to determine list of trial DM's.
-    // Negative initializers are to catch unintialized values.
-    // FIXME is it safe to set dm_start==0 or pulse_width_ms==0?  (Just need to check dedisp source code.)
-    double dm_start = -1.0;
-    double dm_end = -1.0;
-    double dm_tol = -1.0;
-    double pulse_width_ms = -1.0;
-};
 
 
 struct bb_dedisperser : public wi_transform {
@@ -290,10 +283,12 @@ void bb_dedisperser::_deallocate()
 // allows the implementation of struct bb_dedisperser to be "hidden" from the rest of rf_pipelines.
 
 
-std::shared_ptr<wi_transform> make_bb_dedisperser(const bb_dedisperser_initializer &ini_params)
+shared_ptr<wi_transform> make_bb_dedisperser(const bb_dedisperser_initializer &ini_params)
 {
-    return std::make_shared<bb_dedisperser> (ini_params);
+    return make_shared<bb_dedisperser> (ini_params);
 }
+
+#endif  // HAVE_DEDISP
 
 
 }  // namespace rf_pipelines

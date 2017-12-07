@@ -21,7 +21,7 @@ namespace rf_pipelines {
 
 shared_ptr<wi_transform> make_bonsai_dedisperser(const string &config_filename, const bonsai_initializer &ini_params)
 {
-    throw runtime_error("make_bonsai_dedisperser() was called, but this rf_pipelines instance was compiled without bonsai");
+    throw runtime_error("make_bonsai_dedisperser() was called, but this rf_pipelines instance was compiled without bonsai.  You need to set HAVE_BONSAI=y in Makefile.local and recompile.");
 }
 
 #else  // HAVE_BONSAI

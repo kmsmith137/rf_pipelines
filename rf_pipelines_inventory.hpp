@@ -364,6 +364,29 @@ extern std::shared_ptr<wi_transform> make_bonsai_dedisperser(const std::shared_p
 
 // -------------------------------------------------------------------------------------------------
 //
+// Ben Barsdell's 'dedisp' GPU dedisperser (https://github.com/ajameson/dedisp)
+
+
+struct bb_dedisperser_initializer {
+    // FIXME currently, nt_in must be known in advance!
+    ssize_t nt_in = 0;
+    int verbosity = 1;
+
+    // Used to determine list of trial DM's.
+    // Negative initializers are to catch unintialized values.
+    // FIXME is it safe to set dm_start==0 or pulse_width_ms==0?  (Just need to check dedisp source code.)
+    double dm_start = -1.0;
+    double dm_end = -1.0;
+    double dm_tol = -1.0;
+    double pulse_width_ms = -1.0;
+};
+
+
+extern std::shared_ptr<wi_transform> make_bb_dedisperser(const bb_dedisperser_initializer &ini_params);
+
+
+// -------------------------------------------------------------------------------------------------
+//
 // gaussian_noise_stream: simple stream which simulates Gaussian random noise.
 //
 //   nfreq               Number of frequency channels

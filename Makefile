@@ -21,6 +21,7 @@ INCFILES = rf_pipelines.hpp \
 # Source files for the core C++ library 'librf_pipelines.so'
 
 OFILES = badchannel_mask.o \
+	bb_dedisperser.o \
 	bonsai_dedisperser.o \
 	chime_16k_tools.o \
 	chime_file_stream.o \
@@ -134,6 +135,11 @@ endif
 ifeq ($(HAVE_CH_FRB_IO),y)
 	CPP += -DHAVE_CH_FRB_IO
 	LIBS += -lch_frb_io
+endif
+
+ifeq ($(HAVE_DEDISP),y)
+	CPP += -DHAVE_DEDISP
+	LIBS += -ldedisp
 endif
 
 ifeq ($(HAVE_HDF5),y)
