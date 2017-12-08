@@ -374,11 +374,14 @@ struct bb_dedisperser_initializer {
 
     // Used to determine list of trial DM's.
     // Negative initializers are to catch unintialized values.
-    // FIXME is it safe to set dm_start==0 or pulse_width_ms==0?  (Just need to check dedisp source code.)
     double dm_start = -1.0;
     double dm_end = -1.0;
-    double dm_tol = -1.0;   // 1.25 is a suggested value
+    double dm_tol = -1.0;   // Must be > 1, number of trial DM's blows up as dm_tol->1.  (dedisp docs suggest 1.25)
     double dm_t0 = -1.0;    // pulse width in SECONDS, added in quadrature to dt_sample when computing trial DM's
+
+    bool scrunch = false;
+    double sc_tol = -1.0;  // Must be between 1 and 2, get more scrunching as sc_tol->2.  (dedisp docs suggest 1.15)
+    double sc_t0 = -1.0;   // pulse width in SECONDS, added in quadrature to dt_sample when computing scrunch factors    
 };
 
 

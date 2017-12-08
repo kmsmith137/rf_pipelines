@@ -97,6 +97,8 @@ bb_dedisperser::bb_dedisperser(const bb_dedisperser_initializer &ini_params_) :
     ini_params(ini_params_),
     nt_in(ini_params_.nt_in)
 {
+    // Argument checking
+
     if (ini_params.dm_start <= 0.0)
 	throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected dm_start > 0.0");
     if (ini_params.dm_end <= ini_params.dm_start)
@@ -107,6 +109,13 @@ bb_dedisperser::bb_dedisperser(const bb_dedisperser_initializer &ini_params_) :
 	throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected dm_t0 >= 0.0");
     if (ini_params.nt_in <= 0)
 	throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected nt_in > 0");
+
+    if (ini_params.scrunch) {
+	if ((ini_params.sc_tol <= 1.0) || (ini_params.sc_tol >= 2.0))
+	    throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected 1 < sc_tol < 2");
+	if (ini_params.sc_t0 <= 0.0)
+	    throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected sc_t0 >= 0.0");
+    }
 }
 
 
@@ -154,7 +163,14 @@ void bb_dedisperser::_allocate()
     // This is consistent with the dedisp documentation, but not the example program which uses milliseconds!
     error = dedisp_generate_dm_list(plan, ini_params.dm_start, ini_params.dm_end, 1.0e-6 * ini_params.dm_t0, ini_params.dm_tol);
     if (error != DEDISP_NO_ERROR)
-	throw runtime_error("ERROR: Failed to generate dm list: " + dedisp_errmsg(error));
+	throw runtime_error("ERROR: Failed to generate dm_list: " + dedisp_errmsg(error));
+
+    if (ini_params.scrunch) {
+	// Note factor 1.0e-6 here, to convert sec -> usec.
+	error = dedisp_enable_adaptive_dt(plan, 1.0e-6 * ini_params.sc_t0, ini_params.sc_tol);
+	if (error != DEDISP_NO_ERROR)
+	    throw runtime_error("ERROR: Failed to generate scrunch_list: " + dedisp_errmsg(error));
+    }
 
     this->ndm = dedisp_get_dm_count(plan);
     this->max_delay = dedisp_get_max_delay(plan);
