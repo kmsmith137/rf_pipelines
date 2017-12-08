@@ -101,8 +101,8 @@ bb_dedisperser::bb_dedisperser(const bb_dedisperser_initializer &ini_params_) :
 	throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected dm_start > 0.0");
     if (ini_params.dm_end <= ini_params.dm_start)
 	throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected dm_end > dm_start");
-    if (ini_params.dm_tol <= 0.0)
-	throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected dm_tol > 0.0");
+    if (ini_params.dm_tol <= 1.0)
+	throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected dm_tol > 1.0");
     if (ini_params.dm_t0 < 0.0)
 	throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected dm_t0 >= 0.0");
     if (ini_params.nt_in <= 0)
@@ -143,7 +143,7 @@ void bb_dedisperser::_allocate()
 	throw runtime_error("ERROR: Could not set GPU device: " + dedisp_errmsg(error));
 
     // Channel width in MHz.
-    // Should be negative (if channels ordered highest-to-lowest).
+    // Note!! Should be negative.
     double df = -float(this->freq_hi_MHz - this->freq_lo_MHz) / this->nfreq;
     
     error = dedisp_create_plan(&plan, this->nfreq, this->dt_sample, this->freq_hi_MHz, df);
