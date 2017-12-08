@@ -64,12 +64,12 @@ struct bb_dedisperser : public wi_transform {
     // Initialized in _bind_transform()
     double freq_lo_MHz = 0.0;
     double freq_hi_MHz = 0.0;
-    double dt_sample = 0.0;
+    double dt_sample = 0.0;  // in seconds
 
     // Initialized in _allocate()
     ssize_t ndm = 0;
     ssize_t nt_out = 0;
-    ssize_t max_delay = 0;
+    ssize_t max_delay = 0;  // in samples
     dedisp_plan plan = NULL;
     uptr<uint8_t> in8;    // shape (nt_in, nfreq)
     uptr<float> out32;    // shape (ndm, nt_out)
@@ -103,8 +103,8 @@ bb_dedisperser::bb_dedisperser(const bb_dedisperser_initializer &ini_params_) :
 	throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected dm_end > dm_start");
     if (ini_params.dm_tol <= 0.0)
 	throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected dm_tol > 0.0");
-    if (ini_params.pulse_width_ms < 0.0)
-	throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected pulse_width_ms > 0.0");
+    if (ini_params.dm_t0 < 0.0)
+	throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected dm_t0 >= 0.0");
     if (ini_params.nt_in <= 0)
 	throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected nt_in > 0");
 }
@@ -150,17 +150,21 @@ void bb_dedisperser::_allocate()
     if (error != DEDISP_NO_ERROR)
 	throw runtime_error("ERROR: Could not create dedispersion plan: " + dedisp_errmsg(error));
 
-    error = dedisp_generate_dm_list(plan, ini_params.dm_start, ini_params.dm_end, ini_params.pulse_width_ms, ini_params.dm_tol);
+    // Note factor of 1.0e-6 here: the 'pulse_width' argument to dedisp_generate_dm_list() is in microseconds.
+    // This is consistent with the dedisp documentation, but not the example program which uses milliseconds!
+    error = dedisp_generate_dm_list(plan, ini_params.dm_start, ini_params.dm_end, 1.0e-6 * ini_params.dm_t0, ini_params.dm_tol);
     if (error != DEDISP_NO_ERROR)
 	throw runtime_error("ERROR: Failed to generate dm list: " + dedisp_errmsg(error));
 
-    if (ini_params.verbosity >= 1)
-	cout << "bb_dedisperser: number of trial DM's = " << dedisp_get_dm_count(plan);
-
     this->ndm = dedisp_get_dm_count(plan);
     this->max_delay = dedisp_get_max_delay(plan);
-    this->nt_out = nt_in - max_delay;
-	
+    this->nt_out = nt_in - max_delay;	
+
+    if (ini_params.verbosity >= 1) {
+	cout << "bb_dedisperser: number of trial DM's = " << ndm << endl;
+	cout << "bb_dedisperser: max delay (in samples) = " << ndm << endl;
+    }
+
     if (nt_out <= 0)
 	throw runtime_error("bb_dedisperser: length of acquisition is shorter than max dedispersion delay");
 

@@ -377,8 +377,8 @@ struct bb_dedisperser_initializer {
     // FIXME is it safe to set dm_start==0 or pulse_width_ms==0?  (Just need to check dedisp source code.)
     double dm_start = -1.0;
     double dm_end = -1.0;
-    double dm_tol = -1.0;
-    double pulse_width_ms = -1.0;
+    double dm_tol = -1.0;   // 1.25 is a suggested value
+    double dm_t0 = -1.0;    // pulse width in SECONDS, added in quadrature to dt_sample when computing trial DM's
 };
 
 
