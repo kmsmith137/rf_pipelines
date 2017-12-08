@@ -22,7 +22,7 @@ namespace rf_pipelines {
 
 shared_ptr<wi_transform> make_bb_dedisperser(const bb_dedisperser_initializer &ini_params)
 {
-    throw runtime_error("make_bonsai_dedisperser() was called, but this rf_pipelines instance was compiled without dedisp.  You need to set HAVE_DEDISP=y in Makefile.local and recompile.");
+    throw runtime_error("make_bb_dedisperser() was called, but this rf_pipelines instance was compiled without dedisp.  You need to set HAVE_DEDISP=y in Makefile.local and recompile.");
 }
 
 #else  // HAVE_DEDISP
