@@ -116,6 +116,9 @@ bb_dedisperser::bb_dedisperser(const bb_dedisperser_initializer &ini_params_) :
 	if (ini_params.sc_t0 <= 0.0)
 	    throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected sc_t0 >= 0.0");
     }
+
+    if (ini_params.scrunch)
+	throw runtime_error("remove this after understanding what the output of the scrunched dedisperser is");
 }
 
 
@@ -276,11 +279,6 @@ void bb_dedisperser::_end_pipeline(Json::Value &json_outputs)
     json_outputs["frb_global_max_trigger"] = this->max_trigger;
     json_outputs["frb_global_max_trigger_dm"] = this->max_trigger_dm;
     json_outputs["frb_global_max_trigger_tfinal"] = this->max_trigger_tfinal;
-
-    this->max_trigger = 0.0;
-    this->max_trigger_dm = 0.0;
-    this->max_trigger_tfinal = 0.0;
-    this->runflag = false;
 }
 
 
