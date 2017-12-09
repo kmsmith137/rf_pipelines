@@ -65,6 +65,7 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/transforms/__init__.py \
 	rf_pipelines/transforms/adversarial_masker.py \
 	rf_pipelines/transforms/bonsai_dedisperser.py \
+	rf_pipelines/transforms/bz_fdmt_dedisperser.py \
 	rf_pipelines/transforms/frb_injector_transform.py \
 	rf_pipelines/transforms/mask_filler.py \
 	rf_pipelines/transforms/noise_filler.py \
