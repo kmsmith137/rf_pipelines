@@ -366,7 +366,14 @@ Json::Value pipeline_object::run(const run_params &params, const callback_t &cal
     if (params.verbosity >= 2)
 	cout << "rf_pipelines: calling end_pipeline()\n";
 
-    this->end_pipeline(json_output);
+    try {
+	this->end_pipeline(json_output);
+    } catch (std::exception &e) {
+	if (!exception_thrown) {  // exception thrown in advance() trumps exception thrown in end_pipeline()
+	    exception_text = e.what();
+	    exception_thrown = true;
+	}
+    }
 
     // Try to write json file, even if exception was thrown.
     if (params.outdir.size() > 0) {
