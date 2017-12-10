@@ -336,6 +336,12 @@ inline ssize_t xmod(ssize_t m, ssize_t n)
     return m % n;
 }
 
+template<typename T>
+inline T square(T x)
+{
+    return x * x;
+}
+
 inline bool is_power_of_two(ssize_t n)
 {
     rf_assert(n > 0);

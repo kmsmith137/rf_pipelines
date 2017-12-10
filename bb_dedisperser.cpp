@@ -43,9 +43,9 @@ static string dedisp_errmsg(dedisp_error error)
 inline uint8_t quantize(float x)
 {
     // FIXME hardcoded quantization scales.
-    // Assumes (mean, rms) of the data is close to (0, 1).
+    // Assumes (mean,rms) of the data is close to (0,1), and "clips" at -3sigma.
 
-    x = 10.0f * x + 127.0f;
+    x = 20.0f * x + 60.0f;
     x = max(x, 0.5f);
     x = min(x, 255.5f);
 
@@ -229,33 +229,38 @@ void bb_dedisperser::_process_chunk(float *intensity, ssize_t istride, float *we
     
     // The dedisperser will be run in this iteration of _process_chunk().
     
-    dedisp_error error = dedisp_execute(plan, nt_in, in8.get(), 8, (dedisp_byte *) (out32.get()), sizeof(float), DEDISP_USE_DEFAULT);
+    dedisp_error error = dedisp_execute(plan, nt_in, in8.get(), 8, (dedisp_byte *) (out32.get()), 8 * sizeof(float), DEDISP_USE_DEFAULT);
 
     if (error != DEDISP_NO_ERROR)
 	throw runtime_error("rf_pipelines::bb_dedisperser: dedisp_execute() failed: " + dedisp_errmsg(error));
-    
-    // Determine rms, max, and argmax of 'out32' array
-    // Mean zero is assumed!  (Currently includes a debug-print to confirm this by computing the mean and printing it.)
 
+    // Determine mean and max of 'out32' array.
     float maxval = out32[0];
     ssize_t argmax = 0;
-    double mean = 0.0;
-    double rms = 0.0;
+    float mean = 0.0;
 
     for (ssize_t i = 0; i < ndm * nt_out; i++) {
 	float x = out32[i];
-	
+	mean += x;
+
 	if (maxval > x) {
 	    maxval = x;
 	    argmax = i;
 	}
-
-	mean += x;
-	rms += x*x;
     }
+    
+    mean /= out32.size();
 
-    // This can be removed after the mean is confirmed to be zero.
-    cout << "XXX bb_dedisperser: mean: " << (mean/rms) << " sigmas" << endl;
+    // To estimate the variance, we use a median for outlier-robustness.
+    // This is artificially slow but that's OK!
+    // WARNING: this modifies the out32 array, but we won't use it again!
+
+    for (ssize_t i = 0; i < ndm * nt_out; i++)
+	out32[i] = square(out32[i] - mean);
+
+    ssize_t m = (ndm * nt_out) / 2;
+    std::nth_element(out32.begin(), out32.begin()+m, out32.end());
+    double rms = sqrt(out32[m]);
     
     // Convert 'argmax' index to pair (idm, iout)
     ssize_t idm = argmax / nt_out;
