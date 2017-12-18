@@ -99,8 +99,8 @@ bb_dedisperser::bb_dedisperser(const bb_dedisperser_initializer &ini_params_) :
 {
     // Argument checking
 
-    if (ini_params.dm_start <= 0.0)
-	throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected dm_start > 0.0");
+    if (ini_params.dm_start < 0.0)
+	throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected dm_start >= 0.0");
     if (ini_params.dm_end <= ini_params.dm_start)
 	throw runtime_error("rf_pipelines::bb_dedisperser constructor: expected dm_end > dm_start");
     if (ini_params.dm_tol <= 1.0)
@@ -237,19 +237,19 @@ void bb_dedisperser::_process_chunk(float *intensity, ssize_t istride, float *we
     // Determine mean and max of 'out32' array.
     float maxval = out32[0];
     ssize_t argmax = 0;
-    float mean = 0.0;
+    double mean = 0.0;
 
     for (ssize_t i = 0; i < ndm * nt_out; i++) {
 	float x = out32[i];
 	mean += x;
 
-	if (maxval > x) {
+	if (maxval < x) {
 	    maxval = x;
 	    argmax = i;
 	}
     }
     
-    mean /= out32.size();
+    mean /= (ndm*nt_out);
 
     // To estimate the variance, we use a median for outlier-robustness.
     // This is artificially slow but that's OK!
@@ -258,9 +258,9 @@ void bb_dedisperser::_process_chunk(float *intensity, ssize_t istride, float *we
     for (ssize_t i = 0; i < ndm * nt_out; i++)
 	out32[i] = square(out32[i] - mean);
 
-    ssize_t m = (ndm * nt_out) / 2;
-    std::nth_element(out32.begin(), out32.begin()+m, out32.end());
-    double rms = sqrt(out32[m]);
+    ssize_t m = ndm * nt_out;
+    std::nth_element(&out32[0], &out32[m/2], &out32[m]);
+    double rms = sqrt(out32[m/2]);
     
     // Convert 'argmax' index to pair (idm, iout)
     ssize_t idm = argmax / nt_out;
@@ -269,9 +269,12 @@ void bb_dedisperser::_process_chunk(float *intensity, ssize_t istride, float *we
     // Note: this pointer does not need to be freed (but is only temporarily valid).
     const float *dmlist = dedisp_get_dm_list(plan);
 
-    this->max_trigger = maxval / rms;   // convert to "sigmas"
+    // Dispersion delay at DM=1
+    double dm0 = 4.15e3 * (1.0/square(freq_lo_MHz) - 1.0/square(freq_hi_MHz));
+	
+    this->max_trigger = (maxval - mean) / rms;   // convert to "sigmas"
     this->max_trigger_dm = dmlist[idm];
-    this->max_trigger_tfinal = it * dt_sample;    // FIXME tinitial -> tfinal
+    this->max_trigger_tfinal = it * dt_sample + dmlist[idm] * dm0;
     this->runflag = true;
 }
 
