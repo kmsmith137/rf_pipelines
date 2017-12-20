@@ -166,6 +166,7 @@ extern void makedirs(const std::string &dirname);
 
 
 // json_utils.cpp
+extern Json::Value json_read(const std::string &filename, bool noisy=true);
 extern void json_write(const std::string &filename, const Json::Value &x, bool noisy=true);
 extern Json::Value array_from_json(const Json::Value &x, const std::string &k);
 extern std::string string_from_json(const Json::Value &x, const std::string &k);

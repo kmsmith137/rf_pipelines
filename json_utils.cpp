@@ -25,6 +25,28 @@ string json_stringify(const Json::Value &j)
 }
 
 
+Json::Value json_read(const std::string &filename, bool noisy)
+{
+    ifstream f(filename);
+
+    if (f.fail())
+	throw runtime_error(filename + ": couldn't open file");
+
+    Json::Value j;
+
+    try {
+	f >> j;
+    } catch (...) {
+	throw runtime_error(filename + ": couldn't parse json file");
+    }
+
+    if (noisy)
+	cout << "read " << filename << endl;
+
+    return j;
+}
+
+
 void json_write(const string &filename, const Json::Value &j, bool noisy)
 {
     ofstream f(filename);
