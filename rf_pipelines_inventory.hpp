@@ -454,8 +454,7 @@ extern std::shared_ptr<wi_transform> make_spectrum_analyzer(ssize_t Dt1=16, ssiz
 //
 // The meaning of the 'bitshuffle' arg is:
 //   0 = no compression
-//   1 = try to compress, but if plugin fails then just write uncompressed data instead
-//   2 = try to compress, but if plugin fails then print a warning and write uncompressed data instead
+//   1-2 = try to compress, but if plugin fails then just write uncompressed data instead
 //   3 = compression mandatory
 //
 // Note: a quick way to inspect a CHIME hdf5 file is using the 'ch-show-intensity-file' and 'ch-plot-intensity-file'
