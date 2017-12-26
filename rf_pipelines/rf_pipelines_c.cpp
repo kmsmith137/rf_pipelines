@@ -925,63 +925,6 @@ static void wrap_containers(extension_module &m)
 
 static void wrap_utility_classes(extension_module &m)
 {
-    m.add_function("mask_expander",
-		   "mask_expander(axis, prev_wname, width, threshold, alpha=0.0, nt_chunk=0) -> pipeline_object\n"
-		   "\n"
-		   "Experimental: expands the RFI mask, in a way which is intended to \"fill gaps\".\n"
-		   "\n"
-		   "It is assuemd that the caller has saved the weights at a previous point in the pipeline\n"
-		   "(using pipeline_fork, see the 'pipeline_fork' docstring).  We use the term \"prev_mask\" to\n"
-		   "mean the RFI mask at this previous point in the pipeline, and \"delta_mask\" to mean the set\n"
-		   "of pixels which are currently masked in the pipeline, but were not masked in the prev_mask.\n"
-		   "\n"
-		   "By default, the mask_expander actually expands the delta-mask, but this behavior\n"
-		   "can be modified (see the 'alpha' parameter below).\n"
-		   "\n"
-		   "The expansion is done by computing exponential moving averages of the delta-mask in\n"
-		   "both directions, and masking pixels when both averages are above a threshold.  This\n"
-		   "will be written up in more detail later!\n"
-		   "\n"
-		   "Constructor arguments\n"
-		   "---------------------\n"
-		   "\n"
-		   "'axis': currently, only AXIS_FREQ is implemented.  AXIS_TIME is coming soon!\n"
-		   "\n"
-		   "'prev_wname': pipeline bufname of the saved weights (a string).  Note that in order\n"
-		   "  to save the weights at a previous point in the pipeline, you can use a pipeline_fork\n"
-		   "  whose input_bufname parameter is \"WEIGHTS\" and whose output_bufname is a string which\n"
-		   "  uniquely identifies the saved weights (e.g. \"WEIGHTS_SAVE1\").  The 'prev_wname' argument\n"
-		   "  to the mask_expander should be the same as the 'output_bufname' argument of the\n"
-		   "  pipeline_fork.\n"
-		   "\n"
-		   "'width': the decay width of the exponential moving average.  In the AXIS_FREQ case,\n"
-		   "  this is expressed as a fraction of the frequency band, i.e. width=0.1 means that\n"
-		   "  the characteristic width of the mask_expander is 10% of the full frequency band.\n"
-		   "\n"
-		   "'threshold': value between 0 and 1 which determines how aggressive the mask_expander is.\n"
-		   "  Low values correspond to more masking.  The numerical value can be roughly interpreted\n"
-		   "  as the fraction of data which must be delta-masked before mask expansion will\n"
-		   "  occur.  For example, if threshold=0.1, then mask expansion will occur in regions of\n"
-		   "  the data where ~10% or more of the pixels are delta-masked.\n"
-		   "\n"
-		   "'alpha': to explain this parameter, we first note that delta-masked pixels are\n"
-		   "  \"sources\" for the mask_expander, and unmasked pixels are \"sinks\".  That is,\n"
-		   "  mask expansion occurs in regions where the number of delta-masked pixels\n"
-		   "  relative to the number of unmasked pixels is above a threshold.\n"
-		   "\n"
-		   "  The alpha paramaeter determines how the prev_mask is handled by the mask_expander.\n"
-		   "  By default (alpha=0), prev-masked pixels are \"neutral\", i.e. they are neither\n"
-		   "  sources nor sinks for the mask_expander.\n"
-		   "\n"
-		   "  If 0 < alpha < 1, then prev-masked pixels are sinks for the mask_expander, i.e.\n"
-		   "  they reduce the amount of mask expansion, and the amount of reduction is proportional\n"
-		   "  to alpha.  If alpha=1, then prev_masked pixels are equivalent to unmasked pixels.\n"
-		   "\n"
-		   "  If -1 < alpha < 0, then prev-masked pixels are sources for the mask_expander, i.e.\n"
-		   "  they increase the amount of mask expansion, and the amount of reduction is proportional\n"
-		   "  to (-alpha).  If alpha=-1, then prev_masked pixels are equivalent to delta_masked pixels.\n",
-		   wrap_func(make_mask_expander, "axis", "prev_wname", "width", "threshold", kwarg("alpha",0.0), kwarg("nt_chunk",0)));
-		   
     m.add_function("pipeline_fork",
 		   "pipeline_fork(bufnames) -> pipeline_object\n"
 		   "\n"
@@ -989,6 +932,14 @@ static void wrap_utility_classes(extension_module &m)
 		   "The 'bufnames' argument should be a list of (input_bufname, output_bufname) pairs.\n"
 		   "Frequently, the input_bufname will be one of the built-in names \"INTENSITY\" or \"WEIGHTS\".\n",
 		   wrap_func(make_pipeline_fork, "bufnames"));
+
+    m.add_function("mask_serializer",
+		   "mask_serializer(hdf5_filename) -> pipelien_object\n"
+		   "\n"
+		   "Constructs bitmask from current 'weights' array in pipeline (elements with weights > 0 are defined\n"
+		   "to be unmasked), and writes it to an HDF5 file.  If bitshuffle is available, then the HDF5 file will\n"
+		   "be compressed.\n",
+		   wrap_func(make_mask_serializer, "hdf5_filename"));
 }
 
 
@@ -1255,6 +1206,61 @@ static void wrap_clippers(extension_module &m)
 		      "\n"
 		      "If the 'two_pass' flag is set, a more numerically stable but slightly slower algorithm will be used.");
 
+    string doc_mexp = ("mask_expander(axis, prev_wname, width, threshold, alpha=0.0, nt_chunk=0) -> pipeline_object\n"
+		       "\n"
+		       "Experimental: expands the RFI mask, in a way which is intended to \"fill gaps\".\n"
+		       "\n"
+		       "It is assuemd that the caller has saved the weights at a previous point in the pipeline\n"
+		       "(using pipeline_fork, see the 'pipeline_fork' docstring).  We use the term \"prev_mask\" to\n"
+		       "mean the RFI mask at this previous point in the pipeline, and \"delta_mask\" to mean the set\n"
+		       "of pixels which are currently masked in the pipeline, but were not masked in the prev_mask.\n"
+		       "\n"
+		       "By default, the mask_expander actually expands the delta-mask, but this behavior\n"
+		       "can be modified (see the 'alpha' parameter below).\n"
+		       "\n"
+		       "The expansion is done by computing exponential moving averages of the delta-mask in\n"
+		       "both directions, and masking pixels when both averages are above a threshold.  This\n"
+		       "will be written up in more detail later!\n"
+		       "\n"
+		       "Constructor arguments\n"
+		       "---------------------\n"
+		       "\n"
+		       "'axis': currently, only AXIS_FREQ is implemented.  AXIS_TIME is coming soon!\n"
+		       "\n"
+		       "'prev_wname': pipeline bufname of the saved weights (a string).  Note that in order\n"
+		       "  to save the weights at a previous point in the pipeline, you can use a pipeline_fork\n"
+		       "  whose input_bufname parameter is \"WEIGHTS\" and whose output_bufname is a string which\n"
+		       "  uniquely identifies the saved weights (e.g. \"WEIGHTS_SAVE1\").  The 'prev_wname' argument\n"
+		       "  to the mask_expander should be the same as the 'output_bufname' argument of the\n"
+		       "  pipeline_fork.\n"
+		       "\n"
+		       "'width': the decay width of the exponential moving average.  In the AXIS_FREQ case,\n"
+		       "  this is expressed as a fraction of the frequency band, i.e. width=0.1 means that\n"
+		       "  the characteristic width of the mask_expander is 10% of the full frequency band.\n"
+		       "\n"
+		       "'threshold': value between 0 and 1 which determines how aggressive the mask_expander is.\n"
+		       "  Low values correspond to more masking.  The numerical value can be roughly interpreted\n"
+		       "  as the fraction of data which must be delta-masked before mask expansion will\n"
+		       "  occur.  For example, if threshold=0.1, then mask expansion will occur in regions of\n"
+		       "  the data where ~10% or more of the pixels are delta-masked.\n"
+		       "\n"
+		       "'alpha': to explain this parameter, we first note that delta-masked pixels are\n"
+		       "  \"sources\" for the mask_expander, and unmasked pixels are \"sinks\".  That is,\n"
+		       "  mask expansion occurs in regions where the number of delta-masked pixels\n"
+		       "  relative to the number of unmasked pixels is above a threshold.\n"
+		       "\n"
+		       "  The alpha paramaeter determines how the prev_mask is handled by the mask_expander.\n"
+		       "  By default (alpha=0), prev-masked pixels are \"neutral\", i.e. they are neither\n"
+		       "  sources nor sinks for the mask_expander.\n"
+		       "\n"
+		       "  If 0 < alpha < 1, then prev-masked pixels are sinks for the mask_expander, i.e.\n"
+		       "  they reduce the amount of mask expansion, and the amount of reduction is proportional\n"
+		       "  to alpha.  If alpha=1, then prev_masked pixels are equivalent to unmasked pixels.\n"
+		       "\n"
+		       "  If -1 < alpha < 0, then prev-masked pixels are sources for the mask_expander, i.e.\n"
+		       "  they increase the amount of mask expansion, and the amount of reduction is proportional\n"
+		       "  to (-alpha).  If alpha=-1, then prev_masked pixels are equivalent to delta_masked pixels.\n");
+
     
     // python-callable make_badchannel_mask()
     std::function<shared_ptr<pipeline_object>(py_object, py_object)>
@@ -1280,10 +1286,12 @@ static void wrap_clippers(extension_module &m)
 
     auto f_sd = wrap_func(make_std_dev_clipper, "nt_chunk", "axis", "sigma", kwarg("Df",1), kwarg("Dt",1), kwarg("two_pass",false));
     
-
+    auto f_mexp = wrap_func(make_mask_expander, "axis", "prev_wname", "width", "threshold", kwarg("alpha",0.0), kwarg("nt_chunk",0));
+    
     m.add_function("badchannel_mask", doc_bm, f_bm);
     m.add_function("intensity_clipper", doc_ic, f_ic);
     m.add_function("std_dev_clipper", doc_sdc, f_sd);
+    m.add_function("mask_expander", doc_mexp, f_mexp);
 }		   
 
 

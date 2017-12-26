@@ -174,8 +174,11 @@ protected:
 extern std::shared_ptr<pipeline_object> make_pipeline_fork(const std::vector<std::pair<std::string,std::string>> &bufnames);
 
 
-// mask_serializer: constructs bitmask (elements with weights > 0 are defined to be unmasked), and
-// writes it to an HDF5 file.  If bitshuffle is available, then the HDF5 file will be comprsesed.
+// mask_serializer
+//
+// Constructs bitmask from current 'weights' array in pipeline (elements with weights > 0 are defined 
+// to be unmasked), and writes it to an HDF5 file.  If bitshuffle is available, then the HDF5 file will 
+// be compressed.
 
 
 extern std::shared_ptr<pipeline_object> make_mask_serializer(const std::string &hdf5_filename);
