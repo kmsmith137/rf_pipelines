@@ -1,11 +1,21 @@
 #!/usr/bin/env python
 
+import os
 import sys
 import json
+import tempfile
 import numpy as np
 import numpy.random as rand
 
 import rf_pipelines
+
+have_hdf5 = False
+
+try:
+    import h5py
+    have_hdf5 = True
+except ImportError:
+    print "test-almost-everything.py: 'import h5py' failed; pipeline features which use hdf5 will not be tested"
 
 
 ###########################################  helpers  ##############################################
@@ -161,6 +171,17 @@ def make_random_std_dev_clipper(nfreq_ds, nds):
     }
 
 
+def make_random_mask_serializer(nfreq_ds, nds):
+    assert (nds == 1) and have_hdf5
+
+    (f, filename) = tempfile.mkstemp(dir='.', suffix='.h5')
+    del f
+
+    return {
+        'class_name': 'mask_serializer',
+        'hdf5_filename': filename
+    }
+
 
 def make_random_transform_list(nfreq_ds, nds, nelements):
     assert nelements > 0
@@ -186,6 +207,8 @@ def make_random_transform_list(nfreq_ds, nds, nelements):
             ret.append(make_random_intensity_clipper(nfreq_ds, nds))
         elif (r == 3) and (nfreq_ds % 8 == 0) and (nfreq_ds >= 32):
             ret.append(make_random_std_dev_clipper(nfreq_ds, nds))
+        elif (r == 4) and (rand.uniform() < 0.1) and (nds == 1) and have_hdf5:
+            ret.append(make_random_mask_serializer(nfreq_ds, nds))
 
     return ret
 
@@ -236,7 +259,13 @@ def make_random_pipeline(nfreq_ds, nds, nelements, allow_downsampling=True):
 
 
 def emulate_pipeline(pipeline_json, intensity, weights, nds=1):
-    """Returns new (intensity, weights) pair."""
+    """
+    Returns new (intensity, weights) pair.
+
+    Note that emulate_pipeline() runs second, after the real pipeline run.  The consequence
+    of this is that transforms which write files (such as 'mask_serializer') can be unit-tested
+    by reading back the file and checking its contents.
+    """
 
     assert intensity.ndim == 2
     assert intensity.shape == weights.shape
@@ -358,6 +387,40 @@ def emulate_pipeline(pipeline_json, intensity, weights, nds=1):
         return (i_copy, w_copy)
 
 
+    if pipeline_json['class_name'] == 'mask_serializer':
+        hdf5_filename = pipeline_json['hdf5_filename']
+        
+        f = h5py.File(hdf5_filename, 'r')
+        m8 = f['bitmask'][:,:]
+
+        f.close()
+        os.remove(hdf5_filename)
+
+        assert m8.ndim == 2
+        assert m8.shape[0] == weights.shape[0]
+        assert m8.dtype == np.uint8
+
+        mbool1 = np.zeros((m8.shape[0], m8.shape[1]*8), dtype=np.bool)
+        for i in xrange(8):
+            mbool1[:,i::8] = (m8[:,:] & (np.uint8(1) << i))
+
+        mbool2 = (weights > 0.0)
+
+        for n1 in xrange(mbool1.shape[1], -1, -1):
+            if (n1 > 0) and np.any(mbool1[:,n1-1]):
+                break
+
+        for n2 in xrange(mbool2.shape[1], -1, -1):
+            if (n2 > 0) and np.any(mbool2[:,n2-1]):
+                break
+
+        assert n1 == n2
+        assert np.array_equal(mbool1[:,:n1], mbool2[:,:n2])
+        # print 'mask_serializer debug:', n1, np.count_nonzero(mbool1) / float(mbool1.size)
+
+        return (intensity, weights)
+
+
     raise RuntimeError('emulate_pipeline: unsupported class_name "%s"' % pipeline_json['class_name'])
 
 
@@ -376,7 +439,14 @@ class initial_stream(rf_pipelines.wi_stream):
         self.nt_tot = rand.randint(10000, 40000)
         self.intensity = rand.standard_normal(size=(nfreq,self.nt_tot))
         self.weights = rand.uniform(0.5, 1.0, size=(nfreq,self.nt_tot))
+        self.weights *= rand.choice([0.0,1.0], p=[0.1,0.9], size=(nfreq,self.nt_tot))  # randomly mask 10%
         self.nt_chunk = rand.randint(20, 50)
+
+
+    def _start_pipeline(self, json_attrs):
+        # Catering to mask_serializer.
+        json_attrs['initial_fpga_count'] = 0
+        json_attrs['fpga_counts_per_sample'] = 384
 
 
     def _fill_chunk(self, intensity, weights, pos):
@@ -462,3 +532,4 @@ for iter in xrange(niter):
     run_test()
 
 print 'test-almost-everything: pass'
+
