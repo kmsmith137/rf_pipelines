@@ -2,6 +2,7 @@
 
 import os
 import sys
+import glob
 import json
 import tempfile
 import numpy as np
@@ -526,6 +527,10 @@ def run_test():
 
 rand.seed(23)
 niter = 100
+
+for f in glob.glob('tmp*.h5'):
+    print 'deleting temporary file %s, probably left over from previous run' % f
+    os.remove(f)
 
 for iter in xrange(niter):
     print 'iteration %d/%d' % (iter, niter)
