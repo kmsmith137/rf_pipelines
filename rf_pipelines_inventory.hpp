@@ -180,8 +180,15 @@ extern std::shared_ptr<pipeline_object> make_pipeline_fork(const std::vector<std
 // to be unmasked), and writes it to an HDF5 file.  If bitshuffle is available, then the HDF5 file will 
 // be compressed.
 
-
 extern std::shared_ptr<pipeline_object> make_mask_serializer(const std::string &hdf5_filename);
+
+
+// mask_deserializer
+//
+// Reads bitmask from HDF5 file, and applies it (by zeroing weights) to the weights array in the
+// pipeline.
+
+extern std::shared_ptr<pipeline_object> make_mask_deserializer(const std::string &hdf5_filename);
 
 
 // -------------------------------------------------------------------------------------------------

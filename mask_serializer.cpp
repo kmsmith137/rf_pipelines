@@ -54,10 +54,10 @@ struct mask_serializer : public chunked_pipeline_object
 
     virtual void _start_pipeline(Json::Value &json_attrs) override
     {
-	H5::H5File f = sp_hdf5::hdf5_open_trunc(filename);
-
 	if (!json_attrs.isMember("initial_fpga_count") || !json_attrs.isMember("fpga_counts_per_sample"))
-	    throw runtime_error("rf_pipelines::mask_serializer: currently assumes that 'initial_fpga_count' and 'fpga_counts_per_sample' are defined by stream");
+	    _throw("currently, we assume that 'initial_fpga_count' and 'fpga_counts_per_sample' are defined by stream");
+
+	H5::H5File f = sp_hdf5::hdf5_open_trunc(filename);
 	
 	sp_hdf5::hdf5_write_attribute(f, "initial_fpga_count", ssize_t_from_json(json_attrs, "initial_fpga_count"));
 	sp_hdf5::hdf5_write_attribute(f, "fpga_counts_per_sample", int_from_json(json_attrs, "fpga_counts_per_sample"));
