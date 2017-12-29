@@ -72,26 +72,63 @@ def wi_copy(intensity, weights, nt_chunk=None):
     
 
 ####################################################################################################
+
+
+class pipeline_params:
+    """
+    Represents high-level pipeline parameters (number of frequency channels, time samples. etc.)
+
+    The timestamp range of the pipeline is represented by 'initial_fpga_count' and 'fpga_counts_per_sample',
+    as currently assumed by mask_(de)serializer.
+    """
+
+    def __init__(self, nfreq_ds=None, nds=1, nt_tot=None, initial_fpga_count=None, fpga_counts_per_sample=384):
+        """If any constructor arguments are None, they will be replaced by randomly generated values."""
+
+        if nfreq_ds is None:
+            nfreq_ds = 2**rand.randint(0, 10)
+            nfreq_ds *= rand.randint(128//nfreq_ds + 1, 2048//nfreq_ds + 1)
+
+        if nt_tot is None:
+            nt_tot = rand.randint(10000, 40000)
+
+        if initial_fpga_count is None:
+            initial_fpga_count = 256 * rand.randint(1024*1024, 2*1024*1024)
+
+        self.nfreq_ds = nfreq_ds
+        self.nds = nds
+        self.nt_tot = nt_tot
+        self.initial_fpga_count = initial_fpga_count
+        self.fpga_counts_per_sample = fpga_counts_per_sample
+
+    
+    def downsample(self, Df, Dt):
+        assert (Df > 0) and (Dt > 0) and (self.nfreq_ds % Df == 0)
+        return pipeline_params(self.nfreq_ds // Df, self.nds * Dt, self.nt_tot, self.initial_fpga_count, self.fpga_counts_per_sample)
+
+
+####################################################################################################
 #
 # make_random_*
 #
-# These functions return json-seralized random pipeline_objects (not the pipeline_objects themselves)
+# These functions take a 'pipeline_params' argument, and return json-seralized random pipeline_objects 
+# (not the pipeline_objects themselves)
 
 
-def make_random_polynomial_detrender(nfreq_ds, nds):
-    assert nfreq_ds > 0
-    assert nds > 0
+def make_random_polynomial_detrender(p):
+    assert p.nfreq_ds > 0
+    assert p.nds > 0
 
-    if (rand.randint(0,2)) and (nfreq_ds >= 16):
+    if (rand.randint(0,2)) and (p.nfreq_ds >= 16):
         axis = 'AXIS_FREQ'
-        maxdeg = (nfreq_ds // 8) - 2
+        maxdeg = (p.nfreq_ds // 8) - 2
         maxdeg = min(maxdeg, 4)
         polydeg = rand.randint(0, maxdeg+1)
-        nt_chunk = 8 * nds * max(rand.randint(-5,5), 0)
+        nt_chunk = 8 * p.nds * max(rand.randint(-5,5), 0)
     else:
         axis = 'AXIS_TIME'
         polydeg = rand.randint(0,5)
-        nt_chunk = 8 * nds * rand.randint(polydeg+2, 2*polydeg+4)
+        nt_chunk = 8 * p.nds * rand.randint(polydeg+2, 2*polydeg+4)
 
     return {
         'class_name': 'polynomial_detrender',
@@ -102,41 +139,41 @@ def make_random_polynomial_detrender(nfreq_ds, nds):
     }
 
 
-def make_random_spline_detrender(nfreq_ds, nds):
-    assert nfreq_ds >= 32
-    max_nbins = nfreq_ds // 32
+def make_random_spline_detrender(p):
+    assert p.nfreq_ds >= 32
+    max_nbins = p.nfreq_ds // 32
 
     return {
         'class_name': 'spline_detrender',
-        'nt_chunk': 8 * nds * max(rand.randint(-5,10),0),
+        'nt_chunk': 8 * p.nds * max(rand.randint(-5,10),0),
         'axis': 'AXIS_FREQ',
         'nbins': rand.randint(1, min(max_nbins+1,5)),
         'epsilon': rand.uniform(3.0e-4, 6.0e-4)
     }
 
 
-def make_random_intensity_clipper(nfreq_ds, nds):
-    assert nfreq_ds >= 32
+def make_random_intensity_clipper(p):
+    assert p.nfreq_ds >= 32
 
     a = rand.randint(0,3)
     Dt = 2**max(rand.randint(-3,5),0)
 
-    if (a == 0) and (nfreq_ds >= 32):
+    if (a == 0) and (p.nfreq_ds >= 32):
         axis = 'AXIS_FREQ'
-        m = fact2(nfreq_ds, kmin=32)
+        m = fact2(p.nfreq_ds, kmin=32)
         Df = 2**max(rand.randint(-3,m+1),0)
-        nt_chunk = 8 * nds * Dt * rand.randint(1, 8)
+        nt_chunk = 8 * p.nds * Dt * rand.randint(1, 8)
     elif a == 1:
         axis = 'AXIS_TIME'
-        m = fact2(nfreq_ds)
+        m = fact2(p.nfreq_ds)
         Df = 2**max(rand.randint(-3,m+1),0)
-        nt_chunk = 8 * nds * Dt * rand.randint(8, 16)
+        nt_chunk = 8 * p.nds * Dt * rand.randint(8, 16)
     else:
         axis = 'AXIS_NONE'
-        m = fact2(nfreq_ds)
+        m = fact2(p.nfreq_ds)
         Df = 2**max(rand.randint(-3,m+1),0)
-        p = (8 * Df) // nfreq_ds
-        nt_chunk = 8 * nds * Dt * rand.randint(p+1, 10)
+        n = (8 * Df) // p.nfreq_ds
+        nt_chunk = 8 * p.nds * Dt * rand.randint(n+1, 10)
 
     return {
         'class_name': 'intensity_clipper',
@@ -151,15 +188,15 @@ def make_random_intensity_clipper(nfreq_ds, nds):
     }
 
 
-def make_random_std_dev_clipper(nfreq_ds, nds):
-    assert nfreq_ds >= 32
-    assert nfreq_ds % 8 == 0
+def make_random_std_dev_clipper(p):
+    assert p.nfreq_ds >= 32
+    assert p.nfreq_ds % 8 == 0
 
     axis = 'AXIS_FREQ' if rand.randint(0,2) else 'AXIS_TIME'
-    m = fact2(nfreq_ds, kmin=4)
+    m = fact2(p.nfreq_ds, kmin=4)
     Df = 2**max(rand.randint(-3,m-2),0)
     Dt = 2**max(rand.randint(-3,5),0)
-    nt_chunk = 8 * nds * Dt * rand.randint(8,16)
+    nt_chunk = 8 * p.nds * Dt * rand.randint(8,16)
 
     return {
         'class_name': 'std_dev_clipper',
@@ -172,8 +209,8 @@ def make_random_std_dev_clipper(nfreq_ds, nds):
     }
 
 
-def make_random_mask_serializer(nfreq_ds, nds):
-    assert (nds == 1) and have_hdf5
+def make_random_mask_serializer(p):
+    assert (p.nds == 1) and have_hdf5
 
     (f, filename) = tempfile.mkstemp(dir='.', suffix='.h5')
     del f
@@ -184,44 +221,46 @@ def make_random_mask_serializer(nfreq_ds, nds):
     }
 
 
-def make_random_transform_list(nfreq_ds, nds, nelements):
+
+def make_random_transform_list(p, nelements):
     assert nelements > 0
 
     ret = [ ]
 
     while (rand.uniform() < 0.5) and (nelements > 1):
         n = rand.randint(1, nelements+1)
-        ret.append(make_random_pipeline(nfreq_ds, nds, n))
+        ret.append(make_random_pipeline(p, n))
         nelements -= (n-1)
 
     while len(ret) < nelements:
         # If more transforms are added to the list below, 
         # don't forget to increment the randint() upper limit!
 
-        r = rand.randint(0,5)
+        r = rand.randint(0,6)
 
         if (r == 0):
-            ret.append(make_random_polynomial_detrender(nfreq_ds, nds))
-        elif (r == 1) and (nfreq_ds >= 32):
-            ret.append(make_random_spline_detrender(nfreq_ds, nds))
-        elif (r == 2) and (nfreq_ds >= 32):
-            ret.append(make_random_intensity_clipper(nfreq_ds, nds))
-        elif (r == 3) and (nfreq_ds % 8 == 0) and (nfreq_ds >= 32):
-            ret.append(make_random_std_dev_clipper(nfreq_ds, nds))
-        elif (r == 4) and (rand.uniform() < 0.1) and (nds == 1) and have_hdf5:
-            ret.append(make_random_mask_serializer(nfreq_ds, nds))
+            ret.append(make_random_polynomial_detrender(p))
+        elif (r == 1) and (p.nfreq_ds >= 32):
+            ret.append(make_random_spline_detrender(p))
+        elif (r == 2) and (p.nfreq_ds >= 32):
+            ret.append(make_random_intensity_clipper(p))
+        elif (r == 3) and (p.nfreq_ds % 8 == 0) and (p.nfreq_ds >= 32):
+            ret.append(make_random_std_dev_clipper(p))
+        elif (r == 4) and (rand.uniform() < 0.1) and (p.nds == 1) and have_hdf5:
+            ret.append(make_random_mask_serializer(p))
 
     return ret
 
 
 
-def make_random_pipeline(nfreq_ds, nds, nelements, allow_downsampling=True):
-    m = fact2(nfreq_ds)
-    n = 5 - fact2(nds)
+def make_random_pipeline(p, nelements, allow_downsampling=True):
+    m = fact2(p.nfreq_ds)
+    n = 5 - fact2(p.nds)
     Df = 2**max(rand.randint(-5,m+1),0) if allow_downsampling else 1
     Dt = 2**max(rand.randint(-5,n+1),0) if allow_downsampling else 1
 
-    tl = make_random_transform_list(nfreq_ds // Df, nds * Dt, nelements)
+    p = p.downsample(Df, Dt)
+    tl = make_random_transform_list(p, nelements)
 
     if (len(tl) > 1) or (rand.uniform() < 0.1):
         ret = { 'class_name': 'pipeline', 'name': 'pipeline', 'elements': tl }
@@ -235,8 +274,8 @@ def make_random_pipeline(nfreq_ds, nds, nelements, allow_downsampling=True):
         'class_name': 'wi_sub_pipeline',
         'sub_pipeline': ret,
         'w_cutoff': rand.uniform(0.0, 0.01),
-        'nfreq_out': nfreq_ds // Df,
-        'nds_out': nds * Dt,
+        'nfreq_out': p.nfreq_ds,
+        'nds_out': p.nds,
         'Df': Df,
         'Dt': Dt
     }
@@ -429,35 +468,37 @@ def emulate_pipeline(pipeline_json, intensity, weights, nds=1):
 
 
 class initial_stream(rf_pipelines.wi_stream):
-    def __init__(self, nfreq=None):
-        rf_pipelines.wi_stream.__init__(self, 'initial_stream')
-        
-        if nfreq is None:
-            nfreq = 2**rand.randint(0, 10)
-            nfreq *= rand.randint(128//nfreq + 1, 2048//nfreq + 1)
+    def __init__(self, p):
+        assert isinstance(p, pipeline_params)
+        assert p.nds == 1
 
-        self.nfreq = nfreq
-        self.nt_tot = rand.randint(10000, 40000)
-        self.intensity = rand.standard_normal(size=(nfreq,self.nt_tot))
-        self.weights = rand.uniform(0.5, 1.0, size=(nfreq,self.nt_tot))
-        self.weights *= rand.choice([0.0,1.0], p=[0.1,0.9], size=(nfreq,self.nt_tot))  # randomly mask 10%
+        rf_pipelines.wi_stream.__init__(self, 'initial_stream')
+        shape = (p.nfreq_ds, p.nt_tot)
+
+        self.params = p
+        self.nfreq = p.nfreq_ds
+        self.nds = 1
+        self.intensity = rand.standard_normal(size=shape)
+        self.weights = rand.uniform(0.5, 1.0, size=shape)
+        self.weights *= rand.choice([0.0,1.0], p=[0.1,0.9], size=shape)   # randomly mask 10%
         self.nt_chunk = rand.randint(20, 50)
 
 
     def _start_pipeline(self, json_attrs):
         # Catering to mask_serializer.
-        json_attrs['initial_fpga_count'] = 0
-        json_attrs['fpga_counts_per_sample'] = 384
+        json_attrs['initial_fpga_count'] = self.params.initial_fpga_count
+        json_attrs['fpga_counts_per_sample'] = self.params.fpga_counts_per_sample
 
 
     def _fill_chunk(self, intensity, weights, pos):
+        nt_tot = self.params.nt_tot
         intensity[:,:] = 0.
         weights[:,:] = 0.
 
-        if pos >= self.nt_tot:
+        if pos >= nt_tot:
             return False
 
-        n = min(self.nt_tot - pos, self.nt_chunk)
+        n = min(nt_tot - pos, self.nt_chunk)
         intensity[:,:n] = self.intensity[:,pos:(pos+n)]
         weights[:,:n] = self.weights[:,pos:(pos+n)]
         return True
@@ -484,10 +525,15 @@ class final_transform(rf_pipelines.wi_transform):
 
 
 def run_test():
-    s = initial_stream()
-    u = final_transform()
-    tj = make_random_transform_list(s.nfreq, 1, nelements=rand.randint(10,20))
+    # Make random pipeline params
+    params = pipeline_params()
+    nfreq = params.nfreq_ds
+    nt_tot = params.nt_tot
+
+    s = initial_stream(params)
+    tj = make_random_transform_list(params, nelements=rand.randint(10,20))
     t = [ rf_pipelines.pipeline_object.from_json(j) for j in tj ]
+    u = final_transform()
 
     p = rf_pipelines.pipeline([s] + t + [u])
     p.bind(outdir=None, verbosity=0, debug=True)
@@ -501,22 +547,22 @@ def run_test():
     (i0,w0) = u.get_results()
 
     nt0 = i0.shape[1]
-    assert nt0 >= s.nt_tot
-    assert i0.shape == w0.shape == (s.nfreq, nt0)
-    assert np.all(w0[:,s.nt_tot:] == 0.0)
+    assert nt0 >= nt_tot
+    assert i0.shape == w0.shape == (nfreq, nt0)
+    assert np.all(w0[:,nt_tot:] == 0.0)
     
     # Second run
     pj = { 'class_name': 'pipeline', 'elements': tj }
     (i1,w1) = emulate_pipeline(pj, s.intensity, s.weights)
     
     nt1 = i1.shape[1]
-    assert nt1 >= s.nt_tot
-    assert i1.shape == w1.shape == (s.nfreq, nt1)
-    assert np.all(w1[:,s.nt_tot:] == 0.0)
+    assert nt1 >= nt_tot
+    assert i1.shape == w1.shape == (nfreq, nt1)
+    assert np.all(w1[:,nt_tot:] == 0.0)
 
     # Compare
-    eps_i = maxdiff((i0*w0)[:,:s.nt_tot], (i1*w1)[:,:s.nt_tot])
-    eps_w = maxdiff(w0[:,:s.nt_tot], w1[:,:s.nt_tot])
+    eps_i = maxdiff((i0*w0)[:,:nt_tot], (i1*w1)[:,:nt_tot])
+    eps_w = maxdiff(w0[:,:nt_tot], w1[:,:nt_tot])
 
     assert eps_i < 1.0e-5
     assert eps_w < 1.0e-5
