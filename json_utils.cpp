@@ -61,83 +61,106 @@ void json_write(const string &filename, const Json::Value &j, bool noisy)
 }
 
 
-static const Json::Value &get_member(const Json::Value &j, const string &k)
+static const Json::Value &get_member(const Json::Value &j, const string &k, const char *where)
 {
+    if (!where)
+	where = "rf_pipelines";
     if (!j.isObject())
-	throw runtime_error("rf_pipelines: json value was not an Object as expected");
+	throw runtime_error(where + string(": json value was not an Object as expected"));
     if (!j.isMember(k))
-	throw runtime_error("rf_pipelines: json field '" + k + "' was expected but not found");
+	throw runtime_error(where + string(": json field '") + k + "' was expected but not found");
     return j[k];
 }
 
 
-string string_from_json(const Json::Value &j, const string &k)
+string string_from_json(const Json::Value &j, const string &k, const char *where)
 {
-    const Json::Value &v = get_member(j, k);
+    if (!where)
+	where = "rf_pipelines";
+
+    const Json::Value &v = get_member(j, k, where);
 
     if (!v.isString())
-	throw runtime_error("rf_pipelines: json field '" + k + "' was not a string as expected");
+	throw runtime_error(where + string(": json field '") + k + "' was not a string as expected");
 
     return v.asString();
 }
 
 
-int int_from_json(const Json::Value &j, const string &k)
+int int_from_json(const Json::Value &j, const string &k, const char *where)
 {
-    const Json::Value &v = get_member(j, k);
+    if (!where)
+	where = "rf_pipelines";
+
+    const Json::Value &v = get_member(j, k, where);
 
     if (!v.isIntegral())
-	throw runtime_error("rf_pipelines: json field '" + k + "' was not an integer as expected");
+	throw runtime_error(where + string(": json field '") + k + "' was not an integer as expected");
 
     return v.asInt();
 }
 
 
-bool bool_from_json(const Json::Value &j, const string &k)
+bool bool_from_json(const Json::Value &j, const string &k, const char *where)
 {
-    const Json::Value &v = get_member(j, k);
+    if (!where)
+	where = "rf_pipelines";
+
+    const Json::Value &v = get_member(j, k, where);
 
     if (!v.isBool())
-	throw runtime_error("rf_pipelines: json field '" + k + "' was not boolean as expected");
+	throw runtime_error(where + string(": json field '") + k + "' was not boolean as expected");
 
     return v.asBool();
 }
 
 
-ssize_t ssize_t_from_json(const Json::Value &j, const string &k)
+ssize_t ssize_t_from_json(const Json::Value &j, const string &k, const char *where)
 {
-    const Json::Value &v = get_member(j, k);
+    if (!where)
+	where = "rf_pipelines";
+
+    const Json::Value &v = get_member(j, k, where);
 
     if (!v.isIntegral())
-	throw runtime_error("rf_pipelines: json field '" + k + "' was not an integer as expected");
+	throw runtime_error(where + string(": json field '") + k + "' was not an integer as expected");
 
     return v.asInt64();
 }
 
-double double_from_json(const Json::Value &j, const string &k)
+double double_from_json(const Json::Value &j, const string &k, const char *where)
 {
-    const Json::Value &v = get_member(j, k);
+    if (!where)
+	where = "rf_pipelines";
+
+    const Json::Value &v = get_member(j, k, where);
 
     if (!v.isDouble())
-	throw runtime_error("rf_pipelines: json field '" + k + "' was not a floating-point number as expected");
+	throw runtime_error(where + string(": json field '") + k + "' was not a floating-point number as expected");
 
     return v.asDouble();
 }
 
 
-rf_kernels::axis_type axis_type_from_json(const Json::Value &j, const string &k)
+rf_kernels::axis_type axis_type_from_json(const Json::Value &j, const string &k, const char *where)
 {
-    string s = string_from_json(j, k);
-    return rf_kernels::axis_type_from_string(s, "json field");
+    if (!where)
+	where = "rf_pipelines";
+
+    string s = string_from_json(j, k, where);
+    return rf_kernels::axis_type_from_string(s, where);
 }
 
 
-Json::Value array_from_json(const Json::Value &j, const string &k)
+Json::Value array_from_json(const Json::Value &j, const string &k, const char *where)
 {
-    const Json::Value &v = get_member(j, k);
+    if (!where)
+	where = "rf_pipelines";
+
+    const Json::Value &v = get_member(j, k, where);
 
     if (!v.isArray())
-	throw runtime_error("rf_pipelines: json field '" + k + "' was not an array as expected");
+	throw runtime_error(where + string(": json field '") + k + "' was not an array as expected");
 
     return v;
 }

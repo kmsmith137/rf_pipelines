@@ -120,7 +120,9 @@ Json::Value chime_frb_file_stream::jsonize() const
 // static 
 shared_ptr<chime_frb_file_stream> chime_frb_file_stream::from_json(const Json::Value &j)
 {
-    Json::Value a = array_from_json(j, "filename_list");
+    const char *where = "rf_pipelines::chime_frb_file_stream::from_json()";
+
+    Json::Value a = array_from_json(j, "filename_list", where);
     vector<string> vs;
 
     for (const Json::Value &v: a) {
@@ -129,8 +131,8 @@ shared_ptr<chime_frb_file_stream> chime_frb_file_stream::from_json(const Json::V
 	vs.push_back(v.asString());
     }
 
-    int nt_chunk = int_from_json(j, "nt_chunk");
-    int noise_source_align = int_from_json(j, "noise_source_align");
+    int nt_chunk = int_from_json(j, "nt_chunk", where);
+    int noise_source_align = int_from_json(j, "noise_source_align", where);
     return make_shared<chime_frb_file_stream> (vs, nt_chunk, noise_source_align);
 }
 

@@ -173,12 +173,14 @@ struct mask_expander : public chunked_pipeline_object
 
     static shared_ptr<mask_expander> from_json(const Json::Value &j)
     {
-	double width = double_from_json(j, "width");
-	double threshold = double_from_json(j, "threshold");
-	double alpha = double_from_json(j, "alpha");
-	string prev_wname = string_from_json(j, "prev_wname");
-	ssize_t nt_chunk = ssize_t_from_json(j, "nt_chunk");
-	rf_kernels::axis_type axis = axis_type_from_json(j, "axis");
+	const char *where = "rf_pipelines::mask_expander::from_json()";
+
+	double width = double_from_json(j, "width", where);
+	double threshold = double_from_json(j, "threshold", where);
+	double alpha = double_from_json(j, "alpha", where);
+	string prev_wname = string_from_json(j, "prev_wname", where);
+	ssize_t nt_chunk = ssize_t_from_json(j, "nt_chunk", where);
+	rf_kernels::axis_type axis = axis_type_from_json(j, "axis", where);
 
 	return make_shared<mask_expander> (axis, prev_wname, width, threshold, alpha, nt_chunk);
     }

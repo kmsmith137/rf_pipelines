@@ -108,14 +108,16 @@ public:
 
     static shared_ptr<gaussian_noise_stream> from_json(const Json::Value &j)
     {
-	ssize_t nfreq = ssize_t_from_json(j, "nfreq");
-	ssize_t nt_tot = ssize_t_from_json(j, "nt_tot");
-	double freq_lo_MHz = double_from_json(j, "freq_lo_MHz");
-	double freq_hi_MHz = double_from_json(j, "freq_hi_MHz");
-	double dt_sample = double_from_json(j, "dt_sample");
-	double sample_rms = double_from_json(j, "sample_rms");
-	ssize_t nt_chunk = ssize_t_from_json(j, "nt_chunk");
-	bool randomize_weights = bool_from_json(j, "randomize_weights");
+	const char *where = "rf_pipelines::gaussian_noise_stream::from_json()";
+
+	ssize_t nfreq = ssize_t_from_json(j, "nfreq", where);
+	ssize_t nt_tot = ssize_t_from_json(j, "nt_tot", where);
+	double freq_lo_MHz = double_from_json(j, "freq_lo_MHz", where);
+	double freq_hi_MHz = double_from_json(j, "freq_hi_MHz", where);
+	double dt_sample = double_from_json(j, "dt_sample", where);
+	double sample_rms = double_from_json(j, "sample_rms", where);
+	ssize_t nt_chunk = ssize_t_from_json(j, "nt_chunk", where);
+	bool randomize_weights = bool_from_json(j, "randomize_weights", where);
 
 	return make_shared<gaussian_noise_stream> (nfreq, nt_tot, freq_lo_MHz, freq_hi_MHz, dt_sample, sample_rms, nt_chunk, randomize_weights);
     }

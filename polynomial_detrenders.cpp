@@ -52,13 +52,12 @@ struct polynomial_detrender : public wi_transform
 
     static shared_ptr<polynomial_detrender> from_json(const Json::Value &x)
     {
-	if (string_from_json(x,"class_name") != "polynomial_detrender")
-	    throw runtime_error("rf_pipelines: expected class_name=\"pipeline\" in pipeline json constructor");
+	const char *where = "rf_pipelines::polynomial_detrender::from_json()";
 
-	rf_kernels::axis_type axis = axis_type_from_json(x, "axis");
-	int nt_chunk = int_from_json(x, "nt_chunk");
-	double polydeg = double_from_json(x, "polydeg");
-	double epsilon = double_from_json(x, "epsilon");
+	rf_kernels::axis_type axis = axis_type_from_json(x, "axis", where);
+	int nt_chunk = int_from_json(x, "nt_chunk", where);
+	double polydeg = double_from_json(x, "polydeg", where);
+	double epsilon = double_from_json(x, "epsilon", where);
 	
 	return make_shared<polynomial_detrender> (axis, nt_chunk, polydeg, epsilon);
     }

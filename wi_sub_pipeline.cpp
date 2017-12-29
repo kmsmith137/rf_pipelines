@@ -322,12 +322,14 @@ Json::Value wi_sub_pipeline::jsonize() const
 // static 
 shared_ptr<wi_sub_pipeline> wi_sub_pipeline::from_json(const Json::Value &j)
 {
+    const char *where = "rf_pipelines::wi_sub_pipeline::from_json()";
+
     wi_sub_pipeline::initializer ini_params;
-    ini_params.w_cutoff = double_from_json(j, "w_cutoff");
-    ini_params.nfreq_out = int_from_json(j, "nfreq_out");
-    ini_params.nds_out = int_from_json(j, "nds_out");
-    ini_params.Df = int_from_json(j, "Df");
-    ini_params.Dt = int_from_json(j, "Dt");
+    ini_params.w_cutoff = double_from_json(j, "w_cutoff", where);
+    ini_params.nfreq_out = int_from_json(j, "nfreq_out", where);
+    ini_params.nds_out = int_from_json(j, "nds_out", where);
+    ini_params.Df = int_from_json(j, "Df", where);
+    ini_params.Dt = int_from_json(j, "Dt", where);
 
     if (!j.isMember("sub_pipeline"))
 	throw runtime_error("rf_pipelines::wi_sub_pipeline::from_json(): json member 'sub_pipeline' does not exist");

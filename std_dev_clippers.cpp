@@ -84,12 +84,14 @@ struct std_dev_clipper_transform : public wi_transform
 
     static shared_ptr<std_dev_clipper_transform> from_json(const Json::Value &j)
     {
-	int Df = int_from_json(j, "Df");
-	int Dt = int_from_json(j, "Dt");
-	bool two_pass = bool_from_json(j, "two_pass");
-	double sigma = double_from_json(j, "sigma");
-	ssize_t nt_chunk = ssize_t_from_json(j, "nt_chunk");
-	rf_kernels::axis_type axis = axis_type_from_json(j, "axis");
+	const char *where = "rf_pipelines::std_dev_clipper::from_json()";
+
+	int Df = int_from_json(j, "Df", where);
+	int Dt = int_from_json(j, "Dt", where);
+	bool two_pass = bool_from_json(j, "two_pass", where);
+	double sigma = double_from_json(j, "sigma", where);
+	ssize_t nt_chunk = ssize_t_from_json(j, "nt_chunk", where);
+	rf_kernels::axis_type axis = axis_type_from_json(j, "axis", where);
 
 	return make_shared<std_dev_clipper_transform> (Df, Dt, axis, nt_chunk, sigma, two_pass);	
     }

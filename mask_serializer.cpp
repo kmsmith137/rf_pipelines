@@ -105,7 +105,9 @@ struct mask_serializer : public chunked_pipeline_object
 
     static shared_ptr<mask_serializer> from_json(const Json::Value &j)
     {
-	string hdf5_filename = string_from_json(j, "hdf5_filename");
+	const char *where = "rf_pipelines::mask_serializer::from_json()";
+	
+	string hdf5_filename = string_from_json(j, "hdf5_filename", where);
 	return make_shared<mask_serializer> (hdf5_filename);
     }
 };

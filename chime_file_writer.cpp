@@ -137,10 +137,13 @@ struct chime_file_writer : public wi_transform {
 
     static shared_ptr<chime_file_writer> from_json(const Json::Value &j)
     {
-	string filename = string_from_json(j, "filename");
-	bool clobber = bool_from_json(j, "clobber");
-	int bitshuffle = int_from_json(j, "bitshuffle");
-	int nt_chunk = int_from_json(j, "nt_chunk");
+	const char *where = "rf_pipelines::chime_file_writer::from_json()";
+
+	string filename = string_from_json(j, "filename", where);
+	bool clobber = bool_from_json(j, "clobber", where);
+	int bitshuffle = int_from_json(j, "bitshuffle", where);
+	int nt_chunk = int_from_json(j, "nt_chunk", where);
+
 	return make_shared<chime_file_writer> (filename, clobber, bitshuffle, nt_chunk);
     }
 };

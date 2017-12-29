@@ -176,10 +176,12 @@ struct badchannel_mask : public wi_transform {
 
     static shared_ptr<badchannel_mask> from_json(const Json::Value &j)
     {
-	string mask_path = string_from_json(j, "mask_path");
+	const char *where = "rf_pipelines::badchannel_mask::from_json()";
+
+	string mask_path = string_from_json(j, "mask_path", where);
 	vector<pair<double,double>> mask_ranges;
 
-	Json::Value a = array_from_json(j, "mask_ranges");
+	Json::Value a = array_from_json(j, "mask_ranges", where);
 
 	for (const Json::Value &v: a) {
 	    if (!v.isArray() || (v.size() != 2) || !v[0].isDouble() || !v[1].isDouble())

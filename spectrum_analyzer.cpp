@@ -155,8 +155,10 @@ struct spectrum_analyzer : public wi_transform
 
     static shared_ptr<pipeline_object> from_json(const Json::Value &j)
     {
-	ssize_t Dt1 = ssize_t_from_json(j, "Dt1");
-	ssize_t Dt2 = ssize_t_from_json(j, "Dt2");
+	const char *where = "rf_pipelines::spectrum_analyzer::from_json()";
+
+	ssize_t Dt1 = ssize_t_from_json(j, "Dt1", where);
+	ssize_t Dt2 = ssize_t_from_json(j, "Dt2", where);
 
 	return make_shared<spectrum_analyzer> (Dt1, Dt2);
     }

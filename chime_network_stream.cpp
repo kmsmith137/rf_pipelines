@@ -287,11 +287,13 @@ shared_ptr<wi_stream> make_chime_network_stream(int udp_port, int beam_id)
 
 static shared_ptr<wi_stream> dummy_chime_network_stream_from_json(const Json::Value &j)
 {
-    ssize_t nt_tot = ssize_t_from_json(j, "nt_tot");
-    int nupfreq = int_from_json(j, "nupfreq");
-    int nt_per_packet = int_from_json(j, "nt_per_packet");
-    int fpga_counts_per_sample = int_from_json(j, "fpga_counts_per_sample");
-    double pool_gb = double_from_json(j, "pool_gb");
+    const char *where = "rf_pipelines::dummy_chime_network_stream::from_json()";
+
+    ssize_t nt_tot = ssize_t_from_json(j, "nt_tot", where);
+    int nupfreq = int_from_json(j, "nupfreq", where);
+    int nt_per_packet = int_from_json(j, "nt_per_packet", where);
+    int fpga_counts_per_sample = int_from_json(j, "fpga_counts_per_sample", where);
+    double pool_gb = double_from_json(j, "pool_gb", where);
     
     return make_dummy_chime_network_stream(nt_tot, nupfreq, nt_per_packet, fpga_counts_per_sample, pool_gb);
 }

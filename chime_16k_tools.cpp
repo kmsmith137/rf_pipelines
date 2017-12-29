@@ -69,7 +69,9 @@ struct chime_16k_spike_mask : public chunked_pipeline_object
 
     static shared_ptr<chime_16k_spike_mask> from_json(const Json::Value &j)
     {
-	int nt_chunk = int_from_json(j, "nt_chunk");
+	const char *where = "rf_pipelines::chime_16k_spike_mask::from_json()";
+
+	int nt_chunk = int_from_json(j, "nt_chunk", where);
 	return make_shared<chime_16k_spike_mask> (nt_chunk);
     }
 };
@@ -170,8 +172,10 @@ struct chime_16k_derippler : public chunked_pipeline_object
 
     static shared_ptr<chime_16k_derippler> from_json(const Json::Value &j)
     {
-	int nt_chunk = int_from_json(j, "nt_chunk");
-	double fudge_factor = double_from_json(j, "fudge_factor");
+	const char *where = "rf_pipelines::chime_16k_derippler::from_json()";
+
+	int nt_chunk = int_from_json(j, "nt_chunk", where);
+	double fudge_factor = double_from_json(j, "fudge_factor", where);
 	return make_shared<chime_16k_derippler> (fudge_factor, nt_chunk);
     }
 };
@@ -374,9 +378,11 @@ struct chime_16k_stripe_analyzer : public wi_transform
 
     static shared_ptr<pipeline_object> from_json(const Json::Value &j)
     {
-	ssize_t Dt1 = ssize_t_from_json(j, "Dt1");
-	ssize_t Df2 = ssize_t_from_json(j, "Df2");
-	ssize_t Dt2 = ssize_t_from_json(j, "Dt2");
+	const char *where = "rf_pipelines::chime_16k_stripe_analyzer::from_json()";
+
+	ssize_t Dt1 = ssize_t_from_json(j, "Dt1", where);
+	ssize_t Df2 = ssize_t_from_json(j, "Df2", where);
+	ssize_t Dt2 = ssize_t_from_json(j, "Dt2", where);
 
 	return make_shared<chime_16k_stripe_analyzer> (Dt1, Df2, Dt2);
     }

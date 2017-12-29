@@ -177,18 +177,20 @@ Json::Value bonsai_dedisperser::jsonize() const
 
 shared_ptr<bonsai_dedisperser> bonsai_dedisperser::from_json(const Json::Value &j)
 {
+    const char *where = "rf_pipelines::bonsai_dedisperser::from_json()";
+
     bonsai::dedisperser::initializer ini_params;
 
     const Json::Value &jini = j["initializer"];
-    ini_params.fill_rfi_mask = bool_from_json(jini, "fill_rfi_mask");
-    ini_params.allocate = bool_from_json(jini, "allocate");
-    ini_params.verbosity = int_from_json(jini, "verbosity");
-    ini_params.file_type = string_from_json(jini, "file_type");
-    ini_params.use_analytic_normalization = bool_from_json(jini, "use_analytic_normalization");
-    ini_params.estimate_cumulative_variance = bool_from_json(jini, "estimate_cumulative_variance");
-    ini_params.force_unnormalized_triggers = bool_from_json(jini, "force_unnormalized_triggers");
+    ini_params.fill_rfi_mask = bool_from_json(jini, "fill_rfi_mask", where);
+    ini_params.allocate = bool_from_json(jini, "allocate", where);
+    ini_params.verbosity = int_from_json(jini, "verbosity", where);
+    ini_params.file_type = string_from_json(jini, "file_type", where);
+    ini_params.use_analytic_normalization = bool_from_json(jini, "use_analytic_normalization", where);
+    ini_params.estimate_cumulative_variance = bool_from_json(jini, "estimate_cumulative_variance", where);
+    ini_params.force_unnormalized_triggers = bool_from_json(jini, "force_unnormalized_triggers", where);
 
-    string config_filename = string_from_json(j, "config_filename");
+    string config_filename = string_from_json(j, "config_filename", where);
     auto dp = make_shared<bonsai::dedisperser> (config_filename, ini_params);
     
     shared_ptr<bonsai::global_max_tracker> tp;  // empty

@@ -101,14 +101,16 @@ struct intensity_clipper_transform : public wi_transform
 
     static shared_ptr<intensity_clipper_transform> from_json(const Json::Value &j)
     {
-	int Df = int_from_json(j, "Df");
-	int Dt = int_from_json(j, "Dt");
-	int niter = int_from_json(j, "niter");
-	int nt_chunk = int_from_json(j, "nt_chunk");
-	bool two_pass = bool_from_json(j, "two_pass");
-	double sigma = double_from_json(j, "sigma");
-	double iter_sigma = double_from_json(j, "iter_sigma");
-	rf_kernels::axis_type axis = axis_type_from_json(j, "axis");
+	const char *where = "rf_pipelines::intensity_clipper_transform::from_json()";
+
+	int Df = int_from_json(j, "Df", where);
+	int Dt = int_from_json(j, "Dt", where);
+	int niter = int_from_json(j, "niter", where);
+	int nt_chunk = int_from_json(j, "nt_chunk", where);
+	bool two_pass = bool_from_json(j, "two_pass", where);
+	double sigma = double_from_json(j, "sigma", where);
+	double iter_sigma = double_from_json(j, "iter_sigma", where);
+	rf_kernels::axis_type axis = axis_type_from_json(j, "axis", where);
 
 	return make_shared<intensity_clipper_transform> (Df, Dt, axis, nt_chunk, sigma, niter, iter_sigma, two_pass);
     }

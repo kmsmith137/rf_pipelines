@@ -111,6 +111,8 @@ Json::Value pipeline::jsonize() const
 
 shared_ptr<pipeline> pipeline::from_json(const Json::Value &x)
 {
+    const char *where = "rf_pipelines::pipeline::from_json()";
+
     if (string_from_json(x,"class_name") != "pipeline")
 	throw runtime_error("rf_pipelines: expected class_name=\"pipeline\" in pipeline json constructor");
 
@@ -118,7 +120,7 @@ shared_ptr<pipeline> pipeline::from_json(const Json::Value &x)
     string name = x.isMember("name") ? string_from_json(x, "name") : "";
 
     vector<shared_ptr<pipeline_object>> elements;
-    for (const auto &s: array_from_json(x, "elements"))
+    for (const auto &s: array_from_json(x, "elements", where))
 	elements.push_back(pipeline_object::from_json(s));
 
     return make_shared<pipeline> (elements, name);

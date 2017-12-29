@@ -95,7 +95,9 @@ struct pipeline_fork : public pipeline_object
 
     static shared_ptr<pipeline_fork> from_json(const Json::Value &j)
     {
-	const Json::Value &jb = array_from_json(j, "bufnames");
+	const char *where = "rf_pipelines::pipeline_fork::from_json()";
+
+	const Json::Value &jb = array_from_json(j, "bufnames", where);
 	vector<pair<string,string>> bufnames;
 
 	for (int i = 0; i < int(jb.size()); i++) {

@@ -168,15 +168,16 @@ extern void makedirs(const std::string &dirname);
 // json_utils.cpp
 extern Json::Value json_read(const std::string &filename, bool noisy=true);
 extern void json_write(const std::string &filename, const Json::Value &x, bool noisy=true);
-extern Json::Value array_from_json(const Json::Value &x, const std::string &k);
-extern std::string string_from_json(const Json::Value &x, const std::string &k);
-extern rf_kernels::axis_type axis_type_from_json(const Json::Value &x, const std::string &k);
-extern double double_from_json(const Json::Value &x, const std::string &k);
-extern int int_from_json(const Json::Value &x, const std::string &k);
-extern bool bool_from_json(const Json::Value &j, const std::string &k);
-extern ssize_t ssize_t_from_json(const Json::Value &j, const std::string &k);
 extern void add_json_object(Json::Value &dst, const Json::Value &src);
 extern std::string json_stringify(const Json::Value &x);
+
+extern int int_from_json(const Json::Value &x, const std::string &k, const char *where=nullptr);
+extern bool bool_from_json(const Json::Value &j, const std::string &k, const char *where=nullptr);
+extern double double_from_json(const Json::Value &x, const std::string &k, const char *where=nullptr);
+extern ssize_t ssize_t_from_json(const Json::Value &j, const std::string &k, const char *where=nullptr);
+extern Json::Value array_from_json(const Json::Value &x, const std::string &k, const char *where=nullptr);
+extern std::string string_from_json(const Json::Value &x, const std::string &k, const char *where=nullptr);
+extern rf_kernels::axis_type axis_type_from_json(const Json::Value &x, const std::string &k, const char *where=nullptr);
 
 
 // plot_utils.cpp
