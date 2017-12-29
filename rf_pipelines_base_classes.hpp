@@ -1124,6 +1124,8 @@ protected:
     double freq_lo_MHz = 0.0;
     double freq_hi_MHz = 0.0;
     double dt_sample = 0.0;
+    ssize_t initial_sample_index = 0;
+    ssize_t fpga_counts_per_sample = 0;
 
     // Parameters from current file.
     double time_lo = 0.0;
@@ -1136,6 +1138,7 @@ protected:
 
     // Devirtualize wi_stream base class.
     virtual void _bind_stream(Json::Value &json_attrs) override;
+    virtual void _start_pipeline(Json::Value &json_attrs) override;
     virtual bool _fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
     virtual void _end_pipeline(Json::Value &json_output) override;
     virtual void _unbind_stream() override;

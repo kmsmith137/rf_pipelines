@@ -130,7 +130,7 @@ struct mask_deserializer : public chunked_pipeline_object
 	    _throw("expected 'bitmask' hdf5 dataset to be of 8-bit integer type");
 	if (shape.size() != 2)
 	    _throw("expected 'bitmask' hdf5 dataset to be two-dimensional");
-	if (shape[0] != nfreq)
+	if (shape[0] != size_t(nfreq))
 	    _throw("number of frequency channels in hdf5 file does not match pipeline");
 
 	this->file_i0 = df / pipeline_fpga_counts_per_sample;

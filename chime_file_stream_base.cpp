@@ -30,29 +30,40 @@ void chime_file_stream_base::_bind_stream(Json::Value &json_attrs)
 
     // Initializes the following fields: nfreq, freq_lo_MHz, freq_hi_MHz, dt_sample, time_lo, time_hi, nt, frequencies_are_increasing.
     this->set_params_from_file();
-    
+
+    double dt = time_lo / dt_sample;
+    double df = dt_sample / chime_seconds_per_fpga_count;
+
+    this->initial_sample_index = ssize_t(dt + 0.5);
+    this->fpga_counts_per_sample = ssize_t(df + 0.5);
+
+    if (dt_sample < 1.0e-4)
+	_throw("chime_file_stream_base constructor: unexpectedly small dt_sample");
+    if (dt_sample > 0.01)
+	_throw("chime_file_stream_base constructor: unexpectedly large dt_sample");
+    if (time_lo < 0.0)
+	_throw("chime_file_stream_base constructor: expected time_lo >= 0");
+    if (time_lo > 1.0e10 * dt_sample)
+	_throw("chime_file_stream_base constructor: unexpectedly large time_lo");
+    if (fabs(df - fpga_counts_per_sample) > 1.0e-4)
+	_throw("chime_file_stream_base constructor: dt_sample does not appear to be a multiple of 2.56e-6 secconds (one FPGA count)");
+    if (fabs(dt - initial_sample_index) > 0.01)
+	_throw("chime_file_stream_base constructor: initial timestamp does not appear to be a multiple of dt_sample");
+
     // Initialize initial_discard_count.
     if (noise_source_align > 0) {
-	if (dt_sample < 1.0e-4)
-	    throw std::runtime_error("chime_file_stream_base constructor: unexpectedly small dt_sample");
-
 	// The CHIME noise source switch occurs at FPGA counts which are multiples of 2^23.
-	double fsamp = (1 << 23) * chime_seconds_per_fpga_count / dt_sample;
-	ssize_t samples_per_noise_switch = ssize_t(fsamp + 0.5);
+	ssize_t fpga_counts_per_noise_switch = 1 << 23;
+	if (fpga_counts_per_noise_switch % fpga_counts_per_sample)
+	    _throw("chime_file_stream_base_constructor: expected fpga_counts_per_sample to evenly divide 2^23");
 
-	if (fabs(samples_per_noise_switch - fsamp) > 1.0e-4)
-	    throw std::runtime_error("chime_file_stream_base constructor: dt_sample does not appear to evenly divide dt_noise_source");
-	if (samples_per_noise_switch % noise_source_align != 0)
-	    throw std::runtime_error("chime_file_stream_base constructor: 'noise_source_align' must evenly divide " + to_string(samples_per_noise_switch));
+	ssize_t samples_per_noise_switch = xdiv(fpga_counts_per_noise_switch, fpga_counts_per_sample);
+	if (samples_per_noise_switch % noise_source_align)
+	    _throw("chime_file_stream_base constructor: 'noise_source_align' must evenly divide " + to_string(samples_per_noise_switch));
 
-	double fi0 = time_lo / dt_sample;
-	ssize_t i0 = ssize_t(fi0 + 0.5);
-
-	if (fabs(fi0 - i0) > 1.0e-4)
-	    throw std::runtime_error("chime_file_stream_base constructor: file timestamp does not appear to evenly divide dt_sample");
-
-	i0 = i0 % noise_source_align;
+	ssize_t i0 = initial_sample_index % noise_source_align;
 	this->initial_discard_count = (noise_source_align - i0) % noise_source_align;
+	this->initial_sample_index += initial_discard_count;
     }
 
     json_attrs["freq_lo_MHz"] = this->freq_lo_MHz;
@@ -61,6 +72,16 @@ void chime_file_stream_base::_bind_stream(Json::Value &json_attrs)
     json_attrs["t_initial"] = this->time_lo + initial_discard_count * dt_sample;
 }
 
+
+// Virtual override
+void chime_file_stream_base::_start_pipeline(Json::Value &json_attrs)
+{
+    // FIXME I plan to switch to a single set of json attrs soon.
+    // Then we can move these two lines of code to _bind_stream(), and get rid of _start_pipeline().
+
+    json_attrs["initial_fpga_count"] = Json::Int64(this->initial_sample_index * this->fpga_counts_per_sample);
+    json_attrs["fpga_counts_per_sample"] = Json::Int64(this->fpga_counts_per_sample);
+}
     
 // virtual
 bool chime_file_stream_base::_fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
