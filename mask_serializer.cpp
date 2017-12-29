@@ -1,6 +1,9 @@
+#include "rf_pipelines_internals.hpp"
+
+#ifdef HAVE_HDF5
 #include <sp_hdf5.hpp>
 #include <rf_kernels/quantize.hpp>
-#include "rf_pipelines_internals.hpp"
+#endif
 
 using namespace std;
 
@@ -9,6 +12,23 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
+
+#ifndef HAVE_HDF5
+
+// Externally callable factory function
+shared_ptr<pipeline_object> make_mask_serializer(const string &hdf5_filename)
+{
+    throw runtime_error("rf_pipelines::make_mask_serializer() called, but rf_pipelines was compiled without HDF5");
+}
+
+struct mask_serializer {
+    static shared_ptr<pipeline_object> from_json(const Json::Value &j)
+    {
+	throw runtime_error("rf_pipelines: mask_serializer appeared in json file, but rf_pipelines was compiled without HDF5");
+    }
+};
+
+#else // HAVE_HDF5
 
 struct mask_serializer : public chunked_pipeline_object
 {
@@ -112,6 +132,14 @@ struct mask_serializer : public chunked_pipeline_object
     }
 };
 
+// Externally callable factory function
+shared_ptr<pipeline_object> make_mask_serializer(const string &hdf5_filename)
+{
+    return make_shared<mask_serializer> (hdf5_filename);
+}
+
+#endif  // HAVE_HDF5
+
 
 namespace {
     struct _init {
@@ -120,13 +148,5 @@ namespace {
 	}
     } init;
 }
-
-
-// Externally callable factory function
-shared_ptr<pipeline_object> make_mask_serializer(const string &hdf5_filename)
-{
-    return make_shared<mask_serializer> (hdf5_filename);
-}
-
 
 }  // namespace rf_pipelines
