@@ -69,6 +69,10 @@ def wi_copy(intensity, weights, nt_chunk=None):
 
     return (i_copy, w_copy)
 
+
+def temporary_hdf5_filename():
+    (f, filename) = tempfile.mkstemp(dir='.', suffix='.h5')
+    return filename
     
 
 ####################################################################################################
@@ -89,11 +93,14 @@ class pipeline_params:
             nfreq_ds = 2**rand.randint(0, 10)
             nfreq_ds *= rand.randint(128//nfreq_ds + 1, 2048//nfreq_ds + 1)
 
+        # We choose endpoint timestamps which are multiples of 256,
+        # since this is currently assumed by mask_(de)serializer.
+
         if nt_tot is None:
-            nt_tot = rand.randint(10000, 40000)
+            nt_tot = 256 * rand.randint(40, 100)
 
         if initial_fpga_count is None:
-            initial_fpga_count = 256 * rand.randint(1024*1024, 2*1024*1024)
+            initial_fpga_count = 256 * rand.randint(1024*1024, 2*1024*1024) * fpga_counts_per_sample
 
         self.nfreq_ds = nfreq_ds
         self.nds = nds
@@ -212,14 +219,45 @@ def make_random_std_dev_clipper(p):
 def make_random_mask_serializer(p):
     assert (p.nds == 1) and have_hdf5
 
-    (f, filename) = tempfile.mkstemp(dir='.', suffix='.h5')
-    del f
+    return {
+        'class_name': 'mask_serializer',
+        'hdf5_filename': temporary_hdf5_filename()
+    }
+
+
+def make_random_mask_deserializer(p):
+    assert (p.nds == 1) and have_hdf5
+
+    # These restrictions are convenient, but could be relaxed if necessary.
+    assert (p.nt_tot % 256) == 0
+    assert (p.initial_fpga_count % (256 * p.fpga_counts_per_sample) == 0)
+
+    nf = p.fpga_counts_per_sample
+    it0 = xdiv(p.initial_fpga_count, nf)
+    it1 = it0 + p.nt_tot
+
+    # Expand mask
+    it0 -= 256 * max(rand.randint(-10,10), 0)
+    it1 += 256 * max(rand.randint(-10,10), 0)
+
+    # Generate random mask file here (will be deleted in xxx).
+    # For file format, see mask_serializer.cpp.
+
+    filename = temporary_hdf5_filename()
+    shape = (p.nfreq_ds, xdiv(it1-it0,8))
+
+    f = h5py.File(filename, 'w')
+    f.attrs['nfreq'] = p.nfreq_ds
+    f.attrs['initial_fpga_count'] = it0 * nf
+    f.attrs['fpga_counts_per_sample'] = nf
+
+    ds = f.create_dataset('bitmask', shape=shape, dtype=np.uint8)
+    ds[:,:] = rand.randint(0, 256, size=shape)
 
     return {
         'class_name': 'mask_serializer',
         'hdf5_filename': filename
     }
-
 
 
 def make_random_transform_list(p, nelements):
@@ -248,6 +286,8 @@ def make_random_transform_list(p, nelements):
             ret.append(make_random_std_dev_clipper(p))
         elif (r == 4) and (rand.uniform() < 0.1) and (p.nds == 1) and have_hdf5:
             ret.append(make_random_mask_serializer(p))
+        elif (r == 5) and (rand.uniform() < 0.1) and (p.nds == 1) and have_hdf5:
+            ret.append(make_random_mask_deserializer(p))
 
     return ret
 
@@ -298,7 +338,7 @@ def make_random_pipeline(p, nelements, allow_downsampling=True):
 # emulate_pipeline
 
 
-def emulate_pipeline(pipeline_json, intensity, weights, nds=1):
+def emulate_pipeline(pipeline_json, intensity, weights, params):
     """
     Returns new (intensity, weights) pair.
 
@@ -309,12 +349,13 @@ def emulate_pipeline(pipeline_json, intensity, weights, nds=1):
 
     assert intensity.ndim == 2
     assert intensity.shape == weights.shape
-    (nfreq, nt_ds) = intensity.shape
 
+    (nfreq, nt_ds) = intensity.shape
+    nds = params.nds
 
     if pipeline_json['class_name'] == 'pipeline':
         for q in pipeline_json['elements']:
-            (intensity, weights) = emulate_pipeline(q, intensity, weights, nds)
+            (intensity, weights) = emulate_pipeline(q, intensity, weights, params)
         return (intensity, weights)
 
     if pipeline_json['class_name'] == 'wi_sub_pipeline':
@@ -346,7 +387,7 @@ def emulate_pipeline(pipeline_json, intensity, weights, nds=1):
         (i_ds, w_ds) = rf_pipelines.wi_downsample(i_copy, w_copy, Df, Dt)
         n = i_ds.shape[1]
         
-        (i_ds, w_ds) = emulate_pipeline(sub_pipeline, i_ds, w_ds, nds_out)
+        (i_ds, w_ds) = emulate_pipeline(sub_pipeline, i_ds, w_ds, params.downsample(Df,Dt))
         rf_pipelines.weight_upsample(w_copy, w_ds[:,:n], w_cutoff)
 
         return (i_copy, w_copy)
@@ -428,12 +469,20 @@ def emulate_pipeline(pipeline_json, intensity, weights, nds=1):
 
 
     if pipeline_json['class_name'] == 'mask_serializer':
-        hdf5_filename = pipeline_json['hdf5_filename']
-        
-        f = h5py.File(hdf5_filename, 'r')
-        m8 = f['bitmask'][:,:]
+        assert have_hdf5
+        assert params.nds == 1
 
+        hdf5_filename = pipeline_json['hdf5_filename']        
+
+        f = h5py.File(hdf5_filename, 'r')
+        assert f.attrs['nfreq'] == params.nfreq_ds
+        assert f.attrs['initial_fpga_count'] == params.initial_fpga_count
+        assert f.attrs['fpga_counts_per_sample'] == params.fpga_counts_per_sample
+
+        m8 = f['bitmask'][:,:]
         f.close()
+
+        # Delete temporary HDF5 file here.
         os.remove(hdf5_filename)
 
         assert m8.ndim == 2
@@ -445,6 +494,8 @@ def emulate_pipeline(pipeline_json, intensity, weights, nds=1):
             mbool1[:,i::8] = (m8[:,:] & (np.uint8(1) << i))
 
         mbool2 = (weights > 0.0)
+
+        # Compare mbool1 and mbool2, but first discard trailing zeros.
 
         for n1 in xrange(mbool1.shape[1], -1, -1):
             if (n1 > 0) and np.any(mbool1[:,n1-1]):
@@ -459,6 +510,55 @@ def emulate_pipeline(pipeline_json, intensity, weights, nds=1):
         # print 'mask_serializer debug:', n1, np.count_nonzero(mbool1) / float(mbool1.size)
 
         return (intensity, weights)
+
+
+    if pipeline_json['class_name'] == 'mask_deserializer':
+        assert have_hdf5
+        assert params.nds == 1
+        assert params.nt_tot % 8 == 0
+        assert weights.shape[0] == params.nfreq_ds
+        assert weights.shape[1] >= params.nt_tot
+
+        if weights.shape[1] > params.nt_tot:
+            assert np.all(weights[:,params.nt_tot:] == 0.0)
+
+        hdf5_filename = pipeline_json['hdf5_filename']
+
+        f = h5py.File(hdf5_filename, 'r')
+        assert f.attrs['fpga_counts_per_sample'] == params.fpga_counts_per_sample
+
+        m8 = f['bitmask'][:,:]
+        assert m8.ndim == 2
+        assert m8.shape[0] == params.nfreq_ds
+        assert m8.dtype == np.uint8
+
+        file_i0 = xdiv(f.attrs['initial_fpga_count'], params.fpga_counts_per_sample)
+        file_i1 = i0 + (8 * m8.shape[1])
+
+        # Delete temporary HDF5 file here.
+        f.close()
+        os.remove(hdf5_filename)
+
+        data_i0 = xdiv(params.initial_fpga_count, params.fpga_counts_per_sample)
+
+        assert data_i0 % 8 == 0
+        assert file_i0 % 8 == 0
+        assert file_i0 <= data_i0
+        assert file_i1 >= data_i0 + params.nt_tot
+
+        # Shrink m8 to shape (nfreq, nt_tot/8).  Data type is still uint8.
+        i0 = xdiv(data_i0 - file_i0, 8)
+        i1 = i0 + xdiv(params.nt_tot, 8)
+        m8 = m8[:,i0:i1]
+
+        mbool = np.zeros((params.nfreq_ds, params.nt_tot), dtype=np.bool)
+        for i in xrange(8):
+            mbool[:,i::8] = (m8[:,:] & (np.uint8(1) << i))
+        
+        wout = weights.copy()
+        wout[:,:params.nt_tot] *= mbool
+
+        return (intensity, wcopy)
 
 
     raise RuntimeError('emulate_pipeline: unsupported class_name "%s"' % pipeline_json['class_name'])
@@ -553,7 +653,7 @@ def run_test():
     
     # Second run
     pj = { 'class_name': 'pipeline', 'elements': tj }
-    (i1,w1) = emulate_pipeline(pj, s.intensity, s.weights)
+    (i1,w1) = emulate_pipeline(pj, s.intensity, s.weights, params)
     
     nt1 = i1.shape[1]
     assert nt1 >= nt_tot
@@ -570,17 +670,18 @@ def run_test():
 
 ####################################################################################################
 
-
 rand.seed(23)
 niter = 100
 
-for f in glob.glob('tmp*.h5'):
-    print 'deleting temporary file %s, probably left over from previous run' % f
-    os.remove(f)
+def delete_temporary_files():
+    for f in glob.glob('tmp*.h5'):
+        print 'deleting leftover temporary file %s' % f
+        os.remove(f)
 
 for iter in xrange(niter):
+    delete_temporary_files()
     print 'iteration %d/%d' % (iter, niter)
     run_test()
 
+delete_temporary_files()
 print 'test-almost-everything: pass'
-
