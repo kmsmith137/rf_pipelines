@@ -72,6 +72,7 @@ struct mask_deserializer : public chunked_pipeline_object
     H5::DataSet input_dset;
     ssize_t file_i0 = 0;
     ssize_t file_i1 = 0;
+    int verbosity = 0;
 
 
     mask_deserializer(const string &hdf5_filename) :
@@ -134,7 +135,15 @@ struct mask_deserializer : public chunked_pipeline_object
 	    _throw("number of frequency channels in hdf5 file does not match pipeline");
 
 	this->file_i0 = df / pipeline_fpga_counts_per_sample;
-	this->file_i1 = file_i0 + shape[1];
+	this->file_i1 = file_i0 + 8 * shape[1];
+	this->verbosity = get_params().verbosity;
+
+	if (verbosity >= 2) {
+	    cout << "mask_deserializer: read " << filename
+		 << ", initial_fpga_count=" << file_initial_fpga_count
+		 << ", fpga_counts_per_sample=" << file_fpga_counts_per_sample
+		 << ", nsamples=" << (file_i1 - file_i0) << endl;
+	}
     }
 
     

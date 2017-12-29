@@ -46,7 +46,11 @@ struct mask_serializer : public chunked_pipeline_object
 
     // Initialized in _start_pipeline().
     unique_ptr<sp_hdf5::hdf5_extendable_dataset<uint8_t>> output_dset;
-
+    ssize_t initial_fpga_count = 0;
+    ssize_t fpga_counts_per_sample = 0;
+    ssize_t samples_written = 0;
+    int verbosity = 0;
+    
 
     mask_serializer(const string &hdf5_filename) :
 	chunked_pipeline_object("mask_serializer", false),   // can_be_first = false
@@ -77,11 +81,16 @@ struct mask_serializer : public chunked_pipeline_object
 	if (!json_attrs.isMember("initial_fpga_count") || !json_attrs.isMember("fpga_counts_per_sample"))
 	    _throw("currently, we assume that 'initial_fpga_count' and 'fpga_counts_per_sample' are defined by stream");
 
+	this->initial_fpga_count = ssize_t_from_json(json_attrs, "initial_fpga_count");
+	this->fpga_counts_per_sample = int_from_json(json_attrs, "fpga_counts_per_sample");
+	this->verbosity = get_params().verbosity;
+	this->samples_written = 0;
+
 	H5::H5File f = sp_hdf5::hdf5_open_trunc(filename);
 	
-	sp_hdf5::hdf5_write_attribute(f, "initial_fpga_count", ssize_t_from_json(json_attrs, "initial_fpga_count"));
-	sp_hdf5::hdf5_write_attribute(f, "fpga_counts_per_sample", int_from_json(json_attrs, "fpga_counts_per_sample"));
-	sp_hdf5::hdf5_write_attribute(f, "nfreq", this->nfreq);
+	sp_hdf5::hdf5_write_attribute(f, "initial_fpga_count", initial_fpga_count);
+	sp_hdf5::hdf5_write_attribute(f, "fpga_counts_per_sample", fpga_counts_per_sample);
+	sp_hdf5::hdf5_write_attribute(f, "nfreq", nfreq);
 
 	// We use bitshuffle if available, and fall back to uncompressed.
 	vector<string> compression = { "bitshuffle", "none" };
@@ -92,10 +101,11 @@ struct mask_serializer : public chunked_pipeline_object
     virtual bool _process_chunk(ssize_t pos) override
     {
 	vector<hsize_t> chunk_shape = { hsize_t(nfreq), hsize_t(nt_chunk/8) };
-
 	ring_buffer_subarray weights(rb_weights, pos, pos+nt_chunk, ring_buffer::ACCESS_READ);
+
 	this->q.quantize(nfreq, nt_chunk, tmp_buf.get(), nt_chunk/8, weights.data, weights.stride);
 	this->output_dset->write(tmp_buf.get(), chunk_shape);
+	this->samples_written += nt_chunk;
 
 	return true;
     }
@@ -103,6 +113,13 @@ struct mask_serializer : public chunked_pipeline_object
     virtual void _end_pipeline(Json::Value &json_output) override
     {
 	this->output_dset.reset();
+	
+	if (verbosity >= 2) {
+	    cout << "mask_serializer: wrote " << filename 
+		 << ", initial_fpga_count=" << initial_fpga_count
+		 << ", fpga_counts_per_sample=" << fpga_counts_per_sample
+		 << ", samples_written=" << samples_written << endl;
+	}
     }
 
     virtual void _deallocate() override
