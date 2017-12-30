@@ -1,4 +1,16 @@
 #!/usr/bin/env python
+#
+# This unit test builds up a random pipeline (make_random_*()), and compares with a reference 
+# python implementation (emulate_pipeline()).
+#
+# In some cases, for example intensity_clipper, the reference python implementation calls the
+# same C++ kernel which is called by the real pipeline.  In these cases, we are not testing 
+# correctness of the C++ kernel, we are just testing consistency of the pipeline ring-buffering/
+# chunking logic.  (There are other unit tests which test correctness of the kernels!)
+#
+# Note that the "real" pipeline is run first, then the reference pipeline.  (This detail matters
+# in a few cases, such as testing mask_(de)serializer, see below.)
+
 
 import os
 import sys
@@ -217,6 +229,16 @@ def make_random_std_dev_clipper(p):
 
 
 def make_random_mask_serializer(p):
+
+    # We test the mask_serializer as follows:
+    #
+    #   - When the "real" pipeline runs, it serializes the mask
+    #     to a temporary file.
+    #
+    #   - When the reference pipeline runs, it reads the mask file
+    #     and compares it to the mask in the reference pipeline.
+    #     It then cleans up by deleting the temporary file.
+
     assert (p.nds == 1) and have_hdf5
 
     return {
@@ -226,6 +248,17 @@ def make_random_mask_serializer(p):
 
 
 def make_random_mask_deserializer(p):
+
+    # We test the mask_deserializer as follows:
+    #
+    #   - When the random pipeline is generated, we create a random 
+    #     bitmask and write it to a temporary file.  When both the
+    #     "real" and reference pipelines run, they will read this
+    #     file and apply the bitmask.
+    #
+    #   - When the reference pipeline runs (after the "real" pipeline), 
+    #     it also cleans up by deleting the temporary file.
+
     assert (p.nds == 1) and have_hdf5
 
     # These restrictions are convenient, but could be relaxed if necessary.
@@ -240,12 +273,10 @@ def make_random_mask_deserializer(p):
     it0 -= 256 * max(rand.randint(-10,10), 0)
     it1 += 256 * max(rand.randint(-10,10), 0)
 
-    # Generate random mask file here (will be deleted in xxx).
-    # For file format, see mask_serializer.cpp.
-
     filename = temporary_hdf5_filename()
     shape = (p.nfreq_ds, xdiv(it1-it0,8))
 
+    # For file format, see mask_serializer.cpp.
     f = h5py.File(filename, 'w')
     f.attrs['nfreq'] = p.nfreq_ds
     f.attrs['initial_fpga_count'] = it0 * nf
@@ -482,7 +513,8 @@ def emulate_pipeline(pipeline_json, intensity, weights, params):
         m8 = f['bitmask'][:,:]
         f.close()
 
-        # Delete temporary HDF5 file here.
+        # Temporary hdf5 file gets deleted here (see comment at the top of
+        # make_random_mask_serializer())
         os.remove(hdf5_filename)
 
         assert m8.ndim == 2
@@ -534,9 +566,10 @@ def emulate_pipeline(pipeline_json, intensity, weights, params):
 
         file_i0 = xdiv(f.attrs['initial_fpga_count'], params.fpga_counts_per_sample)
         file_i1 = i0 + (8 * m8.shape[1])
-
-        # Delete temporary HDF5 file here.
         f.close()
+
+        # Temporary hdf5 file gets deleted here (see comment at the top of
+        # make_random_mask_deserializer())
         os.remove(hdf5_filename)
 
         data_i0 = xdiv(params.initial_fpga_count, params.fpga_counts_per_sample)
