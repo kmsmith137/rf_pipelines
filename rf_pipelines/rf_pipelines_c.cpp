@@ -938,14 +938,22 @@ static void wrap_utility_classes(extension_module &m)
 		   "\n"
 		   "Constructs bitmask from current 'weights' array in pipeline (elements with weights > 0 are defined\n"
 		   "to be unmasked), and writes it to an HDF5 file.  If bitshuffle is available, then the HDF5 file will\n"
-		   "be compressed.\n",
+		   "be compressed.\n"
+		   "\n"
+		   "FIXME: currently the mask_(de)serializer assumes that the pipeline defines its timestamps with\n"
+		   "attributes named 'fpga_counts_per_sample' and 'initial_fpga_count', as is the case for all CHIME\n"
+		   "streams.  Need to settle on a systematic general convention for timestamps!\n",
 		   wrap_func(make_mask_serializer, "hdf5_filename"));
 
     m.add_function("mask_deserializer",
 		   "mask_deserializer(hdf5_filename) -> pipeline_object\n"
 		   "\n"
 		   "Reads bitmask from HDF5 file, and applies it (by zeroing weights) to the weights array in the\n"
-		   "pipeline.\n",
+		   "pipeline.\n"
+		   "\n"
+		   "FIXME: currently the mask_(de)serializer assumes that the pipeline defines its timestamps with\n"
+		   "attributes named 'fpga_counts_per_sample' and 'initial_fpga_count', as is the case for all CHIME\n"
+		   "streams.  Need to settle on a systematic general convention for timestamps!\n",
 		   wrap_func(make_mask_deserializer, "hdf5_filename"));
 }
 

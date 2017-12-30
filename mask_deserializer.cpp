@@ -1,3 +1,7 @@
+// FIXME: currently the mask_(de)serializer assumes that the pipeline defines its timestamps with
+// attributes named 'fpga_counts_per_sample' and 'initial_fpga_count', as is the case for all CHIME
+// streams.  Need to settle on a systematic general convention for timestamps!
+
 #include "rf_pipelines_internals.hpp"
 
 #ifdef HAVE_HDF5

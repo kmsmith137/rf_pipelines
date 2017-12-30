@@ -94,8 +94,9 @@ class pipeline_params:
     """
     Represents high-level pipeline parameters (number of frequency channels, time samples. etc.)
 
-    The timestamp range of the pipeline is represented by 'initial_fpga_count' and 'fpga_counts_per_sample',
-    as currently assumed by mask_(de)serializer.
+    FIXME: we define a timestamp range using attributes named 'fpga_counts_per_sample' 
+    and  'initial_fpga_count'.  This is currently expected by some transforms, for example
+    mask_(de)serializer.  Need to settle on a systematic general convention for timestamps!
     """
 
     def __init__(self, nfreq_ds=None, nds=1, nt_tot=None, initial_fpga_count=None, fpga_counts_per_sample=384):

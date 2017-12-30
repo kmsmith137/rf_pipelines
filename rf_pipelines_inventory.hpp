@@ -44,6 +44,7 @@
 // ---------
 //   pipeline_fork
 //   mask_serializer
+//   mask_deserializer
 //
 // CHIME-specific
 // --------------
@@ -179,6 +180,10 @@ extern std::shared_ptr<pipeline_object> make_pipeline_fork(const std::vector<std
 // Constructs bitmask from current 'weights' array in pipeline (elements with weights > 0 are defined 
 // to be unmasked), and writes it to an HDF5 file.  If bitshuffle is available, then the HDF5 file will 
 // be compressed.
+//
+// FIXME: currently the mask_(de)serializer assumes that the pipeline defines its timestamps with
+// attributes named 'fpga_counts_per_sample' and 'initial_fpga_count', as is the case for all CHIME
+// streams.  Need to settle on a systematic general convention for timestamps!
 
 extern std::shared_ptr<pipeline_object> make_mask_serializer(const std::string &hdf5_filename);
 
@@ -187,6 +192,10 @@ extern std::shared_ptr<pipeline_object> make_mask_serializer(const std::string &
 //
 // Reads bitmask from HDF5 file, and applies it (by zeroing weights) to the weights array in the
 // pipeline.
+//
+// FIXME: currently the mask_(de)serializer assumes that the pipeline defines its timestamps with
+// attributes named 'fpga_counts_per_sample' and 'initial_fpga_count', as is the case for all CHIME
+// streams.  Need to settle on a systematic general convention for timestamps!
 
 extern std::shared_ptr<pipeline_object> make_mask_deserializer(const std::string &hdf5_filename);
 
