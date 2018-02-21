@@ -3,7 +3,6 @@ import numpy as np
 
 from rf_pipelines.rf_pipelines_c import pipeline_object, wi_transform
 from rf_pipelines.utils import write_png, triggers_png, upsample
-from rf_pipelines.L1b import L1Grouper
 
 
 def reldist(x, y):
@@ -59,10 +58,9 @@ class bonsai_dedisperser(wi_transform):
            will be used, else the new fixed-scale plotter will be used (the second two arguments are arguments
            for the new plotter, representing the sigma value for colour transitions) 
 
-       - event_outfile: None for running without peak finding or a full path for running with
-           peak finding (i.e. L1Grouper) and writing the results in a text file
-
-       - (L1Grouper_thr, L1Grouper_beam, L1Grouper_addr) are L1Grouper parameters (see its docstring!)
+       - L1b_config: If specified, L1B will be used to group and sift triggers
+         (ch_frb_L1b is required). Can either be a full path, or the name of a
+         config file kept in ch_frb_L1b/ch_frb_L1b/configs.
 
        - plot_all_trees: if False, only tree 0 will be plotted; if True, all trees will be plotted.
 
@@ -71,8 +69,7 @@ class bonsai_dedisperser(wi_transform):
     def __init__(self, config_filename, fill_rfi_mask, img_prefix=None, img_ndm=256, img_nt=256, downsample_nt=1,
                  n_zoom=1, track_global_max=False, dm_min=None, dm_max=None, hdf5_output_filename=None, nt_per_hdf5_file=0,
                  deallocate_between_substreams=False, use_analytic_normalization=False, dynamic_plotter=False,
-                 plot_threshold1=6, plot_threshold2=10, event_outfile=None, L1Grouper_thr=7, L1Grouper_beam=0, 
-                 L1Grouper_addr=None, plot_all_trees=False):
+                 plot_threshold1=6, plot_threshold2=10, L1b_config=None, plot_all_trees=False): 
 
         wi_transform.__init__(self, 'bonsai_dedisperser')
 
@@ -113,13 +110,12 @@ class bonsai_dedisperser(wi_transform):
             self.nt_per_hdf5_file = nt_per_hdf5_file
 
         # For grouper code
-        self.event_outfile = event_outfile
-        if self.event_outfile is not None:
-            self.L1Grouper_thr = L1Grouper_thr
-            self.L1Grouper_beam = L1Grouper_beam
-            self.L1Grouper_addr = L1Grouper_addr
-            self.grouper = L1Grouper(self.dedisperser, L1Grouper_thr, L1Grouper_beam, L1Grouper_addr)
-            self.detected_events = []
+        self.L1b_config = L1b_config
+        if L1b_config is not None:
+            from ch_frb_L1b.module_sequencer import L1b
+            self.L1b_instance = L1b(beam=0, config_fn=L1b_config, dedisp=self.dedisperser)
+        else:
+            self.L1b_instance = None
 
         # The 'nt_chunk' parameter is also determined by the config file, not a constructor argument.
         # The same is true for 'nfreq', but rather than initializing self.nfreq here, we let bind()
@@ -224,9 +220,8 @@ class bonsai_dedisperser(wi_transform):
         # of the (DM, pulse_width) parameter space.)
         #
         # Each 4D array is indexed by (DM_index, SM_index, beta_index, time_index).
+        triggers = self.dedisperser.get_triggers()
         if self.make_plot:
-            triggers = self.dedisperser.get_triggers()
-
             # Checking for invalid values in the incoming array
             if not all(np.all(np.isfinite(t)) for t in triggers):
                 # Was the problem in the input arrays... ?
@@ -246,10 +241,8 @@ class bonsai_dedisperser(wi_transform):
                 self.plot_groups[0].process(flat_triggers[0])
            
         # For grouper code
-        if self.event_outfile is not None:
-            events = self.grouper.process_triggers()
-            if events is not None:
-                self.detected_events.append(events) 
+        if self.L1b_instance is not None:
+            self.L1b_instance.process_chunk(triggers)
  
 
     def _end_pipeline(self, json_output):
@@ -283,17 +276,8 @@ class bonsai_dedisperser(wi_transform):
             self.dedisperser.deallocate()
 
         # For grouper code
-        if self.event_outfile is not None and self.detected_events:
-            self.detected_events = np.hstack(self.detected_events)
-            np.save(self.event_outfile, self.detected_events)
-            with open(self.event_outfile, 'w') as f:
-                for i, event in enumerate(self.detected_events):
-                    print ("--- Recovered Pulse --- # %d, DM: %.2f,  SNR: %.2f, Arrival Time: %.4f sec"
-                           % (i+1, event['dm'], event['snr'], 
-                              event['time'].astype(float)/1e6))
-                    if i == 0:
-                        f.write("# \t DM \t SNR \t Arrival Time (sec)\n")
-                    f.write("%d \t %.2f \t %.2f \t %.4f\n" % (i+1, event['dm'], event['snr'], event['time'].astype(float)/1e6))
+        if self.L1b_instance is not None:
+            self.L1b_instance.shutdown()
 
 
     def _write_file(self, arr, zoom_level, ifile, iplot):
@@ -335,10 +319,7 @@ class bonsai_dedisperser(wi_transform):
                  'dynamic_plotter': self.dynamic_plotter if self.make_plot else False,
                  'plot_threshold1': self.plot_threshold1 if self.make_plot else 6,
                  'plot_threshold2': self.plot_threshold2 if self.make_plot else 10,
-                 'event_outfile': self.event_outfile,
-                 'L1Grouper_thr': self.L1Grouper_thr if (self.event_outfile is not None) else 7,
-                 'L1Grouper_beam': self.L1Grouper_beam if (self.event_outfile is not None) else 0,
-                 'L1Grouper_addr': self.L1Grouper_addr if (self.event_outfile is not None) else None,
+                 'L1b_config': self.L1b_config,
                  'plot_all_trees': self.plot_all_trees if self.make_plot else False }
 
 
@@ -361,10 +342,7 @@ class bonsai_dedisperser(wi_transform):
                                   dynamic_plotter = j['dynamic_plotter'],
                                   plot_threshold1 = j['plot_threshold1'],
                                   plot_threshold2 = j['plot_threshold2'],
-                                  event_outfile = j['event_outfile'],
-                                  L1Grouper_thr = j['L1Grouper_thr'],
-                                  L1Grouper_beam = j['L1Grouper_beam'],
-                                  L1Grouper_addr = j['L1Grouper_addr'],
+                                  L1b_config = j['L1b_config'],
                                   plot_all_trees = j['plot_all_trees'])
 
 

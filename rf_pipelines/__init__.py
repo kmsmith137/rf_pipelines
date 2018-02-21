@@ -107,6 +107,3 @@ from .transforms.noise_filler import noise_filler
 # Helper routines for implementing new transforms in python.
 
 from .utils import write_png, upsample, json_show, json_str, json_assert_equal, json_read, json_write, Variance_Estimates, run_for_web_viewer, run_anonymously
-
-# Grouping code to handle output of bonsai_dedisperser
-from L1b import L1Grouper
