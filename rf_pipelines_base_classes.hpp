@@ -522,9 +522,10 @@ public:
     std::vector<std::shared_ptr<ring_buffer>> all_ring_buffers;    // all ring buffers used by this pipeline object (including new_ring_buffers)
     std::vector<std::shared_ptr<zoomable_tileset_state>> zoomable_tilesets;
 
-    // Initialized in bind().
+    // Initialized in bind(), just before calling the subclass-specific _bind().
     // Note: if the pipeline is run without an output directory, then 'out_mp' will be 
     // a nonempty pointer, but out_mp->outdir will be an empty string.
+
     std::shared_ptr<outdir_manager> out_mp;
     double time_spent_in_transform = 0.0;
     run_params _params;
