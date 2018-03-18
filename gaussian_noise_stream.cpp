@@ -78,6 +78,7 @@ public:
 	    }
 	}
 
+	// The return value from _fill_stream() should be 'true' normally, or 'false' if end-of-stream has been reached.
 	if (nt == nt_chunk)
 	    return true;
 
