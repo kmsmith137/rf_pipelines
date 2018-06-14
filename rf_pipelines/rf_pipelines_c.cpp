@@ -583,6 +583,10 @@ static void wrap_pipeline_object(extension_module &m)
 		      "\n"
 		      "    rf_pipeline.pipeline_object.register_json_converter('X', X.from_json)");
 
+    string doc_srjd = ("_show_registered_json_deserializers()\n"
+		       "\n"
+		       "For debugging: print a list of registered json deserializers to stdout\n");
+
     string doc_add_pg = ("add_plot_group(name, nt_per_pix, ny) -> group_id [integer]\n"
 			 "\n"
 			 "This helper function is used by pipeline_objects which make output plots.\n"
@@ -647,6 +651,7 @@ static void wrap_pipeline_object(extension_module &m)
     pipeline_object_type.add_method("jsonize", "jsonize(): returns json serialization of pipeline_object", wrap_method(&pipeline_object::jsonize));
     pipeline_object_type.add_staticmethod("from_json", doc_fj, wrap_func(&pipeline_object::from_json, "json_data"));
     pipeline_object_type.add_staticmethod("register_json_deserializer", doc_rjc, wrap_func(_register_json_deserializer, "class_name", "f"));
+    pipeline_object_type.add_staticmethod("_show_registered_json_deserializers", doc_srjd, wrap_func(&pipeline_object::_show_registered_json_deserializers));
 
     pipeline_object_type.add_method("add_plot_group", doc_add_pg, _add_pg);
     pipeline_object_type.add_method("add_plot", doc_add_plot, _add_plot);
