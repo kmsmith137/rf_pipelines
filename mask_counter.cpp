@@ -8,20 +8,15 @@ namespace rf_pipelines {
 #endif
 
 
-struct mask_counter_transform : public wi_transform 
-{
-    //const rf_kernels::axis_type axis;
-    //unique_ptr<rf_kernels::std_dev_clipper> kernel;
+struct mask_counter_transform : public wi_transform {
 
     mask_counter_transform(int nt_chunk_) :
         wi_transform("mask_counter")
-        //axis(axis_),
     {	
         stringstream ss;
         ss << "mask_counter(nt_chunk=" << nt_chunk_ << ")";
         this->name = ss.str();
         this->nt_chunk = nt_chunk_;
-        //this->kernel_chunk_size = 8*Dt;
         this->nds = 0;  // allows us to run in a wi_sub_pipeline
 
         if (nt_chunk == 0)
@@ -55,36 +50,33 @@ struct mask_counter_transform : public wi_transform
         //    not shape (nfreq, nt_chunk), and 'pos' increases by nt_chunk (not nt_chunk/nds)
         //    in each call to _process_chunk();
         int nt = nt_chunk/nds;
-        bool*  any_unmasked_f = (bool*)malloc(nfreq);
-        memset(any_unmasked_f, 0, nfreq);
         bool*  any_unmasked_t = (bool*)malloc(nt);
         memset(any_unmasked_t, 0, nt);
 
         int nmasked = 0;
+        int nfmasked = 0;
 
         for (int i_f=0; i_f<nfreq; i_f++) {
+            bool allmasked = true;
             for (int i_t=0; i_t<nt; i_t++) {
                 if (weights[i_f*wstride + i_t] == 0) {
                     nmasked++;
                 } else {
-                    any_unmasked_f[i_f] = true;
+                    allmasked = false;
                     any_unmasked_t[i_t] = true;
                 }
             }
+            if (allmasked)
+                nfmasked++;
         }
 
-        int nfmasked = 0;
         int ntmasked = 0;
-        for (int i=0; i<nfreq; i++)
-            if (!any_unmasked_f[i])
-                nfmasked++;
         for (int i=0; i<nt; i++)
             if (!any_unmasked_t[i])
                 ntmasked++;
 
-        cout << "N samples masked: " << nmasked << "; n times " << ntmasked << "; n freqs " << nfmasked << endl;
+        cout << "pos " << pos << ": N samples masked: " << nmasked << "/" << (nfreq*nt) << "; n times " << ntmasked << "/" << nt << "; n freqs " << nfmasked << "/" << nfreq << endl;
 
-        free(any_unmasked_f);
         free(any_unmasked_t);
     }
 
