@@ -7,11 +7,30 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
+struct mask_counter_measurements {
+    ssize_t pos;
+    int nsamples;
+    int nsamples_masked;
+    int nt;
+    int nt_masked;
+    int nf;
+    int nf_masked;
+};
 
 struct mask_counter_transform : public wi_transform {
 
-    mask_counter_transform(int nt_chunk_) :
-        wi_transform("mask_counter")
+    unique_ptr<bool[]> any_unmasked_t;
+    // Ring buffer of measurements
+    int max_measurements;
+    vector<mask_counter_measurements> measurements;
+    int imeasurement;
+    int nmeasurements;
+
+    mask_counter_transform(int nt_chunk_, max_measurements_) :
+        wi_transform("mask_counter"),
+        max_measurements(max_measurements_),
+        measurements(max_measurements),
+        imeasurement(0)
     {	
         stringstream ss;
         ss << "mask_counter(nt_chunk=" << nt_chunk_ << ")";
@@ -30,13 +49,11 @@ struct mask_counter_transform : public wi_transform {
     // Called after (nfreq, nds) are initialized.
     virtual void _bind_transform(Json::Value &json_attrs) override
     {
-        //this->kernel = make_unique<rf_kernels::mask_counter> (nfreq, xdiv(nt_chunk,nds), axis, sigma, Df, Dt, two_pass);
+        this->any_unmasked_t = unique_ptr<bool[]>(new bool[nt_chunk/nds]);
     }
 
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
     {
-        cout << "mask_counters process_chunk" << endl;
-        //this->kernel->clip(intensity, istride, weights, wstride);
         // _process_chunk(intensity, istride, weights, wstride, pos)
         //
         //    This is the "core" method which is responsible for processing the 'intensity' and 'weights'
@@ -50,8 +67,7 @@ struct mask_counter_transform : public wi_transform {
         //    not shape (nfreq, nt_chunk), and 'pos' increases by nt_chunk (not nt_chunk/nds)
         //    in each call to _process_chunk();
         int nt = nt_chunk/nds;
-        bool*  any_unmasked_t = (bool*)malloc(nt);
-        memset(any_unmasked_t, 0, nt);
+        memset(any_unmasked_t.get(), 0, nt);
 
         int nmasked = 0;
         int nfmasked = 0;
@@ -76,8 +92,6 @@ struct mask_counter_transform : public wi_transform {
                 ntmasked++;
 
         cout << "pos " << pos << ": N samples masked: " << nmasked << "/" << (nfreq*nt) << "; n times " << ntmasked << "/" << nt << "; n freqs " << nfmasked << "/" << nfreq << endl;
-
-        free(any_unmasked_t);
     }
 
     virtual Json::Value jsonize() const override
@@ -93,7 +107,8 @@ struct mask_counter_transform : public wi_transform {
     static shared_ptr<mask_counter_transform> from_json(const Json::Value &j)
     {
         ssize_t nt_chunk = ssize_t_from_json(j, "nt_chunk");
-        return make_shared<mask_counter_transform> (nt_chunk);
+        int max_measurements = int_from_json(j, "max_measurements");
+        return make_shared<mask_counter_transform> (nt_chunk, max_measurements);
     }
 };
 
