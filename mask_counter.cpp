@@ -26,14 +26,15 @@ struct mask_counter_transform : public wi_transform {
     int imeasurement;
     int nmeasurements;
 
-    mask_counter_transform(int nt_chunk_, max_measurements_) :
+    mask_counter_transform(int nt_chunk_, int max_measurements_) :
         wi_transform("mask_counter"),
         max_measurements(max_measurements_),
         measurements(max_measurements),
-        imeasurement(0)
+        imeasurement(0),
+        nmeasurements(0)
     {	
         stringstream ss;
-        ss << "mask_counter(nt_chunk=" << nt_chunk_ << ")";
+        ss << "mask_counter(nt_chunk=" << nt_chunk_ << ", max_measurements=" << max_measurements_ << ")";
         this->name = ss.str();
         this->nt_chunk = nt_chunk_;
         this->nds = 0;  // allows us to run in a wi_sub_pipeline
@@ -69,29 +70,41 @@ struct mask_counter_transform : public wi_transform {
         int nt = nt_chunk/nds;
         memset(any_unmasked_t.get(), 0, nt);
 
-        int nmasked = 0;
-        int nfmasked = 0;
+        mask_counter_measurements meas;
+        memset(&meas, 0, sizeof(mask_counter_measurements));
+        meas.pos = pos;
+        meas.nsamples = nfreq*nt;
+        meas.nt = nt;
+        meas.nf = nfreq;
+
+        meas.nsamples_masked = 0;
+        meas.nf_masked = 0;
 
         for (int i_f=0; i_f<nfreq; i_f++) {
             bool allmasked = true;
             for (int i_t=0; i_t<nt; i_t++) {
                 if (weights[i_f*wstride + i_t] == 0) {
-                    nmasked++;
+                    meas.nsamples_masked++;
                 } else {
                     allmasked = false;
                     any_unmasked_t[i_t] = true;
                 }
             }
             if (allmasked)
-                nfmasked++;
+                meas.nf_masked++;
         }
 
-        int ntmasked = 0;
+        meas.nt_masked = 0;
         for (int i=0; i<nt; i++)
             if (!any_unmasked_t[i])
-                ntmasked++;
+                meas.nt_masked++;
 
-        cout << "pos " << pos << ": N samples masked: " << nmasked << "/" << (nfreq*nt) << "; n times " << ntmasked << "/" << nt << "; n freqs " << nfmasked << "/" << nfreq << endl;
+        cout << "pos " << pos << ": N samples masked: " << meas.nsamples_masked << "/" << (meas.nsamples) << "; n times " << meas.nt_masked << "/" << meas.nt << "; n freqs " << meas.nf_masked << "/" << meas.nf << endl;
+
+        if (nmeasurements < max_measurements)
+            nmeasurements++;
+        measurements[imeasurement] = meas;
+        imeasurement = (imeasurement + 1) % max_measurements;
     }
 
     virtual Json::Value jsonize() const override
@@ -100,6 +113,7 @@ struct mask_counter_transform : public wi_transform {
 
         ret["class_name"] = "mask_counter";
         ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
+        ret["max_measurements"] = int(this->max_measurements);
 	
         return ret;
     }
@@ -122,9 +136,9 @@ namespace {
 }
 
 // Externally callable
-shared_ptr<wi_transform> make_mask_counter(int nt_chunk)
+shared_ptr<wi_transform> make_mask_counter(int nt_chunk, int max_meas)
 {
-    return make_shared<mask_counter_transform> (nt_chunk);
+    return make_shared<mask_counter_transform> (nt_chunk, max_meas);
 }
 
 
