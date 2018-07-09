@@ -497,6 +497,46 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 							   
 
 
+// Mask counter transform -- counts masked data samples
+
+struct mask_counter_measurements {
+    ssize_t pos;
+    int nsamples;
+    int nsamples_masked;
+    int nt;
+    int nt_masked;
+    int nf;
+    int nf_masked;
+};
+
+class mask_counter_callback {
+public:
+    virtual void mask_count(const struct mask_counter_measurements& m) = 0;
+    virtual ~mask_counter_callback() {}
+};
+
+// We expose more details than we typically would because external
+// users need to register a callback.
+struct mask_counter_transform : public wi_transform {
+    std::unique_ptr<bool[]> any_unmasked_t;
+    std::vector<std::shared_ptr<mask_counter_callback> > callbacks;
+
+    mask_counter_transform(int nt_chunk_);
+    virtual ~mask_counter_transform() { }
+    virtual void _bind_transform(Json::Value &json_attrs) override;
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual Json::Value jsonize() const override;
+    static std::shared_ptr<mask_counter_transform> from_json(const Json::Value &j);
+    
+    void add_callback(const std::shared_ptr<mask_counter_callback> cb);
+    void remove_callback(const std::shared_ptr<mask_counter_callback> cb);
+};
+
+// Externally callable
+std::shared_ptr<wi_transform> make_mask_counter(int nt_chunk);
+
+
+
 }  // namespace rf_pipelines
 
 #endif // _RF_PIPELINES_INVENTORY_HPP

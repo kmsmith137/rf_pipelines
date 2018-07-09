@@ -1,4 +1,5 @@
 #include "rf_pipelines_internals.hpp"
+#include "rf_pipelines_inventory.hpp"
 
 using namespace std;
 
@@ -7,34 +8,11 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
-struct mask_counter_measurements {
-    ssize_t pos;
-    int nsamples;
-    int nsamples_masked;
-    int nt;
-    int nt_masked;
-    int nf;
-    int nf_masked;
-};
-
-struct mask_counter_transform : public wi_transform {
-
-    unique_ptr<bool[]> any_unmasked_t;
-    // Ring buffer of measurements
-    int max_measurements;
-    vector<mask_counter_measurements> measurements;
-    int imeasurement;
-    int nmeasurements;
-
-    mask_counter_transform(int nt_chunk_, int max_measurements_) :
-        wi_transform("mask_counter"),
-        max_measurements(max_measurements_),
-        measurements(max_measurements),
-        imeasurement(0),
-        nmeasurements(0)
+mask_counter_transform::mask_counter_transform(int nt_chunk_) :
+        wi_transform("mask_counter")
     {	
         stringstream ss;
-        ss << "mask_counter(nt_chunk=" << nt_chunk_ << ", max_measurements=" << max_measurements_ << ")";
+        ss << "mask_counter(nt_chunk=" << nt_chunk_ << ")";
         this->name = ss.str();
         this->nt_chunk = nt_chunk_;
         this->nds = 0;  // allows us to run in a wi_sub_pipeline
@@ -45,15 +23,13 @@ struct mask_counter_transform : public wi_transform {
         // Can't construct the kernel yet, since 'nfreq' is not known until set_stream()
     }
 
-    virtual ~mask_counter_transform() { }
+// Called after (nfreq, nds) are initialized.
+void mask_counter_transform::_bind_transform(Json::Value &json_attrs)
+{
+    this->any_unmasked_t = unique_ptr<bool[]>(new bool[nt_chunk/nds]);
+}
 
-    // Called after (nfreq, nds) are initialized.
-    virtual void _bind_transform(Json::Value &json_attrs) override
-    {
-        this->any_unmasked_t = unique_ptr<bool[]>(new bool[nt_chunk/nds]);
-    }
-
-    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
+void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
     {
         // _process_chunk(intensity, istride, weights, wstride, pos)
         //
@@ -101,28 +77,38 @@ struct mask_counter_transform : public wi_transform {
 
         cout << "pos " << pos << ": N samples masked: " << meas.nsamples_masked << "/" << (meas.nsamples) << "; n times " << meas.nt_masked << "/" << meas.nt << "; n freqs " << meas.nf_masked << "/" << meas.nf << endl;
 
-        if (nmeasurements < max_measurements)
-            nmeasurements++;
-        measurements[imeasurement] = meas;
-        imeasurement = (imeasurement + 1) % max_measurements;
+        for (const auto &cb : callbacks)
+            cb->mask_count(meas);
     }
 
-    virtual Json::Value jsonize() const override
+Json::Value mask_counter_transform::jsonize() const
     {
         Json::Value ret;
 
         ret["class_name"] = "mask_counter";
         ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
-        ret["max_measurements"] = int(this->max_measurements);
 	
         return ret;
     }
 
-    static shared_ptr<mask_counter_transform> from_json(const Json::Value &j)
+
+shared_ptr<mask_counter_transform>
+mask_counter_transform::from_json(const Json::Value &j)
     {
         ssize_t nt_chunk = ssize_t_from_json(j, "nt_chunk");
-        int max_measurements = int_from_json(j, "max_measurements");
-        return make_shared<mask_counter_transform> (nt_chunk, max_measurements);
+        return make_shared<mask_counter_transform> (nt_chunk);
+    }
+
+void mask_counter_transform::add_callback(const std::shared_ptr<mask_counter_callback> cb) {
+    callbacks.push_back(cb);
+}
+
+void mask_counter_transform::remove_callback(const std::shared_ptr<mask_counter_callback> cb) {
+    for (auto it=callbacks.begin(); it!=callbacks.end(); it++) {
+        if (*it == cb) {
+            callbacks.erase(it);
+            break;
+        }
     }
 };
 
@@ -136,9 +122,9 @@ namespace {
 }
 
 // Externally callable
-shared_ptr<wi_transform> make_mask_counter(int nt_chunk, int max_meas)
+shared_ptr<wi_transform> make_mask_counter(int nt_chunk)
 {
-    return make_shared<mask_counter_transform> (nt_chunk, max_meas);
+    return make_shared<mask_counter_transform> (nt_chunk);
 }
 
 
