@@ -507,6 +507,8 @@ struct mask_counter_measurements {
     int nt_masked;
     int nf;
     int nf_masked;
+    std::shared_ptr<bool> freqs_masked;
+    std::shared_ptr<bool> times_masked;
 };
 
 class mask_counter_callback {
@@ -528,7 +530,7 @@ struct mask_counter_transform : public wi_transform {
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
     virtual Json::Value jsonize() const override;
     static std::shared_ptr<mask_counter_transform> from_json(const Json::Value &j);
-    
+
     void add_callback(const std::shared_ptr<mask_counter_callback> cb);
     void remove_callback(const std::shared_ptr<mask_counter_callback> cb);
 };

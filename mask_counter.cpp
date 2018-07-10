@@ -53,9 +53,14 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
         meas.nsamples = nfreq*nt;
         meas.nt = nt;
         meas.nf = nfreq;
-
         meas.nsamples_masked = 0;
         meas.nf_masked = 0;
+
+        meas.freqs_masked = shared_ptr<bool>((bool*)calloc(nfreq, 1), free);
+        meas.times_masked = shared_ptr<bool>((bool*)calloc(nt,    1), free);
+
+        bool* fm = meas.freqs_masked.get();
+        bool* tm = meas.times_masked.get();
 
         for (int i_f=0; i_f<nfreq; i_f++) {
             bool allmasked = true;
@@ -67,14 +72,18 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
                     any_unmasked_t[i_t] = true;
                 }
             }
-            if (allmasked)
+            if (allmasked) {
                 meas.nf_masked++;
+                fm[i_f] = true;
+            }
         }
 
         meas.nt_masked = 0;
         for (int i=0; i<nt; i++)
-            if (!any_unmasked_t[i])
+            if (!any_unmasked_t[i]) {
                 meas.nt_masked++;
+                tm[i] = true;
+            }
 
         cout << "pos " << pos << ": N samples masked: " << meas.nsamples_masked << "/" << (meas.nsamples) << "; n times " << meas.nt_masked << "/" << meas.nt << "; n freqs " << meas.nf_masked << "/" << meas.nf << endl;
 
