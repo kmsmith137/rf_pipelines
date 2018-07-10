@@ -8,11 +8,12 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
-mask_counter_transform::mask_counter_transform(int nt_chunk_) :
-        wi_transform("mask_counter")
+mask_counter_transform::mask_counter_transform(int nt_chunk_, string where_) :
+    wi_transform("mask_counter"),
+    where(where_)
     {	
         stringstream ss;
-        ss << "mask_counter(nt_chunk=" << nt_chunk_ << ")";
+        ss << "mask_counter(nt_chunk=" << nt_chunk_ << ", where=" << where << ")";
         this->name = ss.str();
         this->nt_chunk = nt_chunk_;
         this->nds = 0;  // allows us to run in a wi_sub_pipeline
@@ -77,6 +78,7 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
 
         cout << "pos " << pos << ": N samples masked: " << meas.nsamples_masked << "/" << (meas.nsamples) << "; n times " << meas.nt_masked << "/" << meas.nt << "; n freqs " << meas.nf_masked << "/" << meas.nf << endl;
 
+        cout << "Calling callback on " << callbacks.size() << " objects" << endl;
         for (const auto &cb : callbacks)
             cb->mask_count(meas);
     }
@@ -87,7 +89,8 @@ Json::Value mask_counter_transform::jsonize() const
 
         ret["class_name"] = "mask_counter";
         ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
-	
+        ret["where"] = where;
+        
         return ret;
     }
 
@@ -96,7 +99,8 @@ shared_ptr<mask_counter_transform>
 mask_counter_transform::from_json(const Json::Value &j)
     {
         ssize_t nt_chunk = ssize_t_from_json(j, "nt_chunk");
-        return make_shared<mask_counter_transform> (nt_chunk);
+        string where = string_from_json(j, "where");
+        return make_shared<mask_counter_transform> (nt_chunk, where);
     }
 
 void mask_counter_transform::add_callback(const std::shared_ptr<mask_counter_callback> cb) {
@@ -122,9 +126,9 @@ namespace {
 }
 
 // Externally callable
-shared_ptr<wi_transform> make_mask_counter(int nt_chunk)
+shared_ptr<wi_transform> make_mask_counter(int nt_chunk, string where)
 {
-    return make_shared<mask_counter_transform> (nt_chunk);
+    return make_shared<mask_counter_transform> (nt_chunk, where);
 }
 
 
