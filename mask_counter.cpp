@@ -27,7 +27,6 @@ mask_counter_transform::mask_counter_transform(int nt_chunk_, string where_) :
 // Called after (nfreq, nds) are initialized.
 void mask_counter_transform::_bind_transform(Json::Value &json_attrs)
 {
-    this->any_unmasked_t = unique_ptr<bool[]>(new bool[nt_chunk/nds]);
 }
 
 void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
@@ -45,49 +44,40 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
         //    not shape (nfreq, nt_chunk), and 'pos' increases by nt_chunk (not nt_chunk/nds)
         //    in each call to _process_chunk();
         int nt = nt_chunk/nds;
-        memset(any_unmasked_t.get(), 0, nt);
 
         mask_counter_measurements meas;
-        memset(&meas, 0, sizeof(mask_counter_measurements));
         meas.pos = pos;
         meas.nsamples = nfreq*nt;
-        meas.nt = nt;
-        meas.nf = nfreq;
         meas.nsamples_masked = 0;
+        meas.nt = nt;
+        meas.nt_masked = 0;
+        meas.nf = nfreq;
         meas.nf_masked = 0;
+        meas.freqs_masked = shared_ptr<uint16_t>((uint16_t*)calloc(nfreq, sizeof(uint16_t)), free);
+        meas.times_masked = shared_ptr<uint16_t>((uint16_t*)calloc(nt,    sizeof(uint16_t)), free);
 
-        meas.freqs_masked = shared_ptr<bool>((bool*)calloc(nfreq, 1), free);
-        meas.times_masked = shared_ptr<bool>((bool*)calloc(nt,    1), free);
-
-        bool* fm = meas.freqs_masked.get();
-        bool* tm = meas.times_masked.get();
+        uint16_t* fm = meas.freqs_masked.get();
+        uint16_t* tm = meas.times_masked.get();
 
         for (int i_f=0; i_f<nfreq; i_f++) {
-            bool allmasked = true;
             for (int i_t=0; i_t<nt; i_t++) {
                 if (weights[i_f*wstride + i_t] == 0) {
                     meas.nsamples_masked++;
-                } else {
-                    allmasked = false;
-                    any_unmasked_t[i_t] = true;
+                    fm[i_f]++;
+                    tm[i_t]++;
                 }
-            }
-            if (allmasked) {
-                meas.nf_masked++;
-                fm[i_f] = true;
             }
         }
 
-        meas.nt_masked = 0;
-        for (int i=0; i<nt; i++)
-            if (!any_unmasked_t[i]) {
+        for (int i_f=0; i_f<nfreq; i_f++)
+            if (fm[i_f] == nt)
+                meas.nf_masked++;
+        for (int i_t=0; i_t<nt; i_t++)
+            if (tm[i_t] == nfreq)
                 meas.nt_masked++;
-                tm[i] = true;
-            }
-
-        cout << "pos " << pos << ": N samples masked: " << meas.nsamples_masked << "/" << (meas.nsamples) << "; n times " << meas.nt_masked << "/" << meas.nt << "; n freqs " << meas.nf_masked << "/" << meas.nf << endl;
-
-        cout << "Calling callback on " << callbacks.size() << " objects" << endl;
+            
+        cout << "mask_counter " << where << ", pos " << pos << ": N samples masked: " << meas.nsamples_masked << "/" << (meas.nsamples) << "; n times " << meas.nt_masked << "/" << meas.nt << "; n freqs " << meas.nf_masked << "/" << meas.nf << endl;
+        //cout << "Calling callback on " << callbacks.size() << " objects" << endl
         for (const auto &cb : callbacks)
             cb->mask_count(meas);
     }

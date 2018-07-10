@@ -507,8 +507,10 @@ struct mask_counter_measurements {
     int nt_masked;
     int nf;
     int nf_masked;
-    std::shared_ptr<bool> freqs_masked;
-    std::shared_ptr<bool> times_masked;
+    // For each frequency, how many of the "nt" samples are masked?
+    std::shared_ptr<uint16_t> freqs_masked;
+    // For each time, how many of the "nf" samples are masked?
+    std::shared_ptr<uint16_t> times_masked;
 };
 
 class mask_counter_callback {
@@ -521,7 +523,6 @@ public:
 // users need to register a callback.
 struct mask_counter_transform : public wi_transform {
     std::string where;
-    std::unique_ptr<bool[]> any_unmasked_t;
     std::vector<std::shared_ptr<mask_counter_callback> > callbacks;
 
     mask_counter_transform(int nt_chunk_, std::string where_);
