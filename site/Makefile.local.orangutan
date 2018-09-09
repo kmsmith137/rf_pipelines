@@ -22,7 +22,13 @@ PYDIR=$(HOME)/lib/python2.7/site-packages
 
 # Read-only location of python header files
 PYTHON_INCDIR=/usr/include/python2.7
-NUMPY_INCDIR=/usr/local/lib/python2.7/dist-packages/numpy/core/include
+
+# Hint for NUMPY_INCDIR: import numpy; numpy.get_include()
+# On orangutan, I use two NUMPY_INCDIRs, to allow for the possibility that there may or may not be
+# a pip-installed version of numpy in $HOME/.local.
+
+NUMPY_INCDIR1=$(HOME)/.local/lib/python2.7/site-packages/numpy/core/include
+NUMPY_INCDIR2=/usr/lib/python2.7/dist-packages/numpy/core/include
 
 #
 # C++ command line
@@ -33,6 +39,6 @@ NUMPY_INCDIR=/usr/local/lib/python2.7/dist-packages/numpy/core/include
 # Don't forget -march=native
 #
 
-CPP=g++ -std=c++11 -pthread -fPIC -Wall -Wno-literal-suffix -O3 -march=native -ffast-math -funroll-loops -I. -I$(INCDIR) -I/usr/include/jsoncpp -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR) -L. -L$(LIBDIR)
+CPP=g++ -std=c++11 -pthread -fPIC -Wall -Wno-literal-suffix -O3 -march=native -ffast-math -funroll-loops -I. -I$(INCDIR) -I/usr/include/jsoncpp -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR1) -I$(NUMPY_INCDIR2) -L. -L$(LIBDIR)
 
 CPP_LFLAGS= -L. -L$(LIBDIR)
