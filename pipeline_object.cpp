@@ -629,6 +629,7 @@ pipeline_object::json_deserializer_t pipeline_object::_find_json_deserializer(co
 // static member function
 shared_ptr<pipeline_object> pipeline_object::from_json(const Json::Value &x)
 {
+    //cout << "pipeline_object::from_json: " << x << endl;
     if (!x.isObject())
 	throw runtime_error("rf_pipelines: pipeline_object::from_json(): expected json argument to be an Object");
 

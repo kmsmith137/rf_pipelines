@@ -523,9 +523,10 @@ public:
 // users need to register a callback.
 struct mask_counter_transform : public wi_transform {
     std::string where;
+    bool bitmap;
     std::vector<std::shared_ptr<mask_counter_callback> > callbacks;
 
-    mask_counter_transform(int nt_chunk_, std::string where_);
+    mask_counter_transform(int nt_chunk_, std::string where_, bool bitmap_);
     virtual ~mask_counter_transform() { }
     virtual void _bind_transform(Json::Value &json_attrs) override;
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
@@ -537,7 +538,7 @@ struct mask_counter_transform : public wi_transform {
 };
 
 // Externally callable
-std::shared_ptr<wi_transform> make_mask_counter(int nt_chunk, std::string where);
+std::shared_ptr<wi_transform> make_mask_counter(int nt_chunk, std::string where, bool bitmap);
 
 
 
