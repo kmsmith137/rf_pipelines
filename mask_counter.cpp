@@ -52,19 +52,43 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
     meas.freqs_masked = shared_ptr<uint16_t>((uint16_t*)calloc(nfreq, sizeof(uint16_t)), free);
     meas.times_masked = shared_ptr<uint16_t>((uint16_t*)calloc(nt,    sizeof(uint16_t)), free);
 
-    if (bitmap) {
-        /// FIXME
-    }
-        
     uint16_t* fm = meas.freqs_masked.get();
     uint16_t* tm = meas.times_masked.get();
 
-    for (int i_f=0; i_f<nfreq; i_f++) {
-        for (int i_t=0; i_t<nt; i_t++) {
-            if (weights[i_f*wstride + i_t] == 0) {
-                meas.nsamples_masked++;
-                fm[i_f]++;
-                tm[i_t]++;
+    uint8_t* allocated_bitmap = NULL;
+
+    if (bitmap) {
+        for (const auto &cb : callbacks) {
+            meas.bitmap = cb->get_bitmap_destination(meas);
+            if (meas.bitmap)
+                break;
+        }
+        if (!meas.bitmap) {
+            //cout << "Allocating bitmap..." << endl;
+            meas.bitmap = allocated_bitmap = (uint8_t*)calloc(nfreq * nt/8, 1);
+        }
+        for (int i_f=0; i_f<nfreq; i_f++) {
+            for (int i_t=0; i_t<nt/8; i_t++) {
+                uint8_t m_out = 0;
+                for (int j=0; j<8; j++) {
+                    if (weights[i_f*wstride + 8*i_t + j] == 0) {
+                        meas.nsamples_masked++;
+                        fm[i_f]++;
+                        tm[8*i_t+j]++;
+                    } else
+                        m_out |= (1 << j);
+                }
+                meas.bitmap[i_f*nt/8 + i_t] = m_out;
+            }
+        }
+    } else {
+        for (int i_f=0; i_f<nfreq; i_f++) {
+            for (int i_t=0; i_t<nt; i_t++) {
+                if (weights[i_f*wstride + i_t] == 0) {
+                    meas.nsamples_masked++;
+                    fm[i_f]++;
+                    tm[i_t]++;
+                }
             }
         }
     }
@@ -79,6 +103,9 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
     cout << "mask_counter " << where << ", pos " << pos << ": N samples masked: " << meas.nsamples_masked << "/" << (meas.nsamples) << "; n times " << meas.nt_masked << "/" << meas.nt << "; n freqs " << meas.nf_masked << "/" << meas.nf << endl;
     for (const auto &cb : callbacks)
         cb->mask_count(meas);
+
+    if (allocated_bitmap)
+        free(allocated_bitmap);
 }
 
 Json::Value mask_counter_transform::jsonize() const

@@ -511,10 +511,14 @@ struct mask_counter_measurements {
     std::shared_ptr<uint16_t> freqs_masked;
     // For each time, how many of the "nf" samples are masked?
     std::shared_ptr<uint16_t> times_masked;
+
+    uint8_t* bitmap;
 };
 
 class mask_counter_callback {
 public:
+    virtual uint8_t* get_bitmap_destination(const struct mask_counter_measurements& m) { return NULL; }
+
     virtual void mask_count(const struct mask_counter_measurements& m) = 0;
     virtual ~mask_counter_callback() {}
 };
