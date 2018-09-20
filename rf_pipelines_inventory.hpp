@@ -511,26 +511,22 @@ struct mask_counter_measurements {
     std::shared_ptr<uint16_t> freqs_masked;
     // For each time, how many of the "nf" samples are masked?
     std::shared_ptr<uint16_t> times_masked;
-
-    uint8_t* bitmap;
 };
 
 class mask_counter_callback {
 public:
-    virtual uint8_t* get_bitmap_destination(const struct mask_counter_measurements& m) { return NULL; }
-
     virtual void mask_count(const struct mask_counter_measurements& m) = 0;
     virtual ~mask_counter_callback() {}
 };
 
 // We expose more details than we typically would because external
 // users need to register a callback.
-struct mask_counter_transform : public wi_transform {
+class mask_counter_transform : public wi_transform {
+public:
     std::string where;
-    bool bitmap;
     std::vector<std::shared_ptr<mask_counter_callback> > callbacks;
 
-    mask_counter_transform(int nt_chunk_, std::string where_, bool bitmap_);
+    mask_counter_transform(int nt_chunk_, std::string where_, std::string class_name_="mask_counter");
     virtual ~mask_counter_transform() { }
     virtual void _bind_transform(Json::Value &json_attrs) override;
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
@@ -541,8 +537,23 @@ struct mask_counter_transform : public wi_transform {
     void remove_callback(const std::shared_ptr<mask_counter_callback> cb);
 };
 
+class chime_mask_counter : public mask_counter_transform {
+public:
+    chime_mask_counter(int nt_chunk_, std::string where_);
+    virtual ~chime_mask_counter() { }
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual Json::Value jsonize() const override;
+    static std::shared_ptr<chime_mask_counter> from_json(const Json::Value &j);
+    void set_stream(std::shared_ptr<ch_frb_io::intensity_network_stream> stream,
+                    int beam);
+protected:
+    std::shared_ptr<ch_frb_io::intensity_network_stream> stream;
+    int beam;
+};
+
 // Externally callable
 std::shared_ptr<wi_transform> make_mask_counter(int nt_chunk, std::string where, bool bitmap);
+std::shared_ptr<wi_transform> make_chime_mask_counter(int nt_chunk, std::string where);
 
 
 

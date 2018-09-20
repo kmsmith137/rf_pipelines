@@ -9,14 +9,12 @@ namespace rf_pipelines {
 #endif
 
 mask_counter_transform::mask_counter_transform(int nt_chunk_, string where_,
-                                               bool bitmap_) :
-    wi_transform("mask_counter"),
-    where(where_),
-    bitmap(bitmap_)
+                                               string class_name_) :
+    wi_transform(class_name_),
+    where(where_)
     {	
         stringstream ss;
-        ss << "mask_counter(nt_chunk=" << nt_chunk_ << ", where=" << where
-           << ", bitmap=" << bitmap << ")";
+        ss << class_name_ << "(nt_chunk=" << nt_chunk_ << ", where=" << where << ")";
         this->name = ss.str();
         this->nt_chunk = nt_chunk_;
         this->nds = 0;  // allows us to run in a wi_sub_pipeline
@@ -55,40 +53,12 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
     uint16_t* fm = meas.freqs_masked.get();
     uint16_t* tm = meas.times_masked.get();
 
-    uint8_t* allocated_bitmap = NULL;
-
-    if (bitmap) {
-        for (const auto &cb : callbacks) {
-            meas.bitmap = cb->get_bitmap_destination(meas);
-            if (meas.bitmap)
-                break;
-        }
-        if (!meas.bitmap) {
-            //cout << "Allocating bitmap..." << endl;
-            meas.bitmap = allocated_bitmap = (uint8_t*)calloc(nfreq * nt/8, 1);
-        }
-        for (int i_f=0; i_f<nfreq; i_f++) {
-            for (int i_t=0; i_t<nt/8; i_t++) {
-                uint8_t m_out = 0;
-                for (int j=0; j<8; j++) {
-                    if (weights[i_f*wstride + 8*i_t + j] == 0) {
-                        meas.nsamples_masked++;
-                        fm[i_f]++;
-                        tm[8*i_t+j]++;
-                    } else
-                        m_out |= (1 << j);
-                }
-                meas.bitmap[i_f*nt/8 + i_t] = m_out;
-            }
-        }
-    } else {
-        for (int i_f=0; i_f<nfreq; i_f++) {
-            for (int i_t=0; i_t<nt; i_t++) {
-                if (weights[i_f*wstride + i_t] == 0) {
-                    meas.nsamples_masked++;
-                    fm[i_f]++;
-                    tm[i_t]++;
-                }
+    for (int i_f=0; i_f<nfreq; i_f++) {
+        for (int i_t=0; i_t<nt; i_t++) {
+            if (weights[i_f*wstride + i_t] == 0) {
+                meas.nsamples_masked++;
+                fm[i_f]++;
+                tm[i_t]++;
             }
         }
     }
@@ -103,9 +73,6 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
     cout << "mask_counter " << where << ", pos " << pos << ": N samples masked: " << meas.nsamples_masked << "/" << (meas.nsamples) << "; n times " << meas.nt_masked << "/" << meas.nt << "; n freqs " << meas.nf_masked << "/" << meas.nf << endl;
     for (const auto &cb : callbacks)
         cb->mask_count(meas);
-
-    if (allocated_bitmap)
-        free(allocated_bitmap);
 }
 
 Json::Value mask_counter_transform::jsonize() const
@@ -115,7 +82,6 @@ Json::Value mask_counter_transform::jsonize() const
         ret["class_name"] = "mask_counter";
         ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
         ret["where"] = where;
-        ret["bitmap"] = bitmap;
         return ret;
     }
 
@@ -125,8 +91,7 @@ mask_counter_transform::from_json(const Json::Value &j)
     {
         ssize_t nt_chunk = ssize_t_from_json(j, "nt_chunk");
         string where = string_from_json(j, "where");
-        bool bitmap = bool_from_json(j, "bitmap");
-        return make_shared<mask_counter_transform> (nt_chunk, where, bitmap);
+        return make_shared<mask_counter_transform> (nt_chunk, where);
     }
 
 void mask_counter_transform::add_callback(const std::shared_ptr<mask_counter_callback> cb) {
@@ -152,9 +117,9 @@ namespace {
 }
 
 // Externally callable
-shared_ptr<wi_transform> make_mask_counter(int nt_chunk, string where, bool bitmap)
+shared_ptr<wi_transform> make_mask_counter(int nt_chunk, string where)
 {
-    return make_shared<mask_counter_transform> (nt_chunk, where, bitmap);
+    return make_shared<mask_counter_transform> (nt_chunk, where);
 }
 
 
