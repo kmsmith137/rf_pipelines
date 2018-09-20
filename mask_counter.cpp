@@ -71,6 +71,7 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
             meas.nt_masked++;
             
     cout << "mask_counter " << where << ", pos " << pos << ": N samples masked: " << meas.nsamples_masked << "/" << (meas.nsamples) << "; n times " << meas.nt_masked << "/" << meas.nt << "; n freqs " << meas.nf_masked << "/" << meas.nf << endl;
+    //cout << "mask_counter: calling " << callbacks.size() << " callbacks" << endl;
     for (const auto &cb : callbacks)
         cb->mask_count(meas);
 }

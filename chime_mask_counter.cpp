@@ -29,11 +29,11 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
         return;
     }
 
-    cout << "chime_mask_counter: finding rfi_mask destination for " << pos << endl;
+    cout << "chime_mask_counter: finding chunk for pos " << pos << endl;
     uint64_t fpga_counts = ((uint64_t)pos +
                             (uint64_t)stream->first_ichunk * (uint64_t)ch_frb_io::constants::nt_per_assembled_chunk)
         * (uint64_t)stream->ini_params.fpga_counts_per_sample;
-    cout << "FPGA counts: " << fpga_counts << endl;
+    //cout << "FPGA counts: " << fpga_counts << endl;
 
     shared_ptr<ch_frb_io::assembled_chunk> chunk = stream->find_assembled_chunk(beam, fpga_counts);
     bool good = true;
