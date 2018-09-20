@@ -36,8 +36,21 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
     cout << "FPGA counts: " << fpga_counts << endl;
 
     shared_ptr<ch_frb_io::assembled_chunk> chunk = stream->find_assembled_chunk(beam, fpga_counts);
+    bool good = true;
     if (!chunk) {
         cout << "Could not find a chunk for beam " << beam << ", FPGA counts " << fpga_counts << endl;
+        good = false;
+    }
+    if (good && !chunk->rfi_mask) {
+        cout << "Found chunk, but it has no rfi_mask array" << endl;
+        good = false;
+    }
+    if (good && (chunk->nrfifreq != nfreq)) {
+        cout << "Chunk expected number of RFI frequencies " << chunk->nrfifreq
+             << " but RFI mask has " << nfreq << endl;
+        good = false;
+    }
+    if (!good) {
         mask_counter_transform::_process_chunk(intensity, istride, weights, wstride, pos);
         return;
     }
@@ -72,6 +85,8 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
             rfimask[i_f*nt/8 + i_t] = m_out;
         }
     }
+
+    chunk->has_rfi_mask = true;
 
     for (int i_f=0; i_f<nfreq; i_f++)
         if (fm[i_f] == nt)
