@@ -98,6 +98,11 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
     cout << "chime_mask_counter " << where << ", pos " << pos << ": N samples masked: " << meas.nsamples_masked << "/" << (meas.nsamples) << "; n times " << meas.nt_masked << "/" << meas.nt << "; n freqs " << meas.nf_masked << "/" << meas.nf << endl;
     for (const auto &cb : callbacks)
         cb->mask_count(meas);
+
+    // Notify stream's output_devices that a chunk has had its
+    // rfi_mask filled in.
+    for (auto od : stream->ini_params.output_devices)
+        od->filled_rfi_mask(chunk);
 }
 
 Json::Value chime_mask_counter::jsonize() const
