@@ -175,6 +175,7 @@ extern double double_from_json(const Json::Value &x, const std::string &k);
 extern int int_from_json(const Json::Value &x, const std::string &k);
 extern bool bool_from_json(const Json::Value &j, const std::string &k);
 extern ssize_t ssize_t_from_json(const Json::Value &j, const std::string &k);
+extern uint64_t uint64_t_from_json(const Json::Value &j, const std::string &k);
 extern void add_json_object(Json::Value &dst, const Json::Value &src);
 extern std::string json_stringify(const Json::Value &x);
 

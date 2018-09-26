@@ -29,10 +29,12 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
         return;
     }
 
+    if (!fpga_counts_initialized)
+	throw runtime_error("rf_pipelines::chime_mask_counter internal error: fpga count field were not initialized as expected");
+    
     cout << "chime_mask_counter: finding chunk for pos " << pos << endl;
-    uint64_t fpga_counts = ((uint64_t)pos +
-                            (uint64_t)stream->first_ichunk * (uint64_t)ch_frb_io::constants::nt_per_assembled_chunk)
-        * (uint64_t)stream->ini_params.fpga_counts_per_sample;
+
+    uint64_t fpga_counts = pos * fpga_counts_per_sample + initial_fpga_count;
     //cout << "FPGA counts: " << fpga_counts << endl;
 
     shared_ptr<ch_frb_io::assembled_chunk> chunk = stream->find_assembled_chunk(beam, fpga_counts);
@@ -104,6 +106,15 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
     for (auto od : stream->ini_params.output_devices)
         od->filled_rfi_mask(chunk);
 }
+
+
+void chime_mask_counter::_start_pipeline(Json::Value &j)
+{
+    this->initial_fpga_count = uint64_t_from_json(j, "initial_fpga_count");
+    this->fpga_counts_per_sample = int_from_json(j, "fpga_counts_per_sample");
+    this->fpga_counts_initialized = true;
+}
+
 
 Json::Value chime_mask_counter::jsonize() const
     {
