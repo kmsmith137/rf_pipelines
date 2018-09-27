@@ -9,32 +9,61 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
-chime_mask_counter::chime_mask_counter(int nt_chunk_, string where_) :
-    mask_counter_transform(nt_chunk_, where_, "chime_mask_counter")
+chime_mask_counter::chime_mask_counter(string where_) :
+    // First argument is 'nt_chunk'.
+    mask_counter_transform(ch_frb_io::constants::nt_per_assembled_chunk, where_, "chime_mask_counter")
 {}
 
-void chime_mask_counter::set_stream(std::shared_ptr<ch_frb_io::intensity_network_stream> _stream,
-                                    int _beam) {
+void chime_mask_counter::set_stream(std::shared_ptr<ch_frb_io::intensity_network_stream> _stream, int _beam)
+{
+    if (stream)
+	throw runtime_error("double call to chime_mask_counter::set_stream()");
+    if (this->state != UNBOUND)
+	throw runtime_error("chime_mask_counter::set_stream() must be called before bind()");
+    
+    // Note: we don't assert(stream->nrfifreq == this->nfreq) here, because set_stream()
+    // is called before chime_mask_counter "knows" the value of nfreq.
     stream = _stream;
     beam = _beam;
 }
 
+void chime_mask_counter::_bind_transform(Json::Value &json_attrs)
+{
+    // _bind_transform() is the earliest place we can put this assert.
+    if (stream && (stream->ini_params.nrfifreq != this->nfreq))
+	throw runtime_error("chime_mask_counter: value of 'nrfifreq' does not match the frequency resolution in the RFI transform chain");
+
+    // Should be redundant with asserts elsewhere in rf_pipelines, but just being paranoid!
+    rf_assert(this->nds == 1);
+}
+
+void chime_mask_counter::_start_pipeline(Json::Value &j)
+{
+    this->initial_fpga_count = uint64_t_from_json(j, "initial_fpga_count");
+    this->fpga_counts_per_sample = int_from_json(j, "fpga_counts_per_sample");
+    this->fpga_counts_initialized = true;
+}
+
 void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
 {
-    int nt = nt_chunk/nds;
-
     if (!stream) {
         cout << "chime_mask_counter: processing chunk, but stream not set" << endl;
         mask_counter_transform::_process_chunk(intensity, istride, weights, wstride, pos);
         return;
     }
 
+    // Reminder: previous asserts have already checked that
+    //   this->nfreq == stream->nrfifreq
+    //   this->nt_chunk == ch_frb_io::nt_per_assembled_chunk
+    //   this->nds == 1
+    
     if (!fpga_counts_initialized)
-	throw runtime_error("rf_pipelines::chime_mask_counter internal error: fpga count field were not initialized as expected");
+	throw runtime_error("rf_pipelines::chime_mask_counter internal error: fpga count fields were not initialized as expected");
     
     cout << "chime_mask_counter: finding chunk for pos " << pos << endl;
 
-    uint64_t fpga_counts = pos * fpga_counts_per_sample + initial_fpga_count;
+    // The 'pos' argument is the current pipeline position in units of time samples (not FPGA counts)
+    uint64_t fpga_counts = pos * this->fpga_counts_per_sample + this->initial_fpga_count;
     //cout << "FPGA counts: " << fpga_counts << endl;
 
     shared_ptr<ch_frb_io::assembled_chunk> chunk = stream->find_assembled_chunk(beam, fpga_counts);
@@ -59,14 +88,14 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
 
     mask_counter_measurements meas;
     meas.pos = pos;
-    meas.nsamples = nfreq*nt;
+    meas.nsamples = nfreq*nt_chunk;
     meas.nsamples_masked = 0;
-    meas.nt = nt;
+    meas.nt = nt_chunk;
     meas.nt_masked = 0;
     meas.nf = nfreq;
     meas.nf_masked = 0;
     meas.freqs_masked = shared_ptr<uint16_t>((uint16_t*)calloc(nfreq, sizeof(uint16_t)), free);
-    meas.times_masked = shared_ptr<uint16_t>((uint16_t*)calloc(nt,    sizeof(uint16_t)), free);
+    meas.times_masked = shared_ptr<uint16_t>((uint16_t*)calloc(nt_chunk, sizeof(uint16_t)), free);
 
     uint16_t* fm = meas.freqs_masked.get();
     uint16_t* tm = meas.times_masked.get();
@@ -74,7 +103,7 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
     uint8_t* rfimask = chunk->rfi_mask;
 
     for (int i_f=0; i_f<nfreq; i_f++) {
-        for (int i_t=0; i_t<nt/8; i_t++) {
+        for (int i_t=0; i_t<nt_chunk/8; i_t++) {
             uint8_t m_out = 0;
             for (int j=0; j<8; j++) {
                 if (weights[i_f*wstride + 8*i_t + j] == 0) {
@@ -84,16 +113,16 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
                 } else
                     m_out |= (1 << j);
             }
-            rfimask[i_f*nt/8 + i_t] = m_out;
+            rfimask[i_f*nt_chunk/8 + i_t] = m_out;
         }
     }
 
     chunk->has_rfi_mask = true;
 
     for (int i_f=0; i_f<nfreq; i_f++)
-        if (fm[i_f] == nt)
+        if (fm[i_f] == nt_chunk)
             meas.nf_masked++;
-    for (int i_t=0; i_t<nt; i_t++)
+    for (int i_t=0; i_t<nt_chunk; i_t++)
         if (tm[i_t] == nfreq)
             meas.nt_masked++;
             
@@ -108,32 +137,22 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
 }
 
 
-void chime_mask_counter::_start_pipeline(Json::Value &j)
-{
-    this->initial_fpga_count = uint64_t_from_json(j, "initial_fpga_count");
-    this->fpga_counts_per_sample = int_from_json(j, "fpga_counts_per_sample");
-    this->fpga_counts_initialized = true;
-}
-
-
 Json::Value chime_mask_counter::jsonize() const
-    {
-        Json::Value ret;
-
-        ret["class_name"] = "chime_mask_counter";
-        ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
-        ret["where"] = where;
-        return ret;
-    }
+{
+    Json::Value ret;
+    
+    ret["class_name"] = "chime_mask_counter";
+    ret["where"] = where;
+    return ret;
+}
 
 
 shared_ptr<chime_mask_counter>
 chime_mask_counter::from_json(const Json::Value &j)
-    {
-        ssize_t nt_chunk = ssize_t_from_json(j, "nt_chunk");
-        string where = string_from_json(j, "where");
-        return make_shared<chime_mask_counter> (nt_chunk, where);
-    }
+{
+    string where = string_from_json(j, "where");
+    return make_shared<chime_mask_counter> (where);
+}
 
 namespace {
     struct _init {
@@ -144,9 +163,9 @@ namespace {
 }
 
 // Externally callable
-shared_ptr<wi_transform> make_chime_mask_counter(int nt_chunk, string where)
+shared_ptr<wi_transform> make_chime_mask_counter(string where)
 {
-    return make_shared<chime_mask_counter> (nt_chunk, where);
+    return make_shared<chime_mask_counter> (where);
 }
 
 

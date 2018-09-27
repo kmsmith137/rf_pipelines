@@ -539,14 +539,19 @@ public:
 
 class chime_mask_counter : public mask_counter_transform {
 public:
-    chime_mask_counter(int nt_chunk_, std::string where_);
+    chime_mask_counter(std::string where_);
     virtual ~chime_mask_counter() { }
-    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+
+    virtual void _bind_transform(Json::Value &json_attrs) override;
     virtual void _start_pipeline(Json::Value &j) override;
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    
     virtual Json::Value jsonize() const override;
     static std::shared_ptr<chime_mask_counter> from_json(const Json::Value &j);
-    void set_stream(std::shared_ptr<ch_frb_io::intensity_network_stream> stream,
-                    int beam);
+
+    // Called "externally" by L1 server
+    void set_stream(std::shared_ptr<ch_frb_io::intensity_network_stream> stream, int beam);
+                    
 protected:
     std::shared_ptr<ch_frb_io::intensity_network_stream> stream;
     int beam = -1;
@@ -559,7 +564,7 @@ protected:
 
 // Externally callable
 std::shared_ptr<wi_transform> make_mask_counter(int nt_chunk, std::string where, bool bitmap);
-std::shared_ptr<wi_transform> make_chime_mask_counter(int nt_chunk, std::string where);
+std::shared_ptr<wi_transform> make_chime_mask_counter(std::string where);
 
 
 
