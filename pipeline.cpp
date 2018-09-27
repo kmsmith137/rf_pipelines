@@ -179,6 +179,14 @@ void pipeline::_get_info(Json::Value &j)
     j["mb_cumul"] = mb_cumul;
 }
 
+void pipeline::visit_pipeline(std::function<void(pipeline_object*,int)> f, int depth)
+{
+    f(this, depth);
+    
+    for (auto &p: this->elements)
+	f(p.get(), depth+1);
+}
+
 
 namespace {
     struct _init {

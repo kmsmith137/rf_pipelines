@@ -109,6 +109,7 @@ protected:
     virtual void _get_info(Json::Value &j) override;
     
     virtual ssize_t get_preferred_chunk_size() override;
+    virtual void visit_pipeline(std::function<void(pipeline_object*,int)> f, int depth) override;
 };
 
 

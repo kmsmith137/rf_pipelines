@@ -550,11 +550,18 @@ Json::Value pipeline_object::get_info()
 }
 
 
-// Default virtuals
+// A few default virtuals follow.
+
 void pipeline_object::_start_pipeline(Json::Value &j) { }
 void pipeline_object::_end_pipeline(Json::Value &j) { }
 void pipeline_object::_get_info(Json::Value &j) { }
 void pipeline_object::_reset() { }
+
+
+void pipeline_object::visit_pipeline(std::function<void(pipeline_object*,int)> f, int depth)
+{
+    f(this, depth);
+}
 
 
 // -------------------------------------------------------------------------------------------------

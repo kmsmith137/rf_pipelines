@@ -557,6 +557,9 @@ public:
     virtual void _unbind();
     virtual void _get_info(Json::Value &json_output);
 
+    // Optional.  Default calls f(this,depth) and returns.
+    virtual void visit_pipeline(std::function<void(pipeline_object*,int)> f, int depth=0);
+
     // Each of the following methods is a wrapper around the corresponding virtual function.
     // For example, bind() contains "generic" logic, and wraps _bind() which contains 
     // subclass-dependent logic.
@@ -568,7 +571,7 @@ public:
     void bind(const run_params &params, ring_buffer_dict &rb_dict, ssize_t nt_chunk_in, ssize_t nt_maxlag, Json::Value &json_attrs, const std::shared_ptr<outdir_manager> &out_mp);
     void start_pipeline(Json::Value &json_attrs);
     void end_pipeline(Json::Value &json_output);
-    ssize_t advance(ssize_t pos_hi, ssize_t pos_max);    
+    ssize_t advance(ssize_t pos_hi, ssize_t pos_max);
 
 
     // Here is a long comment explaning each of the virtuals above!
@@ -657,6 +660,12 @@ public:
     //
     //     Note that deallocation of the pipeline ring buffers is done separately, and this does
     //     not need to be done in _deallocate().
+    //
+    // visit_pipeline(f,depth): recursively visits all pipeline_objects in pipeline.
+    //
+    //     By default, this just calls f(this,depth) and returns.  Container classes should override this
+    //     by calling f(this,depth), followed by a call to f(p,depth+1) for each pipeline_object p.
+    //     (For an example, see pipeline.cpp)
     //
     // get_preferred_chunk_size(): defines chunk size for stream-type object
     //
@@ -868,7 +877,14 @@ public:
     // (This is virtual because wi_transform defines 'kernel_chunk_size', which needs to be incorporated.)
     virtual void _check_nt_chunk() const;
 
-    // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline(), _reset().
+    // Subclass can optionally override the following virtuals:
+    //   jsonize()
+    //   visit_pipeline()
+    //   _allocate()
+    //   _deallocate()
+    //   _start_pipeline()
+    //   _end_pipeline()
+    //   _reset()
 };
 
 
@@ -935,8 +951,15 @@ public:
     // since its _fill_chunk() method operates directly on pointers/strides.
     std::shared_ptr<ring_buffer> rb_intensity;
     std::shared_ptr<ring_buffer> rb_weights;
-
-    // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline(), _reset().
+    
+    // Subclass can optionally override the following virtuals:
+    //   jsonize()
+    //   visit_pipeline()
+    //   _allocate()
+    //   _deallocate()
+    //   _start_pipeline()
+    //   _end_pipeline()
+    //   _reset()
 };
 
 
@@ -1081,8 +1104,15 @@ public:
     // We override chunked_pipeline::finalize_nt_chunk() and _check_nt_chunk(), in order to incorporate 'kernel_chunk_size'.
     virtual void finalize_nt_chunk() override;
     virtual void _check_nt_chunk() const override;
-
-    // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline(), _reset().
+    
+    // Subclass can optionally override the following virtuals:
+    //   jsonize()
+    //   visit_pipeline()
+    //   _allocate()
+    //   _deallocate()
+    //   _start_pipeline()
+    //   _end_pipeline()
+    //   _reset()
 };
 
 
