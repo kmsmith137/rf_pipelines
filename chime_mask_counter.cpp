@@ -20,9 +20,14 @@ void chime_mask_counter::set_stream(std::shared_ptr<ch_frb_io::intensity_network
 	throw runtime_error("double call to chime_mask_counter::set_stream()");
     if (this->state != UNBOUND)
 	throw runtime_error("chime_mask_counter::set_stream() must be called before bind()");
+
+    // Note: we need to wait until later to check the following asserts:
+    //    assert(stream->nrfifreq == this->nfreq)
+    //    assert(stream->fpga_counts_per_sample == this->fpga_counts_per_sample)
+    //
+    // We do these in _bind_transform() and _start_pipeline() respectively, when the
+    // values of this->nfreq and this->fpga_counts_per_sample are determined.
     
-    // Note: we don't assert(stream->nrfifreq == this->nfreq) here, because set_stream()
-    // is called before chime_mask_counter "knows" the value of nfreq.
     stream = _stream;
     beam = _beam;
 }
@@ -42,6 +47,10 @@ void chime_mask_counter::_start_pipeline(Json::Value &j)
     this->initial_fpga_count = uint64_t_from_json(j, "initial_fpga_count");
     this->fpga_counts_per_sample = int_from_json(j, "fpga_counts_per_sample");
     this->fpga_counts_initialized = true;
+
+    // _start_pipeline() is the earliest place we can put this assert.
+    if (stream && (stream->ini_params.fpga_counts_per_sample != fpga_counts_per_sample))
+	throw runtime_error("chime_mask_counter: mismatched values of 'fpga_counts_per_sample' in _start_pipeline()");
 }
 
 void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
