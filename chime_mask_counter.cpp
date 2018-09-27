@@ -66,25 +66,20 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
     uint64_t fpga_counts = pos * this->fpga_counts_per_sample + this->initial_fpga_count;
     //cout << "FPGA counts: " << fpga_counts << endl;
 
-    shared_ptr<ch_frb_io::assembled_chunk> chunk = stream->find_assembled_chunk(beam, fpga_counts);
-    bool good = true;
-    if (!chunk) {
-        cout << "Could not find a chunk for beam " << beam << ", FPGA counts " << fpga_counts << endl;
-        good = false;
-    }
-    if (good && !chunk->rfi_mask) {
-        cout << "Found chunk, but it has no rfi_mask array" << endl;
-        good = false;
-    }
-    if (good && (chunk->nrfifreq != nfreq)) {
-        cout << "Chunk expected number of RFI frequencies " << chunk->nrfifreq
-             << " but RFI mask has " << nfreq << endl;
-        good = false;
-    }
-    if (!good) {
-        mask_counter_transform::_process_chunk(intensity, istride, weights, wstride, pos);
-        return;
-    }
+    // The last argument in find_assembled_chunk() is 'toplevel'.
+    shared_ptr<ch_frb_io::assembled_chunk> chunk = stream->find_assembled_chunk(beam, fpga_counts, true);
+
+    // These should all be redundant with asserts in ch_frb_io, but a little paranoia never hurts.
+    if (!chunk)
+	throw runtime_error("chime_mask_counter: find_assembled_chunk() returned empty pointer");
+    if (!chunk->rfi_mask)
+	throw runtime_error("chime_mask_counter: find_assembled_chunk() returned chunk with no RFI mask");
+    if (chunk->nrfifreq != nfreq)
+	throw runtime_error("chime_mask_counter: find_assembled_chunk() returned chunk with mismatched 'nrfifreq'");
+    if (chunk->has_rfi_mask)
+	throw runtime_error("chime_mask_counter: find_assembled_chunk() returned chunk with has_rfi_mask=true");
+    if (chunk->binning != 1)
+	throw runtime_error("chime_mask_counter: find_assembled_chunk() returned chunk with binning != 1");
 
     mask_counter_measurements meas;
     meas.pos = pos;
