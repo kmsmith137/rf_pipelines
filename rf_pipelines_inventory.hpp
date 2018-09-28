@@ -152,6 +152,7 @@ struct wi_sub_pipeline : pipeline {
 protected:
     virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
     virtual ssize_t get_preferred_chunk_size() override;
+    virtual void visit_pipeline(std::function<void(pipeline_object*,int)> f, int depth) override;
 };
 
 
