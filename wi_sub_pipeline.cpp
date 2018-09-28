@@ -305,6 +305,15 @@ ssize_t wi_sub_pipeline::get_preferred_chunk_size()
 // virtual override
 void wi_sub_pipeline::visit_pipeline(std::function<void(pipeline_object*,int)> f, int depth)
 {
+    // Overriding pipeline::visit_pipeline() is necessary here, for two reasons.
+    //
+    // First, pipeline::visit_pipeline() would also visit the "internal" downsampler/upsampler,
+    // and I thought it made most sense to "hide" this implementation detail from the caller of
+    // visit_pipeline().  (This is a design decision that could be reversed.)
+    //
+    // Second, we want visit_pipeline() to work before bind() is called, and in the curren
+    // implementation, pipeline::elements is an empty vector before bind() is called.
+    
     f(this, depth);
     sub_pipeline->visit_pipeline(f, depth+1);
 }
