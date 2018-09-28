@@ -79,6 +79,11 @@ void mask_counter_transform::init_measurements(mask_measurements& meas) {
     // alloc arrays, etc
 }
 
+std::shared_ptr<mask_measurements_ringbuf>
+mask_counter_transform::get_ringbuf() {
+    return ringbuf;
+}
+
 Json::Value mask_counter_transform::jsonize() const
     {
         Json::Value ret;

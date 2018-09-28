@@ -184,8 +184,6 @@ void pipeline::visit_pipeline(std::function<void(pipeline_object*,int)> f, int d
     cout << "pipeline::visit_pipeline : " << this->elements.size() << " subs" << endl;
     
     f(this, depth);
-
-    
     
     for (auto &p: this->elements)
 	p->visit_pipeline(f, depth+1);

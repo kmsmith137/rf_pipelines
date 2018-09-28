@@ -12,11 +12,17 @@ namespace rf_pipelines {
 
 
 std::vector<rf_pipelines::mask_measurements>
-mask_measurements_ringbuf::get_all_measurements() {
+mask_measurements_ringbuf::get_all_measurements() const {
+    std::vector<rf_pipelines::mask_measurements> rtn;
+    throw runtime_error("unimplemented!");
+    return rtn;
 }
 
 std::unordered_map<std::string, float> 
-mask_measurements_ringbuf::get_stats(float period) {
+mask_measurements_ringbuf::get_stats(float period) const {
+    std::unordered_map<std::string, float> rtn;
+    throw runtime_error("unimplemented!");
+    return rtn;
 }
 
 

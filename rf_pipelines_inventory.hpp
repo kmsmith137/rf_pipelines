@@ -516,8 +516,8 @@ struct mask_measurements {
 
 class mask_measurements_ringbuf {
 public:
-    std::unordered_map<std::string, float> get_stats(float period);
-    std::vector<rf_pipelines::mask_measurements> get_all_measurements();
+    std::unordered_map<std::string, float> get_stats(float period) const;
+    std::vector<rf_pipelines::mask_measurements> get_all_measurements() const;
 
     /*
     mask_stats(int beam_id, std::string where="", int nhistory=300);
