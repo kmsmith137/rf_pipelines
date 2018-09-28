@@ -184,7 +184,7 @@ void pipeline::visit_pipeline(std::function<void(pipeline_object*,int)> f, int d
     f(this, depth);
     
     for (auto &p: this->elements)
-	f(p.get(), depth+1);
+	p->visit_pipeline(f, depth+1);
 }
 
 
