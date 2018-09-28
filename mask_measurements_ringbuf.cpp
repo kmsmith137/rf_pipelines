@@ -56,16 +56,14 @@ mask_measurements_ringbuf::get_stats(float period) {
     {
         ulock l(mutex);
         int n = ringbuf.size();
-
-        cout << "Ringbuf n: " << n << ", current " << current << endl;
-
+        //cout << "Ringbuf n: " << n << ", current " << current << endl;
         if (nsteps > n)
             nsteps = n;
-        int istart = (current - nsteps + n) % n;
-        
+        // avoid  (i % 0)
+        int istart = (n ? (current - nsteps + n) % n : 0);
         for (int offset=0; offset<nsteps; offset++) {
             int i = (istart + offset) % n;
-            cout << "offset " << offset << " of " << nsteps << " -> i " << i << endl;
+            //cout << "offset " << offset << " of " << nsteps << " -> i " << i << endl;
             totsamp += ringbuf[i].nsamples;
             totmasked += ringbuf[i].nsamples_masked;
             tot_t += ringbuf[i].nt;

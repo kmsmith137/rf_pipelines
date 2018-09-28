@@ -13,6 +13,8 @@ mask_counter_transform::mask_counter_transform(int nt_chunk_, string where_,
     wi_transform(class_name_),
     where(where_)
 {	
+    ringbuf = make_shared<mask_measurements_ringbuf>();
+
     stringstream ss;
     ss << class_name_ << "(nt_chunk=" << nt_chunk_ << ", where=" << where << ")";
     this->name = ss.str();
