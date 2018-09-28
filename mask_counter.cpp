@@ -12,23 +12,17 @@ mask_counter_transform::mask_counter_transform(int nt_chunk_, string where_,
                                                string class_name_) :
     wi_transform(class_name_),
     where(where_)
-    {	
-        stringstream ss;
-        ss << class_name_ << "(nt_chunk=" << nt_chunk_ << ", where=" << where << ")";
-        this->name = ss.str();
-        this->nt_chunk = nt_chunk_;
-        this->nds = 0;  // allows us to run in a wi_sub_pipeline
+{	
+    stringstream ss;
+    ss << class_name_ << "(nt_chunk=" << nt_chunk_ << ", where=" << where << ")";
+    this->name = ss.str();
+    this->nt_chunk = nt_chunk_;
+    this->nds = 0;  // allows us to run in a wi_sub_pipeline
 
-        if (nt_chunk == 0)
-            throw runtime_error("rf_pipelines::mask_counter: nt_chunk must be specified");
+    if (nt_chunk == 0)
+        throw runtime_error("rf_pipelines::mask_counter: nt_chunk must be specified");
 	
-        // Can't construct the kernel yet, since 'nfreq' is not known until set_stream()
-    }
-
-// Called after (nfreq, nds) are initialized.
-void mask_counter_transform::_bind_transform(Json::Value &json_attrs)
-{
-    cout << "mask_counter: bind: attrs = " << json_attrs << endl;
+    // Can't construct the kernel yet, since 'nfreq' is not known until set_stream()
 }
 
 void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
@@ -39,7 +33,7 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
     }
     int nt = nt_chunk/nds;
 
-    mask_counter_measurements meas;
+    mask_measurements meas;
     meas.pos = pos;
     meas.nsamples = nfreq*nt;
     meas.nsamples_masked = 0;

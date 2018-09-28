@@ -69,11 +69,9 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
     if (!fpga_counts_initialized)
 	throw runtime_error("rf_pipelines::chime_mask_counter internal error: fpga count fields were not initialized as expected");
     
-    cout << "chime_mask_counter: finding chunk for pos " << pos << endl;
-
     // The 'pos' argument is the current pipeline position in units of time samples (not FPGA counts)
     uint64_t fpga_counts = pos * this->fpga_counts_per_sample + this->initial_fpga_count;
-    //cout << "FPGA counts: " << fpga_counts << endl;
+    cout << "chime_mask_counter: finding chunk for pos " << pos << " (fpga counts " << fpga_counts << ")" << endl;
 
     // The last argument in find_assembled_chunk() is 'toplevel'.
     shared_ptr<ch_frb_io::assembled_chunk> chunk = stream->find_assembled_chunk(beam, fpga_counts, true);
@@ -90,7 +88,7 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
     if (chunk->binning != 1)
 	throw runtime_error("chime_mask_counter: find_assembled_chunk() returned chunk with binning != 1");
 
-    mask_counter_measurements meas;
+    mask_measurements meas;
     meas.pos = pos;
     meas.nsamples = nfreq*nt_chunk;
     meas.nsamples_masked = 0;

@@ -500,7 +500,7 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 
 // Mask counter transform -- counts masked data samples
 
-struct mask_counter_measurements {
+struct mask_measurements {
     ssize_t pos;
     int nsamples;
     int nsamples_masked;
@@ -514,9 +514,10 @@ struct mask_counter_measurements {
     std::shared_ptr<uint16_t> times_masked;
 };
 
+
 class mask_counter_callback {
 public:
-    virtual void mask_count(const struct mask_counter_measurements& m) = 0;
+    virtual void mask_count(const struct mask_measurements& m) = 0;
     virtual ~mask_counter_callback() {}
 };
 
@@ -529,7 +530,7 @@ public:
 
     mask_counter_transform(int nt_chunk_, std::string where_, std::string class_name_="mask_counter");
     virtual ~mask_counter_transform() { }
-    virtual void _bind_transform(Json::Value &json_attrs) override;
+    //virtual void _bind_transform(Json::Value &json_attrs) override;
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
     virtual Json::Value jsonize() const override;
     static std::shared_ptr<mask_counter_transform> from_json(const Json::Value &j);
