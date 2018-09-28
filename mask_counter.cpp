@@ -70,6 +70,15 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
         cb->mask_count(meas);
 }
 
+void mask_counter_transform::process_measurement()
+{
+    // add to ringbuf
+}
+
+void mask_counter_transform::init_measurements(mask_measurements& meas) {
+    // alloc arrays, etc
+}
+
 Json::Value mask_counter_transform::jsonize() const
     {
         Json::Value ret;
