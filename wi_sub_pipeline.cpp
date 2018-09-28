@@ -303,6 +303,14 @@ ssize_t wi_sub_pipeline::get_preferred_chunk_size()
 
 
 // virtual override
+void wi_sub_pipeline::visit_pipeline(std::function<void(pipeline_object*,int)> f, int depth)
+{
+    f(this, depth);
+    sub_pipeline->visit_pipeline(f, depth+1);
+}
+
+
+// virtual override
 Json::Value wi_sub_pipeline::jsonize() const 
 {
     Json::Value ret;

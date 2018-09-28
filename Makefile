@@ -83,6 +83,9 @@ BINFILES = rfp-time
 # C++ unit test binaries which are not installed in $(BINDIR).
 TESTBINFILES = test-misc test-ring-buffer test-core-pipeline-logic test-file-stream-base
 
+# Not actually a unit test, but Makefile doesn't need to distinguish
+TESTBINFILES += visit-pipeline-example
+
 # Python scripts in scripts/, installed in $(BINDIR).
 SCRIPTS = rfp-analyze \
 	rfp-json-show \
@@ -209,4 +212,7 @@ test-ring-buffer: test-ring-buffer.o $(OFILES)
 	$(CPP) $(CPP_LFLAGS) -o $@ $^ $(LIBS)
 
 test-file-stream-base: test-file-stream-base.o $(OFILES)
+	$(CPP) $(CPP_LFLAGS) -o $@ $^ $(LIBS)
+
+visit-pipeline-example: visit-pipeline-example.o $(OFILES)
 	$(CPP) $(CPP_LFLAGS) -o $@ $^ $(LIBS)
