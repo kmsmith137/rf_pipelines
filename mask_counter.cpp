@@ -27,22 +27,10 @@ mask_counter_transform::mask_counter_transform(int nt_chunk_, string where_,
 
 void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
 {
-    if (callbacks.size() == 0) {
-        cout << "mask_counter " << where << ": no callbacks; not counting" << endl;
-        return;
-    }
     int nt = nt_chunk/nds;
-
     mask_measurements meas;
+    init_measurements(meas);
     meas.pos = pos;
-    meas.nsamples = nfreq*nt;
-    meas.nsamples_masked = 0;
-    meas.nt = nt;
-    meas.nt_masked = 0;
-    meas.nf = nfreq;
-    meas.nf_masked = 0;
-    meas.freqs_masked = shared_ptr<uint16_t>((uint16_t*)calloc(nfreq, sizeof(uint16_t)), free);
-    meas.times_masked = shared_ptr<uint16_t>((uint16_t*)calloc(nt,    sizeof(uint16_t)), free);
 
     uint16_t* fm = meas.freqs_masked.get();
     uint16_t* tm = meas.times_masked.get();
@@ -65,18 +53,25 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
             meas.nt_masked++;
             
     cout << "mask_counter " << where << ", pos " << pos << ": N samples masked: " << meas.nsamples_masked << "/" << (meas.nsamples) << "; n times " << meas.nt_masked << "/" << meas.nt << "; n freqs " << meas.nf_masked << "/" << meas.nf << endl;
-    //cout << "mask_counter: calling " << callbacks.size() << " callbacks" << endl;
-    for (const auto &cb : callbacks)
-        cb->mask_count(meas);
+
+    process_measurement(meas);
 }
 
-void mask_counter_transform::process_measurement()
+void mask_counter_transform::process_measurement(mask_measurements& meas)
 {
-    // add to ringbuf
+    ringbuf->add(meas);
 }
 
 void mask_counter_transform::init_measurements(mask_measurements& meas) {
-    // alloc arrays, etc
+    int nt = nt_chunk/nds;
+    meas.nsamples = nfreq*nt;
+    meas.nsamples_masked = 0;
+    meas.nt = nt;
+    meas.nt_masked = 0;
+    meas.nf = nfreq;
+    meas.nf_masked = 0;
+    meas.freqs_masked = shared_ptr<uint16_t>((uint16_t*)calloc(nfreq, sizeof(uint16_t)), free);
+    meas.times_masked = shared_ptr<uint16_t>((uint16_t*)calloc(nt,    sizeof(uint16_t)), free);
 }
 
 std::shared_ptr<mask_measurements_ringbuf>
@@ -102,20 +97,6 @@ mask_counter_transform::from_json(const Json::Value &j)
         string where = string_from_json(j, "where");
         return make_shared<mask_counter_transform> (nt_chunk, where);
     }
-
-void mask_counter_transform::add_callback(const std::shared_ptr<mask_counter_callback> cb) {
-    callbacks.push_back(cb);
-}
-
-void mask_counter_transform::remove_callback(const std::shared_ptr<mask_counter_callback> cb) {
-    for (auto it=callbacks.begin(); it!=callbacks.end(); it++) {
-        if (*it == cb) {
-            callbacks.erase(it);
-            break;
-        }
-    }
-};
-
 
 namespace {
     struct _init {

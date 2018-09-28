@@ -517,17 +517,23 @@ struct mask_measurements {
 
 class mask_measurements_ringbuf {
 public:
-    std::unordered_map<std::string, float> get_stats(float period) const;
-    std::vector<rf_pipelines::mask_measurements> get_all_measurements() const;
+    mask_measurements_ringbuf(int nhistory=300);
 
+    std::unordered_map<std::string, float> get_stats(float period);
+    std::vector<rf_pipelines::mask_measurements> get_all_measurements();
+
+    void add(rf_pipelines::mask_measurements& meas);
+    
+protected:
+    std::vector<rf_pipelines::mask_measurements> ringbuf;
+    std::mutex mutex;
+    int current;
+    int maxsize;
+    
     /*
     mask_stats(int beam_id, std::string where="", int nhistory=300);
-    virtual void mask_count(const struct rf_pipelines::mask_measurements& m);
     virtual ~mask_stats();
-    const int _beam_id;
-    std::string _where;
 private:
-    std::mutex _meas_mutex;
     std::vector<rf_pipelines::mask_measurements> _meas;
     int _imeas;
     int _maxmeas;
@@ -535,19 +541,9 @@ private:
 };
 
 
-class mask_counter_callback {
-public:
-    virtual void mask_count(const struct mask_measurements& m) = 0;
-    virtual ~mask_counter_callback() {}
-};
-
-
-// We expose more details than we typically would because external
-// users need to register a callback.
 class mask_counter_transform : public wi_transform {
 public:
     std::string where;
-    std::vector<std::shared_ptr<mask_counter_callback> > callbacks;
     std::shared_ptr<mask_measurements_ringbuf> ringbuf;
 
     mask_counter_transform(int nt_chunk_, std::string where_, std::string class_name_="mask_counter");
@@ -556,13 +552,10 @@ public:
     virtual Json::Value jsonize() const override;
     static std::shared_ptr<mask_counter_transform> from_json(const Json::Value &j);
 
-    virtual void process_measurement();
+    virtual void process_measurement(mask_measurements& meas);
     void init_measurements(mask_measurements& meas);
     
     std::shared_ptr<mask_measurements_ringbuf> get_ringbuf();
-
-    void add_callback(const std::shared_ptr<mask_counter_callback> cb);
-    void remove_callback(const std::shared_ptr<mask_counter_callback> cb);
 };
 
 class chime_mask_counter : public mask_counter_transform {
