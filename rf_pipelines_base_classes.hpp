@@ -664,7 +664,7 @@ public:
     // visit_pipeline(f,depth): recursively visits all pipeline_objects in pipeline.
     //
     //     By default, this just calls f(this,depth) and returns.  Container classes should override this
-    //     by calling f(this,depth), followed by a call to f(p,depth+1) for each pipeline_object p.
+    //     by calling f(this,depth), followed by a call to p->visit_pipeline(f,depth+1) for each pipeline_object p.
     //     (For an example, see pipeline.cpp)
     //
     // get_preferred_chunk_size(): defines chunk size for stream-type object
