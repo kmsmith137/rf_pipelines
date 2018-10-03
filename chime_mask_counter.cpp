@@ -73,7 +73,7 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
     
     // The 'pos' argument is the current pipeline position in units of time samples (not FPGA counts)
     uint64_t fpga_counts = pos * this->fpga_counts_per_sample + this->initial_fpga_count;
-    cout << "chime_mask_counter: finding chunk for pos " << pos << " (fpga counts " << fpga_counts << ")" << endl;
+    //cout << "chime_mask_counter: finding chunk for pos " << pos << " (fpga counts " << fpga_counts << ")" << endl;
 
     // The last argument in find_assembled_chunk() is 'toplevel'.
     shared_ptr<ch_frb_io::assembled_chunk> chunk = stream->find_assembled_chunk(beam, fpga_counts, true);

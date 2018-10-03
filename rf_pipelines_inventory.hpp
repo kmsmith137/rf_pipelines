@@ -531,15 +531,6 @@ protected:
     std::mutex mutex;
     int current;
     int maxsize;
-    
-    /*
-    mask_stats(int beam_id, std::string where="", int nhistory=300);
-    virtual ~mask_stats();
-private:
-    std::vector<rf_pipelines::mask_measurements> _meas;
-    int _imeas;
-    int _maxmeas;
-     */
 };
 
 
