@@ -69,11 +69,9 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
     if (!fpga_counts_initialized)
 	throw runtime_error("rf_pipelines::chime_mask_counter internal error: fpga count fields were not initialized as expected");
     
-    cout << "chime_mask_counter: finding chunk for pos " << pos << endl;
-
     // The 'pos' argument is the current pipeline position in units of time samples (not FPGA counts)
     uint64_t fpga_counts = pos * this->fpga_counts_per_sample + this->initial_fpga_count;
-    //cout << "FPGA counts: " << fpga_counts << endl;
+    cout << "chime_mask_counter: finding chunk for pos " << pos << " (fpga counts " << fpga_counts << ")" << endl;
 
     // The last argument in find_assembled_chunk() is 'toplevel'.
     shared_ptr<ch_frb_io::assembled_chunk> chunk = stream->find_assembled_chunk(beam, fpga_counts, true);
@@ -90,17 +88,8 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
     if (chunk->binning != 1)
 	throw runtime_error("chime_mask_counter: find_assembled_chunk() returned chunk with binning != 1");
 
-    mask_counter_measurements meas;
-    meas.pos = pos;
-    meas.nsamples = nfreq*nt_chunk;
-    meas.nsamples_masked = 0;
-    meas.nt = nt_chunk;
-    meas.nt_masked = 0;
-    meas.nf = nfreq;
-    meas.nf_masked = 0;
-    meas.freqs_masked = shared_ptr<uint16_t>((uint16_t*)calloc(nfreq, sizeof(uint16_t)), free);
-    meas.times_masked = shared_ptr<uint16_t>((uint16_t*)calloc(nt_chunk, sizeof(uint16_t)), free);
-
+    mask_measurements meas;
+    init_measurements(meas);
     uint16_t* fm = meas.freqs_masked.get();
     uint16_t* tm = meas.times_masked.get();
 
@@ -131,9 +120,9 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
             meas.nt_masked++;
             
     cout << "chime_mask_counter " << where << ", pos " << pos << ": N samples masked: " << meas.nsamples_masked << "/" << (meas.nsamples) << "; n times " << meas.nt_masked << "/" << meas.nt << "; n freqs " << meas.nf_masked << "/" << meas.nf << endl;
-    for (const auto &cb : callbacks)
-        cb->mask_count(meas);
 
+    process_measurement(meas);
+    
     // Notify stream's output_devices that a chunk has had its
     // rfi_mask filled in.
     for (auto od : stream->ini_params.output_devices)

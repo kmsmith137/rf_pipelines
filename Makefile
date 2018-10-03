@@ -49,6 +49,7 @@ OFILES = badchannel_mask.o \
 	std_dev_clippers.o \
 	chime_mask_counter.o \
 	mask_counter.o \
+	mask_measurements_ringbuf.o \
 	wi_sub_pipeline.o \
 	wi_stream.o \
 	wi_transform.o \

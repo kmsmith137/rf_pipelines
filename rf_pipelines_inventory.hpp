@@ -61,6 +61,8 @@
 // (*) = python-only
 // (**) = the bonsai_dedisperser currently has both python and C++ versions
 
+#include <mutex>
+
 // ring_buffer, pipeline_object, etc.
 #include "rf_pipelines_base_classes.hpp"
 
@@ -119,8 +121,8 @@ protected:
 // at lower (freqency, time) resolution, then upsample and apply the resulting mask.
 
 
-struct wi_sub_pipeline : pipeline {
-
+class wi_sub_pipeline : public pipeline {
+public:
     // The initializer allows a flexible syntax where some fields can be specified (i.e. nonzero)
     // and others unspecified (i.e. zero).  For example:
     //
@@ -501,7 +503,7 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 
 // Mask counter transform -- counts masked data samples
 
-struct mask_counter_measurements {
+struct mask_measurements {
     ssize_t pos;
     int nsamples;
     int nsamples_masked;
@@ -515,28 +517,47 @@ struct mask_counter_measurements {
     std::shared_ptr<uint16_t> times_masked;
 };
 
-class mask_counter_callback {
+class mask_measurements_ringbuf {
 public:
-    virtual void mask_count(const struct mask_counter_measurements& m) = 0;
-    virtual ~mask_counter_callback() {}
+    mask_measurements_ringbuf(int nhistory=300);
+
+    std::unordered_map<std::string, float> get_stats(float period);
+    std::vector<rf_pipelines::mask_measurements> get_all_measurements();
+
+    void add(rf_pipelines::mask_measurements& meas);
+    
+protected:
+    std::vector<rf_pipelines::mask_measurements> ringbuf;
+    std::mutex mutex;
+    int current;
+    int maxsize;
+    
+    /*
+    mask_stats(int beam_id, std::string where="", int nhistory=300);
+    virtual ~mask_stats();
+private:
+    std::vector<rf_pipelines::mask_measurements> _meas;
+    int _imeas;
+    int _maxmeas;
+     */
 };
 
-// We expose more details than we typically would because external
-// users need to register a callback.
+
 class mask_counter_transform : public wi_transform {
 public:
     std::string where;
-    std::vector<std::shared_ptr<mask_counter_callback> > callbacks;
+    std::shared_ptr<mask_measurements_ringbuf> ringbuf;
 
     mask_counter_transform(int nt_chunk_, std::string where_, std::string class_name_="mask_counter");
     virtual ~mask_counter_transform() { }
-    virtual void _bind_transform(Json::Value &json_attrs) override;
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
     virtual Json::Value jsonize() const override;
     static std::shared_ptr<mask_counter_transform> from_json(const Json::Value &j);
 
-    void add_callback(const std::shared_ptr<mask_counter_callback> cb);
-    void remove_callback(const std::shared_ptr<mask_counter_callback> cb);
+    virtual void process_measurement(mask_measurements& meas);
+    void init_measurements(mask_measurements& meas);
+    
+    std::shared_ptr<mask_measurements_ringbuf> get_ringbuf();
 };
 
 class chime_mask_counter : public mask_counter_transform {
