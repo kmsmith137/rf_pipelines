@@ -26,8 +26,8 @@ void mask_measurements_ringbuf::add(rf_pipelines::mask_measurements& meas) {
         ringbuf.push_back(meas);
     else
         // ring buffer
-        ringbuf[current] = meas;
-    current = (current + 1) % maxsize;
+        ringbuf[current % maxsize] = meas;
+    current++;
 }
 
     
