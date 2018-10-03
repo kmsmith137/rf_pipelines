@@ -1,6 +1,8 @@
+#include <ch_frb_io.hpp>
+#include <rf_kernels/mask_counter.hpp>
+
 #include "rf_pipelines_internals.hpp"
 #include "rf_pipelines_inventory.hpp"
-#include "ch_frb_io.hpp"
 
 using namespace std;
 
@@ -90,36 +92,22 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
 
     mask_measurements meas;
     init_measurements(meas);
-    uint16_t* fm = meas.freqs_masked.get();
-    uint16_t* tm = meas.times_masked.get();
 
-    uint8_t* rfimask = chunk->rfi_mask;
+    rf_kernels::mask_counter_data d;
+    d.nfreq = nfreq;
+    d.nt_chunk = nt_chunk;
+    d.in = weights;       // not 'intensity'
+    d.istride = wstride;  // not 'istride'
+    d.out_bitmask = chunk->rfi_mask;
+    d.out_fcounts = meas.freqs_unmasked.get();
+    d.out_bmstride = nt_chunk/8;   // contiguous
 
-    for (int i_f=0; i_f<nfreq; i_f++) {
-        for (int i_t=0; i_t<nt_chunk/8; i_t++) {
-            uint8_t m_out = 0;
-            for (int j=0; j<8; j++) {
-                if (weights[i_f*wstride + 8*i_t + j] == 0) {
-                    meas.nsamples_masked++;
-                    fm[i_f]++;
-                    tm[8*i_t+j]++;
-                } else
-                    m_out |= (1 << j);
-            }
-            rfimask[i_f*nt_chunk/8 + i_t] = m_out;
-        }
-    }
+    // Run mask-counting kernel.
+    meas.nsamples_unmasked = d.mask_count();
 
-    chunk->has_rfi_mask = true;
-
-    for (int i_f=0; i_f<nfreq; i_f++)
-        if (fm[i_f] == nt_chunk)
-            meas.nf_masked++;
-    for (int i_t=0; i_t<nt_chunk; i_t++)
-        if (tm[i_t] == nfreq)
-            meas.nt_masked++;
-            
-    cout << "chime_mask_counter " << where << ", pos " << pos << ": N samples masked: " << meas.nsamples_masked << "/" << (meas.nsamples) << "; n times " << meas.nt_masked << "/" << meas.nt << "; n freqs " << meas.nf_masked << "/" << meas.nf << endl;
+    cout << "chime_mask_counter " << where << ", pos " << pos 
+	 << ": N samples masked: " << (meas.nsamples - meas.nsamples_unmasked)
+	 << "/" << meas.nsamples << endl;
 
     process_measurement(meas);
     

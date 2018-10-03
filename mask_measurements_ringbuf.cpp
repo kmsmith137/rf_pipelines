@@ -17,7 +17,9 @@ mask_measurements_ringbuf::mask_measurements_ringbuf(int nhistory) :
 
 void mask_measurements_ringbuf::add(rf_pipelines::mask_measurements& meas) {
 
-    cout << "mask_measurements_ringbuf::add: got pos " << meas.pos << ": N samples masked: " << meas.nsamples_masked << "/" << meas.nsamples << "; n times " << meas.nt_masked << "/" << meas.nt << "; n freqs " << meas.nf_masked << "/" << meas.nf << endl;
+    cout << "mask_measurements_ringbuf::add: got pos " << meas.pos 
+	 << ": N samples masked: " << (meas.nsamples - meas.nsamples_unmasked)
+	 << "/" << meas.nsamples << endl;
 
     ulock l(mutex);
     if (current < maxsize)
@@ -48,11 +50,7 @@ mask_measurements_ringbuf::get_stats(float period) {
     // FIXME -- assume one sample per second!
     int nsteps = (int)period;
     float totsamp = 0;
-    float totmasked = 0;
-    float tot_t = 0;
-    float tot_tmasked = 0;
-    float tot_fmasked = 0;
-    float tot_f = 0;
+    float totunmasked = 0;
     {
         ulock l(mutex);
         int n = ringbuf.size();
@@ -65,16 +63,10 @@ mask_measurements_ringbuf::get_stats(float period) {
             int i = (istart + offset) % n;
             //cout << "offset " << offset << " of " << nsteps << " -> i " << i << endl;
             totsamp += ringbuf[i].nsamples;
-            totmasked += ringbuf[i].nsamples_masked;
-            tot_t += ringbuf[i].nt;
-            tot_tmasked += ringbuf[i].nt_masked;
-            tot_f += ringbuf[i].nf;
-            tot_fmasked += ringbuf[i].nf_masked;
+            totunmasked += ringbuf[i].nsamples_unmasked;
         }
     }
-    stats["rfi_mask_pct_masked"]   = 100. * totmasked / max(totsamp, 1.f);
-    stats["rfi_mask_pct_t_masked"] = 100. * tot_tmasked / max(tot_t, 1.f);
-    stats["rfi_mask_pct_f_masked"] = 100. * tot_fmasked / max(tot_f, 1.f);
+    stats["rfi_mask_pct_masked"]   = 100. * (totsamp - totunmasked) / max(totsamp, 1.f);
     return stats;
 }
 

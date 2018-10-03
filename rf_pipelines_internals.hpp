@@ -302,6 +302,13 @@ inline uptr<T> make_uptr(size_t nelts, size_t nalign=128, bool zero=true)
     return uptr<T> (p);
 }
 
+template<typename T>
+inline std::shared_ptr<T> make_sptr(size_t nelts, size_t nalign=128, bool zero=true)
+{
+    T *p = aligned_alloc<T> (nelts, nalign, zero);
+    return std::shared_ptr<T> (p, free);
+}
+
 
 // -------------------------------------------------------------------------------------------------
 //

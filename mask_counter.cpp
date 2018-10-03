@@ -1,3 +1,5 @@
+#include <rf_kernels/mask_counter.hpp>
+
 #include "rf_pipelines_internals.hpp"
 #include "rf_pipelines_inventory.hpp"
 
@@ -23,8 +25,6 @@ mask_counter_transform::mask_counter_transform(int nt_chunk_, string where_,
 
     if (nt_chunk == 0)
         throw runtime_error("rf_pipelines::mask_counter: nt_chunk must be specified");
-	
-    // Can't construct the kernel yet, since 'nfreq' is not known until set_stream()
 }
 
 void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
@@ -34,27 +34,19 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
     init_measurements(meas);
     meas.pos = pos;
 
-    uint16_t* fm = meas.freqs_masked.get();
-    uint16_t* tm = meas.times_masked.get();
+    rf_kernels::mask_counter_data d;
+    d.nfreq = nfreq;
+    d.nt_chunk = nt;      // not 'nt_chunk'
+    d.in = weights;       // not 'intensity'
+    d.istride = wstride;  // not 'istride'
+    d.out_fcounts = meas.freqs_unmasked.get();
+    
+    // Run mask-counting kernel.
+    meas.nsamples_unmasked = d.mask_count();
 
-    for (int i_f=0; i_f<nfreq; i_f++) {
-        for (int i_t=0; i_t<nt; i_t++) {
-            if (weights[i_f*wstride + i_t] == 0) {
-                meas.nsamples_masked++;
-                fm[i_f]++;
-                tm[i_t]++;
-            }
-        }
-    }
-
-    for (int i_f=0; i_f<nfreq; i_f++)
-        if (fm[i_f] == nt)
-            meas.nf_masked++;
-    for (int i_t=0; i_t<nt; i_t++)
-        if (tm[i_t] == nfreq)
-            meas.nt_masked++;
-            
-    cout << "mask_counter " << where << ", pos " << pos << ": N samples masked: " << meas.nsamples_masked << "/" << (meas.nsamples) << "; n times " << meas.nt_masked << "/" << meas.nt << "; n freqs " << meas.nf_masked << "/" << meas.nf << endl;
+    cout << "mask_counter " << where << ", pos " << pos 
+	 << ": N samples masked: " << (meas.nsamples - meas.nsamples_unmasked)
+	 << "/" << meas.nsamples << endl;
 
     process_measurement(meas);
 }
@@ -66,14 +58,10 @@ void mask_counter_transform::process_measurement(mask_measurements& meas)
 
 void mask_counter_transform::init_measurements(mask_measurements& meas) {
     int nt = nt_chunk/nds;
-    meas.nsamples = nfreq*nt;
-    meas.nsamples_masked = 0;
-    meas.nt = nt;
-    meas.nt_masked = 0;
     meas.nf = nfreq;
-    meas.nf_masked = 0;
-    meas.freqs_masked = shared_ptr<uint16_t>((uint16_t*)calloc(nfreq, sizeof(uint16_t)), free);
-    meas.times_masked = shared_ptr<uint16_t>((uint16_t*)calloc(nt,    sizeof(uint16_t)), free);
+    meas.nt = nt;
+    meas.nsamples = nfreq * nt;
+    meas.freqs_unmasked = make_sptr<int> (nfreq);
 }
 
 std::shared_ptr<mask_measurements_ringbuf>

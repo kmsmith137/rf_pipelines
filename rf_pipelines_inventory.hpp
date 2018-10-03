@@ -498,24 +498,24 @@ std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename
 
 extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &dstname, int nfreq_coarse_per_packet, int nt_per_chunk, 
 							   int nt_per_packet, float wt_cutoff, double target_gbps, int beam_id=0);
-							   
 
 
+// -------------------------------------------------------------------------------------------------
+//
 // Mask counter transform -- counts masked data samples
 
+
 struct mask_measurements {
-    ssize_t pos;
-    int nsamples;
-    int nsamples_masked;
-    int nt;
-    int nt_masked;
-    int nf;
-    int nf_masked;
+    ssize_t pos = 0;   // index of first time sample (relative to start of pipeline, without any time downsampling factor applied)
+    int nf = 0;        // number of frequencies (may be downsampled relative to "toplevel" frequency resolution in pipeline)
+    int nt = 0;        // number of time samples (may be downsampled relative to "toplevel" frequency resolution in pipeline)
+    int nsamples = 0;  // always equal to (nf * nt)
+    int nsamples_unmasked = 0;  // number of unmasked samples (satisfies 0 <= nunmasked <= nsamples)
+
     // For each frequency, how many of the "nt" samples are masked?
-    std::shared_ptr<uint16_t> freqs_masked;
-    // For each time, how many of the "nf" samples are masked?
-    std::shared_ptr<uint16_t> times_masked;
+    std::shared_ptr<int> freqs_unmasked;
 };
+
 
 class mask_measurements_ringbuf {
 public:
