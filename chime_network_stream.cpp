@@ -114,6 +114,7 @@ void chime_network_stream::_start_pipeline(Json::Value &j)
     uint64_t fpga0 = uint64_t(first_chunk->isample) * uint64_t(first_chunk->fpga_counts_per_sample);
     
     j["initial_fpga_count"] = Json::UInt64(fpga0);
+    j["frame0_nano"] = Json::UInt64(first_chunk->frame0_nano);
     j["fpga_counts_per_sample"] = first_chunk->fpga_counts_per_sample;
 }
 
