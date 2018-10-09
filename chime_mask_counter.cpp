@@ -92,6 +92,7 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
 
     mask_measurements meas;
     init_measurements(meas);
+    meas.pos = pos;
 
     rf_kernels::mask_counter_data d;
     d.nfreq = nfreq;
@@ -104,6 +105,8 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
 
     // Run mask-counting kernel.
     meas.nsamples_unmasked = d.mask_count();
+
+    chunk->has_rfi_mask = true;
 
     cout << "chime_mask_counter " << where << ", pos " << pos 
 	 << ": N samples masked: " << (meas.nsamples - meas.nsamples_unmasked)
