@@ -15,12 +15,12 @@ namespace rf_pipelines {
 
 #ifndef HAVE_CH_FRB_IO
 
-shared_ptr<wi_stream> make_chime_network_stream(const shared_ptr<ch_frb_io::intensity_network_stream> &stream, int assembler_id)
+shared_ptr<wi_stream> make_chime_network_stream(const shared_ptr<ch_frb_io::intensity_network_stream> &stream, int beam_id, float prescale)
 {
     throw runtime_error("rf_pipelines::make_chime_network_stream() was called, but rf_pipelines was compiled without ch_frb_io");
 }
 
-shared_ptr<wi_stream> make_chime_network_stream(int udp_port, int beam_id)
+shared_ptr<wi_stream> make_chime_network_stream(int udp_port, int beam_id, float prescale)
 {
     throw runtime_error("rf_pipelines::make_chime_network_stream() was called, but rf_pipelines was compiled without ch_frb_io");
 }
@@ -42,13 +42,14 @@ struct chime_network_stream : public wi_stream
 {
     shared_ptr<ch_frb_io::intensity_network_stream> stream;
     const int beam_id;
+    const float prescale;
 
     int assembler_id = -1;
 
     // FIXME this is a hack that should be removed, see below.
     shared_ptr<ch_frb_io::assembled_chunk> first_chunk;
 
-    chime_network_stream(const shared_ptr<ch_frb_io::intensity_network_stream> &stream_, int beam_id_);
+    chime_network_stream(const shared_ptr<ch_frb_io::intensity_network_stream> &stream_, int beam_id_, float prescale_);
     virtual ~chime_network_stream() { }
 
     virtual bool _fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
@@ -58,10 +59,11 @@ struct chime_network_stream : public wi_stream
 };
 
 
-chime_network_stream::chime_network_stream(const shared_ptr<ch_frb_io::intensity_network_stream> &stream_, int beam_id_) :
+chime_network_stream::chime_network_stream(const shared_ptr<ch_frb_io::intensity_network_stream> &stream_, int beam_id_, float prescale_) :
     wi_stream("chime_network_stream"),
     stream(stream_), 
-    beam_id(beam_id_)
+    beam_id(beam_id_),
+    prescale(prescale_)
 { 
     if (!stream)
 	throw runtime_error("rf_pipelines: empty stream pointer passed to chime_network_stream constructor");
@@ -119,7 +121,7 @@ void chime_network_stream::_start_pipeline(Json::Value &j)
 bool chime_network_stream::_fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
 {
     if (first_chunk) {
-	first_chunk->decode(intensity, weights, istride, wstride);
+	first_chunk->decode(intensity, weights, istride, wstride, prescale);
 	first_chunk.reset();
 	return true;
     }
@@ -130,7 +132,7 @@ bool chime_network_stream::_fill_chunk(float *intensity, ssize_t istride, float 
 	return false;
 
     rf_assert(this->nfreq == ch_frb_io::constants::nfreq_coarse_tot * chunk->nupfreq);
-    chunk->decode(intensity, weights, istride, wstride);
+    chunk->decode(intensity, weights, istride, wstride, prescale);
     return true;
 }
 
@@ -261,13 +263,13 @@ shared_ptr<wi_stream> make_dummy_chime_network_stream(ssize_t nt_tot, int nupfre
 // -------------------------------------------------------------------------------------------------
 
 
-shared_ptr<wi_stream> make_chime_network_stream(const shared_ptr<ch_frb_io::intensity_network_stream> &stream, int beam_id)
+shared_ptr<wi_stream> make_chime_network_stream(const shared_ptr<ch_frb_io::intensity_network_stream> &stream, int beam_id, float prescale)
 {
-    return make_shared<chime_network_stream> (stream, beam_id);
+    return make_shared<chime_network_stream> (stream, beam_id, prescale);
 }
 
 
-shared_ptr<wi_stream> make_chime_network_stream(int udp_port, int beam_id)
+shared_ptr<wi_stream> make_chime_network_stream(int udp_port, int beam_id, float prescale)
 {
     ch_frb_io::intensity_network_stream::initializer ini_params;
     ini_params.beam_ids = { beam_id };
@@ -276,7 +278,7 @@ shared_ptr<wi_stream> make_chime_network_stream(int udp_port, int beam_id)
 	ini_params.udp_port = udp_port;
 
     auto stream = ch_frb_io::intensity_network_stream::make(ini_params);
-    return make_chime_network_stream(stream, beam_id);
+    return make_chime_network_stream(stream, beam_id, prescale);
 }
 
 #endif  // HAVE_CH_FRB_IO

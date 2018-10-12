@@ -1046,12 +1046,12 @@ static void wrap_chime_streams(extension_module &m)
     // and another which takes a shared_ptr<ch_frb_io::intensity_network_stream>.  We only python-wrap
     // the former, since 'class ch_frb_io::intensity_network_stream' is not python-wrapped.
 
-    using ns_t = shared_ptr<wi_stream> (*) (int,int);
+    using ns_t = shared_ptr<wi_stream> (*) (int,int,float);
 
     m.add_function("chime_network_stream",
-		   "chime_network_stream(udp_port=0, beam_id=0)\n"
+		   "chime_network_stream(udp_port=0, beam_id=0,prescale=1.0)\n"
 		   "\nIf the udp_port is zero, then the default chimefrb port will be used.",
-		   wrap_func((ns_t) make_chime_network_stream, kwarg("udp_port",0), kwarg("beam_id",0)));
+		   wrap_func((ns_t) make_chime_network_stream, kwarg("udp_port",0), kwarg("beam_id",0), kwarg("prescale",1.0)));
 
     m.add_function("chime_dummy_network_stream",
 		   "chime_dummy_network_stream(nt_tot, nupfreq=16, nt_per_packet=16, fpga_counts_per_sample=384, pool_gb=1.0)\n"
