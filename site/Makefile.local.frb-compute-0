@@ -25,7 +25,13 @@ NUMPY_INCDIR=/usr/lib64/python2.7/site-packages/numpy/core/include
 JSONCPP_INCDIR=/usr/include/jsoncpp
 
 CPP=g++ -std=c++11 -pthread -fPIC -Wall -Wno-literal-suffix
-CPP += -O3 -march=native -ffast-math -funroll-loops --param inline-unit-growth=10000
+CPP += -march=native
+DEBUG ?= no
+ifeq ($(DEBUG),no)
+     CPP += -O3 -ffast-math -funroll-loops --param inline-unit-growth=10000
+else
+     CPP += -O0 -g
+endif
 CPP += -I. -I$(INCDIR) -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR) -I$(JSONCPP_INCDIR)
 
 CPP_LFLAGS= -L. -L$(LIBDIR)
