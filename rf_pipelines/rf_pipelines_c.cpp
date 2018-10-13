@@ -1288,6 +1288,20 @@ static void wrap_clippers(extension_module &m)
 }		   
 
 
+static void wrap_mask_counters(extension_module &m)
+{
+    string doc_mc = ("mask_counter()\n"
+		     "\n"
+		     "");
+    string doc_cmc = ("chime_mask_counter()\n"
+		     "\n"
+		     "");
+    auto f_mc = wrap_func(make_mask_counter, "nt_chunk", "where");
+    auto f_cmc = wrap_func(make_chime_mask_counter, "where");
+    m.add_function("mask_counter", doc_mc, f_mc);
+    m.add_function("chime_mask_counter", doc_cmc, f_cmc);
+}
+
 // -------------------------------------------------------------------------------------------------
 //
 // wrap_kernels().  (I think these are only used in unit tests now.)
@@ -1599,6 +1613,7 @@ PyMODINIT_FUNC initrf_pipelines_c(void)
     wrap_misc_streams(m);
     wrap_detrenders(m);
     wrap_clippers(m);
+    wrap_mask_counters(m);
     wrap_kernels(m);
     wrap_bonsai(m);
 

@@ -577,7 +577,7 @@ protected:
 };
 
 // Externally callable
-std::shared_ptr<wi_transform> make_mask_counter(int nt_chunk, std::string where, bool bitmap);
+std::shared_ptr<wi_transform> make_mask_counter(int nt_chunk, std::string where);
 std::shared_ptr<wi_transform> make_chime_mask_counter(std::string where);
 
 
