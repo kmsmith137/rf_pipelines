@@ -17,9 +17,9 @@ mask_measurements_ringbuf::mask_measurements_ringbuf(int nhistory) :
 
 void mask_measurements_ringbuf::add(rf_pipelines::mask_measurements& meas) {
 
-    cout << "mask_measurements_ringbuf::add: got pos " << meas.pos 
-	 << ": N samples masked: " << (meas.nsamples - meas.nsamples_unmasked)
-	 << "/" << meas.nsamples << endl;
+    //cout << "mask_measurements_ringbuf::add: got pos " << meas.pos 
+    //     << ": N samples masked: " << (meas.nsamples - meas.nsamples_unmasked)
+    //	 << "/" << meas.nsamples << endl;
 
     ulock l(mutex);
     if (current < maxsize)
