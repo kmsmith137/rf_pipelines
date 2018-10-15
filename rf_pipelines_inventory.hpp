@@ -71,7 +71,12 @@
 
 // A little hack so that all definitions still compile if optional dependencies are absent.
 namespace bonsai { class dedisperser; }
-namespace ch_frb_io { class intensity_network_stream; }
+
+namespace ch_frb_io {
+    class intensity_network_stream;
+    class output_device_pool;
+    class memory_slab_pool;
+}
 
 namespace rf_pipelines {
 #if 0
@@ -580,6 +585,49 @@ protected:
 std::shared_ptr<wi_transform> make_mask_counter(int nt_chunk, std::string where);
 std::shared_ptr<wi_transform> make_chime_mask_counter(std::string where);
 
+
+// -------------------------------------------------------------------------------------------------
+//
+// chime_slow_pulsar_writer
+
+
+struct chime_slow_pulsar_writer : public wi_transform
+{
+    struct real_time_state {
+	// Throughout the CHIMEFRB pipeline, beams are identified by a beam_id between 0 and 1024.
+	int beam_id = -1;
+
+	// Use this to request memory from inside the CHIMEFRB L1 server (see ch_frb_io/ch_frb_io.hpp)
+	std::shared_ptr<ch_frb_io::memory_slab_pool> memory_pool;
+	
+	// Use this to queue a write_request, for writing to disk by the L1 server I/O threads.
+	std::shared_ptr<ch_frb_io::output_device_pool> output_devices;
+    };
+
+    struct output_file_params {
+	int nfreq_out = 0;   // number of frequency channels in output file
+	int nds_out = 0;     // time downsampling factor in output file
+	int nbits_out = 0;   // bit depth in output file
+    };
+    
+    real_time_state rt_state;
+    output_file_params of_params;
+
+    chime_slow_pulsar_writer(ssize_t nt_chunk);
+
+    // Called by RPC thread, once during initialization.
+    void init_real_time_state(const real_time_state &rt_state);
+
+    // Called by RPC thread, intermittently while pipeline is running.
+    void set_output_file_params(const output_file_params &of_params);
+
+    // Called by rf_pipelines thread.
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual void _end_pipeline(Json::Value &json_output) override;
+
+    virtual Json::Value jsonize() const override;
+    static std::shared_ptr<chime_slow_pulsar_writer> from_json(const Json::Value &j);
+};
 
 
 }  // namespace rf_pipelines

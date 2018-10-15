@@ -28,6 +28,7 @@ OFILES = badchannel_mask.o \
 	chime_file_writer.o \
         chime_frb_file_stream.o \
 	chime_network_stream.o \
+	chime_slow_pulsar_writer.o \
 	chime_packetizer.o \
 	chunked_pipeline_object.o \
 	file_utils.o \
