@@ -114,9 +114,9 @@ protected:
     virtual void _reset() override;
     virtual void _unbind() override;
     virtual void _get_info(Json::Value &j) override;
+    virtual void _visit_pipeline(std::function<void(const std::shared_ptr<pipeline_object>&,int)> f, const std::shared_ptr<pipeline_object> &self, int depth) override;
     
     virtual ssize_t get_preferred_chunk_size() override;
-    virtual void visit_pipeline(std::function<void(pipeline_object*,int)> f, int depth) override;
 };
 
 
@@ -158,8 +158,9 @@ public:
 
 protected:
     virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
+    virtual void _visit_pipeline(std::function<void(const std::shared_ptr<pipeline_object>&,int)> f, const std::shared_ptr<pipeline_object> &self, int depth) override;
+    
     virtual ssize_t get_preferred_chunk_size() override;
-    virtual void visit_pipeline(std::function<void(pipeline_object*,int)> f, int depth) override;
 };
 
 

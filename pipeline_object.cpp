@@ -557,10 +557,17 @@ void pipeline_object::_end_pipeline(Json::Value &j) { }
 void pipeline_object::_get_info(Json::Value &j) { }
 void pipeline_object::_reset() { }
 
-
-void pipeline_object::visit_pipeline(std::function<void(pipeline_object*,int)> f, int depth)
+void pipeline_object::_visit_pipeline(std::function<void(const std::shared_ptr<pipeline_object>&,int)> f, const std::shared_ptr<pipeline_object> &self, int depth)
 {
-    f(this, depth);
+    rf_assert(self.get() == this);
+    f(self, depth);
+}
+
+
+// Externally-callable visit_pipeline().
+void visit_pipeline(std::function<void(const std::shared_ptr<pipeline_object>&,int)> f, const std::shared_ptr<pipeline_object> &p, int depth)
+{
+    p->_visit_pipeline(f, p, depth);
 }
 
 

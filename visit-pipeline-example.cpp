@@ -10,7 +10,7 @@ using namespace std;
 void print_pipeline(const shared_ptr<rf_pipelines::pipeline_object> &p)
 {
     // Define function object which will "visit" each pipeline_object in the pipeline.
-    auto visitor = [](rf_pipelines::pipeline_object *p, int depth)
+    auto visitor = [](const shared_ptr<rf_pipelines::pipeline_object> &p, int depth)
     {
 	// Cosmetic: indent to appropriate depth.
 	for (int i = 0; i < depth; i++)
@@ -18,8 +18,8 @@ void print_pipeline(const shared_ptr<rf_pipelines::pipeline_object> &p)
 	
 	cout << p->name << endl;
     };
-    
-    p->visit_pipeline(visitor);
+
+    visit_pipeline(visitor, p);
 }
 
 

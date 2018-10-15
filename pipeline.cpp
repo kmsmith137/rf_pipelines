@@ -179,12 +179,14 @@ void pipeline::_get_info(Json::Value &j)
     j["mb_cumul"] = mb_cumul;
 }
 
-void pipeline::visit_pipeline(std::function<void(pipeline_object*,int)> f, int depth)
+
+void pipeline::_visit_pipeline(std::function<void(const std::shared_ptr<pipeline_object>&,int)> f, const std::shared_ptr<pipeline_object> &self, int depth)
 {
-    f(this, depth);
+    rf_assert(self.get() == this);
+    f(self, depth);
     
     for (auto &p: this->elements)
-	p->visit_pipeline(f, depth+1);
+	visit_pipeline(f, p, depth+1);
 }
 
 
