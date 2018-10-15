@@ -557,8 +557,9 @@ public:
     virtual void _unbind();
     virtual void _get_info(Json::Value &json_output);
 
-    // Optional.  Default calls f(this,depth) and returns.
-    virtual void visit_pipeline(std::function<void(pipeline_object*,int)> f, int depth=0);
+    // Optional.  Default calls f(self,depth) and returns.
+    // See visit_pipeline() below for externally-callable interface.
+    virtual void _visit_pipeline(std::function<void(const std::shared_ptr<pipeline_object>&,int)> f, const std::shared_ptr<pipeline_object> &self, int depth);
 
     // Each of the following methods is a wrapper around the corresponding virtual function.
     // For example, bind() contains "generic" logic, and wraps _bind() which contains 
@@ -661,7 +662,7 @@ public:
     //     Note that deallocation of the pipeline ring buffers is done separately, and this does
     //     not need to be done in _deallocate().
     //
-    // visit_pipeline(f,depth): recursively visits all pipeline_objects in pipeline.
+    // _visit_pipeline(f,depth): recursively visits all pipeline_objects in pipeline.
     //
     //     By default, this just calls f(this,depth) and returns.  Container classes should override this
     //     by calling f(this,depth), followed by a call to p->visit_pipeline(f,depth+1) for each pipeline_object p.
@@ -780,6 +781,11 @@ public:
     static void _show_registered_json_deserializers();
     static json_deserializer_t _find_json_deserializer(const std::string &class_name);  // can return NULL.
 };
+
+
+// visit_pipeline(f,p): recursively visits all pipeline_objects in pipeline.
+// For each pipeline_object 'q', the function call f(q,depth) is performed.
+extern void visit_pipeline(std::function<void(const std::shared_ptr<pipeline_object>&,int)> f, const std::shared_ptr<pipeline_object> &p, int depth=0);
 
 
 // -------------------------------------------------------------------------------------------------
