@@ -44,9 +44,9 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
     // Run mask-counting kernel.
     meas.nsamples_unmasked = d.mask_count();
 
-    cout << "mask_counter " << where << ", pos " << pos 
-	 << ": N samples masked: " << (meas.nsamples - meas.nsamples_unmasked)
-	 << "/" << meas.nsamples << endl;
+    // cout << "mask_counter " << where << ", pos " << pos 
+    // << ": N samples masked: " << (meas.nsamples - meas.nsamples_unmasked)
+    // << "/" << meas.nsamples << endl;
 
     process_measurement(meas);
 }

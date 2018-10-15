@@ -58,7 +58,7 @@ void chime_mask_counter::_start_pipeline(Json::Value &j)
 void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
 {
     if (!stream) {
-        cout << "chime_mask_counter: processing chunk, but stream not set" << endl;
+        // cout << "chime_mask_counter: processing chunk, but stream not set" << endl;
         mask_counter_transform::_process_chunk(intensity, istride, weights, wstride, pos);
         return;
     }
@@ -108,9 +108,9 @@ void chime_mask_counter::_process_chunk(float *intensity, ssize_t istride, float
 
     chunk->has_rfi_mask = true;
 
-    cout << "chime_mask_counter " << where << ", pos " << pos 
-	 << ": N samples masked: " << (meas.nsamples - meas.nsamples_unmasked)
-	 << "/" << meas.nsamples << endl;
+    // cout << "chime_mask_counter " << where << ", pos " << pos 
+    // << ": N samples masked: " << (meas.nsamples - meas.nsamples_unmasked)
+    // << "/" << meas.nsamples << endl;
 
     process_measurement(meas);
     
