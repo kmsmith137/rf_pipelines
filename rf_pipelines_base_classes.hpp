@@ -787,6 +787,9 @@ public:
 // For each pipeline_object 'q', the function call f(q,depth) is performed.
 extern void visit_pipeline(std::function<void(const std::shared_ptr<pipeline_object>&,int)> f, const std::shared_ptr<pipeline_object> &p, int depth=0);
 
+// Helper function to print a pipeline (implemented "under the hood" with visit_pipeline)
+extern void print_pipeline(const std::shared_ptr<pipeline_object> &p, std::ostream &os=std::cout, int indent=4);
+
 
 // -------------------------------------------------------------------------------------------------
 //

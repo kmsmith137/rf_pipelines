@@ -9,17 +9,6 @@ using namespace std;
 
 void print_pipeline(const shared_ptr<rf_pipelines::pipeline_object> &p)
 {
-    // Define function object which will "visit" each pipeline_object in the pipeline.
-    auto visitor = [](const shared_ptr<rf_pipelines::pipeline_object> &p, int depth)
-    {
-	// Cosmetic: indent to appropriate depth.
-	for (int i = 0; i < depth; i++)
-	    cout << "    ";
-	
-	cout << p->name << endl;
-    };
-
-    visit_pipeline(visitor, p);
 }
 
 
@@ -31,6 +20,16 @@ int main(int argc, char **argv)
     Json::Value j = rf_pipelines::json_read(argv[1]);
     shared_ptr<rf_pipelines::pipeline_object> p = rf_pipelines::pipeline_object::from_json(j);
 
-    print_pipeline(p);
+    // Define function object which will "visit" each pipeline_object in the pipeline.
+    auto visitor = [](const shared_ptr<rf_pipelines::pipeline_object> &p, int depth)
+    {
+	// Cosmetic: indent to appropriate depth.
+	for (int i = 0; i < depth; i++)
+	    cout << "    ";
+	
+	cout << p->name << endl;
+    };
+
+    visit_pipeline(visitor, p);
     return 0;
 }
