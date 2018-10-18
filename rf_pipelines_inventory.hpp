@@ -588,7 +588,7 @@ public:
 protected:
     std::vector<rf_pipelines::mask_measurements> ringbuf;
     std::mutex mutex;
-    int current;
+    int next;
     int maxsize;
 };
 

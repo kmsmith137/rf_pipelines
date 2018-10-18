@@ -22,25 +22,15 @@ mask_measurements::mask_measurements(ssize_t pos_, int nf_, int nt_)
 
 
 mask_measurements_ringbuf::mask_measurements_ringbuf(int nhistory) :
-    current(0),
+    next(0),
     maxsize(nhistory)
 {}
 
 void mask_measurements_ringbuf::add(rf_pipelines::mask_measurements& meas) {
-
-    //cout << "mask_measurements_ringbuf::add: got pos " << meas.pos 
-    //     << ": N samples masked: " << (meas.nsamples - meas.nsamples_unmasked)
-    //	 << "/" << meas.nsamples << endl;
-
     ulock l(mutex);
-    if (current < maxsize)
-        ringbuf.push_back(meas);
-    else
-        // ring buffer
-        ringbuf[current % maxsize] = meas;
-    current++;
+    ringbuf[next % maxsize] = meas;
+    next++;
 }
-
     
 std::vector<rf_pipelines::mask_measurements>
 mask_measurements_ringbuf::get_all_measurements() {
@@ -48,9 +38,17 @@ mask_measurements_ringbuf::get_all_measurements() {
     {
         ulock l(mutex);
         // Reorder the ring buffer.
-        int n = ringbuf.size();
-        for (int off=0; off<n; off++)
-            copy.push_back(ringbuf[(current + 1 + off) % n]);
+        int start;
+        int end;
+        if (next <= maxsize) {
+            start = 0;
+            end = next;
+        } else {
+            start = next;
+            end = next + maxsize;
+        }
+        for (int i=start; i<end; i++)
+            copy.push_back(ringbuf[i % maxsize]);
     }
     return copy;
 }
@@ -64,23 +62,17 @@ mask_measurements_ringbuf::get_stats(float period) {
     float totunmasked = 0;
     {
         ulock l(mutex);
-        int n = ringbuf.size();
-        //cout << "Ringbuf n: " << n << ", current " << current << endl;
-        if (nsteps > n)
-            nsteps = n;
-        // avoid  (i % 0)
-        int istart = (n ? (current - nsteps + n) % n : 0);
-        for (int offset=0; offset<nsteps; offset++) {
-            int i = (istart + offset) % n;
-            //cout << "offset " << offset << " of " << nsteps << " -> i " << i << endl;
-            totsamp += ringbuf[i].nsamples;
-            totunmasked += ringbuf[i].nsamples_unmasked;
+        int start = next - nsteps;
+        if (start < 0)
+            start = 0;
+        for (int i=start; i<next; i++) {
+            int reali = (i % maxsize);
+            totsamp     += ringbuf[reali].nsamples;
+            totunmasked += ringbuf[reali].nsamples_unmasked;
         }
     }
     stats["rfi_mask_pct_masked"]   = 100. * (totsamp - totunmasked) / max(totsamp, 1.f);
     return stats;
 }
-
-
 
 }  // namespace rf_pipelines
