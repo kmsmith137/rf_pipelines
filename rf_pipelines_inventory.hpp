@@ -322,6 +322,46 @@ make_intensity_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, i
 extern std::shared_ptr<wi_transform>
 make_std_dev_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, int Df=1, int Dt=1, bool two_pass=false);
 
+struct inject_data {
+    int beam;
+    int mode;
+    // offset for FPGAcounts values in fpga_offset array.
+    uint64_t fpga0;
+    // must equal fpga0 + max(fpga_offset)
+    uint64_t fpga_max;
+    // should be "nfreq" in length
+    std::vector<uint32_t> fpga_offset;
+    // should be "nfreq" in length
+    std::vector<uint16_t> ndata;
+    // should have length = sum(ndata)
+    std::vector<float> data;
+};
+
+class injector : public wi_transform {
+public:
+    injector(int nt_chunk_);
+    virtual ~injector() { }
+    virtual void _bind_transform(Json::Value &json_attrs) override;
+    virtual void _start_pipeline(Json::Value &j) override;
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual Json::Value jsonize() const override;
+    static std::shared_ptr<injector> from_json(const Json::Value &j);
+
+    // Called from RPC
+    void inject(std::shared_ptr<inject_data> data);
+
+protected:
+    std::vector<std::shared_ptr<inject_data> > to_inject;
+    // The FPGA count related fields are initialized in _start_pipeline().
+    bool fpga_counts_initialized = false;
+    uint64_t initial_fpga_count = 0;
+    int fpga_counts_per_sample = 0;
+};
+
+// Externally callable
+std::shared_ptr<injector> make_injector(int nt_chunk);
+
+
 
 // -------------------------------------------------------------------------------------------------
 //

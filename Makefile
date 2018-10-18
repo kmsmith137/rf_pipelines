@@ -47,6 +47,7 @@ OFILES = badchannel_mask.o \
 	spectrum_analyzer.o \
 	spline_detrenders.o \
 	std_dev_clippers.o \
+	injector.o \
 	wi_sub_pipeline.o \
 	wi_stream.o \
 	wi_transform.o \
