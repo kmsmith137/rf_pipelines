@@ -1293,13 +1293,9 @@ static void wrap_mask_counters(extension_module &m)
     string doc_mc = ("mask_counter()\n"
 		     "\n"
 		     "");
-    string doc_cmc = ("chime_mask_counter()\n"
-		     "\n"
-		     "");
+
     auto f_mc = wrap_func(make_mask_counter, "nt_chunk", "where");
-    auto f_cmc = wrap_func(make_chime_mask_counter, "where");
     m.add_function("mask_counter", doc_mc, f_mc);
-    m.add_function("chime_mask_counter", doc_cmc, f_cmc);
 }
 
 // -------------------------------------------------------------------------------------------------

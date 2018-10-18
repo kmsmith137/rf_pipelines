@@ -10,6 +10,17 @@ namespace rf_pipelines {
 
 typedef lock_guard<mutex> ulock;
 
+
+mask_measurements::mask_measurements(ssize_t pos_, int nf_, int nt_)
+{
+    this->pos = pos_;
+    this->nf = nf_;
+    this->nt = nt_;
+    this->nsamples = nf_ * nt_;
+    this->freqs_unmasked = make_sptr<int> (nf_);
+}
+
+
 mask_measurements_ringbuf::mask_measurements_ringbuf(int nhistory) :
     current(0),
     maxsize(nhistory)
