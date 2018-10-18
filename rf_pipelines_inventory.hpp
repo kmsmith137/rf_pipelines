@@ -513,9 +513,8 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 // Sometimes, the mask_counter performs additional actions, for example in the CHIME pipeline it
 // saves a ring buffer of per-frequency counts, and might (for the last mask_counter in the chain)
 // store the rfi bitmask so that it can be saved to disk.  These extra actions are enabled by
-// setting "callbacks" in the mask_counter, in the CHIME L1 server code (i.e. externally to
-// rf_pipelines).  This allows the same mask_counter-containing pipeline to be used for either
-// offline or real-time analysis.
+// calling mask_counter::set_runtime_attrs(), externally to rf_pipelines in the CHIME L1 server.
+// This allows the same mask_counter class to be used for either offline or real-time analysis.
 
 
 class mask_measurements_ringbuf;
