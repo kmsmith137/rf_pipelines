@@ -10,6 +10,8 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
+typedef lock_guard<mutex> ulock;
+
 injector::injector(int nt_chunk) :
     wi_transform("injector") {
     this->nt_chunk = nt_chunk;
@@ -22,8 +24,19 @@ void injector::_bind_transform(Json::Value &json_attrs)
 }
 
 void injector::inject(shared_ptr<inject_data> data) {
+    ulock u(mutex);
     to_inject.push_back(data);
 }
+
+uint64_t injector::get_last_fpgacount_seen() {
+    uint64_t rtn;
+    {
+        ulock u(mutex);
+        rtn = last_fpgacount_processed;
+    }
+    return rtn;
+}
+
 
 void injector::_start_pipeline(Json::Value &j)
 {
@@ -43,16 +56,20 @@ void injector::_process_chunk(float *intensity, ssize_t istride, float *weights,
     uint64_t fpga_counts_start = pos * this->fpga_counts_per_sample + this->initial_fpga_count;
     uint64_t fpga_counts_end = (pos + nt_chunk) * this->fpga_counts_per_sample + this->initial_fpga_count;
 
-    for (auto data : to_inject) {
-        // check for no-overlap
-        if ((data->fpga0 >= fpga_counts_end) ||
-            (data->fpga_max < fpga_counts_start))
-            continue;
+    {
+        ulock u(mutex);
+        for (auto data : to_inject) {
+            // check for no-overlap
+            if ((data->fpga0 >= fpga_counts_end) ||
+                (data->fpga_max < fpga_counts_start))
+                continue;
 
-        // OVERLAP!!  FIXME
-        cout << "Data to inject overlaps this chunk!!" << endl;
+            // OVERLAP!!  FIXME
+            cout << "Data to inject overlaps this chunk!!" << endl;
+        }
+        last_fpgacount_processed = fpga_counts_end;
     }
-    
+
 }
 
 Json::Value injector::jsonize() const

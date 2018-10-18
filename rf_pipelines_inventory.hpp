@@ -324,6 +324,7 @@ make_std_dev_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, int
 
 struct inject_data {
     int beam;
+    // mode == 0: ADD
     int mode;
     // offset for FPGAcounts values in fpga_offset array.
     uint64_t fpga0;
@@ -349,9 +350,13 @@ public:
 
     // Called from RPC
     void inject(std::shared_ptr<inject_data> data);
+    uint64_t get_last_fpgacount_seen();
 
 protected:
+    std::mutex mutex;
     std::vector<std::shared_ptr<inject_data> > to_inject;
+    uint64_t last_fpgacount_processed = 0;
+
     // The FPGA count related fields are initialized in _start_pipeline().
     bool fpga_counts_initialized = false;
     uint64_t initial_fpga_count = 0;
