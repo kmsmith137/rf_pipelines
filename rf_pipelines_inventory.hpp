@@ -580,7 +580,7 @@ class mask_measurements_ringbuf {
 public:
     mask_measurements_ringbuf(int nhistory=300);
 
-    std::unordered_map<std::string, float> get_stats(float period);
+    std::unordered_map<std::string, float> get_stats(int nchunks);
     std::vector<rf_pipelines::mask_measurements> get_all_measurements();
 
     void add(rf_pipelines::mask_measurements& meas);

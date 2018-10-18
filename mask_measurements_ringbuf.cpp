@@ -43,7 +43,7 @@ mask_measurements_ringbuf::get_all_measurements() {
     std::vector<rf_pipelines::mask_measurements> copy;
     {
         ulock l(mutex);
-        // Reorder the ring buffer.
+        // The returned vector has the chunks listed in time order
         int start;
         int end;
         if (next <= maxsize) {
@@ -60,15 +60,15 @@ mask_measurements_ringbuf::get_all_measurements() {
 }
 
 std::unordered_map<std::string, float> 
-mask_measurements_ringbuf::get_stats(float period) {
+mask_measurements_ringbuf::get_stats(int nchunks) {
     unordered_map<string, float> stats;
-    // FIXME -- assume one sample per second!
-    int nsteps = (int)period;
     float totsamp = 0;
     float totunmasked = 0;
+    if (nchunks > maxsize)
+        nchunks = maxsize;
     {
         ulock l(mutex);
-        int start = next - nsteps;
+        int start = next - nchunks;
         if (start < 0)
             start = 0;
         for (int i=start; i<next; i++) {
