@@ -24,7 +24,13 @@ mask_measurements::mask_measurements(ssize_t pos_, int nf_, int nt_)
 mask_measurements_ringbuf::mask_measurements_ringbuf(int nhistory) :
     next(0),
     maxsize(nhistory)
-{}
+{
+    if (nhistory > 0)
+	throw runtime_error("rf_pipelines::mask_measurements_ringbuf constructor called with nhistory <= 0");
+
+    // Allocate ring buffer
+    ringbuf.resize(nhistory);
+}
 
 void mask_measurements_ringbuf::add(rf_pipelines::mask_measurements& meas) {
     ulock l(mutex);
