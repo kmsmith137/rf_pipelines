@@ -507,7 +507,7 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 //
 // By default, the mask_counter just counts the total number of unmasked samples over the entire
 // pipeline run, and sets a json attribute so that the result is available afterwards.  The json
-// attribute name is a string of the form "nmasked_samples_WHERE", where the WHERE string is
+// attribute name is a string of the form "nunmasked_samples_WHERE", where the WHERE string is
 // specified when the mask_counter is constructed, and uniquely identifies the mask_counter.
 //
 // Sometimes, the mask_counter performs additional actions, for example in the CHIME pipeline it
@@ -518,62 +518,39 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 // offline or real-time analysis.
 
 
-class mask_counter_callbacks;
 class mask_measurements_ringbuf;
 
 
 class mask_counter_transform : public wi_transform {
 public:
-    std::string where;
-    std::shared_ptr<mask_counter_callbacks> callbacks;
-    ssize_t nmasked_tot = 0;
+    struct runtime_attrs {
+	int ringbuf_nhistory = 0;
+	int chime_beam_id = -1;
+	std::shared_ptr<ch_frb_io::intensity_network_stream> chime_stream;
+    };	
+
+    const std::string where;     // specified at construction
+    runtime_attrs attrs;         // specified in set_runtime_attrs()
+
+    ssize_t nunmasked_tot = 0;   // cumulative number of unmasked samples during pipeline run
+    std::shared_ptr<mask_measurements_ringbuf> ringbuf;   // nullptr iff (attrs.ringbuf_nhistory == 0)
 
     mask_counter_transform(int nt_chunk_, std::string where_);
-    virtual ~mask_counter_transform() { }
-
-    void set_callbacks(const std::shared_ptr<mask_counter_callbacks> &callbacks);
+    void set_runtime_attrs(const runtime_attrs &a);
 
     virtual void _bind_transform(Json::Value &json_attrs) override;
     virtual void _start_pipeline(Json::Value &j) override;
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
     virtual void _end_pipeline(Json::Value &j) override;
+    virtual ~mask_counter_transform() { }
 
     virtual Json::Value jsonize() const override;
     static std::shared_ptr<mask_counter_transform> from_json(const Json::Value &j);
-};
-
-
-class mask_counter_callbacks {
-public:
-    virtual void _bind_transform(mask_counter_transform &self, Json::Value &json_attrs) { }
-    virtual void _start_pipeline(mask_counter_transform &self, Json::Value &json_attrs) { }
-
-    // Returns the number of unmasked samples in the chunk.
-    // The 'pos' argument has the same meaning as in wi_transform::_process_chunk().
-    // The 'd' argument contains a pointer to the weights array, and the array stride.
-    virtual int _run_kernel(mask_counter_transform &self, rf_kernels::mask_counter_data &d, ssize_t pos) = 0;
-};
-
-
-class chime_mask_counter_callbacks : public mask_counter_callbacks {
-public:
-    // Note: OK if 'stream' is an empty pointer.
-    // In this case, we'll define mask_measurement_ringbufs, but not store the RFI mask in assembled_chunks.
-    chime_mask_counter_callbacks(const std::shared_ptr<ch_frb_io::intensity_network_stream> &stream, int beam_id, int ringbuf_nhistory=300);
-
-    virtual void _bind_transform(mask_counter_transform &self, Json::Value &json_attrs) override;
-    virtual void _start_pipeline(mask_counter_transform &self, Json::Value &json_attrs) override;
-    virtual int _run_kernel(mask_counter_transform &self, rf_kernels::mask_counter_data &d, ssize_t pos) override;
-
-    const std::shared_ptr<ch_frb_io::intensity_network_stream> stream;
-    const std::shared_ptr<mask_measurements_ringbuf> ringbuf;
-    const int beam_id = -1;
 
 protected:
-    // The FPGA count related fields are initialized in _start_pipeline().
-    bool fpga_counts_initialized = false;
-    uint64_t initial_fpga_count = 0;
-    int fpga_counts_per_sample = 0;
+    bool chime_fpga_counts_initialized = false;
+    uint64_t chime_initial_fpga_count = 0;
+    int chime_fpga_counts_per_sample = 0;    
 };
 
 
@@ -587,6 +564,7 @@ protected:
 
 struct mask_measurements {
     mask_measurements(ssize_t pos, int nf, int nt);
+    mask_measurements() { }
 
     ssize_t pos = 0;   // index of first time sample (relative to start of pipeline, without any time downsampling factor applied)
     int nf = 0;        // number of frequencies (may be downsampled relative to "toplevel" frequency resolution in pipeline)
