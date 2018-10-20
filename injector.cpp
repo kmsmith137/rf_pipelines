@@ -60,7 +60,8 @@ void injector::_process_chunk(float *intensity, ssize_t istride, float *weights,
     {
         ulock u(mutex);
         cout << "Injector transform: " << to_inject.size() << " chunks of data" << endl;
-        for (auto data : to_inject) {
+        for (int idata=0; idata<to_inject.size(); idata++) {
+            auto data = to_inject[idata];
             // check for no-overlap
             if ((data->fpga0 >= fpga_counts_end) ||
                 (data->fpga_max < fpga_counts_start))
@@ -70,21 +71,28 @@ void injector::_process_chunk(float *intensity, ssize_t istride, float *weights,
 
             int nf = 0;
             int ntotal = 0;
-            
+            int nbefore = 0;
+            int nafter = 0;
+
+            bool alldone = true;
             int data_offset = 0;
             for (int i=0; i<data->fpga_offset.size(); i++) {
                 int this_data_offset = data_offset;
                 data_offset += data->ndata[i];
                 uint64_t f0 = data->fpga0 + data->fpga_offset[i];
                 int sample0 = (f0 - fpga_counts_start) / this->fpga_counts_per_sample;
-                if (sample0 >= nt_chunk)
+                if (sample0 >= nt_chunk) {
                     // This frequency's data is after this chunk
+                    alldone = false;
+                    nafter++;
                     continue;
+                }
                 int nsamples = data->ndata[i];
-                if (sample0 + nsamples <= 0)
+                if (sample0 + nsamples <= 0) {
                     // This frequency's data is before this chunk
+                    nbefore++;
                     continue;
-
+                }
                 int inj0 = this_data_offset;
                 if (sample0 < 0) {
                     // we're injecting the tail end of this array
@@ -93,13 +101,22 @@ void injector::_process_chunk(float *intensity, ssize_t istride, float *weights,
                     sample0 = 0;
                 }
                 int ncopy = std::min(nsamples, int(nt_chunk - sample0));
+                if (ncopy < nsamples)
+                    // a tail of data remains
+                    alldone = false;
+
                 float* indata = intensity + i*istride + sample0;
                 for (int j=0; j<ncopy; j++)
                     indata[j] += data->data[inj0 + j];
                 nf += 1;
                 ntotal += ncopy;
             }
-            cout << "Injected " << nf << "frequency bins, total of " << ntotal << " samples" << endl;
+            cout << "Injected " << nf << " frequency bins, total of " << ntotal << " samples.  N freq before: " << nbefore << ", after: " << nafter << endl;
+            if (alldone) {
+                cout << "Injected all the data in this entry; deleting" << endl;
+                to_inject.erase(to_inject.begin() + idata);
+                idata--;
+            }
         }
         last_fpgacount_processed = fpga_counts_end;
     }
