@@ -1,4 +1,5 @@
 //#include <ch_frb_io.hpp>
+#include <algorithm>
 
 #include "rf_pipelines_internals.hpp"
 #include "rf_pipelines_inventory.hpp"
@@ -58,14 +59,47 @@ void injector::_process_chunk(float *intensity, ssize_t istride, float *weights,
 
     {
         ulock u(mutex);
+        cout << "Injector transform: " << to_inject.size() << " chunks of data" << endl;
         for (auto data : to_inject) {
             // check for no-overlap
             if ((data->fpga0 >= fpga_counts_end) ||
                 (data->fpga_max < fpga_counts_start))
                 continue;
 
-            // OVERLAP!!  FIXME
             cout << "Data to inject overlaps this chunk!!" << endl;
+
+            int nf = 0;
+            int ntotal = 0;
+            
+            int data_offset = 0;
+            for (int i=0; i<data->fpga_offset.size(); i++) {
+                int this_data_offset = data_offset;
+                data_offset += data->ndata[i];
+                uint64_t f0 = data->fpga0 + data->fpga_offset[i];
+                int sample0 = (f0 - fpga_counts_start) / this->fpga_counts_per_sample;
+                if (sample0 >= nt_chunk)
+                    // This frequency's data is after this chunk
+                    continue;
+                int nsamples = data->ndata[i];
+                if (sample0 + nsamples <= 0)
+                    // This frequency's data is before this chunk
+                    continue;
+
+                int inj0 = this_data_offset;
+                if (sample0 < 0) {
+                    // we're injecting the tail end of this array
+                    nsamples -= (-sample0);
+                    inj0 += (-sample0);
+                    sample0 = 0;
+                }
+                int ncopy = std::min(nsamples, int(nt_chunk - sample0));
+                float* indata = intensity + i*istride + sample0;
+                for (int j=0; j<ncopy; j++)
+                    indata[j] += data->data[inj0 + j];
+                nf += 1;
+                ntotal += ncopy;
+            }
+            cout << "Injected " << nf << "frequency bins, total of " << ntotal << " samples" << endl;
         }
         last_fpgacount_processed = fpga_counts_end;
     }
