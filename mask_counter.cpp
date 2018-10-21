@@ -142,7 +142,7 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
 	ringbuf->add(meas);
     }
 
-#ifdef CH_FRB_IO
+#ifdef HAVE_CH_FRB_IO
     if (attrs.chime_stream) {
 	chunk->has_rfi_mask = true;
 
