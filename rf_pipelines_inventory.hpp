@@ -519,6 +519,9 @@ extern std::shared_ptr<wi_transform> make_spectrum_analyzer(ssize_t Dt1=16, ssiz
 std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename, bool clobber=false, int bitshuffle=2, ssize_t nt_chunk=0);
 
 
+std::shared_ptr<wi_transform> make_chime_assembled_chunk_file_writer(const std::string &filename, bool clobber);
+
+
 // chime_packetizer.
 //
 // Converts a stream to UDP packets in "CHIME L0_L1" format, and sends them over the network.
