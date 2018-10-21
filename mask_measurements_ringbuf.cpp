@@ -25,7 +25,7 @@ mask_measurements_ringbuf::mask_measurements_ringbuf(int nhistory) :
     next(0),
     maxsize(nhistory)
 {
-    if (nhistory > 0)
+    if (nhistory <= 0)
 	throw runtime_error("rf_pipelines::mask_measurements_ringbuf constructor called with nhistory <= 0");
 
     // Allocate ring buffer
