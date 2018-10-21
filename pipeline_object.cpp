@@ -550,11 +550,44 @@ Json::Value pipeline_object::get_info()
 }
 
 
-// Default virtuals
+// A few default virtuals follow.
+
 void pipeline_object::_start_pipeline(Json::Value &j) { }
 void pipeline_object::_end_pipeline(Json::Value &j) { }
 void pipeline_object::_get_info(Json::Value &j) { }
 void pipeline_object::_reset() { }
+
+void pipeline_object::_visit_pipeline(std::function<void(const std::shared_ptr<pipeline_object>&,int)> f, const std::shared_ptr<pipeline_object> &self, int depth)
+{
+    rf_assert(self.get() == this);
+    f(self, depth);
+}
+
+
+// Externally-callable visit_pipeline().
+void visit_pipeline(std::function<void(const std::shared_ptr<pipeline_object>&,int)> f, const std::shared_ptr<pipeline_object> &p, int depth)
+{
+    p->_visit_pipeline(f, p, depth);
+}
+
+
+void print_pipeline(const shared_ptr<pipeline_object> &pipeline, ostream &os, int indent)
+{
+    stringstream ss;
+    for (int i = 0; i < indent; i++)
+	ss << " ";
+    
+    string s = ss.str();
+
+    auto visitor = [&os,&s](const shared_ptr<rf_pipelines::pipeline_object> &p, int depth)
+    {
+	for (int i = 0; i < depth; i++)
+	    os << s;
+	os << p->name << endl;
+    };
+
+    visit_pipeline(visitor, pipeline);
+}
 
 
 // -------------------------------------------------------------------------------------------------
@@ -629,6 +662,7 @@ pipeline_object::json_deserializer_t pipeline_object::_find_json_deserializer(co
 // static member function
 shared_ptr<pipeline_object> pipeline_object::from_json(const Json::Value &x)
 {
+    //cout << "pipeline_object::from_json: " << x << endl;
     if (!x.isObject())
 	throw runtime_error("rf_pipelines: pipeline_object::from_json(): expected json argument to be an Object");
 

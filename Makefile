@@ -47,7 +47,12 @@ OFILES = badchannel_mask.o \
 	spectrum_analyzer.o \
 	spline_detrenders.o \
 	std_dev_clippers.o \
+<<<<<<< HEAD
 	injector.o \
+=======
+	mask_counter.o \
+	mask_measurements_ringbuf.o \
+>>>>>>> kms_rfimask
 	wi_sub_pipeline.o \
 	wi_stream.o \
 	wi_transform.o \
@@ -80,6 +85,9 @@ BINFILES = rfp-time
 
 # C++ unit test binaries which are not installed in $(BINDIR).
 TESTBINFILES = test-misc test-ring-buffer test-core-pipeline-logic test-file-stream-base
+
+# Not actually a unit test, but Makefile doesn't need to distinguish
+TESTBINFILES += visit-pipeline-example
 
 # Python scripts in scripts/, installed in $(BINDIR).
 SCRIPTS = rfp-analyze \
@@ -207,4 +215,7 @@ test-ring-buffer: test-ring-buffer.o $(OFILES)
 	$(CPP) $(CPP_LFLAGS) -o $@ $^ $(LIBS)
 
 test-file-stream-base: test-file-stream-base.o $(OFILES)
+	$(CPP) $(CPP_LFLAGS) -o $@ $^ $(LIBS)
+
+visit-pipeline-example: visit-pipeline-example.o $(OFILES)
 	$(CPP) $(CPP_LFLAGS) -o $@ $^ $(LIBS)

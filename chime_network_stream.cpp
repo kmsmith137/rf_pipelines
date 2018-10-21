@@ -114,6 +114,7 @@ void chime_network_stream::_start_pipeline(Json::Value &j)
     uint64_t fpga0 = uint64_t(first_chunk->isample) * uint64_t(first_chunk->fpga_counts_per_sample);
     
     j["initial_fpga_count"] = Json::UInt64(fpga0);
+    j["frame0_nano"] = Json::UInt64(first_chunk->frame0_nano);
     j["fpga_counts_per_sample"] = first_chunk->fpga_counts_per_sample;
 }
 
@@ -183,8 +184,9 @@ struct chime_dummy_network_stream : public wi_stream
 	    throw runtime_error("rf_pipelines::chime_dummy_network_stream constructor: expected pool_gb >= 0.0");
 	if (pool_gb > 100.0)
 	    throw runtime_error("rf_pipelines::chime_dummy_network_stream constructor: expected pool_gb <= 100.0");
-	
-	double gb_per_chunk = ch_frb_io::assembled_chunk::get_memory_slab_size(nupfreq, nt_per_packet);
+
+        int ndownfreq = 1024;
+	double gb_per_chunk = ch_frb_io::assembled_chunk::get_memory_slab_size(nupfreq, nt_per_packet, ndownfreq);
 
 	this->nfreq = ch_frb_io::constants::nfreq_coarse_tot * nupfreq;
 	this->nt_chunk = ch_frb_io::constants::nt_per_assembled_chunk;

@@ -61,11 +61,13 @@
 // (*) = python-only
 // (**) = the bonsai_dedisperser currently has both python and C++ versions
 
+#include <mutex>
+
 // ring_buffer, pipeline_object, etc.
 #include "rf_pipelines_base_classes.hpp"
 
-// enum axis_type
-#include <rf_kernels/core.hpp>
+#include <rf_kernels/core.hpp>          // enum axis_type (used in several places)
+#include <rf_kernels/mask_counter.hpp>  // used in mask_counter_transform
 
 // A little hack so that all definitions still compile if optional dependencies are absent.
 namespace bonsai { class dedisperser; }
@@ -107,6 +109,7 @@ protected:
     virtual void _reset() override;
     virtual void _unbind() override;
     virtual void _get_info(Json::Value &j) override;
+    virtual void _visit_pipeline(std::function<void(const std::shared_ptr<pipeline_object>&,int)> f, const std::shared_ptr<pipeline_object> &self, int depth) override;
     
     virtual ssize_t get_preferred_chunk_size() override;
 };
@@ -118,8 +121,8 @@ protected:
 // at lower (freqency, time) resolution, then upsample and apply the resulting mask.
 
 
-struct wi_sub_pipeline : pipeline {
-
+class wi_sub_pipeline : public pipeline {
+public:
     // The initializer allows a flexible syntax where some fields can be specified (i.e. nonzero)
     // and others unspecified (i.e. zero).  For example:
     //
@@ -150,6 +153,8 @@ struct wi_sub_pipeline : pipeline {
 
 protected:
     virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
+    virtual void _visit_pipeline(std::function<void(const std::shared_ptr<pipeline_object>&,int)> f, const std::shared_ptr<pipeline_object> &self, int depth) override;
+    
     virtual ssize_t get_preferred_chunk_size() override;
 };
 
@@ -542,7 +547,104 @@ std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename
 
 extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &dstname, int nfreq_coarse_per_packet, int nt_per_chunk, 
 							   int nt_per_packet, float wt_cutoff, double target_gbps, int beam_id=0);
-							   
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// Mask counter transform -- counts masked data samples
+//
+// By default, the mask_counter just counts the total number of unmasked samples over the entire
+// pipeline run, and sets a json attribute so that the result is available afterwards.  The json
+// attribute name is a string of the form "nunmasked_samples_WHERE", where the WHERE string is
+// specified when the mask_counter is constructed, and uniquely identifies the mask_counter.
+//
+// Sometimes, the mask_counter performs additional actions, for example in the CHIME pipeline it
+// saves a ring buffer of per-frequency counts, and might (for the last mask_counter in the chain)
+// store the rfi bitmask so that it can be saved to disk.  These extra actions are enabled by
+// calling mask_counter::set_runtime_attrs(), externally to rf_pipelines in the CHIME L1 server.
+// This allows the same mask_counter class to be used for either offline or real-time analysis.
+
+
+class mask_measurements_ringbuf;
+
+
+class mask_counter_transform : public wi_transform {
+public:
+    struct runtime_attrs {
+	int ringbuf_nhistory = 0;
+	int chime_beam_id = -1;
+	std::shared_ptr<ch_frb_io::intensity_network_stream> chime_stream;
+    };	
+
+    const std::string where;     // specified at construction
+    runtime_attrs attrs;         // specified in set_runtime_attrs()
+
+    ssize_t nunmasked_tot = 0;   // cumulative number of unmasked samples during pipeline run
+    std::shared_ptr<mask_measurements_ringbuf> ringbuf;   // nullptr iff (attrs.ringbuf_nhistory == 0)
+
+    mask_counter_transform(int nt_chunk_, std::string where_);
+    void set_runtime_attrs(const runtime_attrs &a);
+
+    virtual void _bind_transform(Json::Value &json_attrs) override;
+    virtual void _start_pipeline(Json::Value &j) override;
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual void _end_pipeline(Json::Value &j) override;
+    virtual ~mask_counter_transform() { }
+
+    virtual Json::Value jsonize() const override;
+    static std::shared_ptr<mask_counter_transform> from_json(const Json::Value &j);
+
+protected:
+    bool chime_fpga_counts_initialized = false;
+    uint64_t chime_initial_fpga_count = 0;
+    int chime_fpga_counts_per_sample = 0;    
+};
+
+
+// masked_measurements, mask_measurements_ringbuf: these helper classes implement a ring buffer
+// which stores mask counts with a large time downsampling factor.  This is useful in the CHIME
+// real-time pipeline.
+//
+// FIXME: eventually rf_pipelines will support integer-valued ring buffers, then it should be
+// possible to remove these classes.
+
+
+struct mask_measurements {
+    mask_measurements(ssize_t pos, int nf, int nt);
+    mask_measurements() { }
+
+    ssize_t pos = 0;   // index of first time sample (relative to start of pipeline, without any time downsampling factor applied)
+    int nf = 0;        // number of frequencies (may be downsampled relative to "toplevel" frequency resolution in pipeline)
+    int nt = 0;        // number of time samples (may be downsampled relative to "toplevel" frequency resolution in pipeline)
+    int nsamples = 0;  // always equal to (nf * nt)
+    int nsamples_unmasked = 0;  // number of unmasked samples (satisfies 0 <= nunmasked <= nsamples)
+
+    // For each frequency, how many of the "nt" samples are masked?
+    std::shared_ptr<int> freqs_unmasked;
+};
+
+
+class mask_measurements_ringbuf {
+public:
+    mask_measurements_ringbuf(int nhistory=300);
+
+    std::unordered_map<std::string, float> get_stats(int nchunks);
+    std::vector<rf_pipelines::mask_measurements> get_all_measurements();
+
+    void add(rf_pipelines::mask_measurements& meas);
+    
+protected:
+    std::vector<rf_pipelines::mask_measurements> ringbuf;
+    std::mutex mutex;
+    int next;
+    int maxsize;
+};
+
+
+
+// Externally callable
+std::shared_ptr<wi_transform> make_mask_counter(int nt_chunk, std::string where);
+
 
 
 }  // namespace rf_pipelines

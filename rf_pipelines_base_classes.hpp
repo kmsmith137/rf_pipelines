@@ -557,6 +557,10 @@ public:
     virtual void _unbind();
     virtual void _get_info(Json::Value &json_output);
 
+    // Optional.  Default calls f(self,depth) and returns.
+    // See visit_pipeline() below for externally-callable interface.
+    virtual void _visit_pipeline(std::function<void(const std::shared_ptr<pipeline_object>&,int)> f, const std::shared_ptr<pipeline_object> &self, int depth);
+
     // Each of the following methods is a wrapper around the corresponding virtual function.
     // For example, bind() contains "generic" logic, and wraps _bind() which contains 
     // subclass-dependent logic.
@@ -568,7 +572,7 @@ public:
     void bind(const run_params &params, ring_buffer_dict &rb_dict, ssize_t nt_chunk_in, ssize_t nt_maxlag, Json::Value &json_attrs, const std::shared_ptr<outdir_manager> &out_mp);
     void start_pipeline(Json::Value &json_attrs);
     void end_pipeline(Json::Value &json_output);
-    ssize_t advance(ssize_t pos_hi, ssize_t pos_max);    
+    ssize_t advance(ssize_t pos_hi, ssize_t pos_max);
 
 
     // Here is a long comment explaning each of the virtuals above!
@@ -657,6 +661,12 @@ public:
     //
     //     Note that deallocation of the pipeline ring buffers is done separately, and this does
     //     not need to be done in _deallocate().
+    //
+    // _visit_pipeline(f,depth): recursively visits all pipeline_objects in pipeline.
+    //
+    //     By default, this just calls f(this,depth) and returns.  Container classes should override this
+    //     by calling f(this,depth), followed by a call to p->visit_pipeline(f,depth+1) for each pipeline_object p.
+    //     (For an example, see pipeline.cpp)
     //
     // get_preferred_chunk_size(): defines chunk size for stream-type object
     //
@@ -773,6 +783,14 @@ public:
 };
 
 
+// visit_pipeline(f,p): recursively visits all pipeline_objects in pipeline.
+// For each pipeline_object 'q', the function call f(q,depth) is performed.
+extern void visit_pipeline(std::function<void(const std::shared_ptr<pipeline_object>&,int)> f, const std::shared_ptr<pipeline_object> &p, int depth=0);
+
+// Helper function to print a pipeline (implemented "under the hood" with visit_pipeline)
+extern void print_pipeline(const std::shared_ptr<pipeline_object> &p, std::ostream &os=std::cout, int indent=4);
+
+
 // -------------------------------------------------------------------------------------------------
 //
 // chunked_pipeline_object: corresponds to a pipeline_object which processes data in fixed-size chunks.
@@ -868,7 +886,14 @@ public:
     // (This is virtual because wi_transform defines 'kernel_chunk_size', which needs to be incorporated.)
     virtual void _check_nt_chunk() const;
 
-    // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline(), _reset().
+    // Subclass can optionally override the following virtuals:
+    //   jsonize()
+    //   visit_pipeline()
+    //   _allocate()
+    //   _deallocate()
+    //   _start_pipeline()
+    //   _end_pipeline()
+    //   _reset()
 };
 
 
@@ -935,8 +960,15 @@ public:
     // since its _fill_chunk() method operates directly on pointers/strides.
     std::shared_ptr<ring_buffer> rb_intensity;
     std::shared_ptr<ring_buffer> rb_weights;
-
-    // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline(), _reset().
+    
+    // Subclass can optionally override the following virtuals:
+    //   jsonize()
+    //   visit_pipeline()
+    //   _allocate()
+    //   _deallocate()
+    //   _start_pipeline()
+    //   _end_pipeline()
+    //   _reset()
 };
 
 
@@ -1081,8 +1113,15 @@ public:
     // We override chunked_pipeline::finalize_nt_chunk() and _check_nt_chunk(), in order to incorporate 'kernel_chunk_size'.
     virtual void finalize_nt_chunk() override;
     virtual void _check_nt_chunk() const override;
-
-    // Subclass can optionally override: jsonize(), _allocate(), _deallocate(), _start_pipeline(), _end_pipeline(), _reset().
+    
+    // Subclass can optionally override the following virtuals:
+    //   jsonize()
+    //   visit_pipeline()
+    //   _allocate()
+    //   _deallocate()
+    //   _start_pipeline()
+    //   _end_pipeline()
+    //   _reset()
 };
 
 
