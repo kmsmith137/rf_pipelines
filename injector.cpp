@@ -107,11 +107,13 @@ void injector::_process_chunk(float *intensity, ssize_t istride, float *weights,
                     // it will start at the beginning of this chunk
                     f0 = 0;
                 }
-                if (ncopy > nt_chunk) {
-                    ncopy = nt_chunk;
+                if (f0 + ncopy > nt_chunk) {
+                    ncopy = nt_chunk - f0;
                     // a tail of data remains
                     alldone = false;
                 }
+
+                //cout << "freq " << i << ": copying " << ncopy << " from " << f0 << " to " << f0+ncopy << endl;
                 
                 float* indata = intensity + i*istride + f0;
                 for (int j=0; j<ncopy; j++)

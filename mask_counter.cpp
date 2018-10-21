@@ -111,7 +111,8 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
     
 	// The 'pos' argument is the current pipeline position in units of time samples (not FPGA counts)
 	uint64_t fpga_counts = pos * this->chime_fpga_counts_per_sample + this->chime_initial_fpga_count;
-	//cout << "chime_mask_counter: finding chunk for pos " << pos << " (fpga counts " << fpga_counts << ")" << endl;
+
+	cout << "mask_counter: " << this->where << ": finding chunk for pos " << pos << " (fpga counts " << fpga_counts << ")" << endl;
 
 	// The last argument in find_assembled_chunk() is 'toplevel'.
 	chunk = attrs.chime_stream->find_assembled_chunk(attrs.chime_beam_id, fpga_counts, true);
@@ -142,7 +143,7 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
 	ringbuf->add(meas);
     }
 
-#ifdef CH_FRB_IO
+#ifdef HAVE_CH_FRB_IO
     if (attrs.chime_stream) {
 	chunk->has_rfi_mask = true;
 
