@@ -328,14 +328,17 @@ struct inject_data {
     int mode;
     // offset for FPGAcounts values in fpga_offset array.
     uint64_t fpga0;
-    // must equal fpga0 + max(fpga_offset)
-    uint64_t fpga_max;
     // should be "nfreq" in length
-    std::vector<uint32_t> fpga_offset;
+    std::vector<int32_t> sample_offset;
     // should be "nfreq" in length
     std::vector<uint16_t> ndata;
     // should have length = sum(ndata)
     std::vector<float> data;
+
+    // (computed: minimum sample index = min(sample_offset) )
+    int min_offset;
+    // (computed: maximum sample index+1 = max(sample_offset + ndata) )
+    int max_offset;
 };
 
 class injector : public wi_transform {

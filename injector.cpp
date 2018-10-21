@@ -54,19 +54,19 @@ void injector::_process_chunk(float *intensity, ssize_t istride, float *weights,
 	throw runtime_error("rf_pipelines::injector internal error: fpga count fields were not initialized as expected");
     
     // The 'pos' argument is the current pipeline position in units of time samples (not FPGA counts)
-    uint64_t fpga_counts_start = pos * this->fpga_counts_per_sample + this->initial_fpga_count;
-    uint64_t fpga_counts_end = (pos + nt_chunk) * this->fpga_counts_per_sample + this->initial_fpga_count;
+
 
     {
         ulock u(mutex);
         cout << "Injector transform: " << to_inject.size() << " chunks of data" << endl;
         for (int idata=0; idata<to_inject.size(); idata++) {
             auto data = to_inject[idata];
-            // check for no-overlap
-            if ((data->fpga0 >= fpga_counts_end) ||
-                (data->fpga_max < fpga_counts_start))
-                continue;
 
+            // Index in the current chunk of data of "fpga0" of this injected data entry
+            int sample0 = (data->fpga0 - this->initial_fpga_count) / this->fpga_counts_per_sample - pos;
+            if ((sample0 + data->min_offset >= this->nt_chunk) ||
+                (sample0 + data->max_offset <= 0))
+                continue;
             cout << "Data to inject overlaps this chunk!!" << endl;
 
             int nf = 0;
@@ -75,39 +75,48 @@ void injector::_process_chunk(float *intensity, ssize_t istride, float *weights,
             int nafter = 0;
 
             bool alldone = true;
+            // offset into the "data" array
             int data_offset = 0;
-            for (int i=0; i<data->fpga_offset.size(); i++) {
+            for (int i=0; i<data->sample_offset.size(); i++) {
                 int this_data_offset = data_offset;
                 data_offset += data->ndata[i];
-                uint64_t f0 = data->fpga0 + data->fpga_offset[i];
-                int sample0 = (f0 - fpga_counts_start) / this->fpga_counts_per_sample;
-                if (sample0 >= nt_chunk) {
+
+                // sample start,end for this frequency
+                int f0 = sample0 + data->sample_offset[i];
+                int f1 = f0 + data->ndata[i];
+                if (f0 >= nt_chunk) {
                     // This frequency's data is after this chunk
                     alldone = false;
                     nafter++;
                     continue;
                 }
-                int nsamples = data->ndata[i];
-                if (sample0 + nsamples <= 0) {
+                if (f1 <= 0) {
                     // This frequency's data is before this chunk
                     nbefore++;
                     continue;
                 }
-                int inj0 = this_data_offset;
-                if (sample0 < 0) {
-                    // we're injecting the tail end of this array
-                    nsamples -= (-sample0);
-                    inj0 += (-sample0);
-                    sample0 = 0;
+
+                // Now select the subset of this frequency's data that overlaps
+                // this chunk.  f0 and f1 are indices into this chunk of data.
+                int inj_offset = 0;
+                int ncopy = data->ndata[i];
+                if (f0 < 0) {
+                    // we're injecting the tail end of this frequency's array
+                    ncopy -= (-f0);
+                    inj_offset += (-f0);
+                    // it will start at the beginning of this chunk
+                    f0 = 0;
                 }
-                int ncopy = std::min(nsamples, int(nt_chunk - sample0));
-                if (ncopy < nsamples)
+                if (ncopy > nt_chunk) {
+                    ncopy = nt_chunk;
                     // a tail of data remains
                     alldone = false;
-
-                float* indata = intensity + i*istride + sample0;
+                }
+                
+                float* indata = intensity + i*istride + f0;
                 for (int j=0; j<ncopy; j++)
-                    indata[j] += data->data[inj0 + j];
+                    indata[j] += data->data[this_data_offset + inj_offset + j];
+
                 nf += 1;
                 ntotal += ncopy;
             }
@@ -118,7 +127,7 @@ void injector::_process_chunk(float *intensity, ssize_t istride, float *weights,
                 idata--;
             }
         }
-        last_fpgacount_processed = fpga_counts_end;
+        last_fpgacount_processed = (pos + nt_chunk) * this->fpga_counts_per_sample + this->initial_fpga_count;
     }
 
 }
