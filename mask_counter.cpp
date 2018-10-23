@@ -136,20 +136,20 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
 	// The last argument in find_assembled_chunk() is 'toplevel'.
 	chunk = attrs.chime_stream->find_assembled_chunk(attrs.chime_beam_id, fpga_counts, true);
 
-	// These should all be redundant with asserts in ch_frb_io, but a little paranoia never hurts.
-	if (!chunk)
-	    throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned empty pointer");
-	if (!chunk->rfi_mask)
-	    throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with no RFI mask");
-	if (chunk->nrfifreq != this->nfreq)
-	    throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with mismatched 'nrfifreq'");
-	if (chunk->has_rfi_mask)
-	    throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with has_rfi_mask=true");
-	if (chunk->binning != 1)
-	    throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with binning != 1");
+	// Reminder: find_assembled_chunk() returns an empty pointer iff stream has ended, and chunk is requested past end-of-stream.
+	if (chunk) {
+	    if (!chunk->rfi_mask)
+		throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with no RFI mask");
+	    if (chunk->nrfifreq != this->nfreq)
+		throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with mismatched 'nrfifreq'");
+	    if (chunk->has_rfi_mask)
+		throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with has_rfi_mask=true");
+	    if (chunk->binning != 1)
+		throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with binning != 1");
 
-	d.out_bitmask = chunk->rfi_mask;
-	d.out_bmstride = d.nt_chunk / 8;   // contiguous
+	    d.out_bitmask = chunk->rfi_mask;
+	    d.out_bmstride = d.nt_chunk / 8;   // contiguous
+	}
     }
 #endif
 
@@ -163,7 +163,7 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
     }
 
 #ifdef HAVE_CH_FRB_IO
-    if (attrs.chime_stream) {
+    if (chunk) {
 	chunk->has_rfi_mask = true;
 
 	// Notify stream's output_devices that a chunk has had its rfi_mask filled in.
