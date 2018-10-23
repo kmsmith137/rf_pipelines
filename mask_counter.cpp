@@ -66,6 +66,26 @@ void mask_counter_transform::_bind_transform(Json::Value &json_attrs)
 	rf_assert(this->nds == 1);
     }
 #endif
+
+    // Check for other mask_counters with duplicate "where" names.
+    string keyname = "mask_counter_name_list";
+    if (!json_attrs.isMember(keyname))
+        // Add new list.
+        json_attrs[keyname] = Json::Value(Json::arrayValue);
+    Json::Value& names = json_attrs[keyname];
+    // assert that it's an Array
+    if (names.type() != Json::arrayValue)
+        throw runtime_error("mask_counter: expected JSON attribute '" + keyname + "' to be an array (of 'where' entries)");
+    // check for duplicates
+    for (int i=0; i<names.size(); i++) {
+        if (!names[i].isString())
+            throw runtime_error("mask_counter: expected JSON attribute '" + keyname + "' to contain strings");
+        string othername = names[i].asString();
+        if (othername == where)
+            throw runtime_error("mask_counter: 'where' entry = \"" + where + "\" is duplicated in the pipeline -- it must be unique!");
+    }
+    names.append(Json::Value(where));
+
 }
 
 
