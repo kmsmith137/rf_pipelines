@@ -133,7 +133,7 @@ endif
 
 ifeq ($(HAVE_CH_FRB_IO),y)
 	CPP += -DHAVE_CH_FRB_IO
-	LIBS += -lch_frb_io
+	LIBS += -lch_frb_io -lzmq
 endif
 
 ifeq ($(HAVE_HDF5),y)
