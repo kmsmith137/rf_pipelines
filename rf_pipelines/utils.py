@@ -700,7 +700,7 @@ def run_for_web_viewer(run_name, p, verbosity=2, show_stdout=False, show_stderr=
 
     # Directory names beginning with underscore are pipeline runs in progress.
     basename = '%s-%s' % (run_name, time.strftime('%y-%m-%d-%X'))
-    dirname = os.path.join('/data2/web_viewer', os.environ['USER'])
+    dirname = os.path.join('/data/frb-archiver/web_viewer', os.environ['USER'])
     temp_dir = os.path.join(dirname, '_' + basename)
     final_dir = os.path.join(dirname, basename)
 
