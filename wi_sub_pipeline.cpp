@@ -303,6 +303,25 @@ ssize_t wi_sub_pipeline::get_preferred_chunk_size()
 
 
 // virtual override
+void wi_sub_pipeline::_visit_pipeline(std::function<void(const std::shared_ptr<pipeline_object>&,int)> f, const std::shared_ptr<pipeline_object> &self, int depth)
+{
+    // Overriding pipeline::_visit_pipeline() is necessary here, for two reasons.
+    //
+    // First, pipeline::_visit_pipeline() would also visit the "internal" downsampler/upsampler,
+    // and I thought it made most sense to "hide" this implementation detail from the caller of
+    // visit_pipeline().  (This is a design decision that could be reversed.)
+    //
+    // Second, we want _visit_pipeline() to work before bind() is called, and in the curren
+    // implementation, pipeline::elements is an empty vector before bind() is called.
+
+    rf_assert(self.get() == this);
+    f(self, depth);
+    
+    visit_pipeline(f, sub_pipeline, depth+1);
+}
+
+
+// virtual override
 Json::Value wi_sub_pipeline::jsonize() const 
 {
     Json::Value ret;

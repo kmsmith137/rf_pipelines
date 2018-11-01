@@ -8,16 +8,16 @@ HAVE_HDF5=y
 HAVE_PNG=y
 
 # Directory where C++ libraries will be installed
-LIBDIR=$(HOME)/lib
+LIBDIR ?= $(HOME)/lib
 
 # Directory where C++ header files will be installed
-INCDIR=$(HOME)/include
+INCDIR ?= $(HOME)/include
 
 # Directory where executables will be installed
-BINDIR=$(HOME)/bin
+BINDIR ?= $(HOME)/bin
 
 # Directory where Python modules will be installed
-PYDIR=$(HOME)/lib/python2.7/site-packages
+PYDIR ?= $(HOME)/lib/python2.7/site-packages
 
 # Read-only location of python header files
 PYTHON_INCDIR=/usr/include/python2.7
@@ -25,7 +25,13 @@ NUMPY_INCDIR=/usr/lib64/python2.7/site-packages/numpy/core/include
 JSONCPP_INCDIR=/usr/include/jsoncpp
 
 CPP=g++ -std=c++11 -pthread -fPIC -Wall -Wno-literal-suffix
-CPP += -O3 -march=native -ffast-math -funroll-loops --param inline-unit-growth=10000
+CPP += -march=native
+DEBUG ?= no
+ifeq ($(DEBUG),no)
+     CPP += -O3 -ffast-math -funroll-loops --param inline-unit-growth=10000
+else
+     CPP += -O0 -g
+endif
 CPP += -I. -I$(INCDIR) -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR) -I$(JSONCPP_INCDIR)
 
 CPP_LFLAGS= -L. -L$(LIBDIR)

@@ -180,6 +180,16 @@ void pipeline::_get_info(Json::Value &j)
 }
 
 
+void pipeline::_visit_pipeline(std::function<void(const std::shared_ptr<pipeline_object>&,int)> f, const std::shared_ptr<pipeline_object> &self, int depth)
+{
+    rf_assert(self.get() == this);
+    f(self, depth);
+    
+    for (auto &p: this->elements)
+	visit_pipeline(f, p, depth+1);
+}
+
+
 namespace {
     struct _init {
 	_init() {

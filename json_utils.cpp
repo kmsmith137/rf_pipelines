@@ -114,6 +114,18 @@ ssize_t ssize_t_from_json(const Json::Value &j, const string &k)
     return v.asInt64();
 }
 
+
+uint64_t uint64_t_from_json(const Json::Value &j, const string &k)
+{
+    const Json::Value &v = get_member(j, k);
+
+    if (!v.isIntegral())
+	throw runtime_error("rf_pipelines: json field '" + k + "' was not an integer as expected");
+
+    return v.asUInt64();
+}
+
+
 double double_from_json(const Json::Value &j, const string &k)
 {
     const Json::Value &v = get_member(j, k);

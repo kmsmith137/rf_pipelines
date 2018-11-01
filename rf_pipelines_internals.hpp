@@ -175,6 +175,7 @@ extern double double_from_json(const Json::Value &x, const std::string &k);
 extern int int_from_json(const Json::Value &x, const std::string &k);
 extern bool bool_from_json(const Json::Value &j, const std::string &k);
 extern ssize_t ssize_t_from_json(const Json::Value &j, const std::string &k);
+extern uint64_t uint64_t_from_json(const Json::Value &j, const std::string &k);
 extern void add_json_object(Json::Value &dst, const Json::Value &src);
 extern std::string json_stringify(const Json::Value &x);
 
@@ -299,6 +300,13 @@ inline uptr<T> make_uptr(size_t nelts, size_t nalign=128, bool zero=true)
 {
     T *p = aligned_alloc<T> (nelts, nalign, zero);
     return uptr<T> (p);
+}
+
+template<typename T>
+inline std::shared_ptr<T> make_sptr(size_t nelts, size_t nalign=128, bool zero=true)
+{
+    T *p = aligned_alloc<T> (nelts, nalign, zero);
+    return std::shared_ptr<T> (p, free);
 }
 
 
