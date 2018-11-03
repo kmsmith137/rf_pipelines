@@ -99,23 +99,24 @@ struct badchannel_mask : public wi_transform {
 	    low = m_bad_channels[ilo];
 	    high = m_bad_channels[ilo + 1];
 	    // Both ends of the range are within the observation range
-	    if (low > freq_lo_MHz && high < freq_hi_MHz)
+	    if (low >= freq_lo_MHz && high <= freq_hi_MHz)
 	    {
 	        temp.push_back(low);
 	        temp.push_back(high);
 	    }
 	    // The low end is below the observation range
-	    else if (low < freq_lo_MHz && high > freq_lo_MHz && high < freq_hi_MHz)
+	    else if (low < freq_lo_MHz && high >= freq_lo_MHz && high <= freq_hi_MHz)
 	    {
 	        temp.push_back(freq_lo_MHz);
 	        temp.push_back(high);
 	    }
 	    // The high end is above the observation range
-	    else if (high > freq_hi_MHz && low < freq_hi_MHz && low > freq_lo_MHz)
+	    else if (high > freq_hi_MHz && low <= freq_hi_MHz && low >= freq_lo_MHz)
 	    {
 	        temp.push_back(low);
 	        temp.push_back(freq_hi_MHz);
-	    }
+	    } else
+                throw runtime_error("badchannel_mask: frequency range " + std::to_string(low) + ", " + std::to_string(high) + " is weirdly outside range");
 	}
 
 	// Here, we rescale the bad frequencies into bad indices. Adapted 
