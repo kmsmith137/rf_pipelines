@@ -173,7 +173,6 @@ extern std::string string_from_json(const Json::Value &x, const std::string &k);
 extern rf_kernels::axis_type axis_type_from_json(const Json::Value &x, const std::string &k);
 extern double double_from_json(const Json::Value &x, const std::string &k);
 extern int int_from_json(const Json::Value &x, const std::string &k);
-extern uint64_t uint64_t_from_json(const Json::Value &j, const std::string &k);
 extern bool bool_from_json(const Json::Value &j, const std::string &k);
 extern ssize_t ssize_t_from_json(const Json::Value &j, const std::string &k);
 extern uint64_t uint64_t_from_json(const Json::Value &j, const std::string &k);
