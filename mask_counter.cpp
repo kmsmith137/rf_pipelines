@@ -66,6 +66,26 @@ void mask_counter_transform::_bind_transform(Json::Value &json_attrs)
 	rf_assert(this->nds == 1);
     }
 #endif
+
+    // Check for other mask_counters with duplicate "where" names.
+    string keyname = "mask_counter_name_list";
+    if (!json_attrs.isMember(keyname))
+        // Add new list.
+        json_attrs[keyname] = Json::Value(Json::arrayValue);
+    Json::Value& names = json_attrs[keyname];
+    // assert that it's an Array
+    if (names.type() != Json::arrayValue)
+        throw runtime_error("mask_counter: expected JSON attribute '" + keyname + "' to be an array (of 'where' entries)");
+    // check for duplicates
+    for (int i=0; i<names.size(); i++) {
+        if (!names[i].isString())
+            throw runtime_error("mask_counter: expected JSON attribute '" + keyname + "' to contain strings");
+        string othername = names[i].asString();
+        if (othername == where)
+            throw runtime_error("mask_counter: 'where' entry = \"" + where + "\" is duplicated in the pipeline -- it must be unique!");
+    }
+    names.append(Json::Value(where));
+
 }
 
 
@@ -117,20 +137,20 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
 	// The last argument in find_assembled_chunk() is 'toplevel'.
 	chunk = attrs.chime_stream->find_assembled_chunk(attrs.chime_beam_id, fpga_counts, true);
 
-	// These should all be redundant with asserts in ch_frb_io, but a little paranoia never hurts.
-	if (!chunk)
-	    throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned empty pointer");
-	if (!chunk->rfi_mask)
-	    throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with no RFI mask");
-	if (chunk->nrfifreq != this->nfreq)
-	    throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with mismatched 'nrfifreq'");
-	if (chunk->has_rfi_mask)
-	    throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with has_rfi_mask=true");
-	if (chunk->binning != 1)
-	    throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with binning != 1");
+	// Reminder: find_assembled_chunk() returns an empty pointer iff stream has ended, and chunk is requested past end-of-stream.
+	if (chunk) {
+	    if (!chunk->rfi_mask)
+		throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with no RFI mask");
+	    if (chunk->nrfifreq != this->nfreq)
+		throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with mismatched 'nrfifreq'");
+	    if (chunk->has_rfi_mask)
+		throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with has_rfi_mask=true");
+	    if (chunk->binning != 1)
+		throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with binning != 1");
 
-	d.out_bitmask = chunk->rfi_mask;
-	d.out_bmstride = d.nt_chunk / 8;   // contiguous
+	    d.out_bitmask = chunk->rfi_mask;
+	    d.out_bmstride = d.nt_chunk / 8;   // contiguous
+	}
     }
 #endif
 

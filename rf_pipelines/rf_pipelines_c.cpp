@@ -1293,8 +1293,10 @@ static void wrap_clippers(extension_module &m)
 
 static void wrap_mask_counters(extension_module &m)
 {
-    string doc_mc = ("mask_counter()\n"
+    string doc_mc = ("mask_counter(nt_chunk, where)\n"
 		     "\n"
+                     "mask_counter: this counts how many intensity samples per chunk have been masked out by previous steps in the RFI chain.\n"
+                     "The 'where' argument, which must be a unique string (unique within the pipeline), is used for reporting where in the pipeline the measurement is being made.\n"
 		     "");
 
     auto f_mc = wrap_func(make_mask_counter, "nt_chunk", "where");

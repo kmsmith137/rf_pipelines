@@ -61,8 +61,6 @@ OFILES = badchannel_mask.o \
 PYFILES=rf_pipelines/rf_pipelines_c.so \
 	rf_pipelines/__init__.py \
 	rf_pipelines/utils.py \
-	rf_pipelines/L1b.py \
-	rf_pipelines/L1_event.py \
 	rf_pipelines/streams/__init__.py \
 	rf_pipelines/streams/chime_streams.py \
 	rf_pipelines/transforms/__init__.py \
@@ -140,7 +138,7 @@ endif
 
 ifeq ($(HAVE_CH_FRB_IO),y)
 	CPP += -DHAVE_CH_FRB_IO
-	LIBS += -lch_frb_io
+	LIBS += -lch_frb_io -lzmq
 endif
 
 ifeq ($(HAVE_HDF5),y)
