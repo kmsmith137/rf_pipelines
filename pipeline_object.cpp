@@ -571,6 +571,25 @@ void visit_pipeline(std::function<void(const std::shared_ptr<pipeline_object>&,i
 }
 
 
+void print_pipeline(const shared_ptr<pipeline_object> &pipeline, ostream &os, int indent)
+{
+    stringstream ss;
+    for (int i = 0; i < indent; i++)
+	ss << " ";
+    
+    string s = ss.str();
+
+    auto visitor = [&os,&s](const shared_ptr<rf_pipelines::pipeline_object> &p, int depth)
+    {
+	for (int i = 0; i < depth; i++)
+	    os << s;
+	os << p->name << endl;
+    };
+
+    visit_pipeline(visitor, pipeline);
+}
+
+
 // -------------------------------------------------------------------------------------------------
 //
 // json serialization/deserialization

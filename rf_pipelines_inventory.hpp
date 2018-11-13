@@ -66,8 +66,8 @@
 // ring_buffer, pipeline_object, etc.
 #include "rf_pipelines_base_classes.hpp"
 
-// enum axis_type
-#include <rf_kernels/core.hpp>
+#include <rf_kernels/core.hpp>          // enum axis_type (used in several places)
+#include <rf_kernels/mask_counter.hpp>  // used in mask_counter_transform
 
 #include <rf_kernels/downsample.hpp>
 
@@ -511,9 +511,67 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 // -------------------------------------------------------------------------------------------------
 //
 // Mask counter transform -- counts masked data samples
+//
+// By default, the mask_counter just counts the total number of unmasked samples over the entire
+// pipeline run, and sets a json attribute so that the result is available afterwards.  The json
+// attribute name is a string of the form "nunmasked_samples_WHERE", where the WHERE string is
+// specified when the mask_counter is constructed, and uniquely identifies the mask_counter.
+//
+// Sometimes, the mask_counter performs additional actions, for example in the CHIME pipeline it
+// saves a ring buffer of per-frequency counts, and might (for the last mask_counter in the chain)
+// store the rfi bitmask so that it can be saved to disk.  These extra actions are enabled by
+// calling mask_counter::set_runtime_attrs(), externally to rf_pipelines in the CHIME L1 server.
+// This allows the same mask_counter class to be used for either offline or real-time analysis.
+
+
+class mask_measurements_ringbuf;
+
+
+class mask_counter_transform : public wi_transform {
+public:
+    struct runtime_attrs {
+	int ringbuf_nhistory = 0;
+	int chime_beam_id = -1;
+	std::shared_ptr<ch_frb_io::intensity_network_stream> chime_stream;
+    };	
+
+    const std::string where;     // specified at construction
+    runtime_attrs attrs;         // specified in set_runtime_attrs()
+
+    ssize_t nunmasked_tot = 0;   // cumulative number of unmasked samples during pipeline run
+    std::shared_ptr<mask_measurements_ringbuf> ringbuf;   // nullptr iff (attrs.ringbuf_nhistory == 0)
+
+    mask_counter_transform(int nt_chunk_, std::string where_);
+    void set_runtime_attrs(const runtime_attrs &a);
+
+    virtual void _bind_transform(Json::Value &json_attrs) override;
+    virtual void _start_pipeline(Json::Value &j) override;
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual void _end_pipeline(Json::Value &j) override;
+    virtual ~mask_counter_transform() { }
+
+    virtual Json::Value jsonize() const override;
+    static std::shared_ptr<mask_counter_transform> from_json(const Json::Value &j);
+
+protected:
+    bool chime_fpga_counts_initialized = false;
+    uint64_t chime_initial_fpga_count = 0;
+    int chime_fpga_counts_per_sample = 0;    
+};
+
+
+// masked_measurements, mask_measurements_ringbuf: these helper classes implement a ring buffer
+// which stores mask counts with a large time downsampling factor.  This is useful in the CHIME
+// real-time pipeline.
+//
+// FIXME: eventually rf_pipelines will support integer-valued ring buffers, then it should be
+// possible to remove these classes.
 
 
 struct mask_measurements {
+    mask_measurements(ssize_t pos, int nf, int nt);
+    mask_measurements() { }
+
     ssize_t pos = 0;   // index of first time sample (relative to start of pipeline, without any time downsampling factor applied)
     int nf = 0;        // number of frequencies (may be downsampled relative to "toplevel" frequency resolution in pipeline)
     int nt = 0;        // number of time samples (may be downsampled relative to "toplevel" frequency resolution in pipeline)
@@ -529,7 +587,7 @@ class mask_measurements_ringbuf {
 public:
     mask_measurements_ringbuf(int nhistory=300);
 
-    std::unordered_map<std::string, float> get_stats(float period);
+    std::unordered_map<std::string, float> get_stats(int nchunks);
     std::vector<rf_pipelines::mask_measurements> get_all_measurements();
 
     void add(rf_pipelines::mask_measurements& meas);
@@ -537,56 +595,14 @@ public:
 protected:
     std::vector<rf_pipelines::mask_measurements> ringbuf;
     std::mutex mutex;
-    int current;
+    int next;
     int maxsize;
 };
 
 
-class mask_counter_transform : public wi_transform {
-public:
-    std::string where;
-    std::shared_ptr<mask_measurements_ringbuf> ringbuf;
-
-    mask_counter_transform(int nt_chunk_, std::string where_, std::string class_name_="mask_counter");
-    virtual ~mask_counter_transform() { }
-    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
-    virtual Json::Value jsonize() const override;
-    static std::shared_ptr<mask_counter_transform> from_json(const Json::Value &j);
-
-    virtual void process_measurement(mask_measurements& meas);
-    void init_measurements(mask_measurements& meas);
-    
-    std::shared_ptr<mask_measurements_ringbuf> get_ringbuf();
-};
-
-class chime_mask_counter : public mask_counter_transform {
-public:
-    chime_mask_counter(std::string where_);
-    virtual ~chime_mask_counter() { }
-
-    virtual void _bind_transform(Json::Value &json_attrs) override;
-    virtual void _start_pipeline(Json::Value &j) override;
-    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
-    
-    virtual Json::Value jsonize() const override;
-    static std::shared_ptr<chime_mask_counter> from_json(const Json::Value &j);
-
-    // Called "externally" by L1 server
-    void set_stream(std::shared_ptr<ch_frb_io::intensity_network_stream> stream, int beam);
-                    
-protected:
-    std::shared_ptr<ch_frb_io::intensity_network_stream> stream;
-    int beam = -1;
-
-    // The FPGA count related fields are initialized in _start_pipeline().
-    bool fpga_counts_initialized = false;
-    uint64_t initial_fpga_count = 0;
-    int fpga_counts_per_sample = 0;
-};
 
 // Externally callable
 std::shared_ptr<wi_transform> make_mask_counter(int nt_chunk, std::string where);
-std::shared_ptr<wi_transform> make_chime_mask_counter(std::string where);
 
 
 // -------------------------------------------------------------------------------------------------
