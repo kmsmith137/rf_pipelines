@@ -69,6 +69,8 @@
 // enum axis_type
 #include <rf_kernels/core.hpp>
 
+#include <rf_kernels/downsample.hpp>
+
 // A little hack so that all definitions still compile if optional dependencies are absent.
 namespace bonsai { class dedisperser; }
 
@@ -609,10 +611,18 @@ struct chime_slow_pulsar_writer : public wi_transform
 	int nfreq_out = 0;   // number of frequency channels in output file
 	int nds_out = 0;     // time downsampling factor in output file
 	int nbits_out = 0;   // bit depth in output file
+
+    int nt_out = 0; // this is a derived quantity that we set none-the-less
     };
+
+    // strategically removed from output_file_params
+    std::shared_ptr<std::vector<float>> tmp_w;
+    std::shared_ptr<std::vector<float>> tmp_i;
     
     real_time_state rt_state;
     output_file_params of_params;
+    std::mutex of_mutex;
+    std::shared_ptr<rf_kernels::wi_downsampler> downsampler;
 
     chime_slow_pulsar_writer(ssize_t nt_chunk);
 
