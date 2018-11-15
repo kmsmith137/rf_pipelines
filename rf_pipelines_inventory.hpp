@@ -534,8 +534,6 @@ public:
     ssize_t nunmasked_tot = 0;   // cumulative number of unmasked samples during pipeline run
     std::shared_ptr<mask_measurements_ringbuf> ringbuf;   // nullptr iff (attrs.ringbuf_nhistory == 0)
 
-    std::atomic<uint64_t> max_fpga_seen;
-
     mask_counter_transform(int nt_chunk_, std::string where_);
     void set_runtime_attrs(const runtime_attrs &a);
 
@@ -586,7 +584,9 @@ public:
     std::vector<rf_pipelines::mask_measurements> get_all_measurements();
 
     void add(rf_pipelines::mask_measurements& meas);
-    
+
+    std::atomic<uint64_t> max_fpga_seen;
+
 protected:
     std::vector<rf_pipelines::mask_measurements> ringbuf;
     std::mutex mutex;

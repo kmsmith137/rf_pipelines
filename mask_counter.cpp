@@ -124,12 +124,6 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
     // Declared outside the if-statement below, so that we hold the shared_ptr<> reference while the kernel is being called.
     shared_ptr<ch_frb_io::assembled_chunk> chunk;
 
-    if (chime_fpga_counts_initialized) {
-	uint64_t last_fpga_count = (pos + nt_chunk) * this->chime_fpga_counts_per_sample + this->chime_initial_fpga_count;
-        assert(last_fpga_count > max_fpga_seen);
-        max_fpga_seen = last_fpga_count;
-    }
-
     if (attrs.chime_stream) {
 	if (!chime_fpga_counts_initialized)
 	    throw runtime_error("rf_pipelines::chime_mask_counter internal error: fpga count fields were not initialized as expected");
@@ -164,6 +158,15 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
     if (ringbuf) {
 	meas.nsamples_unmasked = nunmasked;
 	ringbuf->add(meas);
+
+        if (chime_fpga_counts_initialized) {
+            uint64_t last_fpga_count = (pos + nt_chunk) * this->chime_fpga_counts_per_sample + this->chime_initial_fpga_count;
+            assert(last_fpga_count > ringbuf->max_fpga_seen);
+            //max_fpga_seen = last_fpga_count;
+            ringbuf->max_fpga_seen = last_fpga_count;
+        }
+
+        
     }
 
 #ifdef HAVE_CH_FRB_IO
