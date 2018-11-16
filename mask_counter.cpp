@@ -1,3 +1,4 @@
+#include <cassert>
 #include "rf_pipelines_internals.hpp"
 #include "rf_pipelines_inventory.hpp"
 
@@ -77,7 +78,7 @@ void mask_counter_transform::_bind_transform(Json::Value &json_attrs)
     if (names.type() != Json::arrayValue)
         throw runtime_error("mask_counter: expected JSON attribute '" + keyname + "' to be an array (of 'where' entries)");
     // check for duplicates
-    for (int i=0; i<names.size(); i++) {
+    for (uint i=0; i<names.size(); i++) {
         if (!names[i].isString())
             throw runtime_error("mask_counter: expected JSON attribute '" + keyname + "' to contain strings");
         string othername = names[i].asString();
@@ -159,10 +160,13 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
 	meas.nsamples_unmasked = nunmasked;
 	ringbuf->add(meas);
 
+        //cout << "mask_counter: saving mask measurement.  fpgacounts initialized: " <<
+        //chime_fpga_counts_initialized << "; last fpga count " <<
+        //((pos + nt_chunk) * this->chime_fpga_counts_per_sample + this->chime_initial_fpga_count) << endl;
+
         if (chime_fpga_counts_initialized) {
             uint64_t last_fpga_count = (pos + nt_chunk) * this->chime_fpga_counts_per_sample + this->chime_initial_fpga_count;
             assert(last_fpga_count > ringbuf->max_fpga_seen);
-            //max_fpga_seen = last_fpga_count;
             ringbuf->max_fpga_seen = last_fpga_count;
         }
 

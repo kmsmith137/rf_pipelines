@@ -62,6 +62,7 @@
 // (**) = the bonsai_dedisperser currently has both python and C++ versions
 
 #include <mutex>
+#include <atomic>
 
 // ring_buffer, pipeline_object, etc.
 #include "rf_pipelines_base_classes.hpp"
