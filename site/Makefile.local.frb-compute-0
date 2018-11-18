@@ -25,7 +25,8 @@ NUMPY_INCDIR=/usr/lib64/python2.7/site-packages/numpy/core/include
 
 ifeq ($(HAVE_HDF5),y)
      HDF5_CFLAGS ?= $(shell pkg-config --cflags hdf5)
-     HDF5_LFLAGS ?= $(shell pkg-config --libs   hdf5)
+     # pkg-config for hdf5 only prints "-lhdf5", not "-lhdf5_cpp -lhdf5"
+     HDF5_LFLAGS ?= $(shell pkg-config --libs   hdf5) -lhdf5_cpp
 else
      HDF5_CFLAGS ?=
      HDF5_LFLAGS ?=
