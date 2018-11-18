@@ -190,11 +190,10 @@ librf_pipelines.so: $(OFILES)
 	$(CPP) $(CPP_LFLAGS) -shared -o $@ $^ $(LIBS)
 
 rf_pipelines/rf_pipelines_c.o: rf_pipelines/rf_pipelines_c.cpp $(INCFILES)
-	$(CPP) -Wno-strict-aliasing -DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION -c -o $@ $<
+	$(CPP) -Wno-strict-aliasing -DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION -c -o $@ $< $(PYTHON_CFLAGS)
 
 rf_pipelines/rf_pipelines_c.so: rf_pipelines/rf_pipelines_c.o librf_pipelines.so
-	$(CPP) $(CPP_LFLAGS) -shared -o $@ $< -lrf_pipelines -lpyclops $(LIBS) $(LIBS_PYMODULE)
-
+	$(CPP) $(CPP_LFLAGS) -shared -o $@ $< -lrf_pipelines -lpyclops $(LIBS) $(LIBS_PYMODULE) $(PYTHON_LFLAGS)
 
 rfp-time: rfp-time.o $(OFILES)
 	$(CPP) $(CPP_LFLAGS) -o $@ $^ $(LIBS)

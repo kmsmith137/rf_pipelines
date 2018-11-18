@@ -20,8 +20,13 @@ BINDIR ?= $(HOME)/bin
 PYDIR ?= $(HOME)/lib/python2.7/site-packages
 
 # Read-only location of python header files
-PYTHON_INCDIR=/usr/include/python2.7
-NUMPY_INCDIR=/usr/lib64/python2.7/site-packages/numpy/core/include
+#PYTHON_INCDIR=/usr/include/python2.7
+#NUMPY_INCDIR=/usr/lib64/python2.7/site-packages/numpy/core/include
+
+PYTHON_CFLAGS ?= $(shell pkg-config --cflags python)
+PYTHON_LFLAGS ?= $(shell pkg-config --libs   python)
+
+PYTHON_CFLAGS += -I$(NUMPY_INCDIR)
 
 ifeq ($(HAVE_HDF5),y)
      HDF5_CFLAGS ?= $(shell pkg-config --cflags hdf5)
