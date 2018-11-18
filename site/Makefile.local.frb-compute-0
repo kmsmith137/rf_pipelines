@@ -1,11 +1,11 @@
-# Makefile.local for frb-compute-0 (the McGill test node)
+# Makefile.local for frb1.physics.mcgill.ca
 
-HAVE_PSRFITS=n
-HAVE_SIMPULSE=y
-HAVE_CH_FRB_IO=y
-HAVE_BONSAI=y
-HAVE_HDF5=y
-HAVE_PNG=y
+HAVE_PSRFITS ?= n
+HAVE_SIMPULSE ?= y
+HAVE_CH_FRB_IO ?= y
+HAVE_BONSAI ?= y
+HAVE_HDF5 ?= y
+HAVE_PNG ?= y
 
 # Directory where C++ libraries will be installed
 LIBDIR ?= $(HOME)/lib
@@ -22,16 +22,56 @@ PYDIR ?= $(HOME)/lib/python2.7/site-packages
 # Read-only location of python header files
 PYTHON_INCDIR=/usr/include/python2.7
 NUMPY_INCDIR=/usr/lib64/python2.7/site-packages/numpy/core/include
-JSONCPP_INCDIR=/usr/include/jsoncpp
 
-CPP=g++ -std=c++11 -pthread -fPIC -Wall -Wno-literal-suffix
-CPP += -march=native
-DEBUG ?= no
-ifeq ($(DEBUG),no)
-     CPP += -O3 -ffast-math -funroll-loops --param inline-unit-growth=10000
+ifeq ($(HAVE_HDF5),y)
+     HDF5_CFLAGS ?= $(shell pkg-config --cflags hdf5)
+     HDF5_LFLAGS ?= $(shell pkg-config --libs   hdf5)
 else
-     CPP += -O0 -g
+     HDF5_CFLAGS ?=
+     HDF5_LFLAGS ?=
 endif
-CPP += -I. -I$(INCDIR) -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR) -I$(JSONCPP_INCDIR)
 
-CPP_LFLAGS= -L. -L$(LIBDIR)
+MSGPACK_CFLAGS ?= $(shell pkg-config --cflags msgpack)
+MSGPACK_LFLAGS ?= $(shell pkg-config --libs   msgpack)
+
+ZMQ_CFLAGS ?= $(shell pkg-config --cflags libzmq)
+ZMQ_LFLAGS ?= $(shell pkg-config --libs   libzmq)
+
+ifeq ($(HAVE_JSONCPP),y)
+     JSON_CFLAGS ?= $(shell pkg-config --cflags jsoncpp)
+     JSON_LFLAGS ?= $(shell pkg-config --libs   jsoncpp)
+else
+     JSON_CFLAGS ?=
+     JSON_LFLAGS ?=
+endif
+
+CURL_CFLAGS ?= $(shell pkg-config --cflags libcurl)
+CURL_LFLAGS ?= $(shell pkg-config --libs   libcurl)
+
+#
+# C++ command line
+# Must support c++11
+# Don't forget to put -L. and -L$(LIBDIR) on the command line (in this order)
+# Don't forget to add . and $(LIBDIR) in your LD_LIBRARY_PATH environment variable (in this order)
+# Don't forget -pthread and -fPIC
+#
+
+CXX ?= g++
+
+DEBUG ?= no
+ifeq ($(DEBUG), yes)
+    OPT_FLAGS ?= -O0 -g
+else
+    OPT_FLAGS ?= -O3 -funroll-loops -ffast-math --param inline-unit-growth=10000
+endif
+
+COVERAGE ?= no
+ifeq ($(COVERAGE), yes)
+    # Travis + Coverall: include coverage tracking code.  Also note that we turned off optimization!
+    OPT_FLAGS += -fprofile-arcs -ftest-coverage
+endif
+
+CPP := $(CXX) -std=c++11 -pthread -fPIC -Wall -Wno-literal-suffix $(OPT_FLAGS) -march=native -I. -I$(INCDIR) $(HDF5_CFLAGS) $(MSGPACK_CFLAGS) $(ZMQ_CFLAGS) $(JSON_CFLAGS) $(CURL_CFLAGS)
+
+CPP_LFLAGS := -L. -L$(LIBDIR) $(HDF5_LFLAGS) $(MSGPACK_LFLAGS) $(ZMQ_LFLAGS) $(JSON_LFLAGS) $(CURL_LFLAGS)
+
