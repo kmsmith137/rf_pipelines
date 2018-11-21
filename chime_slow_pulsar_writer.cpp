@@ -23,11 +23,11 @@ chime_slow_pulsar_writer::chime_slow_pulsar_writer(ssize_t nt_chunk_) :
 void chime_slow_pulsar_writer::init_real_time_state(const real_time_state &rt_state_)
 {
     if (rt_state_.beam_id < 0)
-	throw runtime_error("rf_pipelines::chime_slow_pulsar:writer::init_real_time_state(): 'beam_id' is negative, or uninitialized");
+    throw runtime_error("rf_pipelines::chime_slow_pulsar:writer::init_real_time_state(): 'beam_id' is negative, or uninitialized");
     if (!rt_state_.memory_pool)
-	throw runtime_error("rf_pipelines::chime_slow_pulsar:writer::init_real_time_state(): 'memory_pool' is an empty pointer, or uninitialized");
+    throw runtime_error("rf_pipelines::chime_slow_pulsar:writer::init_real_time_state(): 'memory_pool' is an empty pointer, or uninitialized");
     if (!rt_state_.output_devices)
-	throw runtime_error("rf_pipelines::chime_slow_pulsar:writer::init_real_time_state(): 'output_devices' is an empty pointer, or uninitialized");
+    throw runtime_error("rf_pipelines::chime_slow_pulsar:writer::init_real_time_state(): 'output_devices' is an empty pointer, or uninitialized");
     
     this->rt_state = rt_state_;    
 }
@@ -40,11 +40,10 @@ void chime_slow_pulsar_writer::set_output_file_params(const output_file_params &
     std::lock_guard<std::mutex> lock(this->of_mutex);
     this->of_params = of_params_;
     this->of_params.nt_out = this->nt_chunk / this->of_params.nds_out / this->nds;
+    // I consider this an acceptable use of "new"
     this->tmp_i = std::shared_ptr<std::vector<float>>(new std::vector<float>(this->of_params.nfreq_out * this->of_params.nt_out));
     this->tmp_w = std::shared_ptr<std::vector<float>>(new std::vector<float>(this->of_params.nfreq_out * this->of_params.nt_out));
 
-    // const int nfreq_out = this->of_params.nfreq_out;
-    // const int nt_out = this->nt_chunk / this->of_params.nds_out;
     this->downsampler = std::shared_ptr<rf_kernels::wi_downsampler>(new rf_kernels::wi_downsampler(
                                                              this->nfreq/this->of_params.nfreq_out, this->of_params.nds_out));
 }
@@ -65,43 +64,73 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
     int nds = this->nds;
     auto tmp_i = this->tmp_i;
     auto tmp_w = this->tmp_w;
-
+    uint64_t frame0 = this->frame0_nano;
+    uint64_t fpga_counts_per_sample = this->fpga_counts_per_sample;
+    uint64_t nsamp_chunk = this->nt_chunk;
     this->of_mutex.unlock();
 
     // std::cout << "current downsample setting: (nfreq_out) " << this->of_params.nfreq_out << " (nt_out) " << this->of_params.nt_out << std::endl;
     if( (nfreq_out > 0) && (nt_out > 0) ){
-        // do downsample   
-        // int nfreq_out, int nt_out,
-        //         float *out_i, int out_istride,
-        //         float *out_w, int out_wstride,
-        //         const float *in_i, int in_istride,
-        //         const float *in_w, int in_wstride);
-        std::cout << "downsampling" << std::endl;
 
         this->downsampler->downsample(nfreq_out, nt_out, 
                                         get_ptr<float>(tmp_i), nt_out,
                                         get_ptr<float>(tmp_w), nt_out,
                                         intensity, istride,
                                         weights, wstride);
-        
-        std::cout << "writing" << std::endl;
+
+        this->quantize_store(tmp_i, istride, weight, istride);
         // basic file io for testing
-        std::string fname = "test_out.spdat";
-        {
-            std::ofstream of(fname, std::ios::binary);
-            of.seekp(std::ios::end);
-            of.write(reinterpret_cast<char*>(&(this->of_params)), 
-                sizeof(chime_slow_pulsar_writer::output_file_params));
-            of.write(reinterpret_cast<char*>(&((*this->tmp_i)[0])),
-                sizeof(float) * nfreq_out * nt_out);
-            of.write(reinterpret_cast<char*>(&((*this->tmp_w)[0])),
-                sizeof(float) * nfreq_out * nt_out);
-            of.close()
-        }
+        // std::string fname = "test_out.spdat";
+        // {
+        //     std::ofstream of(fname, std::ios::binary | std::ios::app);
+        //     of.seekp(std::ios::end);
+        //     of.write(reinterpret_cast<char*>(&(this->of_params)), 
+        //         sizeof(chime_slow_pulsar_writer::output_file_params));
+        //     of.write(reinterpret_cast<char*>(&((*this->tmp_i)[0])),
+        //         sizeof(float) * nfreq_out * nt_out);
+        //     of.write(reinterpret_cast<char*>(&((*this->tmp_w)[0])),
+        //         sizeof(float) * nfreq_out * nt_out);
+        // }
     }
+
+    this->nchunk += 1;
 }
 
- 
+void chime_slow_pulsar_writer::quantize_store(fvec_t in, ssize_t istride, fvec_t weights, ssize_t wstride)
+{
+
+}
+
+void chime_slow_pulsar_writer::verify_slab()
+{
+
+}
+
+// // virtual override
+// void chime_slow_pulsar_writer::_bind_transform(Json::Value &json_attrs)
+// {
+//     if (!json_attrs.isMember("frame0_nano") || !json_attrs.isMember("fpga_counts_per_sample"))
+//         throw runtime_error("chime_slow_pulsar_writer: expected json_attrs to contain members 'frame0_nano' and 'fpga_counts_per_sample'");
+    
+//     this->frame0_nano = json_attrs['fpga_counts_per_sample'].asUInt64();
+//     this->fpga_counts_per_sample = json_attrs['fpga_counts_per_sample'].asUInt64();
+
+//     std::cout << "frame0: " << this->frame0_nano << " fpga_counts_per_sample: " << this->fpga_counts_per_sample << std::endl;
+// }
+
+// virtual override
+void chime_slow_pulsar_writer::_start_pipeline(Json::Value &json_attrs)
+{
+    if (!json_attrs.isMember("frame0_nano") || !json_attrs.isMember("fpga_counts_per_sample"))
+        throw runtime_error("chime_slow_pulsar_writer: expected json_attrs to contain members 'frame0_nano' and 'fpga_counts_per_sample'");
+    
+    // acquire the outfile lock
+    std::lock_guard<std::mutex> lg(this->of_mutex);
+    this->frame0_nano = json_attrs["frame0_nano"].asUInt64();
+    this->fpga_counts_per_sample = json_attrs["fpga_counts_per_sample"].asUInt64();
+
+    // std::cout << "frame0: " << this->frame0_nano << " fpga_counts_per_sample: " << this->fpga_counts_per_sample << std::endl;
+}
 
 
 // virtual override
@@ -134,9 +163,9 @@ shared_ptr<chime_slow_pulsar_writer> chime_slow_pulsar_writer::from_json(const J
 // This boilerplate is necessary to "deserialize" a chime_slow_pulsar_writer object from a json file.
 namespace {
     struct _init {
-	_init() {
-	    pipeline_object::register_json_deserializer("chime_slow_pulsar_writer", chime_slow_pulsar_writer::from_json);
-	}
+    _init() {
+        pipeline_object::register_json_deserializer("chime_slow_pulsar_writer", chime_slow_pulsar_writer::from_json);
+    }
     } init;
 }
 

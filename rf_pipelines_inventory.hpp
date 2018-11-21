@@ -609,6 +609,7 @@ std::shared_ptr<wi_transform> make_mask_counter(int nt_chunk, std::string where)
 //
 // chime_slow_pulsar_writer
 
+typedef std::shared_ptr<std::vector<float>> fvec_t;
 
 struct chime_slow_pulsar_writer : public wi_transform
 {
@@ -632,13 +633,20 @@ struct chime_slow_pulsar_writer : public wi_transform
     };
 
     // strategically removed from output_file_params
-    std::shared_ptr<std::vector<float>> tmp_w;
-    std::shared_ptr<std::vector<float>> tmp_i;
-    
-    real_time_state rt_state;
+    fvec_t tmp_w;
+    fvec_t tmp_i;
+
+    std::shared_ptr<ch_frb_io::memory_slab> working_slab;
+
+    uint64_t frame0_nano = 0;
+    uint64_t fpga_counts_per_sample = 1;
+    uint64_t nchunk = 0;
+
     output_file_params of_params;
     std::mutex of_mutex;
     std::shared_ptr<rf_kernels::wi_downsampler> downsampler;
+    
+    real_time_state rt_state;
 
     chime_slow_pulsar_writer(ssize_t nt_chunk);
 
@@ -649,11 +657,18 @@ struct chime_slow_pulsar_writer : public wi_transform
     void set_output_file_params(const output_file_params &of_params);
 
     // Called by rf_pipelines thread.
+    // virtual void _bind_transform(Json::Value &json_attrs) override;
+    virtual void _start_pipeline(Json::Value &json_attrs) override;
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
     virtual void _end_pipeline(Json::Value &json_output) override;
 
     virtual Json::Value jsonize() const override;
     static std::shared_ptr<chime_slow_pulsar_writer> from_json(const Json::Value &j);
+
+    private:
+        // quantize to nbit depth and store the store the result in a memory slab
+        void quantize_store(fvec_t in, const ssize_t istride, fvec_t weights, const ssize_t wstride, const int nbits_out);
+        void verify_slab();
 };
 
 
