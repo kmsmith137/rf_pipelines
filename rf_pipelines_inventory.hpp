@@ -62,6 +62,7 @@
 // (**) = the bonsai_dedisperser currently has both python and C++ versions
 
 #include <mutex>
+#include <atomic>
 
 // ring_buffer, pipeline_object, etc.
 #include "rf_pipelines_base_classes.hpp"
@@ -584,7 +585,9 @@ public:
     std::vector<rf_pipelines::mask_measurements> get_all_measurements();
 
     void add(rf_pipelines::mask_measurements& meas);
-    
+
+    std::atomic<uint64_t> max_fpga_seen;
+
 protected:
     std::vector<rf_pipelines::mask_measurements> ringbuf;
     std::mutex mutex;

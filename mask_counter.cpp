@@ -1,3 +1,4 @@
+#include <cassert>
 #include "rf_pipelines_internals.hpp"
 #include "rf_pipelines_inventory.hpp"
 
@@ -77,7 +78,7 @@ void mask_counter_transform::_bind_transform(Json::Value &json_attrs)
     if (names.type() != Json::arrayValue)
         throw runtime_error("mask_counter: expected JSON attribute '" + keyname + "' to be an array (of 'where' entries)");
     // check for duplicates
-    for (int i=0; i<names.size(); i++) {
+    for (uint i=0; i<names.size(); i++) {
         if (!names[i].isString())
             throw runtime_error("mask_counter: expected JSON attribute '" + keyname + "' to contain strings");
         string othername = names[i].asString();
@@ -93,11 +94,10 @@ void mask_counter_transform::_bind_transform(Json::Value &json_attrs)
 void mask_counter_transform::_start_pipeline(Json::Value &json_attrs)
 {
 #ifdef HAVE_CH_FRB_IO
+    this->chime_initial_fpga_count = uint64_t_from_json(json_attrs, "initial_fpga_count");
+    this->chime_fpga_counts_per_sample = int_from_json(json_attrs, "fpga_counts_per_sample");
+    this->chime_fpga_counts_initialized = true;
     if (attrs.chime_stream) {
-	this->chime_initial_fpga_count = uint64_t_from_json(json_attrs, "initial_fpga_count");
-	this->chime_fpga_counts_per_sample = int_from_json(json_attrs, "fpga_counts_per_sample");
-	this->chime_fpga_counts_initialized = true;
-	
 	if (attrs.chime_stream->ini_params.fpga_counts_per_sample != chime_fpga_counts_per_sample)
 	    throw runtime_error("mask_counter: value of 'fpga_counts_per_sample' in chime_intensity_stream does not match the value in _start_pipeline()");
     }
@@ -129,9 +129,8 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
 	if (!chime_fpga_counts_initialized)
 	    throw runtime_error("rf_pipelines::chime_mask_counter internal error: fpga count fields were not initialized as expected");
     
-	// The 'pos' argument is the current pipeline position in units of time samples (not FPGA counts)
+	// The 'pos' argument is the current pipeline position in units of time samples -- convert to FPGA counts
 	uint64_t fpga_counts = pos * this->chime_fpga_counts_per_sample + this->chime_initial_fpga_count;
-	//cout << "chime_mask_counter: finding chunk for pos " << pos << " (fpga counts " << fpga_counts << ")" << endl;
 
 	// The last argument in find_assembled_chunk() is 'toplevel'.
 	chunk = attrs.chime_stream->find_assembled_chunk(attrs.chime_beam_id, fpga_counts, true);
@@ -160,6 +159,18 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
     if (ringbuf) {
 	meas.nsamples_unmasked = nunmasked;
 	ringbuf->add(meas);
+
+        //cout << "mask_counter: saving mask measurement.  fpgacounts initialized: " <<
+        //chime_fpga_counts_initialized << "; last fpga count " <<
+        //((pos + nt_chunk) * this->chime_fpga_counts_per_sample + this->chime_initial_fpga_count) << endl;
+
+        if (chime_fpga_counts_initialized) {
+            uint64_t last_fpga_count = (pos + nt_chunk) * this->chime_fpga_counts_per_sample + this->chime_initial_fpga_count;
+            assert(last_fpga_count > ringbuf->max_fpga_seen);
+            ringbuf->max_fpga_seen = last_fpga_count;
+        }
+
+        
     }
 
 #ifdef HAVE_CH_FRB_IO

@@ -22,6 +22,7 @@ mask_measurements::mask_measurements(ssize_t pos_, int nf_, int nt_)
 
 
 mask_measurements_ringbuf::mask_measurements_ringbuf(int nhistory) :
+    max_fpga_seen(0),
     next(0),
     maxsize(nhistory)
 {
