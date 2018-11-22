@@ -160,6 +160,8 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
 	meas.nsamples_unmasked = nunmasked;
 	ringbuf->add(meas);
 
+        cout << "mask_counter " << where << ": pos " << pos << ", nt_chunk " << nt_chunk << ", pos_lo " << pos_lo << ", pos_hi " << pos_hi << endl;
+        
         //cout << "mask_counter: saving mask measurement.  fpgacounts initialized: " <<
         //chime_fpga_counts_initialized << "; last fpga count " <<
         //((pos + nt_chunk) * this->chime_fpga_counts_per_sample + this->chime_initial_fpga_count) << endl;

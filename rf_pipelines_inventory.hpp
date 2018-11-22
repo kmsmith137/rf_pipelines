@@ -502,6 +502,20 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 							   int nt_per_packet, float wt_cutoff, double target_gbps, int beam_id=0);
 
 
+class latency_monitor : public wi_transform {
+public:
+    const std::string where;     // specified at construction
+    latency_monitor(int nt_chunk_, std::string where_);
+    virtual ~latency_monitor();
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual Json::Value jsonize() const override;
+    static std::shared_ptr<latency_monitor> from_json(const Json::Value &j);
+};
+
+extern std::shared_ptr<latency_monitor> make_latency_monitor(int nt_chunk, const std::string &where);
+
+
+
 // -------------------------------------------------------------------------------------------------
 //
 // Mask counter transform -- counts masked data samples

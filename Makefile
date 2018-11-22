@@ -47,6 +47,7 @@ OFILES = badchannel_mask.o \
 	spectrum_analyzer.o \
 	spline_detrenders.o \
 	std_dev_clippers.o \
+	latency_monitor.o \
 	mask_counter.o \
 	mask_measurements_ringbuf.o \
 	wi_sub_pipeline.o \
