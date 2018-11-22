@@ -600,8 +600,6 @@ public:
 
     void add(rf_pipelines::mask_measurements& meas);
 
-    std::atomic<uint64_t> max_fpga_seen;
-
 protected:
     std::vector<rf_pipelines::mask_measurements> ringbuf;
     std::mutex mutex;

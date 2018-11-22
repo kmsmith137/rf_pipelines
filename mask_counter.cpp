@@ -159,20 +159,6 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
     if (ringbuf) {
 	meas.nsamples_unmasked = nunmasked;
 	ringbuf->add(meas);
-
-        cout << "mask_counter " << where << ": pos " << pos << ", nt_chunk " << nt_chunk << ", pos_lo " << pos_lo << ", pos_hi " << pos_hi << endl;
-        
-        //cout << "mask_counter: saving mask measurement.  fpgacounts initialized: " <<
-        //chime_fpga_counts_initialized << "; last fpga count " <<
-        //((pos + nt_chunk) * this->chime_fpga_counts_per_sample + this->chime_initial_fpga_count) << endl;
-
-        if (chime_fpga_counts_initialized) {
-            uint64_t last_fpga_count = (pos + nt_chunk) * this->chime_fpga_counts_per_sample + this->chime_initial_fpga_count;
-            assert(last_fpga_count > ringbuf->max_fpga_seen);
-            ringbuf->max_fpga_seen = last_fpga_count;
-        }
-
-        
     }
 
 #ifdef HAVE_CH_FRB_IO
