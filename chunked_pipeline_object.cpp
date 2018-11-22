@@ -106,7 +106,7 @@ ssize_t chunked_pipeline_object::_advance()
     while (pos_lo <= pos_hi - nt_chunk) {
 	bool alive = _process_chunk(pos_lo);
 	if (!alive)
-	    ret = min(ret, pos_hi);
+	    ret = min(ret, pos_hi.load());
 	
 	pos_lo += nt_chunk;
     }

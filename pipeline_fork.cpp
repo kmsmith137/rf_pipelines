@@ -70,7 +70,7 @@ struct pipeline_fork : public pipeline_object
 		memcpy(dst.data + i*dst.stride, src.data + i*src.stride, (pos_hi - pos_lo) * sizeof(float));
 	}
 
-	this->pos_lo = pos_hi;
+	this->pos_lo = pos_hi.load();
 	return SSIZE_MAX;
     }
 

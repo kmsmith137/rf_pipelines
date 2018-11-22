@@ -86,7 +86,7 @@ public:
 	    }
 	}
 	
-	this->pos_lo = pos_hi;
+	this->pos_lo = pos_hi.load();
 	return SSIZE_MAX;
     }
 };
