@@ -26,7 +26,7 @@ OFILES = badchannel_mask.o \
 	chime_file_stream.o \
 	chime_file_stream_base.o \
 	chime_file_writer.o \
-        chime_frb_file_stream.o \
+    chime_frb_file_stream.o \
 	chime_network_stream.o \
 	chime_packetizer.o \
 	chunked_pipeline_object.o \
@@ -47,7 +47,6 @@ OFILES = badchannel_mask.o \
 	spectrum_analyzer.o \
 	spline_detrenders.o \
 	std_dev_clippers.o \
-	latency_monitor.o \
 	mask_counter.o \
 	mask_measurements_ringbuf.o \
 	wi_sub_pipeline.o \
