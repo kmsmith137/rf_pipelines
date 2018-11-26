@@ -71,14 +71,17 @@
 
 #include <rf_kernels/downsample.hpp>
 
+#include <ch_frb_io.hpp>
+
 // A little hack so that all definitions still compile if optional dependencies are absent.
 namespace bonsai { class dedisperser; }
 
-namespace ch_frb_io {
-    class intensity_network_stream;
-    class output_device_pool;
-    class memory_slab_pool;
-}
+// namespace ch_frb_io {
+//     class intensity_network_stream;
+//     class output_device_pool;
+//     class memory_slab_pool;
+// }
+using namespace ch_frb_io;
 
 namespace rf_pipelines {
 #if 0
@@ -636,7 +639,9 @@ struct chime_slow_pulsar_writer : public wi_transform
     fvec_t tmp_w;
     fvec_t tmp_i;
 
-    std::shared_ptr<ch_frb_io::memory_slab> working_slab;
+    // this is a unique pointer to the underlying memory
+    ch_frb_io::memory_slab_t working_slab;
+    ssize_t slab_pos = 0;
 
     uint64_t frame0_nano = 0;
     uint64_t fpga_counts_per_sample = 1;
@@ -668,7 +673,10 @@ struct chime_slow_pulsar_writer : public wi_transform
     private:
         // quantize to nbit depth and store the store the result in a memory slab
         void quantize_store(fvec_t in, const ssize_t istride, fvec_t weights, const ssize_t wstride, const int nbits_out);
-        void verify_slab();
+        // verify and ensure that memory is allocated
+        bool verify_slab();
+        // make_chunk
+        // TODO
 };
 
 

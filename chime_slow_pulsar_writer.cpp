@@ -4,6 +4,7 @@
 
 using namespace std;
 using namespace rf_kernels;
+using namespace ch_frb_io;
 
 namespace rf_pipelines {
 #if 0
@@ -62,6 +63,7 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
     int nfreq_out = this->of_params.nfreq_out;
     int nt_out = this->of_params.nt_out;
     int nds = this->nds;
+    int nbits_out = this->of_params.nbits_out;
     auto tmp_i = this->tmp_i;
     auto tmp_w = this->tmp_w;
     uint64_t frame0 = this->frame0_nano;
@@ -78,7 +80,7 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
                                         intensity, istride,
                                         weights, wstride);
 
-        this->quantize_store(tmp_i, istride, weight, istride);
+        this->quantize_store(tmp_i, nt_out, tmp_w, nt_out, nbits_out);
         // basic file io for testing
         // std::string fname = "test_out.spdat";
         // {
@@ -96,13 +98,26 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
     this->nchunk += 1;
 }
 
-void chime_slow_pulsar_writer::quantize_store(fvec_t in, ssize_t istride, fvec_t weights, ssize_t wstride)
+void quantize(fvec_t in, const int nbits, char* out)
 {
-
+    // TODO implement robust kernelized quantize function
+    // currently just copy at full-depth
 }
 
-void chime_slow_pulsar_writer::verify_slab()
+void chime_slow_pulsar_writer::quantize_store(fvec_t in, const ssize_t istride, fvec_t weights, const ssize_t wstride, const int nbits)
 {
+    //no-op
+}
+
+// make sure there's a slab allocated
+bool chime_slow_pulsar_writer::verify_slab()
+{
+    // must set null
+    // need threadsafe
+    if(!working_slab){
+        working_slab = memory_slab_t(this->rt_state.memory_pool->get_slab(false, true));
+    }
+
 
 }
 
