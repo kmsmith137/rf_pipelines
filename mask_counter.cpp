@@ -94,10 +94,11 @@ void mask_counter_transform::_bind_transform(Json::Value &json_attrs)
 void mask_counter_transform::_start_pipeline(Json::Value &json_attrs)
 {
 #ifdef HAVE_CH_FRB_IO
-    this->chime_initial_fpga_count = uint64_t_from_json(json_attrs, "initial_fpga_count");
-    this->chime_fpga_counts_per_sample = int_from_json(json_attrs, "fpga_counts_per_sample");
-    this->chime_fpga_counts_initialized = true;
     if (attrs.chime_stream) {
+	this->chime_initial_fpga_count = uint64_t_from_json(json_attrs, "initial_fpga_count");
+	this->chime_fpga_counts_per_sample = int_from_json(json_attrs, "fpga_counts_per_sample");
+	this->chime_fpga_counts_initialized = true;
+	
 	if (attrs.chime_stream->ini_params.fpga_counts_per_sample != chime_fpga_counts_per_sample)
 	    throw runtime_error("mask_counter: value of 'fpga_counts_per_sample' in chime_intensity_stream does not match the value in _start_pipeline()");
     }
