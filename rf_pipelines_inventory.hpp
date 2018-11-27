@@ -328,11 +328,11 @@ extern std::shared_ptr<wi_transform>
 make_std_dev_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, int Df=1, int Dt=1, bool two_pass=false);
 
 struct inject_data {
-    int beam;
     // mode == 0: ADD
     int mode;
-    // offset for FPGAcounts values in fpga_offset array.
-    uint64_t fpga0;
+    // overall offset, in time samples relative to the start of the
+    // rf_pipelines stream, for the sample_offset values.
+    ssize_t sample0;
     // should be "nfreq" in length
     std::vector<int32_t> sample_offset;
     // should be "nfreq" in length
@@ -362,11 +362,6 @@ public:
 protected:
     std::mutex mutex;
     std::vector<std::shared_ptr<inject_data> > to_inject;
-
-    // The FPGA count related fields are initialized in _start_pipeline().
-    bool fpga_counts_initialized = false;
-    uint64_t initial_fpga_count = 0;
-    int fpga_counts_per_sample = 0;
 };
 
 // Externally callable

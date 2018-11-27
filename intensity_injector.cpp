@@ -23,26 +23,21 @@ void intensity_injector::_bind_transform(Json::Value &json_attrs)
     rf_assert(this->nds == 1);
 }
 
+void intensity_injector::_start_pipeline(Json::Value &json_attrs) {}
+
 void intensity_injector::inject(shared_ptr<inject_data> data) {
     ulock u(mutex);
     to_inject.push_back(data);
-}
-
-void intensity_injector::_start_pipeline(Json::Value &j)
-{
-    this->initial_fpga_count = uint64_t_from_json(j, "initial_fpga_count");
-    this->fpga_counts_per_sample = int_from_json(j, "fpga_counts_per_sample");
-    this->fpga_counts_initialized = true;
 }
 
 void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
 {
     // Reminder: previous asserts have already checked that
     //   this->nds == 1
-    if (!fpga_counts_initialized)
-	throw runtime_error("rf_pipelines::intensity_injector internal error: fpga count fields were not initialized as expected");
     
-    // Recall that the 'pos' argument is the current pipeline position in units of time samples (not FPGA counts)
+    // Recall that the 'pos' argument is the current pipeline position
+    // in units of time samples (starts from 0 for first chunk
+    // processed by this rf_pipeline)
 
     vector<shared_ptr<inject_data> > to_inject_now;
     {
@@ -50,35 +45,40 @@ void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float
         //cout << "Intensity_Injector transform: " << to_inject.size() << " chunks of data" << endl;
         for (int idata=0; idata<to_inject.size(); idata++) {
             auto data = to_inject[idata];
-
             // Index in the current chunk of data of "fpga0" of this injected data entry
-            int sample0 = (data->fpga0 - this->initial_fpga_count) / this->fpga_counts_per_sample - pos;
-            if (sample0 + data->max_offset < 0) {
+            if ((data->sample0 + data->max_offset) < pos) {
                 // This inject_data request's time has passed.
                 to_inject.erase(to_inject.begin() + idata);
                 idata--;
             }
-            if (sample0 + data->min_offset >= this->nt_chunk)
+            if ((data->sample0 + data->min_offset) >= (pos + this->nt_chunk)) {
                 // This inject_data request is in the future.
                 continue;
-            //cout << "Data to inject overlaps this chunk!!" << endl;
+            }
             to_inject_now.push_back(data);
         }
     }
     for (const auto &data : to_inject_now) {
-        int sample0 = (data->fpga0 - this->initial_fpga_count) / this->fpga_counts_per_sample - pos;
+        // About int sizes here: data->sample0 may be large, as may
+        // pos (if we run for a long time).
+
+        // Index in this chunk of offset zero in the inject_data request;
+        // may be positive or negative.
+        ssize_t sample0 = data->sample0 - pos;
         int nf = 0;
         int ntotal = 0;
         int nbefore = 0;
         int nafter = 0;
         // offset into the "data" array
-        int data_offset = 0;
+        ssize_t data_offset = 0;
         for (int i=0; i<data->sample_offset.size(); i++) {
-            int this_data_offset = data_offset;
+            // save this index in case we need it below
+            ssize_t this_data_offset = data_offset;
+            // skip this frequency's data regardless of whether we use them
             data_offset += data->ndata[i];
             // sample start,end for this frequency
-            int f0 = sample0 + data->sample_offset[i];
-            int f1 = f0 + data->ndata[i];
+            ssize_t f0 = sample0 + data->sample_offset[i];
+            ssize_t f1 = f0 + data->ndata[i];
             if (f0 >= nt_chunk) {
                 // This frequency's data is after this chunk
                 nafter++;
