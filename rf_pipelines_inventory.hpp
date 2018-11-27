@@ -346,15 +346,15 @@ struct inject_data {
     int max_offset;
 };
 
-class injector : public wi_transform {
+class intensity_injector : public wi_transform {
 public:
-    injector(int nt_chunk_);
-    virtual ~injector() { }
+    intensity_injector(int nt_chunk_);
+    virtual ~intensity_injector() { }
     virtual void _bind_transform(Json::Value &json_attrs) override;
     virtual void _start_pipeline(Json::Value &j) override;
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
     virtual Json::Value jsonize() const override;
-    static std::shared_ptr<injector> from_json(const Json::Value &j);
+    static std::shared_ptr<intensity_injector> from_json(const Json::Value &j);
 
     // Called from RPC
     void inject(std::shared_ptr<inject_data> data);
@@ -372,7 +372,7 @@ protected:
 };
 
 // Externally callable
-std::shared_ptr<injector> make_injector(int nt_chunk);
+std::shared_ptr<intensity_injector> make_intensity_injector(int nt_chunk);
 
 
 

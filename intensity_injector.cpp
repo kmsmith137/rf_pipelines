@@ -12,23 +12,23 @@ namespace rf_pipelines {
 
 typedef lock_guard<mutex> ulock;
 
-injector::injector(int nt_chunk) :
-    wi_transform("injector") {
+intensity_injector::intensity_injector(int nt_chunk) :
+    wi_transform("intensity_injector") {
     this->nt_chunk = nt_chunk;
 }
 
-void injector::_bind_transform(Json::Value &json_attrs)
+void intensity_injector::_bind_transform(Json::Value &json_attrs)
 {
     // Should be redundant with asserts elsewhere in rf_pipelines, but just being paranoid!
     rf_assert(this->nds == 1);
 }
 
-void injector::inject(shared_ptr<inject_data> data) {
+void intensity_injector::inject(shared_ptr<inject_data> data) {
     ulock u(mutex);
     to_inject.push_back(data);
 }
 
-uint64_t injector::get_last_fpgacount_seen() {
+uint64_t intensity_injector::get_last_fpgacount_seen() {
     uint64_t rtn;
     {
         ulock u(mutex);
@@ -38,26 +38,26 @@ uint64_t injector::get_last_fpgacount_seen() {
 }
 
 
-void injector::_start_pipeline(Json::Value &j)
+void intensity_injector::_start_pipeline(Json::Value &j)
 {
     this->initial_fpga_count = uint64_t_from_json(j, "initial_fpga_count");
     this->fpga_counts_per_sample = int_from_json(j, "fpga_counts_per_sample");
     this->fpga_counts_initialized = true;
 }
 
-void injector::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
+void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
 {
     // Reminder: previous asserts have already checked that
     //   this->nds == 1
     if (!fpga_counts_initialized)
-	throw runtime_error("rf_pipelines::injector internal error: fpga count fields were not initialized as expected");
+	throw runtime_error("rf_pipelines::intensity_injector internal error: fpga count fields were not initialized as expected");
     
     // Recall that the 'pos' argument is the current pipeline position in units of time samples (not FPGA counts)
 
     vector<shared_ptr<inject_data> > to_inject_now;
     {
         ulock u(mutex);
-        //cout << "Injector transform: " << to_inject.size() << " chunks of data" << endl;
+        //cout << "Intensity_Injector transform: " << to_inject.size() << " chunks of data" << endl;
         for (int idata=0; idata<to_inject.size(); idata++) {
             auto data = to_inject[idata];
 
@@ -124,32 +124,32 @@ void injector::_process_chunk(float *intensity, ssize_t istride, float *weights,
     }
 }
 
-Json::Value injector::jsonize() const
+Json::Value intensity_injector::jsonize() const
 {
     Json::Value ret;
-    ret["class_name"] = "injector";
+    ret["class_name"] = "intensity_injector";
     ret["nt_chunk"] = int(nt_chunk);
     return ret;
 }
 
-shared_ptr<injector>
-injector::from_json(const Json::Value &j)
+shared_ptr<intensity_injector>
+intensity_injector::from_json(const Json::Value &j)
 {
     ssize_t nt_chunk = ssize_t_from_json(j, "nt_chunk");
-    return make_shared<injector>(nt_chunk);
+    return make_shared<intensity_injector>(nt_chunk);
 }
 
 namespace {
     struct _init {
         _init() {
-            pipeline_object::register_json_deserializer("injector", injector::from_json);
+            pipeline_object::register_json_deserializer("intensity_injector", intensity_injector::from_json);
         }
     } init;
 }
 
 // Externally callable
-shared_ptr<injector> make_injector(int nt_chunk) {
-    return make_shared<injector>(nt_chunk);
+shared_ptr<intensity_injector> make_intensity_injector(int nt_chunk) {
+    return make_shared<intensity_injector>(nt_chunk);
 }
 
 }  // namespace rf_pipelines
