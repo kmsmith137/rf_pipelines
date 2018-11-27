@@ -28,16 +28,6 @@ void intensity_injector::inject(shared_ptr<inject_data> data) {
     to_inject.push_back(data);
 }
 
-uint64_t intensity_injector::get_last_fpgacount_seen() {
-    uint64_t rtn;
-    {
-        ulock u(mutex);
-        rtn = last_fpgacount_processed;
-    }
-    return rtn;
-}
-
-
 void intensity_injector::_start_pipeline(Json::Value &j)
 {
     this->initial_fpga_count = uint64_t_from_json(j, "initial_fpga_count");
