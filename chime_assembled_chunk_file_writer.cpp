@@ -30,8 +30,8 @@ struct chime_assembled_chunk_file_writer : public wi_transform {
 
     // Stream params (not available until set_stream() gets called)
     assembled_chunk::initializer chunk_ini;
-    int ichunk = 0;
-    
+    int ichunk_offset = 0;
+
     chime_assembled_chunk_file_writer(const string &filename_, bool clobber_) :
 	wi_transform("chime_assembled_chunk_file_writer"),
 	filename(filename_),
@@ -50,13 +50,16 @@ struct chime_assembled_chunk_file_writer : public wi_transform {
         chunk_ini.nt_per_packet = 16; // ??
         chunk_ini.fpga_counts_per_sample = j["fpga_counts_per_sample"].asInt();
         chunk_ini.frame0_nano = j["frame0_nano"].asUInt64();
+        // This converts ch_frb_io chunk number (which scales directly
+        // to FPGA counts) to rf_pipelines chunk counts (which start
+        // from 0 at the beginning of the stream).
+        this->ichunk_offset = j["initial_fpga_count"].asUInt64() / (uint64_t)(chunk_ini.fpga_counts_per_sample * constants::nt_per_assembled_chunk);
     }
 
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
     {
         //cout << "chime_assembled_chunk_file_writer: chunk " << this->ichunk << ", nt " << this->nt_chunk << ", nf " << this->nfreq << endl;
-        chunk_ini.ichunk = this->ichunk;
-        this->ichunk++;
+        chunk_ini.ichunk = this->ichunk_offset + pos / constants::nt_per_assembled_chunk;
         shared_ptr<assembled_chunk> ch = assembled_chunk::make(chunk_ini);
 
         float ilo = 1e9;
