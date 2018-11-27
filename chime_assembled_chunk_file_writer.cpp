@@ -54,8 +54,7 @@ struct chime_assembled_chunk_file_writer : public wi_transform {
 
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
     {
-        cout << "chime_assembled_chunk_file_writer: chunk " << this->ichunk << ", nt " << this->nt_chunk << ", nf " << this->nfreq << endl;
-
+        //cout << "chime_assembled_chunk_file_writer: chunk " << this->ichunk << ", nt " << this->nt_chunk << ", nf " << this->nfreq << endl;
         chunk_ini.ichunk = this->ichunk;
         this->ichunk++;
         shared_ptr<assembled_chunk> ch = assembled_chunk::make(chunk_ini);
@@ -74,8 +73,6 @@ struct chime_assembled_chunk_file_writer : public wi_transform {
                     ilo = ival;
                 if (ival > ihi)
                     ihi = ival;
-                //ihi = std::min(ilo, intensity[f*istride + t]);
-                //ilo = std::max(ihi, intensity[f*istride + t]);
             }
         }
         // Set scale and offset to fill 2 to 252.
@@ -86,10 +83,7 @@ struct chime_assembled_chunk_file_writer : public wi_transform {
             ch->scales[i] = scale;
             ch->offsets[i] = offset;
         }
-
-        cout << "chime_assembled_chunk_file_writer: chunk " << ch->ichunk << ", number of bad samples: " << nbad << ", range " << ilo << " to " << ihi << ", offset " << offset << ", scale "
-             << scale << endl;
-        
+        //cout << "chime_assembled_chunk_file_writer: chunk " << ch->ichunk << ", number of bad samples: " << nbad << ", range " << ilo << " to " << ihi << ", offset " << offset << ", scale " << scale << endl;
         int i = 0;
         for (int f=0; f<this->nfreq; f++) {
             for (int t=0; t<this->nt_chunk; t++) {
@@ -102,13 +96,11 @@ struct chime_assembled_chunk_file_writer : public wi_transform {
                 i++;
             }
         }
-        
         string thisfn = ch->format_filename(filename);
 	if (!clobber && file_exists(thisfn))
 	    throw runtime_error(thisfn + ": file already exists and clobber=false was specified in the the chime_assembled_chunk_file_writer constructor");
-
         ch->write_msgpack_file(thisfn, false);
-        cout << "Wrote " << thisfn << endl;
+        //cout << "Wrote " << thisfn << endl;
     }
 
     virtual Json::Value jsonize() const override
