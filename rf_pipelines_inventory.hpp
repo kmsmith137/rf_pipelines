@@ -344,6 +344,10 @@ struct inject_data {
     int min_offset;
     // (computed: maximum sample index+1 = max(sample_offset + ndata) )
     int max_offset;
+
+    // Checks this structure for validity, given expect number of frequencies.
+    // Returns error message, or empty string if checks pass.
+    std::string check(int nfreq);
 };
 
 class intensity_injector : public wi_transform {
@@ -356,7 +360,9 @@ public:
     virtual Json::Value jsonize() const override;
     static std::shared_ptr<intensity_injector> from_json(const Json::Value &j);
 
-    // Called from RPC
+    // Called from RPC.
+    // Throws runtime_error if data to inject have wrong number of frequencies,
+    // or partially occurred in the past.
     void inject(std::shared_ptr<inject_data> data);
 
 protected:

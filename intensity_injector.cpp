@@ -12,6 +12,22 @@ namespace rf_pipelines {
 
 typedef lock_guard<mutex> ulock;
 
+string inject_data::check(int nfreq) {
+    if (this->mode != 0)
+        return "intensity_injector: mode=" + to_string(this->mode) + " but only mode=0 is known";
+    if (this->sample_offset.size() != nfreq)
+        return "intensity_injector: sample_offset array has size " + to_string(this->sample_offset.size()) + ", expected nfreq=" + to_string(nfreq);
+    if (this->ndata.size() != nfreq)
+        return "intensity_injector: ndata array has size " + to_string(this->ndata.size()) + ", expected nfreq=" + to_string(nfreq);
+    size_t nd = 0;
+    for (uint16_t n : this->ndata)
+        nd += n;
+    if (this->data.size() != nd)
+        return "intensity_injector: data array has size " + to_string(this->data.size()) + ", expected sum(ndata)=" + to_string(nd);
+    return "";
+}
+
+
 intensity_injector::intensity_injector(int nt_chunk) :
     wi_transform("intensity_injector") {
     this->nt_chunk = nt_chunk;
@@ -25,9 +41,27 @@ void intensity_injector::_bind_transform(Json::Value &json_attrs)
 
 void intensity_injector::_start_pipeline(Json::Value &json_attrs) {}
 
-void intensity_injector::inject(shared_ptr<inject_data> data) {
+void intensity_injector::inject(shared_ptr<inject_data> inj) {
+    // Check input
+    string err = inj->check(nfreq);
+    if (err.size())
+        throw runtime_error(err);
+
+    // Compute range of sample values
+    int min_offset = inj->sample_offset[0];
+    int max_offset = inj->sample_offset[0] + inj->ndata[0];
+    for (int i=0; i<inj->sample_offset.size(); i++) {
+        min_offset = std::min(min_offset, inj->sample_offset[i]);
+        max_offset = std::max(max_offset, inj->sample_offset[i] + inj->ndata[i]);
+    }
+    inj->min_offset = min_offset;
+    inj->max_offset = max_offset;
+
+    if (inj->min_offset + inj->sample0 < pos_lo)
+        throw runtime_error("intensity_injector: data to inject is already in the past!  Inject sample " + to_string(inj->min_offset + inj->sample0) + " vs now " + to_string(pos_lo));
+
     ulock u(mutex);
-    to_inject.push_back(data);
+    to_inject.push_back(inj);
 }
 
 void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
@@ -42,7 +76,7 @@ void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float
     vector<shared_ptr<inject_data> > to_inject_now;
     {
         ulock u(mutex);
-        //cout << "Intensity_Injector transform: " << to_inject.size() << " chunks of data" << endl;
+        cout << "Intensity_Injector transform: " << to_inject.size() << " chunks of data" << endl;
         for (int idata=0; idata<to_inject.size(); idata++) {
             auto data = to_inject[idata];
             // Index in the current chunk of data of "fpga0" of this injected data entry
@@ -110,7 +144,7 @@ void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float
             nf += 1;
             ntotal += ncopy;
         }
-        //cout << "Injected " << nf << " frequency bins, total of " << ntotal << " samples.  N freq before: " << nbefore << ", after: " << nafter << endl;
+        cout << "Injected " << nf << " frequency bins, total of " << ntotal << " samples.  N freq before: " << nbefore << ", after: " << nafter << endl;
     }
 }
 
