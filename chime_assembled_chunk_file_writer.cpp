@@ -58,10 +58,8 @@ struct chime_assembled_chunk_file_writer : public wi_transform {
 
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
     {
-        //cout << "chime_assembled_chunk_file_writer: chunk " << this->ichunk << ", nt " << this->nt_chunk << ", nf " << this->nfreq << endl;
         chunk_ini.ichunk = this->ichunk_offset + pos / constants::nt_per_assembled_chunk;
         shared_ptr<assembled_chunk> ch = assembled_chunk::make(chunk_ini);
-
         float ilo = 1e9;
         float ihi = -1e9;
         int nbad = 0;
@@ -103,7 +101,7 @@ struct chime_assembled_chunk_file_writer : public wi_transform {
 	if (!clobber && file_exists(thisfn))
 	    throw runtime_error(thisfn + ": file already exists and clobber=false was specified in the the chime_assembled_chunk_file_writer constructor");
         ch->write_msgpack_file(thisfn, false);
-        //cout << "Wrote " << thisfn << endl;
+        cout << "Wrote file " << thisfn << endl;
     }
 
     virtual Json::Value jsonize() const override
