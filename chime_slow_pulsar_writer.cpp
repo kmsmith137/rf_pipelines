@@ -2,6 +2,8 @@
 #include <rf_kernels/downsample.hpp>
 #include <fstream>
 
+#include <ch_frb_io.hpp>
+
 using namespace std;
 using namespace rf_kernels;
 using namespace ch_frb_io;
@@ -11,6 +13,10 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
+struct chime_slow_pulsar_context
+{
+
+};
 
 chime_slow_pulsar_writer::chime_slow_pulsar_writer(ssize_t nt_chunk_) :
     wi_transform("chime_slow_pulsar_writer")
@@ -30,7 +36,10 @@ void chime_slow_pulsar_writer::init_real_time_state(const real_time_state &rt_st
     if (!rt_state_.output_devices)
     throw runtime_error("rf_pipelines::chime_slow_pulsar:writer::init_real_time_state(): 'output_devices' is an empty pointer, or uninitialized");
     
-    this->rt_state = rt_state_;    
+    this->rt_state = rt_state_;
+    ch_chunk::initializer ini_params;
+    ini_params.pool = this->rt_state.memory_pool;
+    chunk = slow_pulsar_chunk::make_slow_pulsar_chunk(ini_params);
 }
 
 
@@ -79,7 +88,6 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
                                         get_ptr<float>(tmp_w), nt_out,
                                         intensity, istride,
                                         weights, wstride);
-
         this->quantize_store(tmp_i, nt_out, tmp_w, nt_out, nbits_out);
         // basic file io for testing
         // std::string fname = "test_out.spdat";
@@ -98,28 +106,20 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
     this->nchunk += 1;
 }
 
-void quantize(fvec_t in, const int nbits, char* out)
-{
-    // TODO implement robust kernelized quantize function
-    // currently just copy at full-depth
-}
-
 void chime_slow_pulsar_writer::quantize_store(fvec_t in, const ssize_t istride, fvec_t weights, const ssize_t wstride, const int nbits)
 {
     //no-op
 }
 
-// make sure there's a slab allocated
-bool chime_slow_pulsar_writer::verify_slab()
-{
-    // must set null
-    // need threadsafe
-    if(!working_slab){
-        working_slab = memory_slab_t(this->rt_state.memory_pool->get_slab(false, true));
-    }
-
-
-}
+// // make sure there's a slab allocated
+// bool chime_slow_pulsar_writer::verify_slab()
+// {
+//     // must set null
+//     // need threadsafe?
+//     if(!working_slab){
+//         working_slab = memory_slab_t(this->rt_state.memory_pool->get_slab(false, true));
+//     }
+// }
 
 // // virtual override
 // void chime_slow_pulsar_writer::_bind_transform(Json::Value &json_attrs)

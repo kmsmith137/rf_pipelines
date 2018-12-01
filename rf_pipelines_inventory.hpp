@@ -71,17 +71,17 @@
 
 #include <rf_kernels/downsample.hpp>
 
-#include <ch_frb_io.hpp>
-
 // A little hack so that all definitions still compile if optional dependencies are absent.
 namespace bonsai { class dedisperser; }
 
-// namespace ch_frb_io {
-//     class intensity_network_stream;
-//     class output_device_pool;
-//     class memory_slab_pool;
-// }
-using namespace ch_frb_io;
+namespace ch_frb_io {
+    class memory_slab_pool;
+    class intensity_network_stream;
+    class output_device_pool;
+    class ch_chunk;
+    class slow_pulsar_chunk;
+}
+// using namespace ch_frb_io;
 
 namespace rf_pipelines {
 #if 0
@@ -613,6 +613,8 @@ std::shared_ptr<wi_transform> make_mask_counter(int nt_chunk, std::string where)
 // chime_slow_pulsar_writer
 
 typedef std::shared_ptr<std::vector<float>> fvec_t;
+// typedef std::unique_ptr<ch_frb_io::slow_pulsar_chunk> sp_chunk_t;
+typedef std::shared_ptr<ch_frb_io::slow_pulsar_chunk> sp_chunk_t;
 
 struct chime_slow_pulsar_writer : public wi_transform
 {
@@ -639,8 +641,6 @@ struct chime_slow_pulsar_writer : public wi_transform
     fvec_t tmp_w;
     fvec_t tmp_i;
 
-    // this is a unique pointer to the underlying memory
-    ch_frb_io::memory_slab_t working_slab;
     ssize_t slab_pos = 0;
 
     uint64_t frame0_nano = 0;
@@ -670,13 +670,13 @@ struct chime_slow_pulsar_writer : public wi_transform
     virtual Json::Value jsonize() const override;
     static std::shared_ptr<chime_slow_pulsar_writer> from_json(const Json::Value &j);
 
-    private:
-        // quantize to nbit depth and store the store the result in a memory slab
-        void quantize_store(fvec_t in, const ssize_t istride, fvec_t weights, const ssize_t wstride, const int nbits_out);
-        // verify and ensure that memory is allocated
-        bool verify_slab();
-        // make_chunk
-        // TODO
+protected:
+    sp_chunk_t chunk = nullptr;
+
+private:
+    // quantize to nbit depth and store the store the result in a memory slab
+    void quantize_store(fvec_t in, const ssize_t istride, fvec_t weights, const ssize_t wstride, const int nbits_out);
+    // verify and ensure that memory is allocated
 };
 
 
