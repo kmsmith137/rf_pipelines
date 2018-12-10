@@ -66,7 +66,7 @@ ssize_t pipeline::_advance()
 {
     // Initial values, updated in loop below
     ssize_t ret = SSIZE_MAX;
-    this->pos_lo = pos_hi;
+    this->pos_lo = pos_hi.load();
 
     for (size_t i = 0; i < elements.size(); i++) {
 	auto p = elements[i];
@@ -74,7 +74,7 @@ ssize_t pipeline::_advance()
 	ssize_t m = p->pos_lo;  // only needed for debug print
 	ssize_t n = p->advance(pos_lo, pos_max);
 	ret = min(ret, n);
-	pos_lo = p->pos_lo;
+	pos_lo = p->pos_lo.load();
 
 	if (_params.noisy())
 	    p->_print("advance " + to_string(m) + " -> " + to_string(pos_lo));

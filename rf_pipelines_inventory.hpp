@@ -62,6 +62,7 @@
 // (**) = the bonsai_dedisperser currently has both python and C++ versions
 
 #include <mutex>
+#include <atomic>
 
 // ring_buffer, pipeline_object, etc.
 #include "rf_pipelines_base_classes.hpp"
@@ -510,7 +511,6 @@ std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename
 extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &dstname, int nfreq_coarse_per_packet, int nt_per_chunk, 
 							   int nt_per_packet, float wt_cutoff, double target_gbps, int beam_id=0);
 
-
 // -------------------------------------------------------------------------------------------------
 //
 // Mask counter transform -- counts masked data samples
@@ -594,7 +594,7 @@ public:
     std::vector<rf_pipelines::mask_measurements> get_all_measurements();
 
     void add(rf_pipelines::mask_measurements& meas);
-    
+
 protected:
     std::vector<rf_pipelines::mask_measurements> ringbuf;
     std::mutex mutex;
