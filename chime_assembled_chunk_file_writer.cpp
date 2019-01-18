@@ -84,7 +84,6 @@ struct chime_assembled_chunk_file_writer : public wi_transform {
             ch->scales[i] = scale;
             ch->offsets[i] = offset;
         }
-        //cout << "chime_assembled_chunk_file_writer: chunk " << ch->ichunk << ", number of bad samples: " << nbad << ", range " << ilo << " to " << ihi << ", offset " << offset << ", scale " << scale << endl;
         int i = 0;
         for (int f=0; f<this->nfreq; f++) {
             for (int t=0; t<this->nt_chunk; t++) {
@@ -101,7 +100,6 @@ struct chime_assembled_chunk_file_writer : public wi_transform {
 	if (!clobber && file_exists(thisfn))
 	    throw runtime_error(thisfn + ": file already exists and clobber=false was specified in the the chime_assembled_chunk_file_writer constructor");
         ch->write_msgpack_file(thisfn, false);
-        cout << "Wrote file " << thisfn << endl;
     }
 
     virtual Json::Value jsonize() const override
