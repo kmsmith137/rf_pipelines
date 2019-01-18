@@ -517,8 +517,20 @@ extern std::shared_ptr<wi_transform> make_spectrum_analyzer(ssize_t Dt1=16, ssiz
 
 std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename, bool clobber=false, int bitshuffle=2, ssize_t nt_chunk=0);
 
-
-std::shared_ptr<wi_transform> make_chime_assembled_chunk_file_writer(const std::string &filename, bool clobber);
+// chime_assembled_chunk_file_writen.
+//
+// This is a pseudo-transform which doesn't actually modify the data, it just writes it to a file in
+// CHIME assembled-chunk msgpack format.
+// 
+// If 'clobber' is false, and the target file already exists, an exception will be thrown rather than clobbering the old file.
+//
+// The 'filename_pattern' replaces certain string patterns by values determined at runtime.  See ch_frb_io/ch_frb_io.hpp ("format_filename") for details, but these might be of interest:
+//   (STREAM)  -> %01i stream_id
+//   (BEAM)    -> %04i beam_id
+//   (CHUNK)   -> %08i ichunk
+//   (FPGA0)   -> %012i start FPGA-counts
+//   (FPGAN)   -> %08i  FPGA-counts size
+std::shared_ptr<wi_transform> make_chime_assembled_chunk_file_writer(const std::string &filename_pattern, bool clobber);
 
 
 // chime_packetizer.
