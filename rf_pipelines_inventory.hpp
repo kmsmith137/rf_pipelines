@@ -693,6 +693,8 @@ public:
 	int nt = 0;          // number of time samples, with no time downsampling factor applied.
 
 	// Contiguous array containing spooled data, with shape (csize, nt/nds).
+	// (The "complementary" dimensions are opaque to the pipeline_spool, so it treats
+	//  them as a single flattened array axis with length csize=prod(cdims).)
 	std::vector<float> data;
 
     protected:
@@ -700,8 +702,8 @@ public:
 	friend class pipeline_spool;
     };
 
-    // The 'bufnames' constructor argument is a list of ring buffers to spool,
-    // e.g. { "INTENSITY", "WEIGHTS" }.
+    // The 'bufnames' constructor argument is a list of ring buffers to spool.
+    // For example, bufnames={"INTENSITY", "WEIGHTS"}.
     pipeline_spool(const std::vector<std::string> &bufnames);
 
     // This utility function can be called after the pipeline run, to retrieve a spooled buffer.
