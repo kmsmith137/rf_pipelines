@@ -4,92 +4,11 @@ using namespace std;
 using namespace rf_pipelines;
 
 
-// -------------------------------------------------------------------------------------------------
-
-
 static string bufname_from_index(int ix)
 {
     rf_assert(ix >= 0 && ix <= 100);
     return "BUFFER" + to_string(ix);
 }
-
-static int index_from_bufname(const string &s)
-{
-    int slen = s.size();
-    if (slen < 7)
-	throw runtime_error("bad call to index_from_bufname()");
-
-    const char *sp = s.c_str();
-    if (strncmp(sp, "BUFFER", 6))
-	throw runtime_error("bad call to index_from_bufname()");
-
-    return lexical_cast<int> (string(sp+6), "bufname");
-}
-
-
-// -------------------------------------------------------------------------------------------------
-
-
-class pipeline_output_vectorizer : public pipeline_object {
-public:
-    vector<shared_ptr<ring_buffer>> ring_buffers;
-    vector<vector<float>> vectorized_output;
-    vector<ssize_t> csize;
-
-    pipeline_output_vectorizer() :
-	pipeline_object("vectorizer")
-    { }
-
-    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
-    {
-	this->nt_chunk_out = nt_chunk_in;
-	this->nt_contig = nt_chunk_in;
-	this->nt_maxgap = 0;
-
-	for (const auto &p: rb_dict) {
-	    string rb_name = p.first;
-	    int ix = index_from_bufname(rb_name);
-
-	    if (ix >= (int)ring_buffers.size()) {
-		ring_buffers.resize(ix+1);
-		vectorized_output.resize(ix+1);
-		csize.resize(ix+1, 0);
-	    }
-	    
-	    rf_assert(!ring_buffers[ix]);
-
-	    ring_buffers[ix] = this->get_buffer(rb_dict, rb_name);
-	    csize[ix] = ring_buffers[ix]->csize;
-	}
-    }
-
-    virtual ssize_t _advance() override
-    {
-	for (size_t ix = 0; ix < ring_buffers.size(); ix++) {
-	    if (!ring_buffers[ix])
-		continue;
-
-	    ssize_t nc = csize[ix];
-	    vectorized_output[ix].resize(pos_hi * nc, 0.0);
-
-	    for (ssize_t pos0 = this->pos_lo; pos0 < this->pos_hi; pos0 += nt_contig) {
-		ssize_t nt = min(pos_hi - pos_lo, nt_contig);
-		ring_buffer_subarray arr(ring_buffers[ix], pos0, pos0 + nt, ring_buffer::ACCESS_READ);
-
-		for (ssize_t ic = 0; ic < nc; ic++) {
-		    float *dst = &vectorized_output[ix][pos0*nc + ic];
-		    float *src = arr.data + ic * arr.stride;
-
-		    for (ssize_t it = 0; it < nt; it++)
-			dst[it*nc] = src[it];
-		}
-	    }
-	}
-	
-	this->pos_lo = pos_hi;
-	return SSIZE_MAX;
-    }
-};
 
 
 // -------------------------------------------------------------------------------------------------
@@ -144,11 +63,25 @@ struct reference_pipeline : reference_pipeline_object
 
 void reference_pipeline_object::run_test(ssize_t nt_end)
 {
+    // Not currently using 'nds' in the code (this is a FIXME, not a deliberate decision)
+    rf_assert(this->nds == 1); 
+
+    // Run reference_pipeline.
     vector<vector<float>> ref_buf;
     this->apply_reference(ref_buf, nt_end);
 
+    // The output of the reference_pipeline is a list of buffers.  Some buffers are
+    // absent (indicated by zero-length vectors), and the rest have shape (nt_end, csize).
+    for (unsigned int ix = 0; ix < ref_buf.size(); ix++)
+	rf_assert((ref_buf[ix].size() == nt_end*csize) || (ref_buf[ix].size() == 0));
+
+    vector<string> spool_bufnames;
+    for (unsigned int ix = 0; ix < ref_buf.size(); ix++)
+	if (ref_buf[ix].size() > 0)
+	    spool_bufnames.push_back(bufname_from_index(ix));
+
     auto p1 = this->make_real_pipeline_object(nt_end);
-    auto p2 = make_shared<pipeline_output_vectorizer> ();
+    auto p2 = make_shared<pipeline_spool> (spool_bufnames);
 
     auto p = make_shared<pipeline> ();
     p->add(p1);
@@ -160,24 +93,23 @@ void reference_pipeline_object::run_test(ssize_t nt_end)
     params.debug = true;
     p->run(params);
 
-    vector<vector<float>> &buf = p2->vectorized_output;
-    rf_assert(buf.size() == ref_buf.size());
-
-    for (size_t ibuf = 0; ibuf < buf.size(); ibuf++) {
-	vector<float> &ref_v = ref_buf[ibuf];
-	vector<float> &v = buf[ibuf];
-
-	if (ref_v.size() == 0) {
-	    rf_assert(v.size() == 0);
+    for (unsigned int ix = 0; ix < ref_buf.size(); ix++) {
+	if (ref_buf[ix].size() == 0)
 	    continue;
+
+	auto sp = p2->get_spooled_buffer(bufname_from_index(ix));
+	rf_assert(sp->csize == this->csize);
+	rf_assert(sp->nds == this->nds);
+	rf_assert(sp->nt >= nt_end);   // note: can be padded past nt_end
+	rf_assert(sp->data.size() == csize * sp->nt);
+
+	for (ssize_t ic = 0; ic < csize; ic++) {
+	    for (ssize_t it = 0; it < nt_end; it++) {
+		float x = sp->data[ic*sp->nt + it];
+		float y = ref_buf[ix][it*csize + ic];
+		rf_assert(abs(x-y) < 1.0e-5);
+	    }
 	}
-
-	rf_assert(ref_v.size() > 0);
-	rf_assert(ssize_t(ref_v.size()) == csize * nt_end);
-	rf_assert(ssize_t(v.size()) >= csize * nt_end);
-
-	for (ssize_t i = 0; i < csize * nt_end; i++)
-	    rf_assert(abs(v[i] - ref_v[i]) < 1.0e-5);
     }
 }
 
@@ -185,6 +117,7 @@ void reference_pipeline_object::run_test(ssize_t nt_end)
 // -------------------------------------------------------------------------------------------------
 
 
+// Called in non-reference pipeline
 static void _randomize(ring_buffer_subarray &arr, std::mt19937 &rng)
 {
     ssize_t nc = arr.buf->csize;
@@ -431,6 +364,7 @@ struct rot2 : public chunked_pipeline_object {
 };
 
 
+// Called in reference pipeline
 static void _randomize(vector<float> &v, std::mt19937 &rng, ssize_t nc, ssize_t nt)
 {
     rf_assert(v.size() == 0);
