@@ -583,6 +583,8 @@ public:
     std::unordered_map<std::string, float> get_stats(int nchunks);
     std::vector<rf_pipelines::mask_measurements> get_all_measurements();
 
+    std::shared_ptr<rf_pipelines::mask_measurements> get_summed_measurements(ssize_t pos_min, ssize_t pos_max);
+    
     void add(rf_pipelines::mask_measurements& meas);
 
 protected:

@@ -49,14 +49,59 @@ mask_measurements_ringbuf::get_all_measurements() {
         if (next <= maxsize) {
             start = 0;
             end = next;
+            cout << "get_all_measurements: ring buffer not full yet; " << start << " to " << end << endl;
         } else {
             start = next;
             end = next + maxsize;
+            cout << "get_all_measurements: ring buffer full; " << start << " to " << end << " (mod " << (start % maxsize) << " to " << (end % maxsize) << ")" << endl;
         }
         for (int i=start; i<end; i++)
             copy.push_back(ringbuf[i % maxsize]);
     }
+    cout << "get_all_measurements: return " << copy.size() << endl;
     return copy;
+}
+
+std::shared_ptr<rf_pipelines::mask_measurements>
+mask_measurements_ringbuf::get_summed_measurements(ssize_t pos_min, ssize_t pos_max) {
+    std::shared_ptr<rf_pipelines::mask_measurements> meas_sum;
+    {
+        ulock l(mutex);
+        // Search in time order
+        int start;
+        int end;
+        if (next <= maxsize) {
+            start = 0;
+            end = next;
+            cout << "get_summed_measurements: ring buffer not full yet; " << start << " to " << end << endl;
+        } else {
+            start = next;
+            end = next + maxsize;
+            cout << "get_summed_measurements: ring buffer full; " << start << " to " << end << " (mod " << (start % maxsize) << " to " << (end % maxsize) << ")" << endl;
+        }
+        for (int i=start; i<end; i++) {
+            const mask_measurements& m = ringbuf[i % maxsize];
+            if ((m.pos + m.nt) < pos_min)
+                continue;
+            if (m.pos >= pos_max)
+                continue;
+            cout << "get_summed_measurements: adding " << m.pos << " to " << (m.pos + m.nt) << endl;
+            if (!meas_sum)
+                meas_sum = make_shared<mask_measurements>(m.pos, m.nf, m.nt);
+            else {
+                meas_sum->nt += m.nt;
+                meas_sum->nsamples += m.nsamples;
+            }
+            meas_sum->nsamples_unmasked += m.nsamples_unmasked;
+            if (meas_sum->nf != m.nf)
+                throw runtime_error("rf_pipelines::mask_measurements_ringbuf::get_summed_measurements: nf mismatch!");
+            int* sum_f = meas_sum->freqs_unmasked.get();
+            int* m_f = m.freqs_unmasked.get();
+            for (int j=0; j<meas_sum->nf; j++)
+                sum_f[j] += m_f[j];
+        }
+    }
+    return meas_sum;
 }
 
 std::unordered_map<std::string, float> 
