@@ -62,6 +62,12 @@ struct pipeline_fork : public pipeline_object
 
     virtual ssize_t _advance() override
     {
+	// FIXME noticed in passing: this implementation looks wrong!  The pipeline_object is only
+	// allowed to request up to 'nt_contig' elements in each ring_buffer_subarray, right?
+	// See pipeline_spool.cpp::_advance() for an example.
+	//
+	// FIXME another problem: downsampling factor 'nds' ignored, right?
+
 	for (element &e: this->elements) {
 	    ring_buffer_subarray src(e.input_buffer, pos_lo, pos_hi, ring_buffer::ACCESS_READ);
 	    ring_buffer_subarray dst(e.output_buffer, pos_lo, pos_hi, ring_buffer::ACCESS_APPEND);

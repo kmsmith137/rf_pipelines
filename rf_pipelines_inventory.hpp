@@ -227,7 +227,9 @@ extern std::shared_ptr<pipeline_object> make_mask_expander(rf_kernels::axis_type
 // Creates one or more new pipeline ring_buffers, by copying existing ring_buffers.
 // The 'bufnames' argument should be a list of (input_bufname, output_bufname) pairs.
 // Frequently, the input_bufname will be one of the built-in names "INTENSITY" or "WEIGHTS".
-
+//
+// FIXME: untested, needs unit test.  (Actually, upon closer inspection, the implementation
+// looks wrong!  See comment in pipeline_fork::_advance().)
 
 extern std::shared_ptr<pipeline_object> make_pipeline_fork(const std::vector<std::pair<std::string,std::string>> &bufnames);
 
@@ -659,6 +661,64 @@ protected:
 // Externally callable
 std::shared_ptr<wi_transform> make_mask_counter(int nt_chunk, std::string where);
 
+
+// -------------------------------------------------------------------------------------------------
+//
+// pipeline_spool
+// 
+// This utility class is intended for debugging!  It can be placed anywhere in a pipeline, 
+// and incrementally copies the contents of one or more pipeline ring buffers into a
+// contiguous array.  After the pipeline has ended, the contiguous array(s) can be retrieved 
+// by calling pipeline_spool::get_spooled_buffer().
+//
+// Note: the number of time samples in the spooled buffers can be larger than the number of
+// samples emitted by the stream at the beginning of the pipeline.  This is because some
+// transforms "pad" their input in order to satisfy chunk alignment restrictions.  In
+// particular, if the pipeline contains multiple pipeline_spools, then the number of time
+// samples may differ between them.
+
+
+class pipeline_spool : public pipeline_object {
+public:
+    // This helper class represents one spooled ring buffer.
+    class spooled_buffer {
+    public:
+	// "Complementary" dimensions of array, i.e. dimensions other than time.  For example,
+	// for an intensity array indexed by (freq, time), 'cdims' would be a length-1 vector
+	// containing the number of frequency channels.
+	std::vector<ssize_t> cdims;
+
+	ssize_t csize = 0;   // product of all cdims
+	ssize_t nds = 0;     // time downsampling factor (or 1 if no time downsampling)
+	int nt = 0;          // number of time samples, with no time downsampling factor applied.
+
+	// Contiguous array containing spooled data, with shape (csize, nt/nds).
+	std::vector<float> data;
+
+    protected:
+	std::vector<std::shared_ptr<float>> _incremental_data;
+	friend class pipeline_spool;
+    };
+
+    // The 'bufnames' constructor argument is a list of ring buffers to spool,
+    // e.g. { "INTENSITY", "WEIGHTS" }.
+    pipeline_spool(const std::vector<std::string> &bufnames);
+
+    // This utility function can be called after the pipeline run, to retrieve a spooled buffer.
+    std::shared_ptr<spooled_buffer> get_spooled_buffer(const std::string &bufname) const;
+
+    // Override virtuals in pipeline_object base class.
+    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
+    virtual ssize_t _advance() override;
+    virtual void _end_pipeline(Json::Value &j) override;
+    virtual void _unbind() override;
+    virtual void _deallocate() override;
+
+protected:
+    std::vector<std::string> bufnames;
+    std::vector<std::shared_ptr<ring_buffer>> ring_buffers;
+    std::vector<std::shared_ptr<spooled_buffer>> spooled_buffers;
+};
 
 
 }  // namespace rf_pipelines

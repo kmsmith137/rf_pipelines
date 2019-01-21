@@ -34,13 +34,17 @@ OFILES = badchannel_mask.o \
 	file_utils.o \
 	gaussian_noise_stream.o \
 	intensity_clippers.o \
+	intensity_injector.o \
 	json_utils.o \
 	lexical_cast.o \
+	mask_counter.o \
 	mask_expander.o \
+	mask_measurements_ringbuf.o \
 	outdir_manager.o \
 	pipeline.o \
 	pipeline_fork.o \
 	pipeline_object.o \
+	pipeline_spool.o \
 	plot_utils.o \
 	polynomial_detrenders.o \
 	ring_buffer.o \
@@ -48,9 +52,6 @@ OFILES = badchannel_mask.o \
 	spectrum_analyzer.o \
 	spline_detrenders.o \
 	std_dev_clippers.o \
-	intensity_injector.o \
-	mask_counter.o \
-	mask_measurements_ringbuf.o \
 	wi_sub_pipeline.o \
 	wi_stream.o \
 	wi_transform.o \
