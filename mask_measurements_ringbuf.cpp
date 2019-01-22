@@ -81,7 +81,7 @@ mask_measurements_ringbuf::get_summed_measurements(ssize_t pos_min, ssize_t pos_
         }
         for (int i=start; i<end; i++) {
             const mask_measurements& m = ringbuf[i % maxsize];
-            if ((m.pos + m.nt) < pos_min)
+            if ((m.pos + m.nt) <= pos_min)
                 continue;
             if (m.pos >= pos_max)
                 continue;
