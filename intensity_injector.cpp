@@ -13,6 +13,8 @@ namespace rf_pipelines {
 typedef lock_guard<mutex> ulock;
 
 string inject_data::check(int nfreq) {
+    if (nfreq == 0)
+        return "intensity_injector: nfreq=0.  This probably means you tried to inject data before the pipeline has been bound.";
     if (this->mode != 0)
         return "intensity_injector: mode=" + to_string(this->mode) + " but only mode=0 is known";
     if ((int)this->sample_offset.size() != nfreq)
