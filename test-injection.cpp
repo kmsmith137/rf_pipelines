@@ -104,8 +104,10 @@ int main(int argc, char **argv) {
         assert(buf2->cdims.size() == 1);
         assert(buf1->cdims[0] == nfreq);
         assert(buf2->cdims[0] == nfreq);
+        assert(buf1->nds == 1);
+        assert(buf2->nds == 1);
 
-        int nt_spool = buf1->nt;
+        int nt_spool = buf1->nt / buf1->nds;
         assert(buf1->nt == buf2->nt);
 
         int ndiff = 0;
@@ -129,7 +131,6 @@ int main(int argc, char **argv) {
                 if (itime >= nt_spool)
                     continue;
                 double sample = all_data[data_index + j];
-                // FIXME -- downsampling not handled here!!
                 buf1->data[ifreq * nt_spool + itime] += sample;
             }
             data_index += nsamples;
@@ -137,13 +138,12 @@ int main(int argc, char **argv) {
 
         ndiff = 0;
         for (int i=0; i<nt_spool * buf1->csize; i++) {
+            // This *apparently* works with exact comparison
             if (buf1->data[i] != buf2->data[i])
                 ndiff++;
         }
         cout << "Predicted: " << ndiff << " samples differ" << endl;
         assert(ndiff == 0);
-        
-        // assert equality between buf1 and buf2 (within machine eps)
     }
 
     cout << "test-injection: pass" << endl;
