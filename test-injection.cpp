@@ -3,9 +3,6 @@
 using namespace std;
 using namespace rf_pipelines;
 
-
-
-
 int main(int argc, char **argv) {
 
     const int niter = 50;
@@ -15,7 +12,7 @@ int main(int argc, char **argv) {
     
     for (int iter = 0; iter < niter; iter++) {
 	//if (iter % 50 == 0)
-	    cout << "test-injection: iteration " << iter << "/" << niter << endl;
+        cout << "test-injection: iteration " << iter << "/" << niter << endl;
 
 	ssize_t nfreq = randint(rng, 1, 1024);
         // To ensure we can use fast_assembled_chunk
@@ -84,9 +81,9 @@ int main(int argc, char **argv) {
             }
             inj->inject(injdata);
 
-            all_offsets.insert(all_offsets.end(),
-                               injdata->sample_offset.begin(),
-                               injdata->sample_offset.end());
+            for (int k=0; k<nfreq; k++)
+                all_offsets.push_back(injdata->sample_offset[k] +
+                                      injdata->sample0);
             all_ndata.insert(all_ndata.end(),
                              injdata->ndata.begin(),
                              injdata->ndata.end());
@@ -108,12 +105,44 @@ int main(int argc, char **argv) {
         assert(buf1->cdims[0] == nfreq);
         assert(buf2->cdims[0] == nfreq);
 
+        int nt_spool = buf1->nt;
+        assert(buf1->nt == buf2->nt);
+
+        int ndiff = 0;
+        for (int i=0; i<nt_spool * buf1->csize; i++) {
+            if (buf1->data[i] != buf2->data[i])
+                ndiff++;
+        }
+        cout << "Spooled: " << ndiff << " samples differ" << endl;
+
         ///// add injected data to buf1...
+        int data_index = 0;
         for (int i=0; i<all_offsets.size(); i++) {
-            for (int j=0; j<all_ndata[i]; j++) {
+            // each "inject_data" struct has "nfreq" strings of samples
+            int ifreq = i % nfreq;
+            int offset = all_offsets[i];
+            int nsamples = all_ndata[i];
+            for (int j=0; j<nsamples; j++) {
+                int itime = offset + j;
+                if (itime < 0)
+                    continue;
+                if (itime >= nt_spool)
+                    continue;
+                double sample = all_data[data_index + j];
+                // FIXME -- downsampling not handled here!!
+                buf1->data[ifreq * nt_spool + itime] += sample;
             }
+            data_index += nsamples;
         }
 
+        ndiff = 0;
+        for (int i=0; i<nt_spool * buf1->csize; i++) {
+            if (buf1->data[i] != buf2->data[i])
+                ndiff++;
+        }
+        cout << "Predicted: " << ndiff << " samples differ" << endl;
+        assert(ndiff == 0);
+        
         // assert equality between buf1 and buf2 (within machine eps)
     }
 

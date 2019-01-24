@@ -329,6 +329,15 @@ make_intensity_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, i
 extern std::shared_ptr<wi_transform>
 make_std_dev_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, int Df=1, int Dt=1, bool two_pass=false);
 
+// Data to be injected by the intensity_injector transform.
+// Data are described in a hybrid sparse representation --
+// - every frequency is assumed to be represented;
+// - each frequency has a different number of samples (could be zero),
+//   starting at a different time offset.
+// So frequency f will get a set of samples injected starting at
+// time sample  (sample0 + sample_offset[f]),  with  (ndata[f]) samples.
+// The samples start at (data[sum(sample_offset, [0 to f-1])]).
+//
 struct inject_data {
     // mode == 0: ADD
     int mode;
