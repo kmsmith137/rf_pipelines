@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <atomic>
 #include <climits>
 #include <iostream>
 #include <unordered_map>
@@ -498,9 +499,9 @@ public:
     //
     // Note that pos_lo <= pos_hi <= pos_max.
 
-    ssize_t pos_lo = 0;   // always a multiple of nt_chunk_out
-    ssize_t pos_hi = 0;   // always a multiple of nt_chunk_in
-    ssize_t pos_max = 0;
+    std::atomic<ssize_t> pos_lo;   // always a multiple of nt_chunk_out
+    std::atomic<ssize_t> pos_hi;   // always a multiple of nt_chunk_in
+    std::atomic<ssize_t> pos_max;
 
     // These parameters control the flow of data into the pipeline_object.
     // They are set "externally", just before the virtual function _bind() is called.

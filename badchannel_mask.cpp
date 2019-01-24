@@ -99,23 +99,24 @@ struct badchannel_mask : public wi_transform {
 	    low = m_bad_channels[ilo];
 	    high = m_bad_channels[ilo + 1];
 	    // Both ends of the range are within the observation range
-	    if (low > freq_lo_MHz && high < freq_hi_MHz)
+	    if (low >= freq_lo_MHz && high <= freq_hi_MHz)
 	    {
 	        temp.push_back(low);
 	        temp.push_back(high);
 	    }
 	    // The low end is below the observation range
-	    else if (low < freq_lo_MHz && high > freq_lo_MHz && high < freq_hi_MHz)
+	    else if (low < freq_lo_MHz && high >= freq_lo_MHz && high <= freq_hi_MHz)
 	    {
 	        temp.push_back(freq_lo_MHz);
 	        temp.push_back(high);
 	    }
 	    // The high end is above the observation range
-	    else if (high > freq_hi_MHz && low < freq_hi_MHz && low > freq_lo_MHz)
+	    else if (high > freq_hi_MHz && low <= freq_hi_MHz && low >= freq_lo_MHz)
 	    {
 	        temp.push_back(low);
 	        temp.push_back(freq_hi_MHz);
-	    }
+	    } else
+                throw runtime_error("badchannel_mask: frequency range " + std::to_string(low) + ", " + std::to_string(high) + " is weirdly outside range");
 	}
 
 	// Here, we rescale the bad frequencies into bad indices. Adapted 
@@ -135,10 +136,20 @@ struct badchannel_mask : public wi_transform {
 	m_len_indices = temp.size();
 	for (int i = 0; i < m_len_indices; ++i)
 	{
-	    if (i % 2 == 0)
-	      m_bad_indices.push_back(min(max(int(ceil(factor - temp[i]*scale)), 0), (int) nfreq-1));
-	    else
-	      m_bad_indices.push_back(min(max(int(floor(factor - temp[i]*scale)), 0), (int) nfreq-1));
+            int index;
+            // This is a bit gross: if floating-point frequencies get truncated (say, to 3 decimal places),
+            // then we can find that they land at index 1.00000001, and a ceil will take that to 2.  We
+            // subtract fudge first, then ceil.
+            double fudge = 1e-3;
+            // These are low-high frequency pairs, which turn into high-low indices.  The high is NON-inclusive.
+	    if (i % 2 == 0) {
+                index = int(ceil((factor - temp[i]*scale) - fudge));
+                index = min(max(index, 0), (int)nfreq);
+            } else {
+                index = int(floor((factor - temp[i]*scale) + fudge));
+                index = min(max(index, 0), (int)nfreq-1);
+            }
+            m_bad_indices.push_back(index);
 	}
     }
 
@@ -148,7 +159,7 @@ struct badchannel_mask : public wi_transform {
         for (int ibad_index=0; ibad_index < m_len_indices; ibad_index+=2)
         {
 	    // Iterate over each frequency in the bad index range
-	    for (int ifreq=m_bad_indices[ibad_index+1]; ifreq <= m_bad_indices[ibad_index]; ++ifreq)
+	    for (int ifreq=m_bad_indices[ibad_index+1]; ifreq < m_bad_indices[ibad_index]; ++ifreq)
 	    {
 	        // Set all weights in the channel to 0
 	        for (int it=0; it < nt_chunk; ++it)

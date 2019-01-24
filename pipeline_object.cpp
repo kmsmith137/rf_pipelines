@@ -29,7 +29,10 @@ static json_registry_t *json_registry = nullptr;   // global
 pipeline_object::pipeline_object(const string &class_name_, const string &name_) : 
     state(UNBOUND),
     class_name(class_name_),
-    name((name_.size() > 0) ? name_ : class_name_)
+    name((name_.size() > 0) ? name_ : class_name_),
+    pos_lo(0),
+    pos_hi(0),
+    pos_max(0)
 {
     if (class_name.size() == 0)
 	throw runtime_error("rf_pipelines::pipeline_object constructor: 'class_name' must be a nonempty string");

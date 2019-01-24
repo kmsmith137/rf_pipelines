@@ -10,6 +10,83 @@ static string bufname_from_index(int ix)
     return "BUFFER" + to_string(ix);
 }
 
+static int index_from_bufname(const string &s)
+{
+    int slen = s.size();
+    if (slen < 7)
+	throw runtime_error("bad call to index_from_bufname()");
+
+    const char *sp = s.c_str();
+    if (strncmp(sp, "BUFFER", 6))
+	throw runtime_error("bad call to index_from_bufname()");
+
+    return lexical_cast<int> (string(sp+6), "bufname");
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+class pipeline_output_vectorizer : public pipeline_object {
+public:
+    vector<shared_ptr<ring_buffer>> ring_buffers;
+    vector<vector<float>> vectorized_output;
+    vector<ssize_t> csize;
+
+    pipeline_output_vectorizer() :
+	pipeline_object("vectorizer")
+    { }
+
+    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override
+    {
+	this->nt_chunk_out = nt_chunk_in;
+	this->nt_contig = nt_chunk_in;
+	this->nt_maxgap = 0;
+
+	for (const auto &p: rb_dict) {
+	    string rb_name = p.first;
+	    int ix = index_from_bufname(rb_name);
+
+	    if (ix >= (int)ring_buffers.size()) {
+		ring_buffers.resize(ix+1);
+		vectorized_output.resize(ix+1);
+		csize.resize(ix+1, 0);
+	    }
+	    
+	    rf_assert(!ring_buffers[ix]);
+
+	    ring_buffers[ix] = this->get_buffer(rb_dict, rb_name);
+	    csize[ix] = ring_buffers[ix]->csize;
+	}
+    }
+
+    virtual ssize_t _advance() override
+    {
+	for (size_t ix = 0; ix < ring_buffers.size(); ix++) {
+	    if (!ring_buffers[ix])
+		continue;
+
+	    ssize_t nc = csize[ix];
+	    vectorized_output[ix].resize(pos_hi * nc, 0.0);
+
+	    for (ssize_t pos0 = this->pos_lo; pos0 < this->pos_hi; pos0 += nt_contig) {
+		ssize_t nt = min(pos_hi - pos_lo, nt_contig);
+		ring_buffer_subarray arr(ring_buffers[ix], pos0, pos0 + nt, ring_buffer::ACCESS_READ);
+
+		for (ssize_t ic = 0; ic < nc; ic++) {
+		    float *dst = &vectorized_output[ix][pos0*nc + ic];
+		    float *src = arr.data + ic * arr.stride;
+
+		    for (ssize_t it = 0; it < nt; it++)
+			dst[it*nc] = src[it];
+		}
+	    }
+	}
+	
+	this->pos_lo = pos_hi.load();
+	return SSIZE_MAX;
+    }
+};
 
 // -------------------------------------------------------------------------------------------------
 
