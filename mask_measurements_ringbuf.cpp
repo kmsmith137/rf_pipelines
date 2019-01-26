@@ -47,18 +47,16 @@ mask_measurements_ringbuf::get_all_measurements() {
         int start;
         int end;
         if (next <= maxsize) {
+            // ring buffer not yet full
             start = 0;
             end = next;
-            cout << "get_all_measurements: ring buffer not full yet; " << start << " to " << end << endl;
         } else {
             start = next;
             end = next + maxsize;
-            cout << "get_all_measurements: ring buffer full; " << start << " to " << end << " (mod " << (start % maxsize) << " to " << (end % maxsize) << ")" << endl;
         }
         for (int i=start; i<end; i++)
             copy.push_back(ringbuf[i % maxsize]);
     }
-    cout << "get_all_measurements: return " << copy.size() << endl;
     return copy;
 }
 
@@ -85,8 +83,10 @@ mask_measurements_ringbuf::get_summed_measurements(ssize_t pos_min, ssize_t pos_
                 continue;
             //cout << "get_summed_measurements: adding " << m.pos << " to " << (m.pos + m.nt) << endl;
             if (!meas_sum)
+                // create
                 meas_sum = make_shared<mask_measurements>(m.pos, m.nf, m.nt);
             else {
+                // accumulate
                 meas_sum->nt += m.nt;
                 meas_sum->nsamples += m.nsamples;
             }
