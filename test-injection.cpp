@@ -1,3 +1,4 @@
+#include <cassert>
 #include "rf_pipelines_internals.hpp"
 
 using namespace std;
