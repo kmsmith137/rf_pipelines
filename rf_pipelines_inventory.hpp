@@ -352,10 +352,9 @@ struct inject_data {
     // should have length = sum(ndata)
     std::vector<float> data;
 
-    // (computed: minimum sample index = min(sample_offset) )
-    int min_offset;
-    // (computed: maximum sample index+1 = max(sample_offset + ndata) )
-    int max_offset;
+    // Computed in intensity_injector::inject() (i.e. caller of inject() doesn't need to compute)
+    int min_offset;  // minimum sample index = min(sample_offset)
+    int max_offset;  // maximum sample index+1 = max(sample_offset + ndata)
 
     // Checks this structure for validity, given expect number of frequencies.
     // Returns error message, or empty string if checks pass.

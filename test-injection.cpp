@@ -16,9 +16,7 @@ int main(int argc, char **argv) {
         cout << "test-injection: iteration " << iter << "/" << niter << endl;
 
 	ssize_t nfreq = randint(rng, 1, 1024);
-        // To ensure we can use fast_assembled_chunk
-        ssize_t nt_per_packet = 16;
-        ssize_t nt_chunk = nt_per_packet * randint(rng, 1, 1024);
+        ssize_t nt_chunk = randint(rng, 128, 1024);
 	ssize_t nt_total = nt_chunk * randint(rng, 1, 10);
 
         double freq_lo_mhz = 400.;
@@ -57,12 +55,18 @@ int main(int argc, char **argv) {
         vector<int> all_ndata;
         vector<double> all_data;
         
-        int ninject = randint(rng, 0, 10);
+        int ninject = randint(rng, 1, 10);
 
         for (int j=0; j<ninject; j++) {
             auto injdata = make_shared<inject_data>();
+
+	    ssize_t data_tmin = randint(rng, 0, nt_total);
+	    ssize_t data_tmax = randint(rng, 0, nt_total);
+	    if (data_tmin > data_tmax)
+		std::swap(data_tmin, data_tmax);
+
             injdata->mode = 0;
-            injdata->sample0 = randint(rng, 0, nt_chunk);
+            injdata->sample0 = randint(rng, 0, data_tmin+1);
 
             injdata->sample_offset.resize(nfreq);
             injdata->ndata.resize(nfreq);
@@ -71,8 +75,8 @@ int main(int argc, char **argv) {
             
             int totinj = 0;
             for (int k=0; k<nfreq; k++) {
-                int nchunk = randint(rng, 1, 100);
-                injdata->sample_offset[k] = randint(rng, 0, nt_total);
+                int nchunk = randint(rng, 1, data_tmax - data_tmin + 1);
+                injdata->sample_offset[k] = randint(rng, data_tmin, data_tmax - nchunk + 1) - injdata->sample0;
                 injdata->ndata[k] = nchunk;
                 injdata->data.resize(totinj + nchunk);
                 for (int m=0; m<nchunk; m++) {
@@ -139,8 +143,7 @@ int main(int argc, char **argv) {
 
         ndiff = 0;
         for (int i=0; i<nt_spool * buf1->csize; i++) {
-            // This *apparently* works with exact comparison
-            if (buf1->data[i] != buf2->data[i])
+            if (abs(buf1->data[i] - buf2->data[i]) > 1.0e-5)
                 ndiff++;
         }
         cout << "Predicted: " << ndiff << " samples differ" << endl;
