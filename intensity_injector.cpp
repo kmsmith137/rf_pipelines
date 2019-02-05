@@ -39,9 +39,10 @@ void intensity_injector::_bind_transform(Json::Value &json_attrs)
 {
     // Should be redundant with asserts elsewhere in rf_pipelines, but just being paranoid!
     rf_assert(this->nds == 1);
-}
 
-void intensity_injector::_start_pipeline(Json::Value &json_attrs) {}
+    ulock u(this->mutex);
+    to_inject.clear();
+}
 
 void intensity_injector::inject(shared_ptr<inject_data> inj) {
     // Check input
@@ -153,6 +154,13 @@ void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float
         }
         //cout << "Injected " << nf << " frequency bins, total of " << ntotal << " samples.  N freq before: " << nbefore << ", after: " << nafter << endl;
     }
+}
+
+void intensity_injector::_end_pipeline(Json::Value &j)
+{
+    // When pipeline ends, clear any pending chunks of data.
+    ulock u(this->mutex);
+    to_inject.clear();
 }
 
 Json::Value intensity_injector::jsonize() const
