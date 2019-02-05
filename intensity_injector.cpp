@@ -12,7 +12,7 @@ namespace rf_pipelines {
 
 typedef lock_guard<mutex> ulock;
 
-string inject_data::check(int nfreq) {
+string intensity_injector::inject_args::check(int nfreq) {
     if (nfreq == 0)
         return "intensity_injector: nfreq=0.  This probably means you tried to inject data before the pipeline has been bound.";
     if (this->mode != 0)
@@ -44,7 +44,7 @@ void intensity_injector::_bind_transform(Json::Value &json_attrs)
     to_inject.clear();
 }
 
-void intensity_injector::inject(shared_ptr<inject_data> inj) {
+void intensity_injector::inject(shared_ptr<inject_args> inj) {
     // Check input
     string err = inj->check(nfreq);
     if (err.size())
@@ -76,7 +76,7 @@ void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float
     // in units of time samples (starts from 0 for first chunk
     // processed by this rf_pipeline)
 
-    vector<shared_ptr<inject_data> > to_inject_now;
+    vector<shared_ptr<inject_args> > to_inject_now;
     {
         ulock u(mutex);
         //cout << "Intensity_Injector transform: " << to_inject.size() << " chunks of data" << endl;
@@ -85,14 +85,14 @@ void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float
             //cout << "  Pipeline pos: " << pos << ", data injection sample0: " << data->sample0 << ", sample range " << data->sample0 + data->min_offset << " to " << data->sample0 + data->max_offset << endl;
             // Index in the current chunk of data of "fpga0" of this injected data entry
             if ((data->sample0 + data->max_offset) < pos) {
-                // This inject_data request's time has passed.
+                // This request's time has passed.
                 //cout << "  This data injection's time has passed.  Deleting" << endl;
                 to_inject.erase(to_inject.begin() + idata);
                 idata--;
                 continue;
             }
             if ((data->sample0 + data->min_offset) >= (pos + this->nt_chunk)) {
-                // This inject_data request is in the future.
+                // This request is in the future.
                 //cout << "  This data injection is in the future." << endl;
                 continue;
             }
@@ -104,7 +104,7 @@ void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float
         // About int sizes here: data->sample0 may be large, as may
         // pos (if we run for a long time).
 
-        // Index in this chunk of offset zero in the inject_data request;
+        // Index in this chunk of offset zero in the inject_args;
         // may be positive or negative.
         ssize_t sample0 = data->sample0 - pos;
         int nf = 0;

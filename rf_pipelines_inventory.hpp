@@ -330,36 +330,11 @@ make_intensity_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, i
 extern std::shared_ptr<wi_transform>
 make_std_dev_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, int Df=1, int Dt=1, bool two_pass=false);
 
-// Data to be injected by the intensity_injector transform.
-// Data are described in a hybrid sparse representation --
-// - every frequency is assumed to be represented;
-// - each frequency has a different number of samples (could be zero),
-//   starting at a different time offset.
-// So frequency f will get a set of samples injected starting at
-// time sample  (sample0 + sample_offset[f]),  with  (ndata[f]) samples.
-// The samples start at (data[sum(sample_offset, [0 to f-1])]).
+
+// -------------------------------------------------------------------------------------------------
 //
-struct inject_data {
-    // mode == 0: ADD
-    int mode;
-    // overall offset, in time samples relative to the start of the
-    // rf_pipelines stream, for the sample_offset values.
-    ssize_t sample0;
-    // should be "nfreq" in length
-    std::vector<int32_t> sample_offset;
-    // should be "nfreq" in length
-    std::vector<uint16_t> ndata;
-    // should have length = sum(ndata)
-    std::vector<float> data;
+// intensity_injector: used for real-time, RPC-triggered signal injection in the CHIME FRB pipeline.
 
-    // Computed in intensity_injector::inject() (i.e. caller of inject() doesn't need to compute)
-    int min_offset;  // minimum sample index = min(sample_offset)
-    int max_offset;  // maximum sample index+1 = max(sample_offset + ndata)
-
-    // Checks this structure for validity, given expect number of frequencies.
-    // Returns error message, or empty string if checks pass.
-    std::string check(int nfreq);
-};
 
 class intensity_injector : public wi_transform {
 public:
@@ -371,14 +346,45 @@ public:
     virtual Json::Value jsonize() const override;
     static std::shared_ptr<intensity_injector> from_json(const Json::Value &j);
 
+    // Data to be injected by the intensity_injector transform.
+    // Data are described in a hybrid sparse representation --
+    // - every frequency is assumed to be represented;
+    // - each frequency has a different number of samples (could be zero),
+    //   starting at a different time offset.
+    // So frequency f will get a set of samples injected starting at
+    // time sample  (sample0 + sample_offset[f]),  with  (ndata[f]) samples.
+    // The samples start at (data[sum(sample_offset, [0 to f-1])]).
+
+    struct inject_args {
+	// mode == 0: ADD
+	int mode = 0;  
+	// overall offset, in time samples relative to the start of the
+	// rf_pipelines stream, for the sample_offset values.
+	ssize_t sample0 = 0;
+	// should be "nfreq" in length
+	std::vector<int32_t> sample_offset;
+	// should be "nfreq" in length
+	std::vector<uint16_t> ndata;
+	// should have length = sum(ndata)
+	std::vector<float> data;
+	
+	// Computed in intensity_injector::inject() (i.e. caller of inject() doesn't need to compute)
+	int min_offset = 0;  // minimum sample index = min(sample_offset)
+	int max_offset = 0;  // maximum sample index+1 = max(sample_offset + ndata)
+	
+	// Checks this structure for validity, given expect number of frequencies.
+	// Returns error message, or empty string if checks pass.
+	std::string check(int nfreq);
+    };
+
     // Called from RPC.
     // Throws runtime_error if data to inject have wrong number of frequencies,
     // or partially occurred in the past.
-    void inject(std::shared_ptr<inject_data> data);
+    void inject(std::shared_ptr<inject_args> data);
 
 protected:
     std::mutex mutex;
-    std::vector<std::shared_ptr<inject_data> > to_inject;
+    std::vector<std::shared_ptr<inject_args>> to_inject;
 };
 
 // Externally callable

@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
         int ninject = randint(rng, 1, 10);
 
         for (int j=0; j<ninject; j++) {
-            auto injdata = make_shared<inject_data>();
+            auto injdata = make_shared<intensity_injector::inject_args>();
 
 	    ssize_t data_tmin = randint(rng, 0, nt_total);
 	    ssize_t data_tmax = randint(rng, 0, nt_total);
@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
         ///// add injected data to buf1...
         int data_index = 0;
         for (int i=0; i<all_offsets.size(); i++) {
-            // each "inject_data" struct has "nfreq" strings of samples
+            // each "inject_args" struct has "nfreq" strings of samples
             int ifreq = i % nfreq;
             int offset = all_offsets[i];
             int nsamples = all_ndata[i];
