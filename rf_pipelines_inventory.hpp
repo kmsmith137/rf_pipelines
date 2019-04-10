@@ -640,15 +640,16 @@ struct chime_slow_pulsar_writer : public wi_transform
     // strategically removed from output_file_params
     fvec_t tmp_w;
     fvec_t tmp_i;
-
-    ssize_t slab_pos = 0;
+    std::shared_ptr<std::vector<char>> tmp_buf;
+    ssize_t nbytes_charbuf = 0;
 
     uint64_t frame0_nano = 0;
     uint64_t fpga_counts_per_sample = 1;
-    uint64_t nchunk = 0;
+    uint64_t ichunk = 0;
 
     output_file_params of_params;
     std::mutex of_mutex;
+    std::mutex chunk_mutex;
     std::shared_ptr<rf_kernels::wi_downsampler> downsampler;
     
     real_time_state rt_state;
@@ -670,12 +671,14 @@ struct chime_slow_pulsar_writer : public wi_transform
     virtual Json::Value jsonize() const override;
     static std::shared_ptr<chime_slow_pulsar_writer> from_json(const Json::Value &j);
 
-protected:
+    // must leave these public for quantize_store hack
+    // otherwise should be protected or private
+    void get_new_chunk();
     sp_chunk_t chunk = nullptr;
 
-private:
+// private:
     // quantize to nbit depth and store the store the result in a memory slab
-    void quantize_store(fvec_t in, const ssize_t istride, fvec_t weights, const ssize_t wstride, const int nbits_out);
+    // void quantize_store(fvec_t in, const ssize_t istride, fvec_t weights, const ssize_t wstride, const int nbits_out, sp_header& sph);
     // verify and ensure that memory is allocated
 };
 
