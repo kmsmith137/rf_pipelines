@@ -44,6 +44,7 @@ void wi_transform::_bindc(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
 
     // Optional subclass-specific initializations.
     this->_bind_transform(json_attrs);
+    this->_bind_transform_rb(rb_dict);
 }
 
 
@@ -111,6 +112,7 @@ void wi_transform::_check_nt_chunk() const
 
 // Default virtuals
 void wi_transform::_bind_transform(Json::Value &json_attrs) { }
+void wi_transform::_bind_transform_rb(ring_buffer_dict &rb_dict) { }
 void wi_transform::_unbind_transform() { }
 
 

@@ -1087,6 +1087,7 @@ public:
     //    in each call to _process_chunk();
 
     virtual void _bind_transform(Json::Value &json_attrs);  // non-pure virtual (default does nothing)
+    virtual void _bind_transform_rb(ring_buffer_dict &rb_dict);  // non-pure virtual (default does nothing)
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) = 0;
     virtual void _unbind_transform();
 
