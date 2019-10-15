@@ -1,5 +1,6 @@
 #include "rf_kernels/spline_detrender.hpp"
 #include "rf_pipelines_internals.hpp"
+//#include "ch_frb_io/chlog.hpp"
 
 using namespace std;
 
@@ -35,11 +36,12 @@ spline_detrender::spline_detrender(int nt_chunk_, rf_kernels::axis_type axis_, i
 void spline_detrender::_bind_transform(Json::Value &json_attrs)
 {
     this->kernel = make_unique<rf_kernels::spline_detrender> (nfreq, nbins, epsilon);
+}
 
-    // if (!json_attrs.isMember("freq_lo_MHz") || !json_attrs.isMember("freq_hi_MHz"))
-    //     throw runtime_error("badchannel_mask: expected json_attrs to contain members 'freq_lo_MHz' and 'freq_hi_MHz'");
-    // double freq_lo_MHz = json_attrs["freq_lo_MHz"].asDouble();
-        
+void spline_detrender::_bind_transform_rb(ring_buffer_dict &rb_dict) {
+    if (this->ringbuf_nhistory) {
+        cout << "Spline_detrender: allocating a ring buffer to store " << this->ringbuf_nhistory << " chunks of history!  nt_chunk " << nt_chunk << ", nds " << nds << ", nbins " << nbins << endl;
+    }
 }
 
 void spline_detrender::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
@@ -75,6 +77,14 @@ shared_ptr<spline_detrender> spline_detrender::from_json(const Json::Value &j)
     rf_kernels::axis_type axis = axis_type_from_json(j, "axis");
 
     return make_shared<spline_detrender> (nt_chunk, axis, nbins, epsilon);
+}
+
+void spline_detrender::set_ringbuffer_size(int nhistory) {
+    if (this->state != UNBOUND)
+	throw runtime_error("spline_detrender::set_ringbuffer_size() called after bind()");
+    if (nhistory < 0)
+	throw runtime_error("spline_detrender::set_ringbuffer_size(): nhistory was negative");
+    this->ringbuf_nhistory = nhistory;
 }
 
 namespace {

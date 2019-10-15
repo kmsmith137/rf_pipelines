@@ -272,9 +272,14 @@ struct spline_detrender : public wi_transform {
     const rf_kernels::axis_type axis;
     std::unique_ptr<rf_kernels::spline_detrender> kernel;
 
+    int ringbuf_nhistory;        // specified by set_ringbuffer
+
     spline_detrender(int nt_chunk_, rf_kernels::axis_type axis_, int nbins_, double epsilon_);
 
+    void set_ringbuffer_size(int nhistory);
+
     virtual void _bind_transform(Json::Value &json_attrs) override;
+    virtual void _bind_transform_rb(ring_buffer_dict &rb_dict) override;
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
     virtual void _unbind_transform() override;
     virtual Json::Value jsonize() const override;
