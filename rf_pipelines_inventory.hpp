@@ -69,6 +69,7 @@
 
 #include <rf_kernels/core.hpp>          // enum axis_type (used in several places)
 #include <rf_kernels/mask_counter.hpp>  // used in mask_counter_transform
+#include <rf_kernels/spline_detrender.hpp>  // used in spline_detrender transform
 
 // A little hack so that all definitions still compile if optional dependencies are absent.
 namespace bonsai { class dedisperser; }
@@ -264,6 +265,21 @@ make_polynomial_detrender(int nt_chunk, rf_kernels::axis_type axis, int polydeg,
 // Experimental: spline_detrender.
 // I suspect this will work better than the polynomial_detrender, and it will definitely be faster!
 // Currently, the only allowed axis type is rf_kernels::AXIS_FREQ.
+
+struct spline_detrender : public wi_transform {
+    const int nbins;
+    const double epsilon;
+    const rf_kernels::axis_type axis;
+    std::unique_ptr<rf_kernels::spline_detrender> kernel;
+
+    spline_detrender(int nt_chunk_, rf_kernels::axis_type axis_, int nbins_, double epsilon_);
+
+    virtual void _bind_transform(Json::Value &json_attrs) override;
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual void _unbind_transform() override;
+    virtual Json::Value jsonize() const override;
+    static std::shared_ptr<spline_detrender> from_json(const Json::Value &j);
+};
 
 extern std::shared_ptr<wi_transform>
 make_spline_detrender(int nt_chunk, rf_kernels::axis_type axis, int nbins, double epsilon=3.0e-4);

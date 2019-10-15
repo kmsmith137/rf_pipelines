@@ -8,79 +8,74 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
-
-struct spline_detrender : public wi_transform
+spline_detrender::spline_detrender(int nt_chunk_, rf_kernels::axis_type axis_, int nbins_, double epsilon_) :
+    wi_transform("spline_detrender"),
+    nbins(nbins_),
+    epsilon(epsilon_),
+    axis(axis_)
 {
-    const int nbins;
-    const double epsilon;
-    const rf_kernels::axis_type axis;
-    std::unique_ptr<rf_kernels::spline_detrender> kernel;
+    // Temporary
+    if (axis != rf_kernels::AXIS_FREQ)
+        throw runtime_error("rf_pipelines::spline_detrender: only AXIS_FREQ is currently implemented");
 
-    spline_detrender(int nt_chunk_, rf_kernels::axis_type axis_, int nbins_, double epsilon_) :
-	wi_transform("spline_detrender"),
-	nbins(nbins_),
-	epsilon(epsilon_),
-	axis(axis_)
-    {
-	// Temporary
-	if (axis != rf_kernels::AXIS_FREQ)
-	    throw runtime_error("rf_pipelines::spline_detrender: only AXIS_FREQ is currently implemented");
+    // Superfluous for now, but will make sense when AXIS_TIME and/or AXIS_NONE are implemented.
+    if ((nt_chunk_ == 0) && (axis != rf_kernels::AXIS_FREQ))
+        throw runtime_error("rf_pipelines::spline_detrender: nt_chunk must be specified (unless axis=AXIS_FREQ)");
 
-	// Superfluous for now, but will make sense when AXIS_TIME and/or AXIS_NONE are implemented.
-	if ((nt_chunk_ == 0) && (axis != rf_kernels::AXIS_FREQ))
-	    throw runtime_error("rf_pipelines::spline_detrender: nt_chunk must be specified (unless axis=AXIS_FREQ)");
+    stringstream ss;
+    ss << "spline_detrender(nt_chunk=" << nt_chunk_ << ", axis=" << rf_kernels::axis_type_to_string(axis) << ", nbins=" << nbins << ", epsilon=" << epsilon << ")";
 
-	stringstream ss;
-        ss << "spline_detrender(nt_chunk=" << nt_chunk_ << ", axis=" << rf_kernels::axis_type_to_string(axis) << ", nbins=" << nbins << ", epsilon=" << epsilon << ")";
+    this->name = ss.str();
+    this->nt_chunk = nt_chunk_;
+    this->kernel_chunk_size = 8;
+    this->nds = 0;  // allows spline_detrender to run inside a wi_sub_pipeline.
+}
 
-	this->name = ss.str();
-	this->nt_chunk = nt_chunk_;
-	this->kernel_chunk_size = 8;
-	this->nds = 0;  // allows spline_detrender to run inside a wi_sub_pipeline.
-    }
+// Called after this->nfreq is initialized.
+void spline_detrender::_bind_transform(Json::Value &json_attrs)
+{
+    this->kernel = make_unique<rf_kernels::spline_detrender> (nfreq, nbins, epsilon);
 
-    // Called after this->nfreq is initialized.
-    virtual void _bind_transform(Json::Value &json_attrs) override
-    {
-	this->kernel = make_unique<rf_kernels::spline_detrender> (nfreq, nbins, epsilon);
-    }
+    // if (!json_attrs.isMember("freq_lo_MHz") || !json_attrs.isMember("freq_hi_MHz"))
+    //     throw runtime_error("badchannel_mask: expected json_attrs to contain members 'freq_lo_MHz' and 'freq_hi_MHz'");
+    // double freq_lo_MHz = json_attrs["freq_lo_MHz"].asDouble();
+        
+}
 
-    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
-    {
-	// Note xdiv(nt_chunk, nds) here.
-	rf_assert(kernel.get() != nullptr);
-	kernel->detrend(xdiv(nt_chunk,nds), intensity, istride, weights, wstride);
-    }
+void spline_detrender::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
+{
+    // Note xdiv(nt_chunk, nds) here.
+    rf_assert(kernel.get() != nullptr);
+    kernel->detrend(xdiv(nt_chunk,nds), intensity, istride, weights, wstride);
+}
 
-    virtual void _unbind_transform() override
-    {
-	this->kernel.reset();
-    }
+void spline_detrender::_unbind_transform()
+{
+    this->kernel.reset();
+}
 
-    virtual Json::Value jsonize() const override
-    {
-	Json::Value ret;
+Json::Value spline_detrender::jsonize() const
+{
+    Json::Value ret;
 
-	ret["class_name"] = "spline_detrender";
-	ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
-	ret["axis"] = rf_kernels::axis_type_to_string(rf_kernels::AXIS_FREQ);
-	ret["nbins"] = this->nbins;
-	ret["epsilon"] = this->epsilon;
+    ret["class_name"] = "spline_detrender";
+    ret["nt_chunk"] = int(this->get_prebind_nt_chunk());
+    ret["axis"] = rf_kernels::axis_type_to_string(rf_kernels::AXIS_FREQ);
+    ret["nbins"] = this->nbins;
+    ret["epsilon"] = this->epsilon;
 
-	return ret;
-    }
+    return ret;
+}
 
-    static shared_ptr<spline_detrender> from_json(const Json::Value &j)
-    {
-	int nbins = int_from_json(j, "nbins");
-	ssize_t nt_chunk = ssize_t_from_json(j, "nt_chunk");
-	double epsilon = double_from_json(j, "epsilon");
-	rf_kernels::axis_type axis = axis_type_from_json(j, "axis");
+shared_ptr<spline_detrender> spline_detrender::from_json(const Json::Value &j)
+{
+    int nbins = int_from_json(j, "nbins");
+    ssize_t nt_chunk = ssize_t_from_json(j, "nt_chunk");
+    double epsilon = double_from_json(j, "epsilon");
+    rf_kernels::axis_type axis = axis_type_from_json(j, "axis");
 
-	return make_shared<spline_detrender> (nt_chunk, axis, nbins, epsilon);
-    }
-};
-
+    return make_shared<spline_detrender> (nt_chunk, axis, nbins, epsilon);
+}
 
 namespace {
     struct _init {
