@@ -208,12 +208,13 @@ void ring_buffer::put(float *p, ssize_t pos0, ssize_t pos1, int mode)
 	rf_assert(first_valid_sample <= it1);
 	first_valid_sample = it0;
     }
-	
+
     if (it1 > last_valid_sample) {
 	rf_assert(last_valid_sample >= it0);
 	last_valid_sample = it1;
     }
 
+    last_valid_pos = max(last_valid_pos, pos1);
     last_valid_sample = min(last_valid_sample, it0 + period);
     first_valid_sample = max(first_valid_sample, it1 - period);
 
@@ -332,6 +333,14 @@ void ring_buffer::check_cdims(const vector<ssize_t> &cdims)
 	if (cdims[i] <= 0)
 	    throw runtime_error("rf_pipelines::ring_buffer: expected all dimensions > 0");
     }
+}
+
+ssize_t ring_buffer::get_first_valid_pos() const {
+    return first_valid_sample + (last_valid_pos - last_valid_sample) * nds;
+}
+
+ssize_t ring_buffer::get_last_valid_pos() const {
+    return last_valid_pos * nds;
 }
 
 

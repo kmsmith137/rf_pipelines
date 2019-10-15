@@ -41,14 +41,41 @@ void spline_detrender::_bind_transform(Json::Value &json_attrs)
 void spline_detrender::_bind_transform_rb(ring_buffer_dict &rb_dict) {
     if (this->ringbuf_nhistory) {
         cout << "Spline_detrender: allocating a ring buffer to store " << this->ringbuf_nhistory << " chunks of history!  nt_chunk " << nt_chunk << ", nds " << nds << ", nbins " << nbins << endl;
+        cout << "debug: " << _params.debug << endl;
+        cout << "nt_contig: " << nt_contig << ", nt_maxlag " << nt_maxlag << endl;
+        vector<ssize_t> cdims;
+        cdims.push_back((nbins+1)*2);
+        this->spline_ringbuf = create_buffer(rb_dict, "SPLINE_DETRENDER", cdims, nds);
+        // Set ring buffer nt_maxlag
+        int nhist = this->ringbuf_nhistory;
+        if (nt_maxlag)
+            nhist = round_up(nhist, nt_maxlag);
+        cout << "Requesting spline ringbuf length: " << nhist << endl;
+        this->spline_ringbuf->update_params(1024, nhist);
     }
 }
 
 void spline_detrender::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
 {
-    // Note xdiv(nt_chunk, nds) here.
     rf_assert(kernel.get() != nullptr);
-    kernel->detrend(xdiv(nt_chunk,nds), intensity, istride, weights, wstride);
+
+    float *spline_coeffs = NULL;
+    int coeff_stride = 0;
+    if (spline_ringbuf) {
+        cout << "process_chunk: getting ring buf.  pos " << pos << ", nt_chunk " << nt_chunk << endl;
+        spline_coeffs = spline_ringbuf->get(pos, pos+nt_chunk, ring_buffer::ACCESS_APPEND);
+        cout << "spline_ringbuf stride: " << spline_ringbuf->get_stride() << endl;
+        coeff_stride = spline_ringbuf->get_stride();
+    }
+
+    // Note xdiv(nt_chunk, nds) here.
+    kernel->detrend(xdiv(nt_chunk,nds), intensity, istride, weights, wstride,
+                    spline_coeffs, coeff_stride);
+
+    if (spline_ringbuf) {
+        spline_ringbuf->put(spline_coeffs, pos, pos+nt_chunk, ring_buffer::ACCESS_APPEND);
+        cout << "Valid pos range: " << spline_ringbuf->get_first_valid_pos() << " to " << spline_ringbuf->get_last_valid_pos() << endl;
+    }
 }
 
 void spline_detrender::_unbind_transform()

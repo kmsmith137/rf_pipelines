@@ -225,6 +225,9 @@ public:
     static std::string access_mode_to_string(int access_mode);
     static void check_cdims(const std::vector<ssize_t> &cdims);
 
+    ssize_t get_first_valid_pos() const;
+    ssize_t get_last_valid_pos() const;
+
 protected:
     // These parameters are initialized by repeated calls to update_params(),
     // before the ring buffer is allocated.
@@ -240,6 +243,8 @@ protected:
     ssize_t curr_pos = 0;            // downsampling factor applied
     ssize_t first_valid_sample = 0;  // downsampling factor applied
     ssize_t last_valid_sample = 0;   // downsampling factor applied
+
+    ssize_t last_valid_pos = 0; // downsampling factor applied
 
     // Diagonstic info (reported by rfp-analyze -r)
     // All of these are sample counts, with downsampling factor applied.
