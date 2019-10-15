@@ -17,7 +17,7 @@ namespace rf_pipelines {
 
 
 mask_counter_transform::mask_counter_transform(int nt_chunk_, string where_) :
-    wi_transform("mask_counter"),
+    chime_wi_transform("mask_counter"),
     where(where_)
 {	
     stringstream ss;
@@ -32,25 +32,16 @@ mask_counter_transform::mask_counter_transform(int nt_chunk_, string where_) :
 }
 
 
-void mask_counter_transform::set_runtime_attrs(const runtime_attrs &a)
+void mask_counter_transform::set_ringbuffer(int nhistory)
 {
     if (this->state != UNBOUND)
-	throw runtime_error("mask_counter_transform::set_runtime_attrs() called after bind()");
-    if (a.ringbuf_nhistory < 0)
-	throw runtime_error("mask_counter_transform::set_runtime_attrs(): ringbuf_nhistory was negative");
-    if (a.chime_stream && (a.chime_beam_id < 0))
-	throw runtime_error("mask_counter_transform::set_runtime_attrs(): chime_stream was specified, but chime_beam_id was uninitialized or negative");
-
-#ifndef HAVE_CH_FRB_IO
-    if (a.chime_stream)
-	throw runtime_error("mask_counter_transform::set_runtime_attrs(): chime_stream was specified, but rf_pipelines was compiled without ch_frb_io!");
-#endif
-
-    this->attrs = a;
+	throw runtime_error("mask_counter_transform::set_ringbuffer() called after bind()");
+    if (nhistory < 0)
+	throw runtime_error("mask_counter_transform::set_ringbuffer(): ringbuf_nhistory was negative");
+    this->ringbuf_nhistory = nhistory;
     this->ringbuf.reset();
-
-    if (a.ringbuf_nhistory > 0)
-	this->ringbuf = make_shared<mask_measurements_ringbuf> (a.ringbuf_nhistory);
+    if (nhistory > 0)
+	this->ringbuf = make_shared<mask_measurements_ringbuf> (nhistory);
 }
 
 
@@ -58,9 +49,9 @@ void mask_counter_transform::set_runtime_attrs(const runtime_attrs &a)
 void mask_counter_transform::_bind_transform(Json::Value &json_attrs)
 {
 #ifdef HAVE_CH_FRB_IO
-    if (attrs.chime_stream) {
+    if (chime_stream) {
 	// This is the earliest place we can put this assert (since this->nfreq initialized in bind())
-	if (attrs.chime_stream->ini_params.nrfifreq != this->nfreq)
+	if (chime_stream->ini_params.nrfifreq != this->nfreq)
 	    throw runtime_error("mask_counter: value of 'nrfifreq' in chime_intensity_stream does not match the frequency resolution in the RFI transform chain");
 
 	// Should be redundant with asserts elsewhere in rf_pipelines, but just being paranoid!
@@ -89,23 +80,6 @@ void mask_counter_transform::_bind_transform(Json::Value &json_attrs)
 
 }
 
-
-// virtual override
-void mask_counter_transform::_start_pipeline(Json::Value &json_attrs)
-{
-#ifdef HAVE_CH_FRB_IO
-    if (attrs.chime_stream) {
-	this->chime_initial_fpga_count = uint64_t_from_json(json_attrs, "initial_fpga_count");
-	this->chime_fpga_counts_per_sample = int_from_json(json_attrs, "fpga_counts_per_sample");
-	this->chime_fpga_counts_initialized = true;
-	
-	if (attrs.chime_stream->ini_params.fpga_counts_per_sample != chime_fpga_counts_per_sample)
-	    throw runtime_error("mask_counter: value of 'fpga_counts_per_sample' in chime_intensity_stream does not match the value in _start_pipeline()");
-    }
-#endif
-}
-
-
 // virtual override
 void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
 {
@@ -124,32 +98,20 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
 
 #ifdef HAVE_CH_FRB_IO
     // Declared outside the if-statement below, so that we hold the shared_ptr<> reference while the kernel is being called.
-    shared_ptr<ch_frb_io::assembled_chunk> chunk;
+    shared_ptr<ch_frb_io::assembled_chunk> chunk = assembled_chunk_for_pos(pos);
+    // Reminder: find_assembled_chunk() returns an empty pointer iff stream has ended, and chunk is requested past end-of-stream.
+    if (chunk) {
+        if (!chunk->rfi_mask)
+            throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with no RFI mask");
+        if (chunk->nrfifreq != this->nfreq)
+            throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with mismatched 'nrfifreq'");
+        if (chunk->has_rfi_mask)
+            throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with has_rfi_mask=true");
+        if (chunk->binning != 1)
+            throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with binning != 1");
 
-    if (attrs.chime_stream) {
-	if (!chime_fpga_counts_initialized)
-	    throw runtime_error("rf_pipelines::chime_mask_counter internal error: fpga count fields were not initialized as expected");
-    
-	// The 'pos' argument is the current pipeline position in units of time samples -- convert to FPGA counts
-	uint64_t fpga_counts = pos * this->chime_fpga_counts_per_sample + this->chime_initial_fpga_count;
-
-	// The last argument in find_assembled_chunk() is 'toplevel'.
-	chunk = attrs.chime_stream->find_assembled_chunk(attrs.chime_beam_id, fpga_counts, true);
-
-	// Reminder: find_assembled_chunk() returns an empty pointer iff stream has ended, and chunk is requested past end-of-stream.
-	if (chunk) {
-	    if (!chunk->rfi_mask)
-		throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with no RFI mask");
-	    if (chunk->nrfifreq != this->nfreq)
-		throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with mismatched 'nrfifreq'");
-	    if (chunk->has_rfi_mask)
-		throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with has_rfi_mask=true");
-	    if (chunk->binning != 1)
-		throw runtime_error("mask_counter: chime_intensity_stream::find_assembled_chunk() returned chunk with binning != 1");
-
-	    d.out_bitmask = chunk->rfi_mask;
-	    d.out_bmstride = d.nt_chunk / 8;   // contiguous
-	}
+        d.out_bitmask = chunk->rfi_mask;
+        d.out_bmstride = d.nt_chunk / 8;   // contiguous
     }
 #endif
 
@@ -167,7 +129,7 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
 	chunk->has_rfi_mask = true;
 
 	// Notify stream's output_devices that a chunk has had its rfi_mask filled in.
-	for (auto od : attrs.chime_stream->ini_params.output_devices)
+	for (auto od : chime_stream->ini_params.output_devices)
 	    od->filled_rfi_mask(chunk);
     }
 #endif

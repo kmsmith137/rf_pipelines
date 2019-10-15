@@ -72,7 +72,10 @@
 
 // A little hack so that all definitions still compile if optional dependencies are absent.
 namespace bonsai { class dedisperser; }
-namespace ch_frb_io { class intensity_network_stream; }
+namespace ch_frb_io {
+    class intensity_network_stream;
+    class assembled_chunk;
+}
 
 namespace rf_pipelines {
 #if 0
@@ -264,7 +267,6 @@ make_polynomial_detrender(int nt_chunk, rf_kernels::axis_type axis, int polydeg,
 
 extern std::shared_ptr<wi_transform>
 make_spline_detrender(int nt_chunk, rf_kernels::axis_type axis, int nbins, double epsilon=3.0e-4);
-
 
 // -------------------------------------------------------------------------------------------------
 //
@@ -595,39 +597,52 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 // This allows the same mask_counter class to be used for either offline or real-time analysis.
 
 
+// A transform class that knows that it is handling a chime intensity stream and can retrieve the
+// assembled_chunk objects passing through it.
+class chime_wi_transform : public wi_transform {
+public:
+    chime_wi_transform(const std::string &class_name, const std::string &name="");
+
+    void set_chime_stream(std::shared_ptr<ch_frb_io::intensity_network_stream> stream,
+                          int beam_id);
+
+    virtual void _start_pipeline(Json::Value &j) override;
+    virtual ~chime_wi_transform() { }
+
+protected:
+    int chime_beam_id = -1;
+    std::shared_ptr<ch_frb_io::intensity_network_stream> chime_stream;
+
+    bool chime_fpga_counts_initialized = false;
+    uint64_t chime_initial_fpga_count = 0;
+    int chime_fpga_counts_per_sample = 0;
+
+    std::shared_ptr<ch_frb_io::assembled_chunk> assembled_chunk_for_pos(ssize_t pos);
+};
+
+
 class mask_measurements_ringbuf;
 
 
-class mask_counter_transform : public wi_transform {
+class mask_counter_transform : public chime_wi_transform {
 public:
-    struct runtime_attrs {
-	int ringbuf_nhistory = 0;
-	int chime_beam_id = -1;
-	std::shared_ptr<ch_frb_io::intensity_network_stream> chime_stream;
-    };	
-
     const std::string where;     // specified at construction
-    runtime_attrs attrs;         // specified in set_runtime_attrs()
+    int ringbuf_nhistory;        // specified by set_ringbuffer
 
     ssize_t nunmasked_tot = 0;   // cumulative number of unmasked samples during pipeline run
     std::shared_ptr<mask_measurements_ringbuf> ringbuf;   // nullptr iff (attrs.ringbuf_nhistory == 0)
 
     mask_counter_transform(int nt_chunk_, std::string where_);
-    void set_runtime_attrs(const runtime_attrs &a);
 
+    void set_ringbuffer(int nhistory);
+    
     virtual void _bind_transform(Json::Value &json_attrs) override;
-    virtual void _start_pipeline(Json::Value &j) override;
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
     virtual void _end_pipeline(Json::Value &j) override;
     virtual ~mask_counter_transform() { }
 
     virtual Json::Value jsonize() const override;
     static std::shared_ptr<mask_counter_transform> from_json(const Json::Value &j);
-
-protected:
-    bool chime_fpga_counts_initialized = false;
-    uint64_t chime_initial_fpga_count = 0;
-    int chime_fpga_counts_per_sample = 0;    
 };
 
 
