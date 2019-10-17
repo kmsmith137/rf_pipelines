@@ -648,6 +648,7 @@ protected:
 };
 
 
+
 class mask_measurements_ringbuf;
 
 

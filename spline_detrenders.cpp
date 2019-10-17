@@ -40,7 +40,7 @@ void spline_detrender::_bind_transform(Json::Value &json_attrs)
 
 void spline_detrender::_bind_transform_rb(ring_buffer_dict &rb_dict) {
     if (this->ringbuf_nhistory) {
-        cout << "Spline_detrender: allocating a ring buffer to store " << this->ringbuf_nhistory << " chunks of history!  nt_chunk " << nt_chunk << ", nds " << nds << ", nbins " << nbins << endl;
+        cout << "Spline_detrender: allocating a ring buffer to store " << this->ringbuf_nhistory << " time samples of history.  nt_chunk " << nt_chunk << ", nds " << nds << ", nbins " << nbins << endl;
         cout << "debug: " << _params.debug << endl;
         cout << "nt_contig: " << nt_contig << ", nt_maxlag " << nt_maxlag << endl;
         vector<ssize_t> cdims;

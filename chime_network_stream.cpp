@@ -186,7 +186,7 @@ struct chime_dummy_network_stream : public wi_stream
 	    throw runtime_error("rf_pipelines::chime_dummy_network_stream constructor: expected pool_gb <= 100.0");
 
         int ndownfreq = 1024;
-	double gb_per_chunk = ch_frb_io::assembled_chunk::get_memory_slab_size(nupfreq, nt_per_packet, ndownfreq);
+	double gb_per_chunk = ch_frb_io::assembled_chunk::get_memory_slab_size(nupfreq, nt_per_packet, ndownfreq, 0, 0);
 
 	this->nfreq = ch_frb_io::constants::nfreq_coarse_tot * nupfreq;
 	this->nt_chunk = ch_frb_io::constants::nt_per_assembled_chunk;
