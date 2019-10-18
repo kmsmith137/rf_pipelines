@@ -70,13 +70,27 @@
 #include <rf_kernels/core.hpp>          // enum axis_type (used in several places)
 #include <rf_kernels/mask_counter.hpp>  // used in mask_counter_transform
 #include <rf_kernels/spline_detrender.hpp>  // used in spline_detrender transform
+#include <rf_kernels/online_mask_filler.hpp>
 
 // A little hack so that all definitions still compile if optional dependencies are absent.
-namespace bonsai { class dedisperser; }
+namespace bonsai {
+    class dedisperser;
+    struct config_params;
+    class online_mask_filler;
+}
 namespace ch_frb_io {
     class intensity_network_stream;
     class assembled_chunk;
 }
+
+#ifdef HAVE_BONSAI
+#include <bonsai.hpp>
+#else
+namespace bonsai {
+    // declare empty!
+    class online_mask_filler {};
+}
+#endif
 
 namespace rf_pipelines {
 #if 0
@@ -418,6 +432,69 @@ protected:
 
 // Externally callable
 std::shared_ptr<intensity_injector> make_intensity_injector(int nt_chunk);
+
+
+// -------------------------------------------------------------------------------------------------
+
+class mask_filler : public wi_transform, public bonsai::online_mask_filler {
+    rf_kernels::online_mask_filler kernel;
+
+    int nfreq_f;      // number of frequency channels (i.e. first dimension of process_chunk() input data)
+    int nfreq_c;      // number of coarse-grained frequency channels used in ring buffer (see below)
+    int nt_chunk;     // number of time samples per input chunk (i.e. second dimension of process_chunk() input data)
+    double freq_lo;   // lower limit of frequency band (note: frequency units are arbitrary, as long as freq_lo/freq_hi are consistent)
+    double freq_hi;   // upper limit of frequency band
+
+    std::vector<int> freq_bin_delim;  // length-(nfreq_c+1) array, initial/final values are (0, nfreq_f).
+
+    // The mask_filler ring-buffers estimates of the data variance,
+    // after applying weights (i.e. running_weight^2 * running_variance is buffered),
+    // and after downsampling from 'nfreq' channels to 'rb_nfreq' channels.
+    int rb_capacity = 0;
+    int nchunks_processed = 0;
+    std::vector<float> rb_variance;  // 2D array of shape (rb_nfreq, rb_capacity)
+
+    // Length-(nfreq_c+1) array containing dispersion delays at frequency channel boundaries,
+    // as fraction of total dispersion delay across the band.  Thus frac_delay[0] = 1 and
+    // frac_delay[nfreq_c] = 0.  (Note that "delay" means t(nu_lo)-t(nu), and channels are
+    // ordered from highest frequency to lowest.)
+    std::vector<float> frac_delay;
+
+    mask_filler(const bonsai::config_params &cp);
+
+    virtual ~mask_filler() {}
+    //virtual void _bind_transform(Json::Value &json_attrs) override;
+    //virtual void _bind_transform_rb(ring_buffer_dict &rb_dict) override;
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    //virtual void _end_pipeline(Json::Value &j) override;
+    
+    // Returns estimate of the weighted variance (from the ring buffer).
+    //   'ifreq_c': coarse frequency channel index satisfying 0 <= ifreq_c < rb_nfreq
+    //   'ns': timestamp (in "data" samples since beginning of timestream).
+    //
+    // Note: returns zero if (ns < 0).  Throws an exception if ring buffer is too short.
+    
+    float eval_weighted_variance(int ifreq_c, double ns) const;
+
+    // Given a dedispersion "sweep", estimates weighted variance (from ring buffer) along the sweep.
+    //
+    // We do this in a per-coarse-channel sense, and we also return two variance estimates in each channel,
+    // a "min variance" and "max variance", to account for the time dependence.  Thus the 'vout' array has
+    // shape (rb_nfreq,2), where the last index is "vmin/vmax".
+    //
+    // If 'update' is true, then caller has preinitialized 'vout', and we update these values
+    // by taking min() or max() as appropriate.
+    //
+    //   'ns_d': dispersion (expressed as total delay across band, in samples)
+    //   'ns_f': arrival time (in highest frequency channel, in samples since beginning of timestream)
+    //
+    // Note: returned (vmin, vmax) can be zero, if sweep goes to negative times.
+    
+    virtual void eval_sweep_variance(double ns_d, double ns_f, float *vout, bool update) const override;
+
+    void get_weights_and_variances(std::vector<float>* weights,
+                                   std::vector<float>* variances) const;
+};
 
 
 

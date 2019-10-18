@@ -41,6 +41,7 @@ OFILES = badchannel_mask.o \
 	mask_counter.o \
 	mask_expander.o \
 	mask_measurements_ringbuf.o \
+	mask_filler.o \
 	outdir_manager.o \
 	pipeline.o \
 	pipeline_fork.o \
