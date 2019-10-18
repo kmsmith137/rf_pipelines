@@ -14,8 +14,6 @@ namespace rf_pipelines {
 };  // pacify emacs c-mode
 #endif
 
-#define MASK_FILLER_DEBUG 0
-
 mask_filler::mask_filler(const bonsai::config_params &config_) :
     wi_transform("mask_filler"),
     kernel(config_.nfreq)
@@ -106,33 +104,6 @@ void mask_filler::_process_chunk(float *intensity, ssize_t istride, float *weigh
 	var /= (freq_bin_delim[ifreq_c+1] - freq_bin_delim[ifreq_c]);
 	var_1d[nchunks_processed % rb_capacity] = var;
     }
-
-#if MASK_FILLER_DEBUG
-    throw runtime_error("MASK_FILLER_DEBUG stuff needs work, see comment in bonsai/mask_filler.cpp");
-
-    cout << "mask_filler: nchunks_processed=" << nchunks_processed << endl;
-
-    for (int ifreq_c = 0; ifreq_c < nfreq_c; ifreq_c++) {
-	const float *var_1d = &this->rb_variance[ifreq_c * rb_capacity];
-
-	// Actual variance after the mask_filler performs its magic.
-	double var_actual = 0.0;
-	for (int ifreq_f = freq_bin_delim[ifreq_c]; ifreq_f < freq_bin_delim[ifreq_c+1]; ifreq_f++)
-	    for (int it = 0; it < nt_chunk; it++)
-		var_actual += square(intensity[ifreq_f*istride + it]);
-
-	var_actual /= (nt_chunk * (freq_bin_delim[ifreq_c+1] - freq_bin_delim[ifreq_c]));
-	
-	// Running variance estimates at the beginning and end of the chunk.
-	double var_est0 = nchunks_processed ? var_1d[(nchunks_processed-1) % rb_capacity] : 0.0;
-	double var_est1 = var_1d[nchunks_processed % rb_capacity];
-	
-	// This debug-print compares the actual and estimated variances.
-	cout << "    ifreq_c=" << ifreq_c << ": actual variance = " << var_actual
-	     << ", estimate = (" << var_est0 << ", " << var_est1 << ")" << endl;
-    }
-#endif
-
     this->nchunks_processed++;
 }
 
