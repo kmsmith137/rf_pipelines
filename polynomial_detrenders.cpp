@@ -14,6 +14,10 @@ struct polynomial_detrender : public wi_transform
     rf_kernels::polynomial_detrender kernel;
     const double epsilon;
 
+    // FIXME
+    int ringbuf_nhistory = 10;
+    std::shared_ptr<ring_buffer> poly_ringbuf;
+    
     polynomial_detrender(rf_kernels::axis_type axis, int nt_chunk_, int polydeg, double epsilon_) :
 	wi_transform("polynomial_detrender"),
 	kernel(axis, polydeg),
@@ -31,12 +35,38 @@ struct polynomial_detrender : public wi_transform
 	    throw runtime_error("rf_pipelines::polynomial_detrender: nt_chunk must be specified (unless axis=AXIS_FREQ)");
     }
 
-    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
-    {
-	// Note xdiv(nt_chunk,nds) here
-	this->kernel.detrend(nfreq, xdiv(nt_chunk,nds), intensity, istride, weights, wstride, epsilon);
+    virtual void _bind_transform_rb(ring_buffer_dict &rb_dict) override {
+        if (this->ringbuf_nhistory) {
+            int degree = this->kernel.polydeg;
+            cout << "Polynomial_detrender: allocating a ring buffer to store " << this->ringbuf_nhistory << " time samples of history.  nt_chunk " << nt_chunk << ", degree " << degree << endl;
+            cout << "nt_contig: " << nt_contig << ", nt_maxlag " << nt_maxlag << endl;
+            vector<ssize_t> cdims;
+            cdims.push_back(nfreq);
+            cdims.push_back(degree+1);
+            int rb_nds = nt_chunk;
+            this->poly_ringbuf = create_buffer(rb_dict, "POLYNOMIAL_DETRENDER", cdims, rb_nds);
+            // Set ring buffer nt_maxlag
+            int nhist = this->ringbuf_nhistory * nt_chunk;
+            //if (nt_maxlag)
+            //nhist = round_up(nhist, nt_maxlag);
+            cout << "Requesting polynomial ringbuf length: " << nhist << endl;
+            this->poly_ringbuf->update_params(1, nhist);
+            this->poly_ringbuf->dense = true;
+        }
     }
 
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
+    {
+        float* coeffs = nullptr;
+        if (this->poly_ringbuf) {
+            coeffs = poly_ringbuf->get(pos, pos+nt_chunk, ring_buffer::ACCESS_APPEND);
+        }
+	// Note xdiv(nt_chunk,nds) here
+	this->kernel.detrend(nfreq, xdiv(nt_chunk,nds), intensity, istride, weights, wstride, epsilon, coeffs);
+        if (this->poly_ringbuf)
+            poly_ringbuf->put(coeffs, pos, pos+nt_chunk, ring_buffer::ACCESS_APPEND);
+    }
+    
     virtual Json::Value jsonize() const override
     {
 	Json::Value ret;

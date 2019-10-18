@@ -174,6 +174,8 @@ public:
     // pipeline processing, so should only be specified for debugging/testing.
     const bool debug;
 
+    bool dense = false;
+
     // Optional (used in scripts/rfp-analyze).
     const std::string name;
 

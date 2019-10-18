@@ -86,13 +86,16 @@ void ring_buffer::_preallocate()
     // FIXME: some day, define a boolean flag for toggling this, to see how much it actually helps!
 
     this->period = (nt_maxlag + nds - 1) / nds;
-    this->period = round_up(period, 32);
+    if (!dense)
+        this->period = round_up(period, 32);
 
     this->stride = period + (nt_contig + nds - 2) / nds;
-    this->stride = round_up(stride, 16);
+    if (!dense) {
+        this->stride = round_up(stride, 16);
 
-    if (stride % 32 == 0)
-	stride += 16;
+        if (stride % 32 == 0)
+            stride += 16;
+    }
 }
 
 
