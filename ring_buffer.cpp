@@ -63,7 +63,7 @@ void ring_buffer::allocate()
     // This strengthens unit tests a bit.
     if (debug)
 	stride += 32 * randint(g_rng, 0, 8);
-    
+
     this->buf = aligned_alloc<float> (csize * stride);
 
 #if RF_RB_DEBUG

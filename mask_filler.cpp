@@ -55,7 +55,6 @@ mask_filler::mask_filler(const bonsai::config_params &config_) :
     }
 
     this->frac_delay.resize(nfreq_c + 1, 0.0);
-    this->rb_variance.resize(nfreq_c * rb_capacity, 0.0);
 
     // Initialize frac_delay: a length-(nfreq_c+1) array containing dispersion delays at frequency channel
     // boundaries, as fraction of total dispersion delay across the band.  Thus frac_delay[0] = 1 and
@@ -70,8 +69,24 @@ mask_filler::mask_filler(const bonsai::config_params &config_) :
     }
 }
 
-
-//float *out, int ostride,
+void mask_filler::_bind_transform_rb(ring_buffer_dict &rb_dict) {
+    int nds = nt_chunk;
+    vector<ssize_t> cdims;
+    cdims.push_back(nfreq_f);
+    this->rb_variance = create_buffer(rb_dict, "RUNNING_VARIANCE", cdims, nds);
+    this->rb_weight   = create_buffer(rb_dict, "RUNNING_WEIGHT", cdims, nds);
+    cdims.clear();
+    cdims.push_back(nfreq_c);
+    this->rb_wvar     = create_buffer(rb_dict, "RUNNING_WVAR", cdims, nds);
+    // Set ring buffer nt_maxlag
+    int nhist = this->rb_capacity * nt_chunk;
+    this->rb_variance->update_params(1, nhist);
+    this->rb_weight->update_params(1, nhist);
+    this->rb_wvar->update_params(1, nhist);
+    this->rb_variance->dense = true;
+    this->rb_weight->dense = true;
+    this->rb_wvar->dense = true;
+}
 
 void mask_filler::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) {
     // The kernel does the following:
@@ -88,13 +103,21 @@ void mask_filler::_process_chunk(float *intensity, ssize_t istride, float *weigh
     const float *running_weights = kernel.running_weights.get();
     const float *running_var = kernel.running_var.get();
 
+    ring_buffer_subarray subw(rb_weight,   pos, pos+nt_chunk, ring_buffer::ACCESS_APPEND);
+    ring_buffer_subarray subv(rb_variance, pos, pos+nt_chunk, ring_buffer::ACCESS_APPEND);
+    ring_buffer_subarray subwv(rb_wvar,    pos, pos+nt_chunk, ring_buffer::ACCESS_APPEND);
+
+    for (ssize_t i = 0; i < rb_weight->csize; i++) {
+        subw.data[i*subw.stride] = running_weights[i];
+        subv.data[i*subv.stride] = running_var[i];
+     }
+
     // We ring-buffer the (running_weights)^2 * (running_variance).
     // This is the variance of the data after the running_weights have been applied.
     
     // Outer loop over coarse frequencies.
     for (int ifreq_c = 0; ifreq_c < nfreq_c; ifreq_c++) {
 	// 1d array of length rb_capacity (with periodic ring-buffer index)
-	float *var_1d = &this->rb_variance[ifreq_c * rb_capacity];
 
 	// Inner loop over fine frequencies, accumulating (weight^2 * variance).
 	float var = 0.0;
@@ -102,8 +125,10 @@ void mask_filler::_process_chunk(float *intensity, ssize_t istride, float *weigh
 	    var += square(running_weights[ifreq_f]) * running_var[ifreq_f];
 
 	var /= (freq_bin_delim[ifreq_c+1] - freq_bin_delim[ifreq_c]);
-	var_1d[nchunks_processed % rb_capacity] = var;
+
+        subwv.data[ifreq_c * subwv.stride] = var;
     }
+
     this->nchunks_processed++;
 }
 
@@ -119,7 +144,7 @@ float mask_filler::eval_weighted_variance(int ifreq_c, double ns) const
     bonsai_assert(ifreq_c >= 0);
     bonsai_assert(ifreq_c < nfreq_c);
     
-    const float *var_1d = &rb_variance[ifreq_c * rb_capacity];
+    //const float *var_1d = &rb_variance[ifreq_c * rb_capacity];
 
     // Convert timestamp from samples to chunks, and range-check timestamp.
     double nc = ns / nt_chunk;
@@ -136,8 +161,18 @@ float mask_filler::eval_weighted_variance(int ifreq_c, double ns) const
     
     int ic = min(int(nc), nchunks_processed-1);
 
-    double v0 = (ic > 0) ? var_1d[(ic-1) % rb_capacity] : 0.0;
-    double v1 = var_1d[(ic) % rb_capacity];
+    double v0,v1;
+    if (ic > 0) {
+        ring_buffer_subarray subwv(rb_wvar, (ic-1)*nt_chunk, (ic+1)*nt_chunk, ring_buffer::ACCESS_READ);
+        v0 = subwv.data[ifreq_c * subwv.stride];
+        v1 = subwv.data[(ifreq_c+1) * subwv.stride];
+    } else {
+        ring_buffer_subarray subwv(rb_wvar, ic*nt_chunk, (ic+1)*nt_chunk, ring_buffer::ACCESS_READ);
+        v0 = 0.0;
+        v1 = subwv.data[ifreq_c * subwv.stride];
+    }
+    //double v0 = (ic > 0) ? var_1d[(ic-1) % rb_capacity] : 0.0;
+    //double v1 = var_1d[(ic) % rb_capacity];
     double xc = nc - ic;
     
     return (1.0-xc)*v0 + (xc)*v1;

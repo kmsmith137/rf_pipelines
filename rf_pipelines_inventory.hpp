@@ -452,7 +452,9 @@ class mask_filler : public wi_transform, public bonsai::online_mask_filler {
     // and after downsampling from 'nfreq' channels to 'rb_nfreq' channels.
     int rb_capacity = 0;
     int nchunks_processed = 0;
-    std::vector<float> rb_variance;  // 2D array of shape (rb_nfreq, rb_capacity)
+    std::shared_ptr<ring_buffer> rb_variance;  // size nfreq_f
+    std::shared_ptr<ring_buffer> rb_weight;    // size nfreq_f
+    std::shared_ptr<ring_buffer> rb_wvar;      // size nfreq_c, downsampled weight^2 * variance -- this is used internally
 
     // Length-(nfreq_c+1) array containing dispersion delays at frequency channel boundaries,
     // as fraction of total dispersion delay across the band.  Thus frac_delay[0] = 1 and
@@ -460,11 +462,12 @@ class mask_filler : public wi_transform, public bonsai::online_mask_filler {
     // ordered from highest frequency to lowest.)
     std::vector<float> frac_delay;
 
+public:
     mask_filler(const bonsai::config_params &cp);
 
     virtual ~mask_filler() {}
     //virtual void _bind_transform(Json::Value &json_attrs) override;
-    //virtual void _bind_transform_rb(ring_buffer_dict &rb_dict) override;
+    virtual void _bind_transform_rb(ring_buffer_dict &rb_dict) override;
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
     //virtual void _end_pipeline(Json::Value &j) override;
     
@@ -489,7 +492,7 @@ class mask_filler : public wi_transform, public bonsai::online_mask_filler {
     //   'ns_f': arrival time (in highest frequency channel, in samples since beginning of timestream)
     //
     // Note: returned (vmin, vmax) can be zero, if sweep goes to negative times.
-    
+
     virtual void eval_sweep_variance(double ns_d, double ns_f, float *vout, bool update) const override;
 
     void get_weights_and_variances(std::vector<float>* weights,
