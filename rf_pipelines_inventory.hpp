@@ -441,7 +441,6 @@ class mask_filler : public wi_transform, public bonsai::online_mask_filler {
 
     int nfreq_f;      // number of frequency channels (i.e. first dimension of process_chunk() input data)
     int nfreq_c;      // number of coarse-grained frequency channels used in ring buffer (see below)
-    int nt_chunk;     // number of time samples per input chunk (i.e. second dimension of process_chunk() input data)
     double freq_lo;   // lower limit of frequency band (note: frequency units are arbitrary, as long as freq_lo/freq_hi are consistent)
     double freq_hi;   // upper limit of frequency band
 

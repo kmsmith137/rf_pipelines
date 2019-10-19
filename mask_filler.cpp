@@ -1,5 +1,6 @@
 #include "rf_pipelines_internals.hpp"
 #include "bonsai_inlines.hpp"
+#include "chlog.hpp"
 
 #include <rf_kernels/online_mask_filler.hpp>
 
@@ -33,6 +34,7 @@ mask_filler::mask_filler(const bonsai::config_params &config_) :
 
     this->nfreq_f = config.nfreq;
     this->nfreq_c = config.variance_nfreq_bins;
+    chlog("mask_filler: Setting nt_chunk from config file: " << config.nt_chunk);
     this->nt_chunk = config.nt_chunk;
     this->freq_lo = config.freq_lo_MHz;
     this->freq_hi = config.freq_hi_MHz;
@@ -93,6 +95,11 @@ void mask_filler::_process_chunk(float *intensity, ssize_t istride, float *weigh
     //   - Updates its internal estimates of the running variance.
     //   - Updates the running_weights which it applies.
 
+    //chlog("mask_filler::process_chunk mask_fill_in_place.  nt_chunk " << nt_chunk << ", nt_chunk_out " << nt_chunk_out);
+    //chlog("rb_weight: " << rb_weight->get_info());
+    //chlog("rb_variance: " << rb_variance->get_info());
+    //chlog("rb_wvar: " << rb_wvar->get_info());
+    
     kernel.mask_fill_in_place(nt_chunk, intensity, istride, weights, wstride);
 
     //   - Fills the output 
@@ -130,6 +137,7 @@ void mask_filler::_process_chunk(float *intensity, ssize_t istride, float *weigh
     }
 
     this->nchunks_processed++;
+    chlog("mask_filler: process_chunk done!");
 }
 
 
