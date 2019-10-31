@@ -27,7 +27,7 @@ shared_ptr<wi_transform> make_bonsai_dedisperser(const string &config_filename, 
 #else  // HAVE_BONSAI
 
 
-struct bonsai_dedisperser : public wi_transform {
+struct bonsai_dedisperser : public chime_wi_transform {
     shared_ptr<bonsai::dedisperser> dedisperser;
     shared_ptr<bonsai::global_max_tracker> max_tracker;
 
@@ -67,15 +67,7 @@ void bonsai_dedisperser::_allocate()
 
 void bonsai_dedisperser::_bind_transform(Json::Value &json_attrs)
 {
-    if (!json_attrs.isMember("freq_lo_MHz") || !json_attrs.isMember("freq_hi_MHz"))
-	throw runtime_error("bonsai_dedisperser: expected json_attrs to contain members 'freq_lo_MHz' and 'freq_hi_MHz'");
-
-    if (!json_attrs.isMember("dt_sample"))
-	throw runtime_error("bonsai_dedisperser: expected json_attrs to contain member 'dt_sample'");
-    
-    double freq_lo_MHz = json_attrs["freq_lo_MHz"].asDouble();
-    double freq_hi_MHz = json_attrs["freq_hi_MHz"].asDouble();
-    double dt_sample = json_attrs["dt_sample"].asDouble();
+    chime_wi_transform::_bind_transform(json_attrs);
 
     // Check that pipeline params match bonsai config
 
