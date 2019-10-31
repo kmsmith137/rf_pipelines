@@ -34,8 +34,13 @@ spline_detrender::spline_detrender(int nt_chunk_, rf_kernels::axis_type axis_, i
     this->nds = 0;  // allows spline_detrender to run inside a wi_sub_pipeline.
 }
 
-void spline_detrender::add_callback(const callback &c) {
-    callbacks.push_back(c);
+void spline_detrender::_allocate() {
+    this->coeffs = unique_ptr<float[]>(new float[xdiv(nt_chunk,nds) * (this->nbins+1)*2]);
+    this->coeffs_stride = xdiv(nt_chunk,nds);
+}
+
+void spline_detrender::_deallocate() {
+    this->coeffs.reset();
 }
 
 // Called after this->nfreq is initialized.
@@ -44,52 +49,15 @@ void spline_detrender::_bind_transform(Json::Value &json_attrs)
     this->kernel = make_unique<rf_kernels::spline_detrender> (nfreq, nbins, epsilon);
 }
 
-void spline_detrender::_bind_transform_rb(ring_buffer_dict &rb_dict) {
-    if (this->ringbuf_nhistory) {
-        cout << "Spline_detrender: allocating a ring buffer to store " << this->ringbuf_nhistory << " time samples of history.  nt_chunk " << nt_chunk << ", nds " << nds << ", nbins " << nbins << endl;
-        cout << "debug: " << _params.debug << endl;
-        cout << "nt_contig: " << nt_contig << ", nt_maxlag " << nt_maxlag << endl;
-        vector<ssize_t> cdims;
-        cdims.push_back((nbins+1)*2);
-        this->spline_ringbuf = create_buffer(rb_dict, "SPLINE_DETRENDER", cdims, nds);
-        // Set ring buffer nt_maxlag
-        int nhist = this->ringbuf_nhistory;
-        if (nt_maxlag)
-            nhist = round_up(nhist, nt_maxlag);
-        cout << "Requesting spline ringbuf length: " << nhist << endl;
-        this->spline_ringbuf->update_params(1024, nhist);
-    }
-}
-
 void spline_detrender::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
 {
     rf_assert(kernel.get() != nullptr);
 
-    float *spline_coeffs = NULL;
-    int coeff_stride = 0;
-    if (spline_ringbuf) {
-        cout << "process_chunk: getting ring buf.  pos " << pos << ", nt_chunk " << nt_chunk << endl;
-        spline_coeffs = spline_ringbuf->get(pos, pos+nt_chunk, ring_buffer::ACCESS_APPEND);
-        cout << "spline_ringbuf stride: " << spline_ringbuf->get_stride() << endl;
-        coeff_stride = spline_ringbuf->get_stride();
-    }
-
     // Note xdiv(nt_chunk, nds) here.
     kernel->detrend(xdiv(nt_chunk,nds), intensity, istride, weights, wstride,
-                    spline_coeffs, coeff_stride);
+                    coeffs.get(), coeffs_stride);
 
-    if (spline_ringbuf) {
-        spline_ringbuf->put(spline_coeffs, pos, pos+nt_chunk, ring_buffer::ACCESS_APPEND);
-        cout << "Valid pos range: " << spline_ringbuf->get_first_valid_pos() << " to " << spline_ringbuf->get_last_valid_pos() << endl;
-    }
-
-    /*
-     ssize_t nco = (nbins+1)*2;
-     for (auto c : callbacks)
-     c(this, pos, nt_chunk, spline_coeffs, nco, coeff_stride,
-     intensity, istride, weights, wstride);
-     */
-    _handle_spline(pos, spline_coeffs, coeff_stride,
+    _handle_spline(pos, coeffs.get(), coeffs_stride,
                    intensity, istride, weights, wstride);
 }
 
@@ -121,14 +89,6 @@ shared_ptr<spline_detrender> spline_detrender::from_json(const Json::Value &j)
     rf_kernels::axis_type axis = axis_type_from_json(j, "axis");
 
     return make_shared<spline_detrender> (nt_chunk, axis, nbins, epsilon);
-}
-
-void spline_detrender::set_ringbuffer_size(int nhistory) {
-    if (this->state != UNBOUND)
-	throw runtime_error("spline_detrender::set_ringbuffer_size() called after bind()");
-    if (nhistory < 0)
-	throw runtime_error("spline_detrender::set_ringbuffer_size(): nhistory was negative");
-    this->ringbuf_nhistory = nhistory;
 }
 
 namespace {
