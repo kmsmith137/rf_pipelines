@@ -14,10 +14,8 @@ namespace rf_pipelines {
 class chime_spline_detrender : public spline_detrender, public chime_wi_transform {
 public:
     chime_spline_detrender(int nt_chunk_, rf_kernels::axis_type axis_, int nbins_, double epsilon_);
-    //virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
-    //virtual void _handle_spline(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
     virtual void _handle_spline(ssize_t pos, float *coeffs, ssize_t cstride, float *intensity, ssize_t istride, float *weights, ssize_t wstride) override;
-
+    virtual void _bind_transform(Json::Value &json_attrs) override;
     virtual Json::Value jsonize() const override;
     static std::shared_ptr<chime_spline_detrender> from_json(const Json::Value &j);
     
@@ -26,9 +24,14 @@ public:
 
 chime_spline_detrender::chime_spline_detrender(int nt_chunk_, rf_kernels::axis_type axis_, int nbins_, double epsilon_) :
     wi_transform("chime_spline_detrender"),
-    spline_detrender(nt_chunk_, axis_, nbins_, epsilon_),
-    chime_wi_transform("chime_spline_detrender")
+    spline_detrender(nt_chunk_, axis_, nbins_, epsilon_)
 {}
+
+void chime_spline_detrender::_bind_transform(Json::Value &json_attrs) {
+    // borrrring
+    spline_detrender::_bind_transform(json_attrs);
+    chime_wi_transform::_bind_transform(json_attrs);
+}
 
 void chime_spline_detrender::_handle_spline(ssize_t pos, float *coeffs, ssize_t cstride, float *intensity, ssize_t istride, float *weights, ssize_t wstride) {
     if (this->chime_stream) {
@@ -48,8 +51,6 @@ void chime_spline_detrender::_handle_spline(ssize_t pos, float *coeffs, ssize_t 
         }
     }
 }
-
-//void chime_spline_detrender::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) {}
 
 Json::Value chime_spline_detrender::jsonize() const
 {

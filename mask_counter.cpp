@@ -17,7 +17,6 @@ namespace rf_pipelines {
 
 
 mask_counter_transform::mask_counter_transform(int nt_chunk_, string where_) :
-    chime_wi_transform("mask_counter"),
     wi_transform("mask_counter"),
     where(where_)
 {	
