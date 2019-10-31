@@ -35,9 +35,9 @@ void chime_wi_transform::_bind_transform(Json::Value &json_attrs) {
 	throw runtime_error("chime_wi_transform: expected json_attrs to contain members 'freq_lo_MHz' and 'freq_hi_MHz'");
     if (!json_attrs.isMember("dt_sample"))
 	throw runtime_error("chime_wi_transform: expected json_attrs to contain member 'dt_sample'");
-    double freq_lo_MHz = json_attrs["freq_lo_MHz"].asDouble();
-    double freq_hi_MHz = json_attrs["freq_hi_MHz"].asDouble();
-    double dt_sample = json_attrs["dt_sample"].asDouble();
+    freq_lo_MHz = json_attrs["freq_lo_MHz"].asDouble();
+    freq_hi_MHz = json_attrs["freq_hi_MHz"].asDouble();
+    dt_sample = json_attrs["dt_sample"].asDouble();
 }
 
 void chime_wi_transform::_start_pipeline(Json::Value &json_attrs)
