@@ -725,11 +725,15 @@ public:
 
     void set_chime_stream(std::shared_ptr<ch_frb_io::intensity_network_stream> stream,
                           int beam_id);
-
+    virtual void _bind_transform(Json::Value &j) override;
     virtual void _start_pipeline(Json::Value &j) override;
     virtual ~chime_wi_transform() { }
 
 protected:
+    double freq_lo_MHz;
+    double freq_hi_MHz;
+    double dt_sample;
+
     int chime_beam_id = -1;
     std::shared_ptr<ch_frb_io::intensity_network_stream> chime_stream;
 
