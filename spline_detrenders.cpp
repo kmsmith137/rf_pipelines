@@ -9,6 +9,8 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
+
+
 spline_detrender::spline_detrender(int nt_chunk_, rf_kernels::axis_type axis_, int nbins_, double epsilon_) :
     wi_transform("spline_detrender"),
     nbins(nbins_),
@@ -30,6 +32,10 @@ spline_detrender::spline_detrender(int nt_chunk_, rf_kernels::axis_type axis_, i
     this->nt_chunk = nt_chunk_;
     this->kernel_chunk_size = 8;
     this->nds = 0;  // allows spline_detrender to run inside a wi_sub_pipeline.
+}
+
+void spline_detrender::add_callback(const callback &c) {
+    callbacks.push_back(c);
 }
 
 // Called after this->nfreq is initialized.
@@ -76,7 +82,18 @@ void spline_detrender::_process_chunk(float *intensity, ssize_t istride, float *
         spline_ringbuf->put(spline_coeffs, pos, pos+nt_chunk, ring_buffer::ACCESS_APPEND);
         cout << "Valid pos range: " << spline_ringbuf->get_first_valid_pos() << " to " << spline_ringbuf->get_last_valid_pos() << endl;
     }
+
+    /*
+     ssize_t nco = (nbins+1)*2;
+     for (auto c : callbacks)
+     c(this, pos, nt_chunk, spline_coeffs, nco, coeff_stride,
+     intensity, istride, weights, wstride);
+     */
+    _handle_spline(pos, spline_coeffs, coeff_stride,
+                   intensity, istride, weights, wstride);
 }
+
+void spline_detrender::_handle_spline(ssize_t pos, float *coeffs, ssize_t cstride, float *intensity, ssize_t istride, float *weights, ssize_t wstride) {}
 
 void spline_detrender::_unbind_transform()
 {

@@ -39,6 +39,51 @@ namespace rf_pipelines {
 #endif
 
 
+// Extended by chime_spline_detrender, but does not need to be public
+
+class spline_detrender : public virtual wi_transform {
+public:
+    //
+    // callback(spline_detrender* s,
+    //          ssize_t pos, ssize_t nt_chunk,
+    //          const float* spline_coeffs, ssize_t ncoeffs, ssize_t cstride,
+    //          const float* intensity, ssize_t istride,
+    //          const float* weights, ssize_t wstride)
+    typedef std::function<void(spline_detrender*, ssize_t, ssize_t, const float*, ssize_t, ssize_t, const float*, ssize_t, const float*, ssize_t)> callback;
+
+    const int nbins;
+    const double epsilon;
+    const rf_kernels::axis_type axis;
+    std::unique_ptr<rf_kernels::spline_detrender> kernel;
+
+    spline_detrender(int nt_chunk_, rf_kernels::axis_type axis_, int nbins_, double epsilon_);
+
+    void set_ringbuffer_size(int nhistory);
+
+    void add_callback(const callback &c);
+    
+    virtual void _bind_transform(Json::Value &json_attrs) override;
+    virtual void _bind_transform_rb(ring_buffer_dict &rb_dict) override;
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual void _unbind_transform() override;
+    virtual Json::Value jsonize() const override;
+    static std::shared_ptr<spline_detrender> from_json(const Json::Value &j);
+
+    // New virtual added by spline_detrender
+    // the "coeffs" array is stored with the time axis varying most quickly;
+    // for coefficient "ic" and time "it", you want array element
+    //     coeffs[ic*cstride + it]
+    virtual void _handle_spline(ssize_t pos, float *coeffs, ssize_t cstride, float *intensity, ssize_t istride, float *weights, ssize_t wstride);
+
+protected:
+    int ringbuf_nhistory;        // specified by set_ringbuffer; in time samples
+    std::shared_ptr<ring_buffer> spline_ringbuf;
+    std::vector<callback> callbacks;
+};
+
+
+
+
 // -------------------------------------------------------------------------------------------------
 //
 // outdir_manager, plot_group.

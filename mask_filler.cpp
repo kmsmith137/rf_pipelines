@@ -84,7 +84,7 @@ void mask_filler::_bind_transform_rb(ring_buffer_dict &rb_dict) {
     int nhist = this->rb_capacity * nt_chunk;
     this->rb_variance->update_params(1, nhist);
     this->rb_weight->update_params(1, nhist);
-    this->rb_wvar->update_params(1, nhist);
+    this->rb_wvar->update_params(nhist, nhist);
     this->rb_variance->dense = true;
     this->rb_weight->dense = true;
     this->rb_wvar->dense = true;
