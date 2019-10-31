@@ -35,12 +35,12 @@ spline_detrender::spline_detrender(int nt_chunk_, rf_kernels::axis_type axis_, i
 }
 
 void spline_detrender::_allocate() {
-    this->coeffs = unique_ptr<float[]>(new float[xdiv(nt_chunk,nds) * (this->nbins+1)*2]);
+    this->coeffs = vector<float>(xdiv(nt_chunk,nds) * (this->nbins+1)*2);
     this->coeffs_stride = xdiv(nt_chunk,nds);
 }
 
 void spline_detrender::_deallocate() {
-    this->coeffs.reset();
+    this->coeffs = vector<float>();
 }
 
 // Called after this->nfreq is initialized.
@@ -55,9 +55,9 @@ void spline_detrender::_process_chunk(float *intensity, ssize_t istride, float *
 
     // Note xdiv(nt_chunk, nds) here.
     kernel->detrend(xdiv(nt_chunk,nds), intensity, istride, weights, wstride,
-                    coeffs.get(), coeffs_stride);
+                    coeffs.data(), coeffs_stride);
 
-    _handle_spline(pos, coeffs.get(), coeffs_stride,
+    _handle_spline(pos, coeffs.data(), coeffs_stride,
                    intensity, istride, weights, wstride);
 }
 

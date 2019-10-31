@@ -64,7 +64,7 @@ public:
     virtual void _handle_spline(ssize_t pos, float *coeffs, ssize_t cstride, float *intensity, ssize_t istride, float *weights, ssize_t wstride);
 
 protected:
-    std::unique_ptr<float[]> coeffs;
+    std::vector<float> coeffs;
     ssize_t coeffs_stride = 0;
 };
 
