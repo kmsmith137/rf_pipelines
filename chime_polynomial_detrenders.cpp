@@ -17,7 +17,6 @@ public:
     virtual void _bind_transform(Json::Value &json_attrs) override;
     virtual Json::Value jsonize() const override;
     static std::shared_ptr<chime_polynomial_detrender> from_json(const Json::Value &j);
-    
 };
 
 
@@ -47,6 +46,7 @@ void chime_polynomial_detrender::_handle_coeffs(ssize_t pos, float *coeffs, floa
             chunk->detrend_t_type = "POLYNOMIAL";
             chunk->has_detrend_t = true;
             cout << "chime_polynomial_detrender: saved coefficients in assembled chunk " << chunk->ichunk << endl;
+            chime_stream->updated_assembled_chunk(chunk);
         }
     }
 }

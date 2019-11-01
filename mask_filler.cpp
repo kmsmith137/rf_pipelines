@@ -226,7 +226,4 @@ void mask_filler::get_weights_and_variances(vector<float>* weights,
     }
 }
 
-//shared_ptr<wi_transform> make_bonsai_dedisperser(const std::string &config_filename, const bonsai_initializer &ini_params) {}
-
-
 } // namespace

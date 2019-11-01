@@ -49,6 +49,7 @@ void chime_spline_detrender::_handle_spline(ssize_t pos, float *coeffs, ssize_t 
             chunk->detrend_f_type = "SPLINE";
             chunk->has_detrend_f = true;
             cout << "chime_spline_detrender: saved coefficients in assembled chunk " << chunk->ichunk << endl;
+            chime_stream->updated_assembled_chunk(chunk);
         }
     }
 }
