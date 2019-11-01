@@ -677,6 +677,7 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 // assembled_chunk objects passing through it.
 class chime_wi_transform : public virtual wi_transform {
 public:
+    chime_wi_transform();
     void set_chime_stream(std::shared_ptr<ch_frb_io::intensity_network_stream> stream,
                           int beam_id);
     virtual void _bind_transform(Json::Value &j) override;
@@ -684,9 +685,9 @@ public:
     virtual ~chime_wi_transform() { }
 
 protected:
-    double freq_lo_MHz;
-    double freq_hi_MHz;
-    double dt_sample;
+    double freq_lo_MHz = 0.;
+    double freq_hi_MHz = 0.;
+    double dt_sample = 0.;
 
     int chime_beam_id = -1;
     std::shared_ptr<ch_frb_io::intensity_network_stream> chime_stream;

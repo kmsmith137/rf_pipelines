@@ -15,6 +15,9 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
+chime_wi_transform::chime_wi_transform() :
+    wi_transform("chime_wi_transform") {}
+
 void chime_wi_transform::set_chime_stream(std::shared_ptr<ch_frb_io::intensity_network_stream> stream,
                                           int beam_id) {
     if (this->state != UNBOUND)

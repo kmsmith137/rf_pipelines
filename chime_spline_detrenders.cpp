@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "rf_kernels/spline_detrender.hpp"
 #include "rf_pipelines_internals.hpp"
 #include "ch_frb_io.hpp"
