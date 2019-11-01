@@ -17,7 +17,7 @@ namespace rf_pipelines {
 
 
 mask_counter_transform::mask_counter_transform(int nt_chunk_, string where_) :
-    chime_wi_transform("mask_counter"),
+    wi_transform("mask_counter"),
     where(where_)
 {	
     stringstream ss;
@@ -127,10 +127,7 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
 #ifdef HAVE_CH_FRB_IO
     if (chunk) {
 	chunk->has_rfi_mask = true;
-
-	// Notify stream's output_devices that a chunk has had its rfi_mask filled in.
-	for (auto od : chime_stream->ini_params.output_devices)
-	    od->filled_rfi_mask(chunk);
+        chime_stream->updated_assembled_chunk(chunk);
     }
 #endif
 }

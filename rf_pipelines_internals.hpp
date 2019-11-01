@@ -13,6 +13,7 @@
 #include <sys/time.h>
 
 #include "rf_kernels/core.hpp"
+#include "rf_kernels/polynomial_detrender.hpp"
 #include "rf_pipelines_base_classes.hpp"
 #include "rf_pipelines_inventory.hpp"
 
@@ -38,6 +39,59 @@ namespace rf_pipelines {
 }  // emacs pacifier
 #endif
 
+
+// Extended by chime_spline_detrender, but does not need to be public
+class spline_detrender : public virtual wi_transform {
+public:
+    const int nbins;
+    const double epsilon;
+    const rf_kernels::axis_type axis;
+    std::unique_ptr<rf_kernels::spline_detrender> kernel;
+
+    spline_detrender(int nt_chunk_, rf_kernels::axis_type axis_, int nbins_, double epsilon_);
+    virtual void _bind_transform(Json::Value &json_attrs) override;
+    virtual void _unbind_transform() override;
+    virtual void _allocate() override;
+    virtual void _deallocate() override;
+    //virtual void _bind_transform_rb(ring_buffer_dict &rb_dict) override;
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual Json::Value jsonize() const override;
+    static std::shared_ptr<spline_detrender> from_json(const Json::Value &j);
+
+    // New virtual added by spline_detrender
+    // the "coeffs" array is stored with the time axis varying most quickly;
+    // for coefficient "ic" and time "it", you want array element
+    //     coeffs[ic*cstride + it]
+    virtual void _handle_spline(ssize_t pos, float *coeffs, ssize_t cstride, float *intensity, ssize_t istride, float *weights, ssize_t wstride);
+
+protected:
+    std::vector<float> coeffs;
+    ssize_t coeffs_stride = 0;
+};
+
+// Extended by chime_polynomial_detrender, but does not need to be public
+class polynomial_detrender : public virtual wi_transform {
+public:
+    rf_kernels::polynomial_detrender kernel;
+    const double epsilon;
+
+    polynomial_detrender(rf_kernels::axis_type axis, int nt_chunk_, int polydeg, double epsilon_);
+    virtual void _allocate() override;
+    virtual void _deallocate() override;
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual Json::Value jsonize() const override;
+    static std::shared_ptr<polynomial_detrender> from_json(const Json::Value &j);
+    // New virtual added by polynomial_detrender
+    // The "coeffs" array is stored:
+    // for axis=TIME:
+    //   coeffs[ifreq*Nco + ico]
+    // for axis=FREQ:  the polynomial coefficients vary fastest
+    //   coeffs[itime*Nco + ico]
+    virtual void _handle_coeffs(ssize_t pos, float *coeffs, float *intensity, ssize_t istride, float *weights, ssize_t wstride);
+
+protected:
+    std::vector<float> coeffs;
+};
 
 // -------------------------------------------------------------------------------------------------
 //

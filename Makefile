@@ -30,6 +30,8 @@ OFILES = badchannel_mask.o \
 	chime_frb_file_stream.o \
 	chime_network_stream.o \
 	chime_packetizer.o \
+	chime_polynomial_detrenders.o \
+	chime_spline_detrenders.o \
 	chime_wi_transform.o \
 	chunked_pipeline_object.o \
 	file_utils.o \

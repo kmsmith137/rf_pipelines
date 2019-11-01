@@ -272,9 +272,6 @@ extern std::shared_ptr<pipeline_object> make_pipeline_fork(const std::vector<std
 //   rf_kernels::AXIS_FREQ
 //   rf_kernels::AXIS_TIME
 
-// FIXME
-struct polynomial_detrender;
-
 extern std::shared_ptr<wi_transform>
 make_polynomial_detrender(int nt_chunk, rf_kernels::axis_type axis, int polydeg, double epsilon=1.0e-2);
 
@@ -282,29 +279,6 @@ make_polynomial_detrender(int nt_chunk, rf_kernels::axis_type axis, int polydeg,
 // Experimental: spline_detrender.
 // I suspect this will work better than the polynomial_detrender, and it will definitely be faster!
 // Currently, the only allowed axis type is rf_kernels::AXIS_FREQ.
-
-class spline_detrender : public wi_transform {
-public:
-    const int nbins;
-    const double epsilon;
-    const rf_kernels::axis_type axis;
-    std::unique_ptr<rf_kernels::spline_detrender> kernel;
-
-    spline_detrender(int nt_chunk_, rf_kernels::axis_type axis_, int nbins_, double epsilon_);
-
-    void set_ringbuffer_size(int nhistory);
-
-    virtual void _bind_transform(Json::Value &json_attrs) override;
-    virtual void _bind_transform_rb(ring_buffer_dict &rb_dict) override;
-    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
-    virtual void _unbind_transform() override;
-    virtual Json::Value jsonize() const override;
-    static std::shared_ptr<spline_detrender> from_json(const Json::Value &j);
-
-protected:
-    int ringbuf_nhistory;        // specified by set_ringbuffer; in time samples
-    std::shared_ptr<ring_buffer> spline_ringbuf;
-};
 
 extern std::shared_ptr<wi_transform>
 make_spline_detrender(int nt_chunk, rf_kernels::axis_type axis, int nbins, double epsilon=3.0e-4);
@@ -465,10 +439,8 @@ public:
     mask_filler(const bonsai::config_params &cp);
 
     virtual ~mask_filler() {}
-    //virtual void _bind_transform(Json::Value &json_attrs) override;
     virtual void _bind_transform_rb(ring_buffer_dict &rb_dict) override;
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
-    //virtual void _end_pipeline(Json::Value &j) override;
     
     // Returns estimate of the weighted variance (from the ring buffer).
     //   'ifreq_c': coarse frequency channel index satisfying 0 <= ifreq_c < rb_nfreq
@@ -497,8 +469,6 @@ public:
     void get_weights_and_variances(std::vector<float>* weights,
                                    std::vector<float>* variances) const;
 };
-
-
 
 // -------------------------------------------------------------------------------------------------
 //
@@ -705,17 +675,19 @@ extern std::shared_ptr<wi_transform> make_chime_packetizer(const std::string &ds
 
 // A transform class that knows that it is handling a chime intensity stream and can retrieve the
 // assembled_chunk objects passing through it.
-class chime_wi_transform : public wi_transform {
+class chime_wi_transform : public virtual wi_transform {
 public:
-    chime_wi_transform(const std::string &class_name, const std::string &name="");
-
     void set_chime_stream(std::shared_ptr<ch_frb_io::intensity_network_stream> stream,
                           int beam_id);
-
+    virtual void _bind_transform(Json::Value &j) override;
     virtual void _start_pipeline(Json::Value &j) override;
     virtual ~chime_wi_transform() { }
 
 protected:
+    double freq_lo_MHz;
+    double freq_hi_MHz;
+    double dt_sample;
+
     int chime_beam_id = -1;
     std::shared_ptr<ch_frb_io::intensity_network_stream> chime_stream;
 
@@ -726,10 +698,7 @@ protected:
     std::shared_ptr<ch_frb_io::assembled_chunk> assembled_chunk_for_pos(ssize_t pos);
 };
 
-
-
 class mask_measurements_ringbuf;
-
 
 class mask_counter_transform : public chime_wi_transform {
 public:

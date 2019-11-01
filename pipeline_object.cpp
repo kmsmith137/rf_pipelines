@@ -340,6 +340,7 @@ Json::Value pipeline_object::run(const run_params &params, const callback_t &cal
 	exception_text = e.what();
 	exception_thrown = true;
 	// fall through...
+        throw(e);
     }
 
     if (params.verbosity >= 2) {

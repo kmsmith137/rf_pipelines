@@ -15,10 +15,6 @@ namespace rf_pipelines {
 }; // pacify emacs c-mode
 #endif
 
-chime_wi_transform::chime_wi_transform(const string& cn, const string& n) :
-    wi_transform(cn, n)
-{}
-
 void chime_wi_transform::set_chime_stream(std::shared_ptr<ch_frb_io::intensity_network_stream> stream,
                                           int beam_id) {
     if (this->state != UNBOUND)
@@ -34,7 +30,16 @@ void chime_wi_transform::set_chime_stream(std::shared_ptr<ch_frb_io::intensity_n
     this->chime_beam_id = beam_id;
 }
 
-// virtual override
+void chime_wi_transform::_bind_transform(Json::Value &json_attrs) {
+    if (!json_attrs.isMember("freq_lo_MHz") || !json_attrs.isMember("freq_hi_MHz"))
+	throw runtime_error("chime_wi_transform: expected json_attrs to contain members 'freq_lo_MHz' and 'freq_hi_MHz'");
+    if (!json_attrs.isMember("dt_sample"))
+	throw runtime_error("chime_wi_transform: expected json_attrs to contain member 'dt_sample'");
+    freq_lo_MHz = json_attrs["freq_lo_MHz"].asDouble();
+    freq_hi_MHz = json_attrs["freq_hi_MHz"].asDouble();
+    dt_sample = json_attrs["dt_sample"].asDouble();
+}
+
 void chime_wi_transform::_start_pipeline(Json::Value &json_attrs)
 {
 #ifdef HAVE_CH_FRB_IO
@@ -44,7 +49,7 @@ void chime_wi_transform::_start_pipeline(Json::Value &json_attrs)
 	this->chime_fpga_counts_initialized = true;
 	
 	if (chime_stream->ini_params.fpga_counts_per_sample != chime_fpga_counts_per_sample)
-	    throw runtime_error("mask_counter: value of 'fpga_counts_per_sample' in chime_intensity_stream does not match the value in _start_pipeline()");
+	    throw runtime_error("chime_wi_transform: value of 'fpga_counts_per_sample' in chime_intensity_stream does not match the value in _start_pipeline()");
     }
 #endif
 }
