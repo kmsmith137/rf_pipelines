@@ -13,6 +13,7 @@
 #include <sys/time.h>
 
 #include "rf_kernels/core.hpp"
+#include "rf_kernels/polynomial_detrender.hpp"
 #include "rf_pipelines_base_classes.hpp"
 #include "rf_pipelines_inventory.hpp"
 
@@ -68,6 +69,29 @@ protected:
     ssize_t coeffs_stride = 0;
 };
 
+// Extended by chime_polynomial_detrender, but does not need to be public
+class polynomial_detrender : public virtual wi_transform {
+public:
+    rf_kernels::polynomial_detrender kernel;
+    const double epsilon;
+
+    polynomial_detrender(rf_kernels::axis_type axis, int nt_chunk_, int polydeg, double epsilon_);
+    virtual void _allocate() override;
+    virtual void _deallocate() override;
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual Json::Value jsonize() const override;
+    static std::shared_ptr<polynomial_detrender> from_json(const Json::Value &j);
+    // New virtual added by polynomial_detrender
+    // The "coeffs" array is stored:
+    // for axis=TIME:
+    //   coeffs[ifreq*Nco + ico]
+    // for axis=FREQ:  the polynomial coefficients vary fastest
+    //   coeffs[itime*Nco + ico]
+    virtual void _handle_coeffs(ssize_t pos, float *coeffs, float *intensity, ssize_t istride, float *weights, ssize_t wstride);
+
+protected:
+    std::vector<float> coeffs;
+};
 
 // -------------------------------------------------------------------------------------------------
 //
