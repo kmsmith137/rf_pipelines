@@ -94,14 +94,9 @@ void mask_filler::_process_chunk(float *intensity, ssize_t istride, float *weigh
     // The kernel does the following:
     //   - Updates its internal estimates of the running variance.
     //   - Updates the running_weights which it applies.
-
-    //chlog("mask_filler::process_chunk mask_fill_in_place.  nt_chunk " << nt_chunk << ", nt_chunk_out " << nt_chunk_out);
-    //chlog("rb_weight: " << rb_weight->get_info());
-    //chlog("rb_variance: " << rb_variance->get_info());
-    //chlog("rb_wvar: " << rb_wvar->get_info());
-    
     kernel.mask_fill_in_place(nt_chunk, intensity, istride, weights, wstride);
 
+    // (no longer does:)
     //   - Fills the output 
     //   - Multiplies the intensity by the running_weights.
     //kernel.mask_fill_and_multiply(nt_chunk, out, ostride, intensity, istride, weights, wstride);
@@ -137,9 +132,7 @@ void mask_filler::_process_chunk(float *intensity, ssize_t istride, float *weigh
     }
 
     this->nchunks_processed++;
-    chlog("mask_filler: process_chunk done!");
 }
-
 
 // Note: returns 0 if no variance estimate is available.
 //
@@ -152,8 +145,6 @@ float mask_filler::eval_weighted_variance(int ifreq_c, double ns) const
     bonsai_assert(ifreq_c >= 0);
     bonsai_assert(ifreq_c < nfreq_c);
     
-    //const float *var_1d = &rb_variance[ifreq_c * rb_capacity];
-
     // Convert timestamp from samples to chunks, and range-check timestamp.
     double nc = ns / nt_chunk;
     bonsai_assert(nc > nchunks_processed - rb_capacity + 2.001);
