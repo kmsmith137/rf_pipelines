@@ -115,8 +115,8 @@ void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float
         int ntotal = 0;
         int nbefore = 0;
         int nafter = 0;
-        size_t minfreq = -1;
-        size_t maxfreq = -1;
+        int minfreq = -1;
+        int maxfreq = -1;
         // offset into the "data" array
         ssize_t data_offset = 0;
         for (size_t i=0; i<data->sample_offset.size(); i++) {
@@ -157,7 +157,8 @@ void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float
                 indata[j] += data->data[this_data_offset + inj_offset + j];
             nf += 1;
             ntotal += ncopy;
-            maxfreq = std::max(maxfreq, i);
+            if ((maxfreq == -1) || (i > maxfreq))
+                maxfreq = i;
             if (minfreq == -1)
                 minfreq = i;
         }
