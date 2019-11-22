@@ -79,27 +79,31 @@ void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float
     vector<shared_ptr<inject_args> > to_inject_now;
     {
         ulock u(mutex);
-        //cout << "Intensity_Injector transform: " << to_inject.size() << " chunks of data" << endl;
+
+        if (to_inject.size())
+            cout << "Injector: " << to_inject.size() << " chunk(s) of data to inject" << endl;
         for (size_t idata=0; idata<to_inject.size(); idata++) {
             auto data = to_inject[idata];
             //cout << "  Pipeline pos: " << pos << ", data injection sample0: " << data->sample0 << ", sample range " << data->sample0 + data->min_offset << " to " << data->sample0 + data->max_offset << endl;
             // Index in the current chunk of data of "fpga0" of this injected data entry
             if ((data->sample0 + data->max_offset) < pos) {
                 // This request's time has passed.
-                //cout << "  This data injection's time has passed.  Deleting" << endl;
+                cout << "  chunk index " << idata << ": This injection's time has passed.  Deleting" << endl;
                 to_inject.erase(to_inject.begin() + idata);
                 idata--;
                 continue;
             }
             if ((data->sample0 + data->min_offset) >= (pos + this->nt_chunk)) {
                 // This request is in the future.
-                //cout << "  This data injection is in the future." << endl;
+                cout << "  chunk index " << idata << ": Starts in " << ((data->sample0 + data->min_offset - pos)/1024) << " seconds" << endl;
                 continue;
             }
-            //cout << "  Will inject!" << endl;
+            cout << "  chunk index " << idata << ": Will inject!" << endl;
             to_inject_now.push_back(data);
         }
     }
+    if (to_inject_now.size())
+        cout << "Injecting " << to_inject_now.size() << " chunk(s)" << endl;
     for (const auto &data : to_inject_now) {
         // About int sizes here: data->sample0 may be large, as may
         // pos (if we run for a long time).
@@ -152,7 +156,7 @@ void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float
             nf += 1;
             ntotal += ncopy;
         }
-        //cout << "Injected " << nf << " frequency bins, total of " << ntotal << " samples.  N freq before: " << nbefore << ", after: " << nafter << endl;
+        cout << "  chunk: Injected " << nf << " frequency bins, total of " << ntotal << " samples.  N freq before: " << nbefore << ", after: " << nafter << endl;
     }
 }
 
