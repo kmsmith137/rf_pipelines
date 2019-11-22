@@ -162,7 +162,7 @@ void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float
             if (minfreq == -1)
                 minfreq = i;
         }
-        cout << "  chunk: " << (pos - (data->sample0 + data->min_offset))/1024 << " seconds into a " << ((data->max_offset - data->min_offset)/1024+1) << " second injection.  Injected " << nf << " frequency bins (indices " << minfreq << " to " << maxfreq << "), total of " << ntotal << " samples.  N freq before: " << nbefore << ", after: " << nafter << endl;
+        cout << "  chunk: " << (1+(pos - (data->sample0 + data->min_offset))/1024) << " seconds into a ~" << ((data->max_offset - data->min_offset)/1024+1) << " second injection.  Injected " << nf << " frequency bins (indices " << minfreq << " to " << maxfreq << "), total of " << ntotal << " samples.  N freq before: " << nbefore << ", after: " << nafter << endl;
     }
 }
 
