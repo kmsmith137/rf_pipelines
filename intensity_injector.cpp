@@ -98,12 +98,12 @@ void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float
                 cout << "  chunk index " << idata << ": Starts in " << ((data->sample0 + data->min_offset - pos)/1024) << " seconds" << endl;
                 continue;
             }
-            cout << "  chunk index " << idata << ": Will inject!" << endl;
+            //cout << "  chunk index " << idata << ": Will inject!" << endl;
             to_inject_now.push_back(data);
         }
     }
-    if (to_inject_now.size())
-        cout << "Injecting " << to_inject_now.size() << " chunk(s)" << endl;
+    //if (to_inject_now.size())
+    //cout << "Injecting " << to_inject_now.size() << " chunk(s)" << endl;
     for (const auto &data : to_inject_now) {
         // About int sizes here: data->sample0 may be large, as may
         // pos (if we run for a long time).
@@ -115,6 +115,8 @@ void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float
         int ntotal = 0;
         int nbefore = 0;
         int nafter = 0;
+        size_t minfreq = -1;
+        size_t maxfreq = -1;
         // offset into the "data" array
         ssize_t data_offset = 0;
         for (size_t i=0; i<data->sample_offset.size(); i++) {
@@ -155,8 +157,11 @@ void intensity_injector::_process_chunk(float *intensity, ssize_t istride, float
                 indata[j] += data->data[this_data_offset + inj_offset + j];
             nf += 1;
             ntotal += ncopy;
+            maxfreq = std::max(maxfreq, i);
+            if (minfreq == -1)
+                minfreq = i;
         }
-        cout << "  chunk: Injected " << nf << " frequency bins, total of " << ntotal << " samples.  N freq before: " << nbefore << ", after: " << nafter << endl;
+        cout << "  chunk: " << (pos - (data->sample0 + data->min_offset))/1024 << " seconds into a " << ((data->max_offset - data->min_offset)/1024+1) << " second injection.  Injected " << nf << " frequency bins (indices " << minfreq << " to " << maxfreq << "), total of " << ntotal << " samples.  N freq before: " << nbefore << ", after: " << nafter << endl;
     }
 }
 
