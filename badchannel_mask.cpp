@@ -78,7 +78,7 @@ struct badchannel_mask : public wi_transform {
 	    inf.close();
 	}
 	else
-	    throw runtime_error("badchannel_mask: couldn't open file at the mask_path given!");
+	    throw runtime_error("badchannel_mask: couldn't open mask file " + mask_path);
     }
 
     // Called after 'nfreq' is initialized.
