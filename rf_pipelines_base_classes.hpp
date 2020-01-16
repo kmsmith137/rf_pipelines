@@ -13,6 +13,7 @@
 #include <atomic>
 #include <climits>
 #include <iostream>
+#include <functionalx>
 #include <unordered_map>
 #include <json/json.h>
 
