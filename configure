@@ -1,0 +1,163 @@
+#!/usr/bin/env python
+
+hpp_files = [
+    'rf_pipelines.hpp',
+    'rf_pipelines_base_classes.hpp',
+    'rf_pipelines_inventory.hpp',
+    'rf_pipelines_internals.hpp'
+]
+
+cpp_core_files = [
+    'badchannel_mask.cpp',
+    'bonsai_dedisperser.cpp',
+    'chime_16k_tools.cpp',
+    'chime_file_stream.cpp',
+    'chime_file_stream_base.cpp',
+    'chime_file_writer.cpp',
+    'chime_frb_file_stream.cpp',
+    'chime_network_stream.cpp',
+    'chime_packetizer.cpp',
+    'chunked_pipeline_object.cpp',
+    'file_utils.cpp',
+    'gaussian_noise_stream.cpp',
+    'intensity_clippers.cpp',
+    'json_utils.cpp',
+    'lexical_cast.cpp',
+    'mask_counter.cpp',
+    'mask_expander.cpp',
+    'mask_measurements_ringbuf.cpp',
+    'outdir_manager.cpp',
+    'pipeline.cpp',
+    'pipeline_fork.cpp',
+    'pipeline_object.cpp',
+    'plot_utils.cpp',
+    'polynomial_detrenders.cpp',
+    'ring_buffer.cpp',
+    'run_params.cpp',
+    'spectrum_analyzer.cpp',
+    'spline_detrenders.cpp',
+    'std_dev_clippers.cpp',
+    'wi_sub_pipeline.cpp',
+    'wi_stream.cpp',
+    'wi_transform.cpp',
+    'zoomable_tileset.cpp'
+]
+
+# FIXME currently hacking in pyclops as a git subtree!
+# This doesn't seem like the right thing to do, but I'm planning to phase out pyclops soon anyway.
+pyclops_cpp_files = [
+    'pyclops/cfunction_table.cpp',
+    'pyclops/extension_module.cpp',
+    'pyclops/functional_wrappers.cpp',
+    'pyclops/master_hash_table.cpp',
+    'pyclops/numpy_array.cpp',
+    'pyclops/exceptions.cpp'
+]
+
+
+# In rf_pipelines/
+python_files = [
+    'rf_pipelines_c.so',
+    '__init__.py',
+    'utils.py',
+    'streams/__init__.py',
+    'streams/chime_streams.py',
+    'transforms/__init__.py',
+    'transforms/adversarial_masker.py',
+    'transforms/bonsai_dedisperser.py',
+    'transforms/frb_injector_transform.py',
+    'transforms/mask_filler.py',
+    'transforms/noise_filler.py',
+    'transforms/plotter_transform.py',
+    'transforms/variance_estimator.py',
+    'retirement_home/__init__.py',
+    'retirement_home/intensity_clipper.py',
+    'retirement_home/polynomial_detrender.py',
+    'retirement_home/std_dev_clipper.py'
+]
+
+
+cpp_unit_tests = [
+    'test-misc.cpp',
+    'test-ring-buffer.cpp',
+    'test-core-pipeline-logic.cpp',
+    'test-file-stream-base.cpp'
+]
+
+cpp_installed_binaries = [
+    'rfp-time.cpp'
+]
+
+cpp_non_installed_binaries = [
+    'visit-pipeline-example.cpp'
+]
+
+installed_scripts = [
+    'scripts/rfp-analyze',
+    'scripts/rfp-json-show',
+    'scripts/rfp-run'
+]
+
+
+####################################################################################################
+
+
+import os
+import build_helpers
+
+# If called recursively in superbuild, a global persistent ConfigureScript will be returned.
+cs = build_helpers.get_global_configure_script()
+cs.configure_install_directories(bin=True, inc=True, lib=True, py=True)
+cs.configure_cpp('-fPIC -Wall -Wno-strict-aliasing -O3 -march=native -ffast-math -funroll-loops --param inline-unit-growth=10000')
+cs.configure_python_extension_modules()
+
+# Exernal dependencies.
+cs.configure_external_library(build_helpers.external_libraries.fftw3, optional=True)
+cs.configure_external_library(build_helpers.external_libraries.hdf5, optional=True)
+cs.configure_external_library(build_helpers.external_libraries.jsoncpp, optional=True)
+cs.configure_external_library(build_helpers.external_libraries.png, optional=True)
+
+# "Homegrown" dependencies (redundant in a superbuild)
+simd_helpers = build_helpers.ExternalLibrary('simd_helpers', find_headers=['simd_helpers.hpp'])
+sp_hdf5 = build_helpers.ExternalLibrary('sp_hdf5', find_headers=['sp_hdf5.hpp'], req_sublibs=['hdf5'])
+rf_kernels = build_helpers.ExternalLibrary('rf_kernels', find_headers=['rf_kernels.hpp'], find_libraries=['rf_kernels'], req_sublibs=['simd_helpers'])
+simpulse = build_helpers.ExternalLibrary('simpulse', find_headers=['simpulse.hpp'], find_libraries=['simpulse'], req_sublibs=['fftw3'])
+
+cs.configure_external_library(simd_helpers, optional=False)
+cs.configure_external_library(sp_hdf5, optional=True)
+cs.configure_external_library(rf_kernels, optional=False)
+cs.configure_external_library(simpulse, optional=True)
+
+# Install .hpp header files.
+cs.install_cpp_headers(hpp_files)
+
+# C++ library
+cs.make_cpp_library(libname='rf_pipelines', sources=cpp_core_files, sublibs=['sp_hdf5','simpulse','rf_kernels','jsoncpp','png'], install=True)
+
+# Add -Ipyclops (in a way which works for superbuilds)
+# FIXME: Currently the interface for adding -I and -L flags is really kludgy (noted in the build_helpers TODO).
+# Right now, the only use case is pyclops, and I'm planning to phase out pyclops anyway, so it's not a high priority.
+incdir = os.path.join(cs.subbuild_relpath, 'pyclops')
+cs.cpp_compiler.add_header_search_dir(incdir, in_tree=True, comments='', cs=cs)
+
+# Python extension module
+cs.make_python_extension_module('rf_pipelines/rf_pipelines_c.so', sources=['rf_pipelines/rf_pipelines_c.cpp'] + pyclops_cpp_files, libraries=['rf_pipelines'])
+
+# Python package
+cs.install_python_package('rf_pipelines', python_files, srcdir='')
+
+# C++ unit tests
+for cpp_filename in cpp_unit_tests:
+    cs.make_binary(sources=[cpp_filename], libraries=['rf_pipelines'], test=True)
+
+# C++ installed binaries
+for cpp_filename in cpp_installed_binaries:
+    cs.make_binary(sources=[cpp_filename], libraries=['rf_pipelines'], install=True)
+
+# C++ "non-installed" binaries
+for cpp_filename in cpp_non_installed_binaries:
+    cs.make_binary(sources=[cpp_filename], libraries=['rf_pipelines'], install=False)
+
+# Installed scripts
+for script_filename in installed_scripts:
+    cs.install_binary(script_filename)
