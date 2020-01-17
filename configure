@@ -112,27 +112,34 @@ cs.configure_cpp('-fPIC -Wall -Wno-strict-aliasing -O3 -march=native -ffast-math
 cs.configure_python_extension_modules()
 
 # Exernal dependencies.
-cs.configure_external_library(build_helpers.external_libraries.fftw3, optional=True)
-cs.configure_external_library(build_helpers.external_libraries.hdf5, optional=True)
-cs.configure_external_library(build_helpers.external_libraries.jsoncpp, optional=True)
 cs.configure_external_library(build_helpers.external_libraries.png, optional=True)
+cs.configure_external_library(build_helpers.external_libraries.lz4, optional=True)
+cs.configure_external_library(build_helpers.external_libraries.curl, optional=True)
+cs.configure_external_library(build_helpers.external_libraries.hdf5, optional=True)
+cs.configure_external_library(build_helpers.external_libraries.fftw3, optional=True)
+cs.configure_external_library(build_helpers.external_libraries.cppzmq, optional=True)
+cs.configure_external_library(build_helpers.external_libraries.msgpack, optional=True)
+cs.configure_external_library(build_helpers.external_libraries.jsoncpp, optional=False)
 
 # "Homegrown" dependencies (redundant in a superbuild)
-simd_helpers = build_helpers.ExternalLibrary('simd_helpers', find_headers=['simd_helpers.hpp'])
 sp_hdf5 = build_helpers.ExternalLibrary('sp_hdf5', find_headers=['sp_hdf5.hpp'], req_sublibs=['hdf5'])
-rf_kernels = build_helpers.ExternalLibrary('rf_kernels', find_headers=['rf_kernels.hpp'], find_libraries=['rf_kernels'], req_sublibs=['simd_helpers'])
+rf_kernels = build_helpers.ExternalLibrary('rf_kernels', find_headers=['rf_kernels.hpp'], find_libraries=['rf_kernels'])
 simpulse = build_helpers.ExternalLibrary('simpulse', find_headers=['simpulse.hpp'], find_libraries=['simpulse'], req_sublibs=['fftw3'])
+ch_frb_io = build_helpers.ExternalLibrary('ch_frb_io', find_headers=['simpulse.hpp'], find_libraries=['simpulse'], req_sublibs=['lz4','curl','hdf5','cppzmq','msgpack','jsoncpp'])
+bonsai = build_helpers.ExternalLibrary('bonsai', find_headers=['bonsai.hpp'], find_libraries=['bonsai'], req_sublibs=['rf_kernels'], opt_sublibs=['hdf5','fftw3','jsoncpp','png','simpulse'])
 
-cs.configure_external_library(simd_helpers, optional=False)
 cs.configure_external_library(sp_hdf5, optional=True)
 cs.configure_external_library(rf_kernels, optional=False)
 cs.configure_external_library(simpulse, optional=True)
+cs.configure_external_library(ch_frb_io, optional=True)
+cs.configure_external_library(bonsai, optional=True)
 
 # Install .hpp header files.
 cs.install_cpp_headers(hpp_files)
 
 # C++ library
-cs.make_cpp_library(libname='rf_pipelines', sources=cpp_core_files, sublibs=['sp_hdf5','simpulse','rf_kernels','jsoncpp','png'], install=True)
+sublibs = ['png','hdf5','jsoncpp','rf_kernels','simpulse','ch_frb_io','bonsai']
+cs.make_cpp_library(libname='rf_pipelines', sources=cpp_core_files, sublibs=sublibs, install=True)
 
 # Add -Ipyclops (in a way which works for superbuilds)
 # FIXME: Currently the interface for adding -I and -L flags is really kludgy (noted in the build_helpers TODO).

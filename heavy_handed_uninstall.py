@@ -2,21 +2,23 @@
 
 import build_helpers
 
-# If called recursively in superbuild, a global persistent LegacyUninstaller will be returned.
-u = build_helpers.get_global_legacy_uninstaller()
+# If called recursively in superbuild, a global persistent HeavyHandedUninstaller will be returned.
+u = build_helpers.get_global_heavy_handed_uninstaller()
 
 u.uninstall_headers('rf_pipelines*.hpp')
 u.uninstall_headers('rf_pipelines/*.hpp')
 u.uninstall_headers('rf_pipelines/')
 u.uninstall_libraries('librf_pipelines*')
 
-lu.uninstall_python_subdir('rf_pipelines/streams')
-lu.uninstall_python_subdir('rf_pipelines/transforms')
-lu.uninstall_python_subdir('rf_pipelines/retirement_home')
-lu.uninstall_python_subdir('rf_pipelines/streams')
-lu.uninstall_pyfiles('rf_pipelines*.py')
-lu.uninstall_pyfiles('rf_pipelines*.pyc')
-lu.uninstall_pyfiles('rf_pipelines*.so')
+u.uninstall_executables('rfp-*')
+
+u.uninstall_python_package('rf_pipelines/streams')
+u.uninstall_python_package('rf_pipelines/transforms')
+u.uninstall_python_package('rf_pipelines/retirement_home')
+u.uninstall_python_package('rf_pipelines/streams')
+u.uninstall_pyfiles('rf_pipelines*.py')
+u.uninstall_pyfiles('rf_pipelines*.pyc')
+u.uninstall_pyfiles('rf_pipelines*.so')
 
 # FIXME currently hacking in pyclops as a git subtree!
 # This doesn't seem like the right thing to do, but I'm planning to phase out pyclops soon anyway.
