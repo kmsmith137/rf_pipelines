@@ -484,11 +484,11 @@ extern std::shared_ptr<wi_stream> make_chime_frb_stream_from_filename_list(const
 // Assumes the ch_frb_io::intensity_network_stream object is already constructed (but not started).
 // If the 'prescale' argument is specified, all intensity values will be multiplied by its value.
 // This is a temporary workaround for 16-bit overflow issues in bonsai.
-extern std::shared_ptr<wi_stream> make_chime_network_stream(const std::shared_ptr<ch_frb_io::intensity_network_stream> &stream, int beam_id, float prescale=1.0);
+extern std::shared_ptr<wi_stream> make_chime_network_stream(const std::shared_ptr<ch_frb_io::intensity_network_stream> &stream, int assembler_index, float prescale=1.0);
 
 // A higher-level interface which constructs a ch_frb_io::intensity_network_stream expecting a single beam_id.  
 // If the 'udp_port' argument is zero, then the default chimefrb port will be used.
-extern std::shared_ptr<wi_stream> make_chime_network_stream(int udp_port=0, int beam_id=0, float prescale=1.0);
+extern std::shared_ptr<wi_stream> make_chime_network_stream(int udp_port=0, int assembler_index=0, float prescale=1.0);
 
 // "Dummy" CHIME network stream, intended for timing.
 // Returns a stream which decodes a preallocated ch_frb_io::assembled_chunk pool as the pipeline progresses,
@@ -602,6 +602,8 @@ class mask_counter_transform : public wi_transform {
 public:
     struct runtime_attrs {
 	int ringbuf_nhistory = 0;
+        // index of our beam within this stream.
+        int chime_stream_index = -1;
 	int chime_beam_id = -1;
 	std::shared_ptr<ch_frb_io::intensity_network_stream> chime_stream;
     };	

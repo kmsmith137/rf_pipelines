@@ -38,8 +38,8 @@ void mask_counter_transform::set_runtime_attrs(const runtime_attrs &a)
 	throw runtime_error("mask_counter_transform::set_runtime_attrs() called after bind()");
     if (a.ringbuf_nhistory < 0)
 	throw runtime_error("mask_counter_transform::set_runtime_attrs(): ringbuf_nhistory was negative");
-    if (a.chime_stream && (a.chime_beam_id < 0))
-	throw runtime_error("mask_counter_transform::set_runtime_attrs(): chime_stream was specified, but chime_beam_id was uninitialized or negative");
+    if (a.chime_stream && (a.chime_stream_index < 0))
+	throw runtime_error("mask_counter_transform::set_runtime_attrs(): chime_stream was specified, but chime_stream_index was uninitialized or negative");
 
 #ifndef HAVE_CH_FRB_IO
     if (a.chime_stream)
@@ -101,6 +101,7 @@ void mask_counter_transform::_start_pipeline(Json::Value &json_attrs)
 	
 	if (attrs.chime_stream->ini_params.fpga_counts_per_sample != chime_fpga_counts_per_sample)
 	    throw runtime_error("mask_counter: value of 'fpga_counts_per_sample' in chime_intensity_stream does not match the value in _start_pipeline()");
+        attrs.chime_beam_id = attrs.chime_stream->get_beam_ids()[attrs.chime_stream_index];
     }
 #endif
 }
