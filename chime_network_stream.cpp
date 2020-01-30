@@ -86,7 +86,12 @@ void chime_network_stream::_start_pipeline(Json::Value &j)
     stream->wait_for_first_packet();
     uint64_t fpga0 = stream->get_first_fpgacount();
     uint64_t frame0_nano = stream->get_frame0_nano();
-    
+
+    vector<int> beams = stream->get_beam_ids();
+    assert(assembler_id >= 0 && assembler_id < beams.size());
+    int beam = beams[assembler_id];
+
+    j["beam"] = Json::Int(beam);
     j["initial_fpga_count"] = Json::UInt64(fpga0);
     j["frame0_nano"] = Json::UInt64(frame0_nano);
     j["fpga_counts_per_sample"] = stream->ini_params.fpga_counts_per_sample;
