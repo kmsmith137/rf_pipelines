@@ -83,23 +83,17 @@ void chime_network_stream::_start_pipeline(Json::Value &j)
 {
     // tells network thread to start reading packets, returns immediately
 
-    cout << "chime_network_stream::_start_pipeline: start_stream" << endl;
     stream->start_stream();
 
-    cout << "chime_network_stream::_start_pipeline: wait_for_first_packet" << endl;
     stream->wait_for_first_packet();
     uint64_t fpga0 = stream->get_first_fpgacount();
     uint64_t frame0_nano = stream->get_frame0_nano();
 
     vector<int> beams = stream->get_beam_ids();
 
-    cout << "chime_network_stream::_start_pipeline: get first packet.  N beams: " << beams.size() << ", my index " << assembler_id << endl;
-
     assert(assembler_id >= 0 && assembler_id < beams.size());
     int beam = beams[assembler_id];
 
-    cout << "chime_network_stream::_start_pipeline: beam " << beam << endl;
-    
     j["beam"] = Json::Int(beam);
     j["initial_fpga_count"] = Json::UInt64(fpga0);
     j["frame0_nano"] = Json::UInt64(frame0_nano);
@@ -109,16 +103,13 @@ void chime_network_stream::_start_pipeline(Json::Value &j)
 
 bool chime_network_stream::_fill_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
 {
-    cout << "chime_network_stream::_fill_chunk: get_assembled_chunk for assembler " << assembler_id << endl;
     shared_ptr<ch_frb_io::assembled_chunk> chunk = stream->get_assembled_chunk(assembler_id);
     if (!chunk) {
-        cout << "chime_network_stream::_fill_chunk: get_assembled_chunk for assembler " << assembler_id << " --> no chunk" << endl;
         return false;
     }
 
     rf_assert(this->nfreq == ch_frb_io::constants::nfreq_coarse_tot * chunk->nupfreq);
     chunk->decode(intensity, weights, istride, wstride, prescale);
-    cout << "got chunk " << chunk->ichunk << " for beam " << chunk->beam_id << endl;
     return true;
 }
 
