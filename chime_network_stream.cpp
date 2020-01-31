@@ -52,6 +52,7 @@ struct chime_network_stream : public wi_stream
     virtual void _bind_stream(Json::Value &j) override;
     virtual void _start_pipeline(Json::Value &j) override;
     virtual void _end_pipeline(Json::Value &j) override;
+    virtual void _reset() override;
 };
 
 
@@ -82,10 +83,13 @@ void chime_network_stream::_bind_stream(Json::Value &json_attrs)
 void chime_network_stream::_start_pipeline(Json::Value &j)
 {
     // tells network thread to start reading packets, returns immediately
-
+    cout << "chime_network_stream::start_pipeline, calling stream->start_stream" << endl;
     stream->start_stream();
 
+    cout << "chime_network_stream::start_pipeline, waiting for first packet" << endl;
     stream->wait_for_first_packet();
+    cout << "chime_network_stream::start_pipeline, got first packet" << endl;
+
     uint64_t fpga0 = stream->get_first_fpgacount();
     uint64_t frame0_nano = stream->get_frame0_nano();
 
@@ -116,7 +120,14 @@ bool chime_network_stream::_fill_chunk(float *intensity, ssize_t istride, float 
 
 void chime_network_stream::_end_pipeline(Json::Value &j)
 {
-    stream->join_threads();
+    //stream->join_threads();
+    cout << "chime_network_stream::end_pipeline" << endl;
+    stream->end_stream();
+}
+
+void chime_network_stream::_reset() {
+    cout << "chime_network_stream::reset()" << endl;
+    //stream->reset_stream();
 }
 
 
