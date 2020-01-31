@@ -35,3 +35,6 @@ endif
 CPP += -I. -I$(INCDIR) -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR) -I$(JSONCPP_INCDIR)
 
 CPP_LFLAGS= -L. -L$(LIBDIR)
+
+CPP += $(shell pkg-config --cflags hdf5)
+CPP_LFLAGS += $(shell pkg-config --libs hdf5)
