@@ -7,6 +7,7 @@
 #error "This source file needs to be compiled with C++11 support (g++ -std=c++11)"
 #endif
 
+#include <functional>
 #include <string>
 #include <vector>
 #include <memory>
