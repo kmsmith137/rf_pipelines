@@ -81,6 +81,8 @@ namespace ch_frb_io {
     class output_device_pool;
     class ch_chunk;
     class slow_pulsar_chunk;
+    struct sp_chunk_header;
+    struct sp_file_header;
 }
 // using namespace ch_frb_io;
 
@@ -613,7 +615,6 @@ std::shared_ptr<wi_transform> make_mask_counter(int nt_chunk, std::string where)
 // chime_slow_pulsar_writer
 
 typedef std::shared_ptr<std::vector<float>> fvec_t;
-// typedef std::unique_ptr<ch_frb_io::slow_pulsar_chunk> sp_chunk_t;
 typedef std::shared_ptr<ch_frb_io::slow_pulsar_chunk> sp_chunk_t;
 
 struct chime_slow_pulsar_writer : public wi_transform
@@ -629,27 +630,38 @@ struct chime_slow_pulsar_writer : public wi_transform
 	std::shared_ptr<ch_frb_io::output_device_pool> output_devices;
     };
 
-    struct output_file_params {
-	int nfreq_out = 0;   // number of frequency channels in output file
-	int nds_out = 0;     // time downsampling factor in output file
-	int nbits_out = 0;   // bit depth in output file
-
-    int nt_out = 0; // this is a derived quantity that we set none-the-less
-    };
+    ssize_t nbins = -1;
+    ssize_t nfreq_out = -1;
+    ssize_t ntime_out = -1;
+    ssize_t nds_freq = -1;
+    ssize_t nds_time = -1;
+    ssize_t nsamp = -1;
 
     // strategically removed from output_file_params
-    fvec_t tmp_w;
-    fvec_t tmp_i;
-    std::shared_ptr<std::vector<char>> tmp_buf;
+    // buffer for downsampling (weights) - not actually used
+    std::shared_ptr<std::vector<float>> tmp_w;
+    // buffer for downsampling (intensity)
+    std::shared_ptr<std::vector<float>> tmp_i;
+    // buffer for quantization
+    std::shared_ptr<std::vector<uint8_t>> tmp_qbuf;
+    // buffer for compression
+    std::shared_ptr<std::vector<uint32_t>> tmp_ibuf;
+    // buffer for mask storage (not sized properly)
+    std::shared_ptr<std::vector<uint8_t>> tmp_mask;
+    // buffer for channel means
+    std::shared_ptr<std::vector<float>> tmp_mean;
+    // buffer for channel variance
+    std::shared_ptr<std::vector<float>> tmp_var;
     ssize_t nbytes_charbuf = 0;
 
     uint64_t frame0_nano = 0;
     uint64_t fpga_counts_per_sample = 1;
+    uint64_t initial_fpga_count = 0;
     uint64_t ichunk = 0;
 
-    output_file_params of_params;
-    std::mutex of_mutex;
-    std::mutex chunk_mutex;
+    bool wrote_start = false;
+
+    std::mutex writer_mutex;
     std::shared_ptr<rf_kernels::wi_downsampler> downsampler;
     
     real_time_state rt_state;
@@ -660,7 +672,10 @@ struct chime_slow_pulsar_writer : public wi_transform
     void init_real_time_state(const real_time_state &rt_state);
 
     // Called by RPC thread, intermittently while pipeline is running.
-    void set_output_file_params(const output_file_params &of_params);
+    void set_params(const ssize_t beam_id, const ssize_t nfreq, const ssize_t ntime, const ssize_t nbins);
+
+    // Called interally to populate and write an sp_file_header to tmp_buf
+    void _update_file_header_with_lock();
 
     // Called by rf_pipelines thread.
     // virtual void _bind_transform(Json::Value &json_attrs) override;
@@ -673,7 +688,7 @@ struct chime_slow_pulsar_writer : public wi_transform
 
     // must leave these public for quantize_store hack
     // otherwise should be protected or private
-    void get_new_chunk();
+    void _get_new_chunk_with_lock();
     sp_chunk_t chunk = nullptr;
 
 // private:

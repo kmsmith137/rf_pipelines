@@ -7,6 +7,7 @@ HAVE_CH_FRB_IO=y
 HAVE_BONSAI=y
 HAVE_HDF5=y
 HAVE_PNG=y
+HAVE_SPSHUFF=y
 
 # Directory where C++ libraries will be installed
 LIBDIR=$(HOME)/lib
@@ -39,6 +40,6 @@ NUMPY_INCDIR2=/usr/lib/python2.7/dist-packages/numpy/core/include
 # Don't forget -march=native
 #
 
-CPP=g++ -std=c++11 -pthread -fPIC -Wall -Wno-literal-suffix -O3 -march=native -ffast-math -funroll-loops -I. -I$(INCDIR) -I/usr/include/jsoncpp -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR1) -I$(NUMPY_INCDIR2) -L. -L$(LIBDIR)
+CPP=g++ -g -std=c++11 -pthread -fPIC -Wall -Wno-literal-suffix -O3 -march=native -ffast-math -funroll-loops -I. -I$(INCDIR) -I/usr/include/jsoncpp -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR1) -I$(NUMPY_INCDIR2) -L. -L$(LIBDIR)
 
 CPP_LFLAGS= -L. -L$(LIBDIR)

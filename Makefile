@@ -150,6 +150,13 @@ ifeq ($(HAVE_PNG),y)
 	LIBS += -lpng
 endif
 
+ifeq ($(HAVE_SPSHUFF),y)
+	CPP += -DHAVE_SPSHUFF
+	LIBS += -lspshuff
+else
+	$(error Fatal: Must have spshuff to compile this branch)
+endif
+
 #To be uncommented when C++ pulse_adder transform is resurrected.
 #
 #ifeq ($(HAVE_SIMPULSE),y)
