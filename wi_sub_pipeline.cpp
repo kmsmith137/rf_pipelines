@@ -284,7 +284,7 @@ void wi_sub_pipeline::_bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
     // Note: can't call pipeline::add() directly (get error message "...add() was called after bind()")
     rf_assert(this->elements.size() == 0);
     this->elements.push_back(make_shared<downsampler> (Df, Dt, nt_chunk));
-    this->elements.push_back(sub_pipeline);
+    this->elements.push_back(this->sub_pipeline);
     this->elements.push_back(make_shared<upsampler> (Df, Dt, nt_chunk, ini_params.w_cutoff));
 
     ring_buffer_dict rb_dict2;    
@@ -292,6 +292,14 @@ void wi_sub_pipeline::_bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs)
     rb_dict2["WEIGHTS_HIRES"] = rb_dict["WEIGHTS"];
 
     pipeline::_bind(rb_dict2, json_attrs);
+}
+
+
+// virtual override
+void wi_sub_pipeline::_unbind()
+{
+    pipeline::_unbind();
+    this->elements.clear();
 }
 
 
@@ -311,7 +319,7 @@ void wi_sub_pipeline::_visit_pipeline(std::function<void(const std::shared_ptr<p
     // and I thought it made most sense to "hide" this implementation detail from the caller of
     // visit_pipeline().  (This is a design decision that could be reversed.)
     //
-    // Second, we want _visit_pipeline() to work before bind() is called, and in the curren
+    // Second, we want _visit_pipeline() to work before bind() is called, and in the current
     // implementation, pipeline::elements is an empty vector before bind() is called.
 
     rf_assert(self.get() == this);
