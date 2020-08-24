@@ -80,7 +80,11 @@ void chime_slow_pulsar_writer::set_params(const ssize_t beam_id, const ssize_t n
         throw runtime_error("rf_pipelines::chime_slow_pulsar:writer::set_params(): nbins must not change over the course of a run");
     }
     if (nbins != 5){
-        throw runtime_error("rf_pipelines::chime_slow_pulsar:writer::set_params(): nbins must equal 5; email aroman@perimeterinstitute.ca if you desire a different value");
+        throw runtime_error("rf_pipelines::chime_slow_pulsar:writer::set_params(): nbins must equal 5; email aroman@perimeterinstitute.ca if you desire a different binning");
+    }
+
+    if (this->ntime_out % 8 != 0){
+        throw runtime_error("rf_pipelines::chime_slow_pulsar:writer::set_params(): 8 must divide ntime_out");
     }
 
     this->nbins = nbins;
@@ -91,7 +95,7 @@ void chime_slow_pulsar_writer::set_params(const ssize_t beam_id, const ssize_t n
     this->tmp_w = std::shared_ptr<std::vector<float>>(new std::vector<float>(this->nsamp));
     this->tmp_var = std::shared_ptr<std::vector<float>>(new std::vector<float>(this->nfreq_out));
     this->tmp_mean = std::shared_ptr<std::vector<float>>(new std::vector<float>(this->nfreq_out));
-    this->tmp_mask = std::shared_ptr<std::vector<uint8_t>>(new std::vector<uint8_t>(this->nsamp));
+    this->tmp_mask = std::shared_ptr<std::vector<uint8_t>>(new std::vector<uint8_t>(this->nsamp / 8));
 
     // a second buffer to receive the huffman encoded data
     this->nbytes_charbuf = encode_ceil_bound(this->nsamp);
@@ -213,7 +217,7 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
 
     chunk->file_header.end = tend;
 
-    // std::cout << "current downsample setting: (nfreq_out) " << of_params.nfreq_out << " (nt_out) " << of_params.nt_out << std::endl;
+
     if( (nfreq_out > 0) && (ntime_out > 0) ){
 
         // TODO: check for no downsampling (?)
@@ -242,12 +246,37 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
             (*tmp_var)[ifreq] = (v2/(1 + float(ntime_out)));
         }
 
+        const ssize_t nrow_mask = ntime_out / 8;
+        uint8_t mask_byte = 0;
+        float w;
         // pre-process data
         for(ssize_t ifreq = 0; ifreq < nfreq_out; ifreq++){
             const float mean = (*tmp_mean)[ifreq];
             const float stdev = sqrt((*tmp_var)[ifreq]);
+            ssize_t ibyte = ibit = 0;
             for(ssize_t itime = 0; itime < ntime_out; itime++){
                 (*tmp_i)[ifreq * ntime_out + itime] = ((*tmp_i)[ifreq * ntime_out + itime] - mean) / stdev;
+
+                // this is a particularly inelegant solution
+                w = weights[ifreq * wstride + itime] == 1.;
+                if(w == 1.){
+                    mask_byte += pow(2, ibit);
+                }
+                else if(w == 0.){
+                    // pass
+                }
+                else{
+                    throw new runtime_error("chime_slow_pulsar_writer: invalid value encountered in weight array");
+                }
+
+                ibit++;
+                if(ibit == 8){
+                    ibit = 0;
+                    ibyte += 1;
+                    (*tmp_mask)[ifreq * nrow_mask + ibyte] = mask_byte;
+                    mask_byte = 0;
+                }
+
             }
         }
 
