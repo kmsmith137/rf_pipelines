@@ -43,6 +43,7 @@ void chime_slow_pulsar_writer::_get_new_chunk_with_lock()
     this->chunk = slow_pulsar_chunk::make_slow_pulsar_chunk(ini_params);
     this->chunk->file_header.nbins = this->nbins;
     this->chunk->file_header.beam_id = this->rt_state.beam_id;
+    this->chunk->file_header.version = 4; // TODO shift this hard-coded value elsewhere (e.g. to the chunk itself)
 }
 
 
@@ -253,7 +254,8 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
         for(ssize_t ifreq = 0; ifreq < nfreq_out; ifreq++){
             const float mean = (*tmp_mean)[ifreq];
             const float stdev = sqrt((*tmp_var)[ifreq]);
-            ssize_t ibyte = ibit = 0;
+            ssize_t ibyte = 0;
+            ssize_t ibit = 0;
             for(ssize_t itime = 0; itime < ntime_out; itime++){
                 (*tmp_i)[ifreq * ntime_out + itime] = ((*tmp_i)[ifreq * ntime_out + itime] - mean) / stdev;
 
