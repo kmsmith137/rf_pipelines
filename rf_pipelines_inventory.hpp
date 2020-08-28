@@ -643,10 +643,18 @@ struct chime_slow_pulsar_writer : public wi_transform
     std::shared_ptr<std::vector<float>> tmp_w;
     // buffer for downsampling (intensity)
     std::shared_ptr<std::vector<float>> tmp_i;
+    // buffer for unit-variance normalized intensity
+    std::shared_ptr<std::vector<float>> tmp_inorm;
     // buffer for quantization
     std::shared_ptr<std::vector<uint8_t>> tmp_qbuf;
+
     // buffer for compression
     std::shared_ptr<std::vector<uint32_t>> tmp_ibuf;
+    // huffman state variables associated with ibuf
+    ssize_t i0 = 0;
+    ssize_t bit0 = 0;
+    ssize_t compressed_data_len = 0;
+
     // buffer for mask storage (not sized properly)
     std::shared_ptr<std::vector<uint8_t>> tmp_mask;
     // buffer for channel means

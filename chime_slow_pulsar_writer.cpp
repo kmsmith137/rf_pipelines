@@ -44,6 +44,10 @@ void chime_slow_pulsar_writer::_get_new_chunk_with_lock()
     this->chunk->file_header.nbins = this->nbins;
     this->chunk->file_header.beam_id = this->rt_state.beam_id;
     this->chunk->file_header.version = 4; // TODO shift this hard-coded value elsewhere (e.g. to the chunk itself)
+
+    // just to be sure...
+    this->i0 = 0;
+    this->bit0 = 0;
 }
 
 
@@ -94,14 +98,17 @@ void chime_slow_pulsar_writer::set_params(const ssize_t beam_id, const ssize_t n
     // I consider this an acceptable use of "new"
     this->tmp_i = std::shared_ptr<std::vector<float>>(new std::vector<float>(this->nsamp));
     this->tmp_w = std::shared_ptr<std::vector<float>>(new std::vector<float>(this->nsamp));
+    this->tmp_inorm = std::shared_ptr<std::vector<float>>(new std::vector<float>(this->ntime_out));
+    this->tmp_qbuf = std::shared_ptr<std::vector<uint8_t>>(new std::vector<uint8_t>(ntime_out));
     this->tmp_var = std::shared_ptr<std::vector<float>>(new std::vector<float>(this->nfreq_out));
     this->tmp_mean = std::shared_ptr<std::vector<float>>(new std::vector<float>(this->nfreq_out));
     this->tmp_mask = std::shared_ptr<std::vector<uint8_t>>(new std::vector<uint8_t>(this->nsamp / 8));
 
-    // a second buffer to receive the huffman encoded data
+    // a buffer to receive the huffman encoded data
     this->nbytes_charbuf = encode_ceil_bound(this->nsamp);
     this->tmp_ibuf = std::shared_ptr<std::vector<uint32_t>>(new std::vector<uint32_t>(nbytes_charbuf/sizeof(uint32_t)));
-    this->tmp_qbuf = std::shared_ptr<std::vector<uint8_t>>(new std::vector<uint8_t>(nsamp));
+    this->i0 = 0;
+    this->bit0 = 0;
 
     this->downsampler = std::shared_ptr<rf_kernels::wi_downsampler>(new rf_kernels::wi_downsampler(
                                                              this->nds_freq, this->nds_time));
@@ -118,35 +125,10 @@ T* get_ptr(std::shared_ptr<std::vector<T>> vect)
 // this is a hack to get around sp_header forward declaration in the hpp file
 // NOTE: this is only ever called from a process that current holds the of_mutex lock!
 // thus, no additional locking is necessary. It would be dangerous to call this otherwise
-void quantize_store_with_lock(chime_slow_pulsar_writer* spw, std::shared_ptr<sp_chunk_header> spch)
+void store_with_lock(chime_slow_pulsar_writer* spw, std::shared_ptr<sp_chunk_header> spch)
 {
-    // note that spw->tmp_i is contiguous
-    float* dptr = get_ptr<float>(spw->tmp_i);
-
-    const ssize_t nquant = spw->nfreq_out * spw->ntime_out;
-    quantize_naive5(dptr, get_ptr<uint8_t>(spw->tmp_qbuf), nquant);
-
-    // // Compute an upper bound on bit size of encoded huffman data
-    // const ssize_t max_dst_size = encode_bound(nquant); // NOTE: redundant to encode_ceil_bound?
-
-    // // Allocate a uint32_t "safe" sized array. While this is a bit-level coding, I
-    // // find that chunking the huffman stream into a larger data type e.g. 32 or 64 bits
-    // // is helpful for efficiency.
-
-    // // number of uint32_t in the compressed data (fairly arbitrary choice of dtype)
-    // const ssize_t len_compressed = (max_dst_size/sizeof(uint32_t)) + 1;
-
-    // BYTE size
-    const ssize_t compressed_data_size = huff_encode_kernel(get_ptr<uint8_t>(spw->tmp_qbuf), 
-                                            get_ptr<uint32_t>(spw->tmp_ibuf), nquant);
-
-    // length (number of uint32_t stored)
-    const ssize_t compressed_data_len = compressed_data_size / sizeof(uint32_t);
-    
-    // TODO: add mask logic (i.e. populate the mask vector!)
-
     // attempt to commit the chunk to slab
-    const int result = spw->chunk->commit_chunk(spch, spw->tmp_ibuf, compressed_data_len, 
+    const int result = spw->chunk->commit_chunk(spch, spw->tmp_ibuf, spw->compressed_data_len, 
                                     spw->tmp_mask, spw->tmp_mean, spw->tmp_var);
 
     if(result == 1){
@@ -164,9 +146,10 @@ void quantize_store_with_lock(chime_slow_pulsar_writer* spw, std::shared_ptr<sp_
         // TODO: address hackey constant below; not in the spirit of rf_pipelines
         double tstart = tend - 2560 * 1024 * spw->fpga_counts_per_sample * 1e-9;
         spw->_get_new_chunk_with_lock();
+        // TODO: investigate suspicious nbins in file header
         spw->chunk->file_header.start = tstart;
         spw->chunk->file_header.end = tend;
-        quantize_store_with_lock(spw, spch);
+        store_with_lock(spw, spch);
     }
     else if(result == 2){
         throw new runtime_error("chime_slow_pulsar_writer: byte size of single chunk exceeds memory slab capacity");
@@ -221,48 +204,30 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
 
     if( (nfreq_out > 0) && (ntime_out > 0) ){
 
-        // TODO: check for no downsampling (?)
+        // TODO: check for no downsampling and swap pointers (?)
         downsampler->downsample(nfreq_out, ntime_out, 
                                         get_ptr<float>(tmp_i), ntime_out,
                                         get_ptr<float>(tmp_w), ntime_out,
                                         intensity, istride,
                                         weights, wstride);
         
-        // estimate channel mean
-        for(ssize_t ifreq = 0; ifreq < nfreq_out; ifreq++){
-            float v = 0.;
-            for(ssize_t itime = 0; itime < ntime_out; itime++){
-                v += intensity[ifreq * istride + itime];
-            }
-            (*tmp_mean)[ifreq]= (v/float(ntime_out));
-        }
-
-        // estimate channel var
-        for(ssize_t ifreq = 0; ifreq < nfreq_out; ifreq++){
-            float v2 = 0.;
-            const float fmean = (*tmp_mean)[ifreq];
-            for(ssize_t itime = 0; itime < ntime_out; itime++){
-                v2 += pow(intensity[ifreq * istride + itime] - fmean, 2);
-            }
-            (*tmp_var)[ifreq] = (v2/(1 + float(ntime_out)));
-        }
-
         const ssize_t nrow_mask = ntime_out / 8;
         uint8_t mask_byte = 0;
-        float w;
-        // pre-process data
+        // estimate channel mean and var, compute mask
         for(ssize_t ifreq = 0; ifreq < nfreq_out; ifreq++){
-            const float mean = (*tmp_mean)[ifreq];
-            const float stdev = sqrt((*tmp_var)[ifreq]);
-            ssize_t ibyte = 0;
-            ssize_t ibit = 0;
+            float s1 = 0.;
+            float s2 = 0.;
+            ssize_t ibyte_w = 0;
+            ssize_t ibit_w = 0;
             for(ssize_t itime = 0; itime < ntime_out; itime++){
-                (*tmp_i)[ifreq * ntime_out + itime] = ((*tmp_i)[ifreq * ntime_out + itime] - mean) / stdev;
+                float v = (*tmp_i)[ifreq * ntime_out + itime];
+                s1 += v;
+                s2 += v*v;
 
                 // this is a particularly inelegant solution
-                w = weights[ifreq * wstride + itime] == 1.;
+                float w = (*tmp_w)[ifreq * ntime_out + itime] == 1.;
                 if(w == 1.){
-                    mask_byte += pow(2, ibit);
+                    mask_byte += pow(2, ibit_w);
                 }
                 else if(w == 0.){
                     // pass
@@ -271,19 +236,50 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
                     throw new runtime_error("chime_slow_pulsar_writer: invalid value encountered in weight array");
                 }
 
-                ibit++;
-                if(ibit == 8){
-                    ibit = 0;
-                    ibyte += 1;
-                    (*tmp_mask)[ifreq * nrow_mask + ibyte] = mask_byte;
+                ibit_w++;
+                if(ibit_w == 8){
+                    ibit_w = 0;
+                    ibyte_w += 1;
+                    (*tmp_mask)[ifreq * nrow_mask + ibyte_w] = mask_byte;
                     mask_byte = 0;
                 }
-
             }
+            
+            // compute the relevant statistics
+            float fmean = s1 / float(ntime_out);
+            float f2mean = s2 / float(ntime_out);
+            float fvar = f2mean - fmean * fmean;
+            (*tmp_mean)[ifreq]= fmean;
+            (*tmp_var)[ifreq] = fvar;
+            float stdev = sqrt(fvar);
+
+            // second time pass; normalize samples
+            for(ssize_t itime = 0; itime < ntime_out; itime++){
+                (*tmp_inorm)[itime] = ((*tmp_i)[ifreq * ntime_out + itime] - fmean) / stdev;
+            }
+
+            // quantize just one row
+            quantize_naive5(get_ptr<float>(tmp_inorm), get_ptr<uint8_t>(tmp_qbuf), ntime_out);
+
+            // compress just one row, add to buffer
+            // this should track the intra-bit state perfectly and yield a contiguous nsamp huffman coded array
+            // TODO: write explicit test to verify this
+            huff_encode_kernel(get_ptr<uint8_t>(tmp_qbuf), 
+                               get_ptr<uint32_t>(tmp_ibuf), ntime_out, i0, bit0);
         }
 
-        //this is inelegant
-        quantize_store_with_lock(this, sph);
+        // set compressed data length
+        compressed_data_len = i0;
+        if(bit0 > 0){
+            compressed_data_len++;
+        }
+
+        // TODO: give quantize_store a more hands-off role; quantization and compression happens in loop
+        store_with_lock(this, sph);
+
+        // reset huffman state
+        this->i0 = 0;
+        this->bit0 = 0;
     }
 
     ichunk += 1;
