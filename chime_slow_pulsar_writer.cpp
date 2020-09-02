@@ -204,7 +204,7 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
 
     if( (nfreq_out > 0) && (ntime_out > 0) ){
 
-        // TODO: check for no downsampling and swap pointers (?)
+        // TODO: check for no downsampling, rewrite to be cache-local
         downsampler->downsample(nfreq_out, ntime_out, 
                                         get_ptr<float>(tmp_i), ntime_out,
                                         get_ptr<float>(tmp_w), ntime_out,
@@ -248,7 +248,7 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
             // compute the relevant statistics
             float fmean = s1 / float(ntime_out);
             float f2mean = s2 / float(ntime_out);
-            float fvar = f2mean - fmean * fmean;
+            float fvar = (float(ntime_out) / float(ntime_out -1)) * (f2mean - fmean * fmean);
             (*tmp_mean)[ifreq]= fmean;
             (*tmp_var)[ifreq] = fvar;
             float stdev = sqrt(fvar);
