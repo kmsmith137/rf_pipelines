@@ -40,10 +40,6 @@ NUMPY_INCDIR=/home/kmsmith/.local/lib/python2.7/site-packages/numpy/core/include
 #  PYTHON_INCDIR=/usr/local/anaconda2/include/python2.7
 #  NUMPY_INCDIR=/usr/local/anaconda2/lib/python2.7/site-packages/numpy/core/include
 
-# Read-only location of python header files
-PYTHON_INCDIR=/usr/local/anaconda2/include/python2.7
-NUMPY_INCDIR=/usr/local/anaconda2/lib/python2.7/site-packages/numpy/core/include
-
 JSONCPP_INCDIR=/usr/include/jsoncpp
 
 CPP=g++ -std=c++11 -pthread -fPIC -Wall -Wno-literal-suffix
