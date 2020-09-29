@@ -49,7 +49,6 @@ struct chime_assembled_chunk_file_writer : public wi_transform {
         chunk_ini.nrfifreq = 0; // ??
         chunk_ini.nt_per_packet = 16; // ??
         chunk_ini.fpga_counts_per_sample = j["fpga_counts_per_sample"].asInt();
-        chunk_ini.frame0_nano = j["frame0_nano"].asUInt64();
         // This converts ch_frb_io chunk number (which scales directly
         // to FPGA counts) to rf_pipelines chunk counts (which start
         // from 0 at the beginning of the stream).
