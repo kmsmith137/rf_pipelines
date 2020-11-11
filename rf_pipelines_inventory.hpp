@@ -851,9 +851,8 @@ protected:
     std::vector<std::string> bufnames;
     std::vector<std::shared_ptr<ring_buffer>> ring_buffers;
     std::vector<std::shared_ptr<spooled_buffer>> spooled_buffers;
+}
 
-
-
-}  // namespace rf_pipelines
+};  // namespace rf_pipelines
 
 #endif // _RF_PIPELINES_INVENTORY_HPP
