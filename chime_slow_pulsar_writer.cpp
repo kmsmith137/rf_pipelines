@@ -112,6 +112,8 @@ void chime_slow_pulsar_writer::set_params(const ssize_t beam_id, const ssize_t n
 
     this->downsampler = std::shared_ptr<rf_kernels::wi_downsampler>(new rf_kernels::wi_downsampler(
                                                              this->nds_freq, this->nds_time));
+
+    // TODO: force a flush of the existing chunk/get new chunk?? Resolve first chunk header problems
 }
 
 
@@ -203,6 +205,8 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
 
 
     if( (nfreq_out > 0) && (ntime_out > 0) ){
+        bit0 = 0;
+        i0 = 0;
 
         // TODO: check for no downsampling, rewrite to be cache-local
         downsampler->downsample(nfreq_out, ntime_out, 
@@ -249,6 +253,7 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
             float fmean = s1 / float(ntime_out);
             float f2mean = s2 / float(ntime_out);
             float fvar = (float(ntime_out) / float(ntime_out -1)) * (f2mean - fmean * fmean);
+
             (*tmp_mean)[ifreq]= fmean;
             (*tmp_var)[ifreq] = fvar;
             float stdev = sqrt(fvar);
@@ -276,10 +281,6 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
 
         // TODO: give quantize_store a more hands-off role; quantization and compression happens in loop
         store_with_lock(this, sph);
-
-        // reset huffman state
-        this->i0 = 0;
-        this->bit0 = 0;
     }
 
     ichunk += 1;
