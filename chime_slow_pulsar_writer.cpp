@@ -138,7 +138,7 @@ void store_with_lock(chime_slow_pulsar_writer* spw, std::shared_ptr<sp_chunk_hea
         std::shared_ptr<write_chunk_request> req(new write_chunk_request());
         // req->filename = "/home/aroman/tmp/test.dat";
         std::stringstream str;
-        str << "/home/aroman/tmp/test_" << spw->ichunk << ".dat";
+        str << "/frb-archiver-1/SPS/alex/test_" << spw->ichunk << ".dat";
         req->filename = str.str();
         // std::cout << "writing output file " << req->filename <<std::endl;
         req->chunk = spw->chunk;
