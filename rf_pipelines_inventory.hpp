@@ -793,7 +793,7 @@ struct chime_slow_pulsar_writer : public wi_transform
     // quantize to nbit depth and store the store the result in a memory slab
     // void quantize_store(fvec_t in, const ssize_t istride, fvec_t weights, const ssize_t wstride, const int nbits_out, sp_header& sph);
     // verify and ensure that memory is allocated
-
+};
 
 // pipeline_spool
 // 
@@ -851,7 +851,7 @@ protected:
     std::vector<std::string> bufnames;
     std::vector<std::shared_ptr<ring_buffer>> ring_buffers;
     std::vector<std::shared_ptr<spooled_buffer>> spooled_buffers;
-}
+};
 
 };  // namespace rf_pipelines
 
