@@ -290,12 +290,14 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
 // virtual override
 void chime_slow_pulsar_writer::_start_pipeline(Json::Value &json_attrs)
 {
-    if (!json_attrs.isMember("frame0_nano") || !json_attrs.isMember("fpga_counts_per_sample")
-        || !json_attrs.isMember("initial_fpga_count"))
+    // if (!json_attrs.isMember("frame0_nano") || !json_attrs.isMember("fpga_counts_per_sample")
+    //     || !json_attrs.isMember("initial_fpga_count"))
+    if (!json_attrs.isMember("initial_fpga_count") || !json_attrs.isMember("fpga_counts_per_sample"))
         throw runtime_error("chime_slow_pulsar_writer: expected json_attrs to contain members 'frame0_nano' and 'fpga_counts_per_sample'");
     
     std::lock_guard<std::mutex> lg(this->writer_mutex);
-    this->frame0_nano = json_attrs["frame0_nano"].asUInt64();
+    // this->frame0_nano = json_attrs["frame0_nano"].asUInt64();
+    this->frame0_nano = 0;
     this->fpga_counts_per_sample = json_attrs["fpga_counts_per_sample"].asUInt64();
     this->initial_fpga_count = json_attrs["initial_fpga_count"].asUInt64();
 }
