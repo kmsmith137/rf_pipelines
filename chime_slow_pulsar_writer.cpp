@@ -53,8 +53,6 @@ void chime_slow_pulsar_writer::_get_new_chunk_with_lock()
 
 void chime_slow_pulsar_writer::init_real_time_state(const real_time_state &rt_state_)
 {
-    if (rt_state_.beam_id < 0)
-    throw runtime_error("rf_pipelines::chime_slow_pulsar:writer::init_real_time_state(): 'beam_id' is negative, or uninitialized");
     if (!rt_state_.memory_pool)
     throw runtime_error("rf_pipelines::chime_slow_pulsar:writer::init_real_time_state(): 'memory_pool' is an empty pointer, or uninitialized");
     if (!rt_state_.output_devices)
