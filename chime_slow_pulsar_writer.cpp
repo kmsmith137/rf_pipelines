@@ -69,10 +69,9 @@ void chime_slow_pulsar_writer::init_real_time_state(const real_time_state &rt_st
 void chime_slow_pulsar_writer::set_params(const ssize_t beam_id, const ssize_t nfreq, const ssize_t ntime, const ssize_t nbins)
 {   
     std::lock_guard<std::mutex> lg(this->writer_mutex);
-    
-    if (beam_id != this->rt_state.beam_id){
-        throw runtime_error("rf_pipelines::chime_slow_pulsar:writer::set_params(): beam_id supplied does not match that of real_time_state");
-    }
+
+    // ignore beam_id check
+    this->rt_state.beam_id = beam_id;
 
     this->nfreq_out = nfreq;
     this->ntime_out = ntime;
