@@ -720,6 +720,8 @@ struct chime_slow_pulsar_writer : public wi_transform
 	std::shared_ptr<ch_frb_io::output_device_pool> output_devices;
     };
 
+    // TODO: wrap rpc state in struct to make refactoring easier
+    ssize_t beam_id = -1;
     ssize_t nbins = -1;
     ssize_t nfreq_out = -1;
     ssize_t ntime_out = -1;
@@ -759,7 +761,8 @@ struct chime_slow_pulsar_writer : public wi_transform
 
     bool wrote_start = false;
 
-    std::mutex writer_mutex;
+    std::mutex param_mutex;
+    std::mutex chunk_mutex;
     std::shared_ptr<rf_kernels::wi_downsampler> downsampler;
     
     real_time_state rt_state;
@@ -770,7 +773,7 @@ struct chime_slow_pulsar_writer : public wi_transform
     void init_real_time_state(const real_time_state &rt_state);
 
     // Called by RPC thread, intermittently while pipeline is running.
-    void set_params(const ssize_t beam_id, const ssize_t nfreq, const ssize_t ntime, const ssize_t nbins);
+    void set_params(const ssize_t beam_id, const ssize_t nfreq, const ssize_t ntime, const ssize_t nbins, std::shared_ptr<std::string> base_path);
 
     // Called interally to populate and write an sp_file_header to tmp_buf
     void _update_file_header_with_lock();
