@@ -721,6 +721,7 @@ struct chime_slow_pulsar_writer : public wi_transform
     };
 
     // TODO: wrap rpc state in struct to make refactoring easier
+    std::shared_ptr<std::string> base_path;
     ssize_t beam_id = -1;
     ssize_t nbins = -1;
     ssize_t nfreq_out = -1;

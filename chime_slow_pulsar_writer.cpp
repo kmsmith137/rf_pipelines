@@ -93,10 +93,11 @@ void chime_slow_pulsar_writer::init_real_time_state(const real_time_state &rt_st
 
 void chime_slow_pulsar_writer::set_params(const ssize_t beam_id, const ssize_t nfreq, const ssize_t ntime, const ssize_t nbins, std::shared_ptr<std::string> base_path)
 {   
-    
     std::lock_guard<std::mutex> lg(this->param_mutex);
 
-    // ignore beam_id check
+    // forgo checks on path validity for now
+    this->base_path = base_path;
+
     this->beam_id = beam_id;
 
     this->nfreq_out = nfreq;
@@ -138,7 +139,8 @@ T* get_ptr(std::shared_ptr<std::vector<T>> vect)
 // this is a hack to get around sp_header forward declaration in the hpp file
 // NOTE: this is only ever called from a process that current holds the of_mutex lock!
 // thus, no additional locking is necessary. It would be dangerous to call this otherwise
-void store_with_lock(chime_slow_pulsar_writer* spw, std::shared_ptr<sp_chunk_header> spch)
+void store_with_lock(chime_slow_pulsar_writer* spw, std::shared_ptr<std::string> base_path,
+                     std::shared_ptr<sp_chunk_header> spch)
 {
     // attempt to commit the chunk to slab
     const int result = spw->chunk->commit_chunk(spch, spw->tmp_ibuf, spw->compressed_data_len, 
@@ -149,8 +151,9 @@ void store_with_lock(chime_slow_pulsar_writer* spw, std::shared_ptr<sp_chunk_hea
         std::shared_ptr<write_chunk_request> req(new write_chunk_request());
         // req->filename = "/home/aroman/tmp/test.dat";
         std::stringstream str;
-        // TODO: replace hard-coded directory structure
-        str << "/frb-archiver-1/SPS/alex/test_" << spw->ichunk << ".dat";
+        // TODO: add file sep end check?
+        // TODO: implement directory structure
+        str << *base_path << "/" << spw->ichunk << ".dat";
         req->filename = str.str();
         // std::cout << "writing output file " << req->filename <<std::endl;
         req->chunk = spw->chunk;
@@ -163,7 +166,7 @@ void store_with_lock(chime_slow_pulsar_writer* spw, std::shared_ptr<sp_chunk_hea
         // TODO: investigate suspicious nbins in file header
         spw->chunk->file_header.start = tstart;
         spw->chunk->file_header.end = tend;
-        store_with_lock(spw, spch);
+        store_with_lock(spw, base_path, spch);
     }
     else if(result == 2){
         throw new runtime_error("chime_slow_pulsar_writer: byte size of single chunk exceeds memory slab capacity");
@@ -190,6 +193,7 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
         int nds_time;
         std::shared_ptr<rf_kernels::wi_downsampler> downsampler;
         std::shared_ptr<sp_chunk_header> sph(new sp_chunk_header());
+        std::shared_ptr<std::string> base_path;
         {
             std::lock_guard<std::mutex> lg1(this->param_mutex);
 
@@ -197,6 +201,7 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
             sph->ntime = ntime_out;
             sph->nfreq = nfreq_out;
             downsampler = this->downsampler;
+            base_path = this->base_path;
         }
 
         sph->fpgaN = fpga_counts_per_sample;
@@ -295,7 +300,7 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
         }
 
         // TODO: give quantize_store a more hands-off role; quantization and compression happens in loop
-        store_with_lock(this, sph);
+        store_with_lock(this, base_path, sph);
         ichunk += 1;
     }
 }
