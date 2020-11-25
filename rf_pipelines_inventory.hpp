@@ -720,15 +720,26 @@ struct chime_slow_pulsar_writer : public wi_transform
 	std::shared_ptr<ch_frb_io::output_device_pool> output_devices;
     };
 
-    // TODO: wrap rpc state in struct to make refactoring easier
-    std::shared_ptr<std::string> base_path;
-    ssize_t beam_id = -1;
-    ssize_t nbins = -1;
-    ssize_t nfreq_out = -1;
-    ssize_t ntime_out = -1;
-    ssize_t nds_freq = -1;
-    ssize_t nds_time = -1;
-    ssize_t nsamp = -1;
+    struct param_state{
+        std::shared_ptr<std::string> base_path;
+        std::shared_ptr<rf_kernels::wi_downsampler> downsampler;
+        ssize_t beam_id = -1;
+        ssize_t nbins = -1;
+        ssize_t nfreq_out = -1;
+        ssize_t ntime_out = -1;
+
+        // derived parameters
+        // TODO: compute inside constructor/switch to all-const model?
+        ssize_t nds_freq = -1;
+        ssize_t nds_time = -1;
+        ssize_t nsamp = -1;
+    };
+
+    std::mutex param_mutex;
+    std::shared_ptr<param_state> pstate;
+
+    // TODO: add chunk data struct to better organize lock-protected fields
+    std::mutex chunk_mutex;
 
     // strategically removed from output_file_params
     // buffer for downsampling (weights) - not actually used
@@ -761,10 +772,6 @@ struct chime_slow_pulsar_writer : public wi_transform
     uint64_t ichunk = 0;
 
     bool wrote_start = false;
-
-    std::mutex param_mutex;
-    std::mutex chunk_mutex;
-    std::shared_ptr<rf_kernels::wi_downsampler> downsampler;
     
     real_time_state rt_state;
 

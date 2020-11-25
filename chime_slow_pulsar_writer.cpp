@@ -37,6 +37,8 @@ chime_slow_pulsar_writer::chime_slow_pulsar_writer(ssize_t nt_chunk_) :
         throw runtime_error("rf_pipelines::chime_slow_pulsar_writer::chime_slow_pulsar_writer(): 8 must divide nsamp_max");
     }
 
+    this->pstate = make_shared<chime_slow_pulsar_writer::param_state>();
+
     // one-time max size allocation of tmp buffers
     this->tmp_i = std::shared_ptr<std::vector<float>>(new std::vector<float>(nsamp_max));
     this->tmp_w = std::shared_ptr<std::vector<float>>(new std::vector<float>(nsamp_max));
@@ -58,8 +60,8 @@ void chime_slow_pulsar_writer::_get_new_chunk_with_lock()
     {
         std::lock_guard<std::mutex> lg(this->param_mutex);
 
-        beam_id = this->beam_id;
-        nbins = this->nbins;
+        beam_id = this->pstate->beam_id;
+        nbins = this->pstate->nbins;
     }
 
     // TODO: complete the initializer!
@@ -91,40 +93,42 @@ void chime_slow_pulsar_writer::init_real_time_state(const real_time_state &rt_st
 }
 
 
-void chime_slow_pulsar_writer::set_params(const ssize_t beam_id, const ssize_t nfreq, const ssize_t ntime, const ssize_t nbins, std::shared_ptr<std::string> base_path)
+void chime_slow_pulsar_writer::set_params(const ssize_t beam_id, const ssize_t nfreq_out, const ssize_t ntime_out, const ssize_t nbins, std::shared_ptr<std::string> base_path)
 {   
     std::lock_guard<std::mutex> lg(this->param_mutex);
 
+    pstate = make_shared<chime_slow_pulsar_writer::param_state>();
+
     // forgo checks on path validity for now
-    this->base_path = base_path;
+    pstate->base_path = base_path;
 
-    this->beam_id = beam_id;
+    pstate->beam_id = beam_id;
 
-    this->nfreq_out = nfreq;
-    this->ntime_out = ntime;
-    this->nds_freq = this->nfreq/this->nfreq_out;
-    this->nds_time = nt_chunk/this->ntime_out;
+    pstate->nfreq_out = nfreq_out;
+    pstate->ntime_out = ntime_out;
+    // TODO: remove hard-coded upsampling factor (16)
+    pstate->nds_freq = (16 * nfreq) / pstate->nfreq_out;
+    pstate->nds_time = nt_chunk / pstate->ntime_out;
+    pstate->downsampler = std::shared_ptr<rf_kernels::wi_downsampler>(new rf_kernels::wi_downsampler(
+                                               pstate->nds_freq, pstate->nds_time));
 
-    this->nsamp = this->nfreq_out * this->ntime_out;
+    pstate->nsamp = pstate->nfreq_out * pstate->ntime_out;
 
     // TODO check parameter consistency with existing file_header?
-    this->nbins = nbins;
+    pstate->nbins = nbins;
 
-    if (this->nbins != -1 && this->nbins != nbins){
+    if (pstate->nbins != -1 && pstate->nbins != nbins){
         throw runtime_error("rf_pipelines::chime_slow_pulsar_writer::set_params(): nbins must not change over the course of a run");
     }
     if (nbins != 5){
         throw runtime_error("rf_pipelines::chime_slow_pulsar_writer::set_params(): nbins must equal 5; email aroman@perimeterinstitute.ca if you desire a different binning");
     }
-    if (this->ntime_out % 8 != 0){
+    if (pstate->ntime_out % 8 != 0){
         throw runtime_error("rf_pipelines::chime_slow_pulsar_writer::set_params(): 8 must divide ntime_out");
     }
-    if (this->ntime_out > 4096){
+    if (pstate->ntime_out > 4096){
         throw runtime_error("rf_pipelines::chime_slow_pulsar_writer::set_params(): ntime_out must be <= 4096");
     }
-
-    this->downsampler = std::shared_ptr<rf_kernels::wi_downsampler>(new rf_kernels::wi_downsampler(
-                                                         this->nds_freq, this->nds_time));
     // TODO: force a flush of the existing chunk/get new chunk?? Resolve first chunk header problems
 }
 
@@ -136,10 +140,11 @@ T* get_ptr(std::shared_ptr<std::vector<T>> vect)
 };
 
 
-// this is a hack to get around sp_header forward declaration in the hpp file
-// NOTE: this is only ever called from a process that current holds the of_mutex lock!
-// thus, no additional locking is necessary. It would be dangerous to call this otherwise
-void store_with_lock(chime_slow_pulsar_writer* spw, std::shared_ptr<std::string> base_path,
+// this is a hack to get around sp_header forward declaration in the hpp
+// NOTE: this is only ever called from a process that current holds the chunk_mutex lock!
+// thus, no additional locking is necessary; it would be dangerous to call this otherwise
+void store_with_lock(chime_slow_pulsar_writer* spw, 
+                     std::shared_ptr<chime_slow_pulsar_writer::param_state> pstate,
                      std::shared_ptr<sp_chunk_header> spch)
 {
     // attempt to commit the chunk to slab
@@ -150,11 +155,11 @@ void store_with_lock(chime_slow_pulsar_writer* spw, std::shared_ptr<std::string>
         // the slab is full; enqueue write request
         std::shared_ptr<write_chunk_request> req(new write_chunk_request());
         // req->filename = "/home/aroman/tmp/test.dat";
-        std::stringstream str;
+        std::shared_ptr<std::stringstream> pathstr(new std::stringstream());
         // TODO: add file sep end check?
         // TODO: implement directory structure
-        str << *base_path << "/" << spw->ichunk << ".dat";
-        req->filename = str.str();
+        *pathstr << *(pstate->base_path) << "/" << spw->ichunk << ".dat";
+        req->filename = pathstr->str();
         // std::cout << "writing output file " << req->filename <<std::endl;
         req->chunk = spw->chunk;
         spw->rt_state.output_devices->enqueue_write_request(req);
@@ -166,7 +171,7 @@ void store_with_lock(chime_slow_pulsar_writer* spw, std::shared_ptr<std::string>
         // TODO: investigate suspicious nbins in file header
         spw->chunk->file_header.start = tstart;
         spw->chunk->file_header.end = tend;
-        store_with_lock(spw, base_path, spch);
+        store_with_lock(spw, pstate, spch);
     }
     else if(result == 2){
         throw new runtime_error("chime_slow_pulsar_writer: byte size of single chunk exceeds memory slab capacity");
@@ -177,44 +182,33 @@ void store_with_lock(chime_slow_pulsar_writer* spw, std::shared_ptr<std::string>
 // virtual override
 void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
 {
-    int nfreq_out, ntime_out;
-    {
-        std::lock_guard<std::mutex> lg0(this->param_mutex);
-        nfreq_out = this->nfreq_out;
-        ntime_out = this->ntime_out;
-    }
-
-
-    if( (nfreq_out > 0) && (ntime_out > 0) ){
+    std::shared_ptr<sp_chunk_header> sph(new sp_chunk_header());
+    std::shared_ptr<chime_slow_pulsar_writer::param_state> pstate;
+    {        
         // TODO: protect with separate lock relavant to file parameters
         // i.e. move back to a two-mutex approach; one for the chunk,
         // one for writer parameters
+        std::lock_guard<std::mutex> lg0(this->param_mutex);
+        // copy local parameter state
+        pstate = this->pstate;
 
-        int nds_time;
-        std::shared_ptr<rf_kernels::wi_downsampler> downsampler;
-        std::shared_ptr<sp_chunk_header> sph(new sp_chunk_header());
-        std::shared_ptr<std::string> base_path;
-        {
-            std::lock_guard<std::mutex> lg1(this->param_mutex);
+        // redundant copy to the chunk header; old way of tracking state
+        sph->ntime = pstate->ntime_out;
+        sph->nfreq = pstate->nfreq_out;
+    }
 
-            nds_time = this->nds_time;        
-            sph->ntime = ntime_out;
-            sph->nfreq = nfreq_out;
-            downsampler = this->downsampler;
-            base_path = this->base_path;
-        }
-
+    if((pstate->nfreq_out > 0) && (pstate->ntime_out > 0)){
         sph->fpgaN = fpga_counts_per_sample;
         sph->fpga0 = this->initial_fpga_count + pos * this->fpga_counts_per_sample;
         sph->frame0_nano = this->frame0_nano;
         uint64_t fpga_counts_per_sample = this->fpga_counts_per_sample;
         uint64_t nsamp_chunk = this->nt_chunk;
 
-        std::lock_guard<std::mutex> lg2(this->chunk_mutex);
+        std::lock_guard<std::mutex> lg1(this->chunk_mutex);
 
         const ssize_t fpga_nano = 2560;
         const double tnow = (sph->fpga0 * fpga_nano + frame0_nano) * 1e-9;
-        const double tend = tnow + 1e-9 * fpga_nano * (1024 * fpga_counts_per_sample);
+        const double tend = tnow + 1e-9 * fpga_nano * (nt_chunk * fpga_counts_per_sample);
         if(nt_chunk != 1024){
             throw new runtime_error("chime_slow_pulsar_writer: expects nt_chunk = 1024");
         }
@@ -230,27 +224,27 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
         i0 = 0;
 
         // TODO: check for no downsampling, rewrite to be cache-local
-        downsampler->downsample(nfreq_out, ntime_out, 
-                                        get_ptr<float>(tmp_i), ntime_out,
-                                        get_ptr<float>(tmp_w), ntime_out,
+        pstate->downsampler->downsample(pstate->nfreq_out, pstate->ntime_out, 
+                                        get_ptr<float>(tmp_i), pstate->ntime_out,
+                                        get_ptr<float>(tmp_w), pstate->ntime_out,
                                         intensity, istride,
                                         weights, wstride);
         
-        const ssize_t nrow_mask = ntime_out / 8;
+        const ssize_t nrow_mask = pstate->ntime_out / 8;
         uint8_t mask_byte = 0;
         // estimate channel mean and var, compute mask
-        for(ssize_t ifreq = 0; ifreq < nfreq_out; ifreq++){
+        for(ssize_t ifreq = 0; ifreq < pstate->nfreq_out; ifreq++){
             float s1 = 0.;
             float s2 = 0.;
             ssize_t ibyte_w = 0;
             ssize_t ibit_w = 0;
-            for(ssize_t itime = 0; itime < ntime_out; itime++){
-                float v = (*tmp_i)[ifreq * ntime_out + itime];
+            for(ssize_t itime = 0; itime < pstate->ntime_out; itime++){
+                float v = (*tmp_i)[ifreq * pstate->ntime_out + itime];
                 s1 += v;
                 s2 += v*v;
 
                 // this is a particularly inelegant solution
-                float w = (*tmp_w)[ifreq * ntime_out + itime] == 1.;
+                float w = (*tmp_w)[ifreq * pstate->ntime_out + itime] == 1.;
                 if(w == 1.){
                     mask_byte += pow(2, ibit_w);
                 }
@@ -271,26 +265,26 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
             }
             
             // compute the relevant statistics
-            float fmean = s1 / float(ntime_out);
-            float f2mean = s2 / float(ntime_out);
-            float fvar = (float(ntime_out) / float(ntime_out -1)) * (f2mean - fmean * fmean);
+            float fmean = s1 / float(pstate->ntime_out);
+            float f2mean = s2 / float(pstate->ntime_out);
+            float fvar = (float(pstate->ntime_out) / float(pstate->ntime_out -1)) * (f2mean - fmean * fmean);
 
             (*tmp_mean)[ifreq]= fmean;
             (*tmp_var)[ifreq] = fvar;
             float stdev = sqrt(fvar);
 
             // second time pass; normalize samples
-            for(ssize_t itime = 0; itime < ntime_out; itime++){
-                (*tmp_inorm)[itime] = ((*tmp_i)[ifreq * ntime_out + itime] - fmean) / stdev;
+            for(ssize_t itime = 0; itime < pstate->ntime_out; itime++){
+                (*tmp_inorm)[itime] = ((*tmp_i)[ifreq * pstate->ntime_out + itime] - fmean) / stdev;
             }
 
             // quantize just one row
-            quantize_naive5(get_ptr<float>(tmp_inorm), get_ptr<uint8_t>(tmp_qbuf), ntime_out);
+            quantize_naive5(get_ptr<float>(tmp_inorm), get_ptr<uint8_t>(tmp_qbuf), pstate->ntime_out);
 
             // compress just one row, add to buffer
             // this should track the intra-bit state perfectly and yield a contiguous nsamp huffman coded array
             huff_encode_kernel(get_ptr<uint8_t>(tmp_qbuf), 
-                               get_ptr<uint32_t>(tmp_ibuf), ntime_out, i0, bit0);
+                               get_ptr<uint32_t>(tmp_ibuf), pstate->ntime_out, i0, bit0);
         }
 
         // set compressed data length
@@ -300,7 +294,7 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
         }
 
         // TODO: give quantize_store a more hands-off role; quantization and compression happens in loop
-        store_with_lock(this, base_path, sph);
+        store_with_lock(this, pstate, sph);
         ichunk += 1;
     }
 }
