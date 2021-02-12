@@ -736,23 +736,29 @@ struct chime_slow_pulsar_writer : public wi_transform
     };
 
     std::mutex param_mutex;
-    std::shared_ptr<param_state> pstate;
+    std::shared_ptr<param_state> pstate = nullptr;
 
     // TODO: add chunk data struct to better organize lock-protected fields
     std::mutex chunk_mutex;
 
     // strategically removed from output_file_params
     // buffer for downsampling (weights) - not actually used
-    std::shared_ptr<std::vector<float>> tmp_w;
+    std::shared_ptr<float> tmp_w;
     // buffer for downsampling (intensity)
-    std::shared_ptr<std::vector<float>> tmp_i;
+    std::shared_ptr<float> tmp_i;
     // buffer for unit-variance normalized intensity
-    std::shared_ptr<std::vector<float>> tmp_inorm;
+    std::shared_ptr<float> tmp_inorm;
     // buffer for quantization
-    std::shared_ptr<std::vector<uint8_t>> tmp_qbuf;
+    std::shared_ptr<uint8_t> tmp_qbuf;
 
     // buffer for compression
-    std::shared_ptr<std::vector<uint32_t>> tmp_ibuf;
+    std::shared_ptr<std::vector<uint8_t>> tmp_ibuf;
+
+    // tmp intrinsics arrays
+    std::shared_ptr<uint32_t> tmp_intrin;
+    std::shared_ptr<float> tmp_intrinf1;
+    std::shared_ptr<float> tmp_intrinf2;
+
     // huffman state variables associated with ibuf
     ssize_t i0 = 0;
     ssize_t bit0 = 0;
@@ -797,7 +803,7 @@ struct chime_slow_pulsar_writer : public wi_transform
 
     // must leave these public for quantize_store hack
     // otherwise should be protected or private
-    void _get_new_chunk_with_lock();
+    void _get_new_chunk_with_locks(const ssize_t beam_id, const ssize_t nbins);
     sp_chunk_t chunk = nullptr;
 
 // private:

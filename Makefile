@@ -155,7 +155,6 @@ endif
 
 ifeq ($(HAVE_SPSHUFF),y)
 	CPP += -DHAVE_SPSHUFF
-	LIBS += -lspshuff
 else
 	$(error Fatal: Must have spshuff to compile this branch)
 endif
