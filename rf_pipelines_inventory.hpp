@@ -582,8 +582,17 @@ public:
     mask_measurements_ringbuf(int nhistory=300);
 
     std::unordered_map<std::string, float> get_stats(int nchunks);
+
+    // Returns all measurements from this ring buffer, in time order.
     std::vector<rf_pipelines::mask_measurements> get_all_measurements();
 
+    // Returns a mask_measurement object that sums up the number of masked
+    // samples from the given range of time samples in the ring buffer.
+    // *pos_min* and *pos_max* are time indices in the pipeline, and any
+    // chunk of data that overlaps the range will be included in the sum.
+    std::shared_ptr<rf_pipelines::mask_measurements> get_summed_measurements(ssize_t pos_min, ssize_t pos_max);
+
+    // Inserts a measurement into this ring buffer.
     void add(rf_pipelines::mask_measurements& meas);
 
 protected:
