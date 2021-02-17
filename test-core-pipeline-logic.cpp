@@ -4,9 +4,6 @@ using namespace std;
 using namespace rf_pipelines;
 
 
-// -------------------------------------------------------------------------------------------------
-
-
 static string bufname_from_index(int ix)
 {
     rf_assert(ix >= 0 && ix <= 100);
@@ -91,7 +88,6 @@ public:
     }
 };
 
-
 // -------------------------------------------------------------------------------------------------
 
 
@@ -144,11 +140,25 @@ struct reference_pipeline : reference_pipeline_object
 
 void reference_pipeline_object::run_test(ssize_t nt_end)
 {
+    // Not currently using 'nds' in the code (this is a FIXME, not a deliberate decision)
+    rf_assert(this->nds == 1); 
+
+    // Run reference_pipeline.
     vector<vector<float>> ref_buf;
     this->apply_reference(ref_buf, nt_end);
 
+    // The output of the reference_pipeline is a list of buffers.  Some buffers are
+    // absent (indicated by zero-length vectors), and the rest have shape (nt_end, csize).
+    for (unsigned int ix = 0; ix < ref_buf.size(); ix++)
+	rf_assert((ref_buf[ix].size() == nt_end*csize) || (ref_buf[ix].size() == 0));
+
+    vector<string> spool_bufnames;
+    for (unsigned int ix = 0; ix < ref_buf.size(); ix++)
+	if (ref_buf[ix].size() > 0)
+	    spool_bufnames.push_back(bufname_from_index(ix));
+
     auto p1 = this->make_real_pipeline_object(nt_end);
-    auto p2 = make_shared<pipeline_output_vectorizer> ();
+    auto p2 = make_shared<pipeline_spool> (spool_bufnames);
 
     auto p = make_shared<pipeline> ();
     p->add(p1);
@@ -160,24 +170,23 @@ void reference_pipeline_object::run_test(ssize_t nt_end)
     params.debug = true;
     p->run(params);
 
-    vector<vector<float>> &buf = p2->vectorized_output;
-    rf_assert(buf.size() == ref_buf.size());
-
-    for (size_t ibuf = 0; ibuf < buf.size(); ibuf++) {
-	vector<float> &ref_v = ref_buf[ibuf];
-	vector<float> &v = buf[ibuf];
-
-	if (ref_v.size() == 0) {
-	    rf_assert(v.size() == 0);
+    for (unsigned int ix = 0; ix < ref_buf.size(); ix++) {
+	if (ref_buf[ix].size() == 0)
 	    continue;
+
+	auto sp = p2->get_spooled_buffer(bufname_from_index(ix));
+	rf_assert(sp->csize == this->csize);
+	rf_assert(sp->nds == this->nds);
+	rf_assert(sp->nt >= nt_end);   // note: can be padded past nt_end
+	rf_assert(sp->data.size() == csize * sp->nt);
+
+	for (ssize_t ic = 0; ic < csize; ic++) {
+	    for (ssize_t it = 0; it < nt_end; it++) {
+		float x = sp->data[ic*sp->nt + it];
+		float y = ref_buf[ix][it*csize + ic];
+		rf_assert(abs(x-y) < 1.0e-5);
+	    }
 	}
-
-	rf_assert(ref_v.size() > 0);
-	rf_assert(ssize_t(ref_v.size()) == csize * nt_end);
-	rf_assert(ssize_t(v.size()) >= csize * nt_end);
-
-	for (ssize_t i = 0; i < csize * nt_end; i++)
-	    rf_assert(abs(v[i] - ref_v[i]) < 1.0e-5);
     }
 }
 
@@ -185,6 +194,7 @@ void reference_pipeline_object::run_test(ssize_t nt_end)
 // -------------------------------------------------------------------------------------------------
 
 
+// Called in non-reference pipeline
 static void _randomize(ring_buffer_subarray &arr, std::mt19937 &rng)
 {
     ssize_t nc = arr.buf->csize;
@@ -431,6 +441,7 @@ struct rot2 : public chunked_pipeline_object {
 };
 
 
+// Called in reference pipeline
 static void _randomize(vector<float> &v, std::mt19937 &rng, ssize_t nc, ssize_t nt)
 {
     rf_assert(v.size() == 0);

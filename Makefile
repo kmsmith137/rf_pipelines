@@ -26,20 +26,25 @@ OFILES = badchannel_mask.o \
 	chime_file_stream.o \
 	chime_file_stream_base.o \
 	chime_file_writer.o \
-    chime_frb_file_stream.o \
+	chime_assembled_chunk_file_writer.o \
+	chime_frb_file_stream.o \
 	chime_network_stream.o \
 	chime_packetizer.o \
 	chunked_pipeline_object.o \
 	file_utils.o \
 	gaussian_noise_stream.o \
 	intensity_clippers.o \
+	intensity_injector.o \
 	json_utils.o \
 	lexical_cast.o \
+	mask_counter.o \
 	mask_expander.o \
+	mask_measurements_ringbuf.o \
 	outdir_manager.o \
 	pipeline.o \
 	pipeline_fork.o \
 	pipeline_object.o \
+	pipeline_spool.o \
 	plot_utils.o \
 	polynomial_detrenders.o \
 	ring_buffer.o \
@@ -47,8 +52,6 @@ OFILES = badchannel_mask.o \
 	spectrum_analyzer.o \
 	spline_detrenders.o \
 	std_dev_clippers.o \
-	mask_counter.o \
-	mask_measurements_ringbuf.o \
 	wi_sub_pipeline.o \
 	wi_stream.o \
 	wi_transform.o \
@@ -78,7 +81,7 @@ PYFILES=rf_pipelines/rf_pipelines_c.so \
 BINFILES = rfp-time
 
 # C++ unit test binaries which are not installed in $(BINDIR).
-TESTBINFILES = test-misc test-ring-buffer test-core-pipeline-logic test-file-stream-base
+TESTBINFILES = test-misc test-ring-buffer test-core-pipeline-logic test-file-stream-base test-injection
 
 # Not actually a unit test, but Makefile doesn't need to distinguish
 TESTBINFILES += visit-pipeline-example
@@ -213,3 +216,7 @@ test-file-stream-base: test-file-stream-base.o $(OFILES)
 
 visit-pipeline-example: visit-pipeline-example.o $(OFILES)
 	$(CPP) $(CPP_LFLAGS) -o $@ $^ $(LIBS)
+
+test-injection: test-injection.o $(OFILES)
+	$(CPP) $(CPP_LFLAGS) -o $@ $^ $(LIBS)
+
