@@ -229,7 +229,9 @@ extern std::shared_ptr<pipeline_object> make_mask_expander(rf_kernels::axis_type
 // Creates one or more new pipeline ring_buffers, by copying existing ring_buffers.
 // The 'bufnames' argument should be a list of (input_bufname, output_bufname) pairs.
 // Frequently, the input_bufname will be one of the built-in names "INTENSITY" or "WEIGHTS".
-
+//
+// FIXME: untested, needs unit test.  (Actually, upon closer inspection, the implementation
+// looks wrong!  See comment in pipeline_fork::_advance().)
 
 extern std::shared_ptr<pipeline_object> make_pipeline_fork(const std::vector<std::pair<std::string,std::string>> &bufnames);
 
@@ -328,6 +330,67 @@ make_intensity_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, i
 
 extern std::shared_ptr<wi_transform>
 make_std_dev_clipper(int nt_chunk, rf_kernels::axis_type axis, double sigma, int Df=1, int Dt=1, bool two_pass=false);
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// intensity_injector: used for real-time, RPC-triggered signal injection in the CHIME FRB pipeline.
+
+
+class intensity_injector : public wi_transform {
+public:
+    intensity_injector(int nt_chunk_);
+    virtual ~intensity_injector() { }
+    virtual void _bind_transform(Json::Value &json_attrs) override;
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual void _end_pipeline(Json::Value &j) override;
+    virtual Json::Value jsonize() const override;
+    static std::shared_ptr<intensity_injector> from_json(const Json::Value &j);
+
+    // Data to be injected by the intensity_injector transform.
+    // Data are described in a hybrid sparse representation --
+    // - every frequency is assumed to be represented;
+    // - each frequency has a different number of samples (could be zero),
+    //   starting at a different time offset.
+    // So frequency f will get a set of samples injected starting at
+    // time sample  (sample0 + sample_offset[f]),  with  (ndata[f]) samples.
+    // The samples start at (data[sum(sample_offset, [0 to f-1])]).
+
+    struct inject_args {
+	// mode == 0: ADD
+	int mode = 0;  
+	// overall offset, in time samples relative to the start of the
+	// rf_pipelines stream, for the sample_offset values.
+	ssize_t sample0 = 0;
+	// should be "nfreq" in length
+	std::vector<int32_t> sample_offset;
+	// should be "nfreq" in length
+	std::vector<uint16_t> ndata;
+	// should have length = sum(ndata)
+	std::vector<float> data;
+	
+	// Computed in intensity_injector::inject() (i.e. caller of inject() doesn't need to compute)
+	int min_offset = 0;  // minimum sample index = min(sample_offset)
+	int max_offset = 0;  // maximum sample index+1 = max(sample_offset + ndata)
+	
+	// Checks this structure for validity, given expect number of frequencies.
+	// Returns error message, or empty string if checks pass.
+	std::string check(int nfreq);
+    };
+
+    // Called from RPC.
+    // Throws runtime_error if data to inject have wrong number of frequencies,
+    // or partially occurred in the past.
+    void inject(std::shared_ptr<inject_args> data);
+
+protected:
+    std::mutex mutex;
+    std::vector<std::shared_ptr<inject_args>> to_inject;
+};
+
+// Externally callable
+std::shared_ptr<intensity_injector> make_intensity_injector(int nt_chunk);
+
 
 
 // -------------------------------------------------------------------------------------------------
@@ -472,6 +535,21 @@ extern std::shared_ptr<wi_transform> make_spectrum_analyzer(ssize_t Dt1=16, ssiz
 
 std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename, bool clobber=false, int bitshuffle=2, ssize_t nt_chunk=0);
 
+// chime_assembled_chunk_file_writen.
+//
+// This is a pseudo-transform which doesn't actually modify the data, it just writes it to a file in
+// CHIME assembled-chunk msgpack format.
+// 
+// If 'clobber' is false, and the target file already exists, an exception will be thrown rather than clobbering the old file.
+//
+// The 'filename_pattern' replaces certain string patterns by values determined at runtime.  See ch_frb_io/ch_frb_io.hpp ("format_filename") for details, but these might be of interest:
+//   (STREAM)  -> %01i stream_id
+//   (BEAM)    -> %04i beam_id
+//   (CHUNK)   -> %08i ichunk
+//   (FPGA0)   -> %012i start FPGA-counts
+//   (FPGAN)   -> %08i  FPGA-counts size
+std::shared_ptr<wi_transform> make_chime_assembled_chunk_file_writer(const std::string &filename_pattern, bool clobber);
+
 
 // chime_packetizer.
 //
@@ -582,8 +660,17 @@ public:
     mask_measurements_ringbuf(int nhistory=300);
 
     std::unordered_map<std::string, float> get_stats(int nchunks);
+
+    // Returns all measurements from this ring buffer, in time order.
     std::vector<rf_pipelines::mask_measurements> get_all_measurements();
 
+    // Returns a mask_measurement object that sums up the number of masked
+    // samples from the given range of time samples in the ring buffer.
+    // *pos_min* and *pos_max* are time indices in the pipeline, and any
+    // chunk of data that overlaps the range will be included in the sum.
+    std::shared_ptr<rf_pipelines::mask_measurements> get_summed_measurements(ssize_t pos_min, ssize_t pos_max);
+
+    // Inserts a measurement into this ring buffer.
     void add(rf_pipelines::mask_measurements& meas);
 
 protected:
@@ -598,6 +685,66 @@ protected:
 // Externally callable
 std::shared_ptr<wi_transform> make_mask_counter(int nt_chunk, std::string where);
 
+
+// -------------------------------------------------------------------------------------------------
+//
+// pipeline_spool
+// 
+// This utility class is intended for debugging!  It can be placed anywhere in a pipeline, 
+// and incrementally copies the contents of one or more pipeline ring buffers into a
+// contiguous array.  After the pipeline has ended, the contiguous array(s) can be retrieved 
+// by calling pipeline_spool::get_spooled_buffer().
+//
+// Note: the number of time samples in the spooled buffers can be larger than the number of
+// samples emitted by the stream at the beginning of the pipeline.  This is because some
+// transforms "pad" their input in order to satisfy chunk alignment restrictions.  In
+// particular, if the pipeline contains multiple pipeline_spools, then the number of time
+// samples may differ between them.
+
+
+class pipeline_spool : public pipeline_object {
+public:
+    // This helper class represents one spooled ring buffer.
+    class spooled_buffer {
+    public:
+	// "Complementary" dimensions of array, i.e. dimensions other than time.  For example,
+	// for an intensity array indexed by (freq, time), 'cdims' would be a length-1 vector
+	// containing the number of frequency channels.
+	std::vector<ssize_t> cdims;
+
+	ssize_t csize = 0;   // product of all cdims
+	ssize_t nds = 0;     // time downsampling factor (or 1 if no time downsampling)
+	int nt = 0;          // number of time samples, with no time downsampling factor applied.
+
+	// Contiguous array containing spooled data, with shape (csize, nt/nds).
+	// (The "complementary" dimensions are opaque to the pipeline_spool, so it treats
+	//  them as a single flattened array axis with length csize=prod(cdims).)
+	std::vector<float> data;
+
+    protected:
+	std::vector<std::shared_ptr<float>> _incremental_data;
+	friend class pipeline_spool;
+    };
+
+    // The 'bufnames' constructor argument is a list of ring buffers to spool.
+    // For example, bufnames={"INTENSITY", "WEIGHTS"}.
+    pipeline_spool(const std::vector<std::string> &bufnames);
+
+    // This utility function can be called after the pipeline run, to retrieve a spooled buffer.
+    std::shared_ptr<spooled_buffer> get_spooled_buffer(const std::string &bufname) const;
+
+    // Override virtuals in pipeline_object base class.
+    virtual void _bind(ring_buffer_dict &rb_dict, Json::Value &json_attrs) override;
+    virtual ssize_t _advance() override;
+    virtual void _end_pipeline(Json::Value &j) override;
+    virtual void _unbind() override;
+    virtual void _deallocate() override;
+
+protected:
+    std::vector<std::string> bufnames;
+    std::vector<std::shared_ptr<ring_buffer>> ring_buffers;
+    std::vector<std::shared_ptr<spooled_buffer>> spooled_buffers;
+};
 
 
 }  // namespace rf_pipelines
