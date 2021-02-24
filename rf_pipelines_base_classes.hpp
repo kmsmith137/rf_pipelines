@@ -14,6 +14,7 @@
 #include <atomic>
 #include <climits>
 #include <iostream>
+#include <functional>
 #include <unordered_map>
 #include <json/json.h>
 

@@ -1,5 +1,4 @@
-# Makefile.local for orangutan.perimeterinstitute.ca
-# (a vintage-2017 ubuntu machine)
+# Makefile.local for cedar.computecanada.ca
 
 HAVE_PSRFITS=n
 HAVE_SIMPULSE=y
@@ -21,14 +20,11 @@ BINDIR=$(HOME)/bin
 PYDIR=$(HOME)/lib/python2.7/site-packages
 
 # Read-only location of python header files
-PYTHON_INCDIR=/usr/include/python2.7
+PYTHON_INCDIR=/cvmfs/soft.computecanada.ca/easybuild/software/2017/Core/python/2.7.14/include/python2.7
 
 # Hint for NUMPY_INCDIR: import numpy; numpy.get_include()
-# On orangutan, I use two NUMPY_INCDIRs, to allow for the possibility that there may or may not be
-# a pip-installed version of numpy in $HOME/.local.
-
-NUMPY_INCDIR1=$(HOME)/.local/lib/python2.7/site-packages/numpy/core/include
-NUMPY_INCDIR2=/usr/local/lib/python2.7/dist-packages/numpy/core/include
+# On cedar, I'm assuming numpy has been installed with 'pip install --user'.
+NUMPY_INCDIR=$(HOME)/.local/lib/python2.7/site-packages/numpy/core/include
 
 #
 # C++ command line
@@ -39,6 +35,6 @@ NUMPY_INCDIR2=/usr/local/lib/python2.7/dist-packages/numpy/core/include
 # Don't forget -march=native
 #
 
-CPP=g++ -std=c++11 -pthread -fPIC -Wall -Wno-literal-suffix -O3 -march=native -ffast-math -funroll-loops -I. -I$(INCDIR) -I/usr/include/jsoncpp -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR1) -I$(NUMPY_INCDIR2) -L. -L$(LIBDIR)
+CPP=g++ -std=c++11 -pthread -fPIC -Wall -Wno-literal-suffix -O3 -march=native -ffast-math -funroll-loops -I. -I$(INCDIR) -I/usr/include/jsoncpp -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR) -L. -L$(LIBDIR)
 
 CPP_LFLAGS= -L. -L$(LIBDIR)

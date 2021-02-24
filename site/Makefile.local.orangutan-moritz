@@ -1,9 +1,10 @@
-# Makefile.local for orangutan.perimeterinstitute.ca
-# (a vintage-2017 ubuntu machine)
+# Identical to Makefile.local.orangutan, except that HAVE_CH_FRB_IO has been set to 'n'.
+# This disables parts of the CHIME FRB pipeline which are even more obnoxious to compile,
+# but only needed for the real-time search.  (Intended for Moritz's ML work.)
 
 HAVE_PSRFITS=n
 HAVE_SIMPULSE=y
-HAVE_CH_FRB_IO=y
+HAVE_CH_FRB_IO=n
 HAVE_BONSAI=y
 HAVE_HDF5=y
 HAVE_PNG=y

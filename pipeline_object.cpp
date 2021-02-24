@@ -315,7 +315,7 @@ Json::Value pipeline_object::run(const run_params &params, const callback_t &cal
     // still call end_pipeline() to clean up, and write partially complete output files.
 
     if (params.verbosity >= 2)
-	cout << "rf_pipelines: entering main advance loop\n";
+	cout << "rf_pipelines: entering main advance() loop\n";
 
     bool exception_thrown = false;
     string exception_text;
@@ -327,7 +327,7 @@ Json::Value pipeline_object::run(const run_params &params, const callback_t &cal
     
 	while (this->pos_lo < nt_end) {
 	    if (params.verbosity >= 3)
-		cout << "rf_pipelines: main advance loop " << pos_hi << " -> " << (pos_hi + nt_chunk_in) << "\n";
+		cout << "rf_pipelines: main advance() loop " << pos_hi << " -> " << (pos_hi + nt_chunk_in) << "\n";
 
 	    ssize_t m = pos_hi + nt_chunk_in;
 	    ssize_t n = this->advance(m, m);
