@@ -65,12 +65,12 @@ chime_slow_pulsar_writer::chime_slow_pulsar_writer(ssize_t nt_chunk_) :
 
 
 // Caller must hold chunk lock!
-void chime_slow_pulsar_writer::_get_new_chunk_with_locks(const ssize_t beam_id, const ssize_t nbins)
+void chime_slow_pulsar_writer::_get_new_chunk_with_locks(const ssize_t beam_id, const ssize_t nbins, const uint64_t frame0_nano)
 {
     // TODO: complete the initializer!
     std::shared_ptr<ch_chunk_initializer> ini_params = make_shared<ch_chunk_initializer>(this->rt_state.memory_pool);
     ini_params->fpga_counts_per_sample = this->fpga_counts_per_sample;
-    ini_params->frame0_nano = this->frame0_nano;
+    ini_params->frame0_nano = frame0_nano;
     this->wrote_start = false;
     std::cout << "making new chunk" << std::endl;
     this->chunk = slow_pulsar_chunk::make_slow_pulsar_chunk(ini_params);
@@ -91,8 +91,10 @@ void chime_slow_pulsar_writer::init_real_time_state(const real_time_state &rt_st
 }
 
 
-void chime_slow_pulsar_writer::set_params(const ssize_t beam_id, const ssize_t nfreq_out, const ssize_t ntime_out, const ssize_t nbins, std::shared_ptr<std::string> base_path)
-{   
+void chime_slow_pulsar_writer::set_params(const ssize_t beam_id, const ssize_t nfreq_out, 
+                const ssize_t ntime_out, const ssize_t nbins, std::shared_ptr<std::string> base_path,
+                const uint64_t frame0_nano)
+{ 
     std::lock_guard<std::mutex> lg_param(this->param_mutex);
 
     // this is interpreted as an off switch
@@ -106,13 +108,16 @@ void chime_slow_pulsar_writer::set_params(const ssize_t beam_id, const ssize_t n
         // see if we require a new chunk
         if(!chunk || chunk->file_header.nbins != nbins || chunk->file_header.beam_id != beam_id){
             std::lock_guard<std::mutex> lg_chunk(this->chunk_mutex);
-            this->_get_new_chunk_with_locks(beam_id, nbins);
+            this->_get_new_chunk_with_locks(beam_id, nbins, frame0_nano);
         }
         
         // forgo checks on path validity for now
         pstate->base_path = base_path;
 
         pstate->beam_id = beam_id;
+
+        // std::shared_ptr<ch_frb_io::assembled_chunk> achunk = stream->get_assembled_chunk();
+        pstate->frame0_nano = frame0_nano;
 
         pstate->nfreq_out = nfreq_out;
         pstate->ntime_out = ntime_out;
@@ -239,7 +244,7 @@ void store_with_lock(chime_slow_pulsar_writer* spw,
         // double tend = spw->chunk->file_header.end;
         // // TODO: address hackey constant below; not in the spirit of rf_pipelines
         // double tstart = tend - 2560 * 1024 * spw->fpga_counts_per_sample * 1e-9;
-        spw->_get_new_chunk_with_locks(pstate->beam_id, pstate->nbins);
+        spw->_get_new_chunk_with_locks(pstate->beam_id, pstate->nbins, pstate->frame0_nano);
         // TODO: investigate suspicious nbins in file header
         // spw->chunk->file_header.start = tstart;
         // spw->chunk->file_header.end = tend;
@@ -308,14 +313,16 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
 
         sph->fpgaN = fpga_counts_per_sample;
         sph->fpga0 = this->initial_fpga_count + pos * this->fpga_counts_per_sample;
-        sph->frame0_nano = this->frame0_nano;
+        sph->frame0_nano = pstate->frame0_nano;
         uint64_t fpga_counts_per_sample = this->fpga_counts_per_sample;
         uint64_t nsamp_chunk = this->nt_chunk;
 
         const ssize_t fpga_nano = 2560;
-        // workaround until frame0_nano is populated
-        const double tnow = get_time_sec();
-        // const double tnow = (sph->fpga0 * fpga_nano + frame0_nano) * 1e-9;
+
+        // const double tnow = get_time_sec();
+        // std::cout << "new frame0_nano ";
+        const double tnow = (sph->fpga0 * fpga_nano + pstate->frame0_nano) * 1e-9;
+        // std::cout << tnow << std::endl;
         const double tend = tnow + 1e-9 * fpga_nano * (nt_chunk * fpga_counts_per_sample);
 
         // make less rigid?
@@ -405,8 +412,8 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
                 pstate->downsampler->downsample(1, pstate->ntime_out, 
                     get_ptr<float>(tmp_i), pstate->ntime_out,
                     get_ptr<float>(tmp_w), pstate->ntime_out,
-                    intensity + ifreq * istride, istride,
-                    weights + ifreq * wstride, wstride);
+                    intensity + nds_freq * ifreq * istride, istride,
+                    weights + nds_freq * ifreq * wstride, wstride);
 
                 ds_i = get_ptr<float>(tmp_i);
                 ds_w = get_ptr<float>(tmp_w);
@@ -608,7 +615,6 @@ void chime_slow_pulsar_writer::_start_pipeline(Json::Value &json_attrs)
     if (!json_attrs.isMember("initial_fpga_count") || !json_attrs.isMember("fpga_counts_per_sample"))
         throw runtime_error("chime_slow_pulsar_writer: expected json_attrs to contain members 'frame0_nano' and 'fpga_counts_per_sample'");
     
-    this->frame0_nano = 0; // TODO: update after feature rolls out
     this->fpga_counts_per_sample = json_attrs["fpga_counts_per_sample"].asUInt64();
     this->initial_fpga_count = json_attrs["initial_fpga_count"].asUInt64();
 }
