@@ -723,10 +723,14 @@ struct chime_slow_pulsar_writer : public wi_transform
     struct param_state{
         std::shared_ptr<std::string> base_path;
         std::shared_ptr<rf_kernels::wi_downsampler> downsampler;
+        // std::shared_ptr<ch_frb_io::intensity_network_stream> stream;
         ssize_t beam_id = -1;
+        // ssize_t ibeam = -1; // beam index for retrieving assembled_chunk
         ssize_t nbins = -1;
         ssize_t nfreq_out = -1;
         ssize_t ntime_out = -1;
+
+        uint64_t frame0_nano = -1; // derived at stream assignment
 
         // derived parameters
         // TODO: compute inside constructor/switch to all-const model?
@@ -772,7 +776,6 @@ struct chime_slow_pulsar_writer : public wi_transform
     std::shared_ptr<std::vector<float>> tmp_var;
     ssize_t nbytes_charbuf = 0;
 
-    uint64_t frame0_nano = 0;
     uint64_t fpga_counts_per_sample = 1;
     uint64_t initial_fpga_count = 0;
     uint64_t ichunk = 0;
@@ -787,7 +790,12 @@ struct chime_slow_pulsar_writer : public wi_transform
     void init_real_time_state(const real_time_state &rt_state);
 
     // Called by RPC thread, intermittently while pipeline is running.
-    void set_params(const ssize_t beam_id, const ssize_t nfreq, const ssize_t ntime, const ssize_t nbins, std::shared_ptr<std::string> base_path);
+    // void set_params(const ssize_t beam_id, const ssize_t ibeam, const ssize_t nfreq, 
+    //                 const ssize_t ntime, const ssize_t nbins, std::shared_ptr<std::string> base_path
+    //                 std::shared_ptr<ch_frb_io::intensity_network_stream> stream);
+    void set_params(const ssize_t beam_id, const ssize_t nfreq_out, 
+                const ssize_t ntime_out, const ssize_t nbins, std::shared_ptr<std::string> base_path,
+                const uint64_t frame0_nano);
 
     // Called interally to populate and write an sp_file_header to tmp_buf
     void _update_file_header_with_lock();
@@ -803,7 +811,7 @@ struct chime_slow_pulsar_writer : public wi_transform
 
     // must leave these public for quantize_store hack
     // otherwise should be protected or private
-    void _get_new_chunk_with_locks(const ssize_t beam_id, const ssize_t nbins);
+    void _get_new_chunk_with_locks(const ssize_t beam_id, const ssize_t nbins, const uint64_t frame0_nano);
     sp_chunk_t chunk = nullptr;
 
 // private:
