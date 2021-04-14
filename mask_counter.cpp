@@ -169,7 +169,7 @@ void mask_counter_transform::_process_chunk(float *intensity, ssize_t istride, f
 
 	// Notify stream's output_devices that a chunk has had its rfi_mask filled in.
 	for (auto od : attrs.chime_stream->ini_params.output_devices)
-	    od->filled_rfi_mask(chunk);
+	    od->notify_ready(chunk);
     }
 #endif
 }

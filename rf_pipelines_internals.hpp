@@ -463,6 +463,6 @@ inline T median(std::vector<T> &v)
 }
 
 
-}  // namespace rf_pipelines
+};  // namespace rf_pipelines
 
 #endif  // _RF_PIPELINES_INTERNALS_HPP

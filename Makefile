@@ -29,6 +29,7 @@ OFILES = badchannel_mask.o \
 	chime_assembled_chunk_file_writer.o \
 	chime_frb_file_stream.o \
 	chime_network_stream.o \
+	chime_slow_pulsar_writer.o \
 	chime_packetizer.o \
 	chunked_pipeline_object.o \
 	file_utils.o \
@@ -150,6 +151,12 @@ endif
 ifeq ($(HAVE_PNG),y)
 	CPP += -DHAVE_PNG
 	LIBS += -lpng
+endif
+
+ifeq ($(HAVE_SPSHUFF),y)
+	CPP += -DHAVE_SPSHUFF
+else
+	$(error Fatal: Must have spshuff to compile this branch)
 endif
 
 #To be uncommented when C++ pulse_adder transform is resurrected.
