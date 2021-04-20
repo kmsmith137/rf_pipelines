@@ -16,7 +16,7 @@ namespace rf_pipelines {
 
 #ifndef HAVE_CH_FRB_IO
 
-shared_ptr<wi_transform> make_chime_assembled_chunk_file_writer(const string &filename, bool clobber)
+shared_ptr<wi_transform> make_chime_assembled_chunk_file_writer(const string &filename, bool clobber, const std::vector<int> &beams)
 {
     throw runtime_error("rf_pipelines::make_chime_assembled_chunk_file_writer() was called, but rf_pipelines was compiled without ch_frb_io");
 }
@@ -27,15 +27,17 @@ struct chime_assembled_chunk_file_writer : public wi_transform {
     // Constructor args
     const string filename;
     const bool clobber;
+    const std::vector<int> beams;
 
     // Stream params (not available until set_stream() gets called)
     assembled_chunk::initializer chunk_ini;
     int ichunk_offset = 0;
 
-    chime_assembled_chunk_file_writer(const string &filename_, bool clobber_) :
+    chime_assembled_chunk_file_writer(const string &filename_, bool clobber_, const std::vector<int> &beams_) :
 	wi_transform("chime_assembled_chunk_file_writer"),
 	filename(filename_),
-	clobber(clobber_)
+	clobber(clobber_),
+        beams(beams_)
     {
 	this->name = "chime_assembled_chunk_file_writer(" + filename + ")";
 	this->nt_chunk = constants::nt_per_assembled_chunk;
@@ -44,7 +46,7 @@ struct chime_assembled_chunk_file_writer : public wi_transform {
     virtual void _start_pipeline(Json::Value &j) override
     {
         // FIXME --
-        chunk_ini.beam_id = 0;
+        chunk_ini.beam_id = j["beam_id"].asInt();
         chunk_ini.nupfreq = this->nfreq / constants::nfreq_coarse_tot;
         chunk_ini.nrfifreq = 0; // ??
         chunk_ini.nt_per_packet = 16; // ??
@@ -57,6 +59,18 @@ struct chime_assembled_chunk_file_writer : public wi_transform {
 
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override
     {
+        // if "beams" were specified, only write out if our beam is in the list.
+        if (beams.size()) {
+            bool gotit = false;
+            for (int b : beams) {
+                if (chunk_ini.beam_id == b) {
+                    gotit = true;
+                    break;
+                }
+            }
+            if (!gotit)
+                return;
+        }
         chunk_ini.ichunk = this->ichunk_offset + pos / constants::nt_per_assembled_chunk;
         shared_ptr<assembled_chunk> ch = assembled_chunk::make(chunk_ini);
         float ilo = 1e9;
@@ -107,6 +121,11 @@ struct chime_assembled_chunk_file_writer : public wi_transform {
 	ret["class_name"] = "chime_assembled_chunk_file_writer";
 	ret["filename"] = filename;
 	ret["clobber"] = clobber;
+
+        Json::Value jbeams;
+        for (int b : beams)
+            jbeams.append(Json::Value(b));
+        ret["beams"] = jbeams;
 	return ret;
     }
 
@@ -114,7 +133,18 @@ struct chime_assembled_chunk_file_writer : public wi_transform {
     {
 	string filename = string_from_json(j, "filename");
 	bool clobber = bool_from_json(j, "clobber");
-	return make_shared<chime_assembled_chunk_file_writer> (filename, clobber);
+
+        std::vector<int> beams;
+        if (j.isMember("beams")) {
+            Json::Value a = array_from_json(j, "beams");
+            for (const Json::Value &v: a) {
+                if (!v.isIntegral())
+                    throw runtime_error("parsing chime_assembled_chunk_file_writer JSON: expected 'beams' to be an array of ints");
+                int b = v.asInt();
+                beams.push_back(b);
+            }
+        }
+	return make_shared<chime_assembled_chunk_file_writer> (filename, clobber, beams);
     }
 };
 
@@ -129,9 +159,9 @@ namespace {
 
 
 // See rf_pipelines.hpp for an explanation of the arguments
-shared_ptr<wi_transform> make_chime_assembled_chunk_file_writer(const string &filename, bool clobber)
+shared_ptr<wi_transform> make_chime_assembled_chunk_file_writer(const string &filename, bool clobber, const std::vector<int> &beams)
 {
-    return make_shared<chime_assembled_chunk_file_writer> (filename, clobber);
+    return make_shared<chime_assembled_chunk_file_writer> (filename, clobber, beams);
 }
 
 #endif  // HAVE_CH_FRB_IO

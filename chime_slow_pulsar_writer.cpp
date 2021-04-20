@@ -281,14 +281,32 @@ void dummy_compress(const uint8_t* qbuf, uint32_t* cbuf, const ssize_t nsamp,
 
 const double get_time_sec()
 {
-    const auto tnow = std::chrono::system_clock::now();
+    //const
+    auto tnow = std::chrono::system_clock::now();
     return std::chrono::duration_cast<std::chrono::seconds>(tnow.time_since_epoch()).count();
 }
 
+inline struct timeval xgettimeofday()
+{
+    struct timeval tv;
+
+    int err = gettimeofday(&tv, NULL);
+    if (_unlikely(err))
+	throw std::runtime_error("gettimeofday failed");
+
+    return tv;
+}
+inline int64_t usec_between(const struct timeval &tv1, const struct timeval &tv2)
+{
+    return 1000000 * int64_t(tv2.tv_sec - tv1.tv_sec) + int64_t(tv2.tv_usec - tv1.tv_usec);
+}
 
 // virtual override
 void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos)
 {
+    //auto dstn_t0 = std::chrono::steady_clock::now();
+    struct timeval dstn_t0 = xgettimeofday();
+
     std::shared_ptr<sp_chunk_header> sph = make_shared<sp_chunk_header>();
     std::shared_ptr<chime_slow_pulsar_writer::param_state> pstate;
 
@@ -606,6 +624,13 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
         // std::cout << "\t\tcompress_loop: " << cdur << std::endl;
         std::cout << "\twrite: " << twrite.count() << std::endl;
     }
+
+
+    //auto dstn_t1 = std::chrono::steady_clock::now();
+    //double dt = (std::chrono::duration<double>(dstn_t1 - dstn_t0).count());
+    struct timeval dstn_t1 = xgettimeofday();
+    double dt = usec_between(dstn_t0, dstn_t1) * 1e-6;
+    cout << "SPS writer took " << dt << " seconds" << endl;
 }
 
 

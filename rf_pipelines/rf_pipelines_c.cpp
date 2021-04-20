@@ -1144,7 +1144,7 @@ static void wrap_chime_ostreams(extension_module &m)
     m.add_function("chime_packetizer", doc_cp, f_cp);
 
     string doc_aw = "chime_assembled_chunk_file_writer(filename, clobber=False)\n";
-    auto f_aw = wrap_func(make_chime_assembled_chunk_file_writer, "filename", kwarg("clobber",false));
+    auto f_aw = wrap_func(make_chime_assembled_chunk_file_writer, "filename", kwarg("clobber",false), kwarg("beams", std::vector<int>()));
 }
 
 

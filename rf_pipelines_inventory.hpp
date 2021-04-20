@@ -547,7 +547,7 @@ extern std::shared_ptr<wi_transform> make_spectrum_analyzer(ssize_t Dt1=16, ssiz
 
 std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename, bool clobber=false, int bitshuffle=2, ssize_t nt_chunk=0);
 
-// chime_assembled_chunk_file_writen.
+// chime_assembled_chunk_file_writer.
 //
 // This is a pseudo-transform which doesn't actually modify the data, it just writes it to a file in
 // CHIME assembled-chunk msgpack format.
@@ -560,7 +560,9 @@ std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename
 //   (CHUNK)   -> %08i ichunk
 //   (FPGA0)   -> %012i start FPGA-counts
 //   (FPGAN)   -> %08i  FPGA-counts size
-std::shared_ptr<wi_transform> make_chime_assembled_chunk_file_writer(const std::string &filename_pattern, bool clobber);
+// If 'beams' is empty, all beams are written; otherwise, only the matching beams are written out.
+std::shared_ptr<wi_transform> make_chime_assembled_chunk_file_writer(const std::string &filename_pattern, bool clobber,
+                                                                     const std::vector<int> &beams = std::vector<int>());
 
 
 // chime_packetizer.
