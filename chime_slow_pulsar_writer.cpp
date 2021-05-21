@@ -88,6 +88,27 @@ void chime_slow_pulsar_writer::init_real_time_state(const real_time_state &rt_st
     throw runtime_error("rf_pipelines::chime_slow_pulsar_writer::init_real_time_state(): 'output_devices' is an empty pointer, or uninitialized");
 
     this->rt_state = rt_state_;
+
+
+}
+
+void chime_slow_pulsar_writer::_bind_transform(Json::Value &json_attrs) {
+    if (this->initial_params.beam_id != -1) {
+        cout << "spulsar _bind_transform: Setting initial spulsar params" << endl;
+        cout << this->initial_params.beam_id << ", " << 
+            this->initial_params.nfreq_out << ", " << 
+            this->initial_params.ntime_out << ", " << 
+            this->initial_params.nbins << ", " << 
+            this->initial_params.base_path << ", " << 
+            this->initial_params.frame0_nano << endl;
+
+        this->set_params(this->initial_params.beam_id,
+                         this->initial_params.nfreq_out,
+                         this->initial_params.ntime_out,
+                         this->initial_params.nbins,
+                         this->initial_params.base_path,
+                         this->initial_params.frame0_nano);
+    }
 }
 
 
@@ -124,6 +145,11 @@ void chime_slow_pulsar_writer::set_params(const ssize_t beam_id, const ssize_t n
         // TODO: remove hard-coded upsampling factor (16)
         pstate->nds_freq = nfreq / pstate->nfreq_out;
         pstate->nds_time = nt_chunk / pstate->ntime_out;
+
+        cout << "Creating downsampler.  nfreq " << nfreq << ", nfreq_out " << pstate->nfreq_out
+             << ", nt_chunk " << nt_chunk << ", ntime_out " << pstate->ntime_out
+             << ", nds_freq " << pstate->nds_freq << ", nds_time " << pstate->nds_time << endl;
+
         pstate->downsampler = std::shared_ptr<rf_kernels::wi_downsampler>(new rf_kernels::wi_downsampler(
                                                    pstate->nds_freq, pstate->nds_time));
 
@@ -669,7 +695,38 @@ Json::Value chime_slow_pulsar_writer::jsonize() const
 shared_ptr<chime_slow_pulsar_writer> chime_slow_pulsar_writer::from_json(const Json::Value &j)
 {
     ssize_t nt_chunk = ssize_t_from_json(j, "nt_chunk");
-    return make_shared<chime_slow_pulsar_writer> (nt_chunk);
+
+    //ssize_t beam_id;
+    ssize_t nfreq_out = 0;
+    ssize_t ntime_out = 0;
+    ssize_t nbins = 0;
+    string base_path = "";
+    string key = "nfreq_out";
+    if (j.isMember(key))
+        nfreq_out = j[key].asInt();
+    key = "ntime_out";
+    if (j.isMember(key))
+        ntime_out = j[key].asInt();
+    key = "nbins";
+    if (j.isMember(key))
+        nbins = j[key].asInt();
+    key = "base_path";
+    if (j.isMember(key))
+        base_path = j[key].asString();
+
+    auto sps = make_shared<chime_slow_pulsar_writer> (nt_chunk);
+
+    if ((base_path.size() > 0) && (nfreq_out > 0) && (ntime_out > 0) && (nbins > 0)) {
+        sps->initial_params.beam_id = 0;
+        sps->initial_params.frame0_nano = 0;
+        sps->initial_params.base_path = make_shared<string>(base_path);
+        sps->initial_params.nbins = nbins;
+        sps->initial_params.nfreq_out = nfreq_out;
+        sps->initial_params.ntime_out = ntime_out;
+        //sps->set_params(beam_id, nfreq_out, ntime_out, nbins, base, frame0_nano);
+    }
+
+    return sps;
 }
 
 

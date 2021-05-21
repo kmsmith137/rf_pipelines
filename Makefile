@@ -27,6 +27,8 @@ OFILES = badchannel_mask.o \
 	chime_file_stream_base.o \
 	chime_file_writer.o \
 	chime_assembled_chunk_file_writer.o \
+	chime_assembled_chunk_checksummer.o \
+	md5.o \
 	chime_frb_file_stream.o \
 	chime_network_stream.o \
 	chime_slow_pulsar_writer.o \
@@ -194,6 +196,8 @@ clean:
 	for d in $(CLEANDIRS); do rm -f $$d/*~ $$d/*.o $$d/*.so $$d/*.pyc; done
 
 %.o: %.cpp $(INCFILES)
+	$(CPP) -c -o $@ $<
+%.o: %.c $(INCFILES)
 	$(CPP) -c -o $@ $<
 
 librf_pipelines.so: $(OFILES)
