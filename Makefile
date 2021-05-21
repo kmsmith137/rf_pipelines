@@ -27,7 +27,7 @@ OFILES = badchannel_mask.o \
 	chime_file_stream_base.o \
 	chime_file_writer.o \
 	chime_assembled_chunk_file_writer.o \
-	chime_assembled_chunk_checksummer.o \
+	chime_checksummer.o \
 	md5.o \
 	chime_frb_file_stream.o \
 	chime_network_stream.o \

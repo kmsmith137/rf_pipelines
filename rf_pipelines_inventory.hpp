@@ -565,7 +565,7 @@ std::shared_ptr<wi_transform> make_chime_assembled_chunk_file_writer(const std::
                                                                      const std::vector<int> &beams = std::vector<int>());
 
 
-std::shared_ptr<wi_transform> make_chime_assembled_chunk_checksummer(const std::vector<int> &beams = std::vector<int>());
+std::shared_ptr<wi_transform> make_chime_checksummer(const std::vector<int> &beams = std::vector<int>());
 
 // chime_packetizer.
 //
