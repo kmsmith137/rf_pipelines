@@ -21,7 +21,7 @@ PYDIR ?= $(HOME)/lib/python2.7/site-packages
 
 # Read-only location of python header files
 PYTHON_INCDIR=/usr/include/python2.7
-NUMPY_INCDIR=/usr/lib64/python2.7/site-packages/numpy/core/include
+NUMPY_INCDIR ?= /usr/lib64/python2.7/site-packages/numpy/core/include
 JSONCPP_INCDIR=/usr/include/jsoncpp
 
 CPP=g++ -std=c++11 -pthread -fPIC -Wall -Wno-literal-suffix

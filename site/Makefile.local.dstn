@@ -2,7 +2,7 @@ HAVE_PSRFITS=n
 HAVE_SIMPULSE=y
 HAVE_CH_FRB_IO=y
 HAVE_BONSAI=y
-HAVE_HDF5=y
+HAVE_HDF5=n
 HAVE_PNG=y
 
 BASE := $(HOME)/chime
@@ -20,7 +20,8 @@ BINDIR=$(BASE)/bin
 PYDIR=$(BASE)/lib/python2.7/site-packages
 
 # Read-only location of python header files
-PYTHON_INCDIR=/usr/include/python2.7
+#PYTHON_INCDIR=/usr/include/python2.7
+PYTHON_INCDIR=/usr/local/python2.7-include
 NUMPY_INCDIR=/System/Library/Frameworks/Python.framework/Versions/2.7/Extras/lib/python/numpy/core/include
 
 #
