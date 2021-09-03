@@ -92,25 +92,6 @@ void chime_slow_pulsar_writer::init_real_time_state(const real_time_state &rt_st
 
 }
 
-void chime_slow_pulsar_writer::_bind_transform(Json::Value &json_attrs) {
-    if (this->initial_params.beam_id != -1) {
-        cout << "spulsar _bind_transform: Setting initial spulsar params" << endl;
-        cout << this->initial_params.beam_id << ", " << 
-            this->initial_params.nfreq_out << ", " << 
-            this->initial_params.ntime_out << ", " << 
-            this->initial_params.nbins << ", " << 
-            this->initial_params.base_path << ", " << 
-            this->initial_params.frame0_nano << endl;
-
-        this->set_params(this->initial_params.beam_id,
-                         this->initial_params.nfreq_out,
-                         this->initial_params.ntime_out,
-                         this->initial_params.nbins,
-                         this->initial_params.base_path,
-                         this->initial_params.frame0_nano);
-    }
-}
-
 
 void chime_slow_pulsar_writer::set_params(const ssize_t beam_id, const ssize_t nfreq_out, 
                 const ssize_t ntime_out, const ssize_t nbins, std::shared_ptr<std::string> base_path,
@@ -716,15 +697,8 @@ shared_ptr<chime_slow_pulsar_writer> chime_slow_pulsar_writer::from_json(const J
 
     auto sps = make_shared<chime_slow_pulsar_writer> (nt_chunk);
 
-    if ((base_path.size() > 0) && (nfreq_out > 0) && (ntime_out > 0) && (nbins > 0)) {
-        sps->initial_params.beam_id = 0;
-        sps->initial_params.frame0_nano = 0;
-        sps->initial_params.base_path = make_shared<string>(base_path);
-        sps->initial_params.nbins = nbins;
-        sps->initial_params.nfreq_out = nfreq_out;
-        sps->initial_params.ntime_out = ntime_out;
-        //sps->set_params(beam_id, nfreq_out, ntime_out, nbins, base, frame0_nano);
-    }
+    if ((base_path.size() > 0) && (nfreq_out > 0) && (ntime_out > 0) && (nbins > 0))
+	cout << "FIXME: ignoring initial_params for now" << endl;
 
     return sps;
 }

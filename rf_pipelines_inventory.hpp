@@ -788,8 +788,6 @@ struct chime_slow_pulsar_writer : public wi_transform
     
     real_time_state rt_state;
 
-    struct param_state initial_params;
-
     chime_slow_pulsar_writer(ssize_t nt_chunk);
 
     // Called by RPC thread, once during initialization.
@@ -807,7 +805,6 @@ struct chime_slow_pulsar_writer : public wi_transform
     void _update_file_header_with_lock();
 
     // Called by rf_pipelines thread.
-    virtual void _bind_transform(Json::Value &json_attrs) override;
     virtual void _start_pipeline(Json::Value &json_attrs) override;
     virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
     virtual void _end_pipeline(Json::Value &json_output) override;
