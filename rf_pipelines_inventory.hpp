@@ -714,9 +714,6 @@ typedef std::shared_ptr<ch_frb_io::slow_pulsar_chunk> sp_chunk_t;
 struct chime_slow_pulsar_writer : public wi_transform
 {
     struct real_time_state {
-	// Throughout the CHIMEFRB pipeline, beams are identified by a beam_id between 0 and 1024.
-	int beam_id = -1;
-
 	// Use this to request memory from inside the CHIMEFRB L1 server (see ch_frb_io/ch_frb_io.hpp)
 	std::shared_ptr<ch_frb_io::memory_slab_pool> memory_pool;
 	
@@ -779,9 +776,12 @@ struct chime_slow_pulsar_writer : public wi_transform
     // buffer for channel variance
     std::shared_ptr<std::vector<float>> tmp_var;
     ssize_t nbytes_charbuf = 0;
-
+    
+    // Initialized in _start_pipeline()
+    int beam_id = -1;
     uint64_t fpga_counts_per_sample = 1;
     uint64_t initial_fpga_count = 0;
+
     uint64_t ichunk = 0;
 
     bool wrote_start = false;
@@ -814,7 +814,7 @@ struct chime_slow_pulsar_writer : public wi_transform
 
     // must leave these public for quantize_store hack
     // otherwise should be protected or private
-    void _get_new_chunk_with_locks(const ssize_t beam_id, const ssize_t nbins, const uint64_t frame0_nano);
+    void _get_new_chunk_with_locks(const ssize_t nbins, const uint64_t frame0_nano);
     sp_chunk_t chunk = nullptr;
 
 // private:
