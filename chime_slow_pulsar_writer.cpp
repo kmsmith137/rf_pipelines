@@ -65,12 +65,12 @@ chime_slow_pulsar_writer::chime_slow_pulsar_writer(ssize_t nt_chunk_) :
 
 
 // Caller must hold chunk lock!
-void chime_slow_pulsar_writer::_get_new_chunk_with_locks(const ssize_t nbins, const uint64_t frame0_nano)
+void chime_slow_pulsar_writer::_get_new_chunk_with_locks(const ssize_t nbins)
 {
     // TODO: complete the initializer!
     std::shared_ptr<ch_chunk_initializer> ini_params = make_shared<ch_chunk_initializer>(this->rt_state.memory_pool);
     ini_params->fpga_counts_per_sample = this->fpga_counts_per_sample;
-    ini_params->frame0_nano = frame0_nano;
+    ini_params->frame0_nano = 0;   // FIXME rethink ch_chunk::frame0_nano
     this->wrote_start = false;
     std::cout << "making new chunk" << std::endl;
     this->chunk = slow_pulsar_chunk::make_slow_pulsar_chunk(ini_params);
@@ -83,19 +83,18 @@ void chime_slow_pulsar_writer::_get_new_chunk_with_locks(const ssize_t nbins, co
 void chime_slow_pulsar_writer::init_real_time_state(const real_time_state &rt_state_)
 {
     if (!rt_state_.memory_pool)
-    throw runtime_error("rf_pipelines::chime_slow_pulsar_writer::init_real_time_state(): 'memory_pool' is an empty pointer, or uninitialized");
+	throw runtime_error("rf_pipelines::chime_slow_pulsar_writer::init_real_time_state(): 'memory_pool' is an empty pointer, or uninitialized");
     if (!rt_state_.output_devices)
-    throw runtime_error("rf_pipelines::chime_slow_pulsar_writer::init_real_time_state(): 'output_devices' is an empty pointer, or uninitialized");
+	throw runtime_error("rf_pipelines::chime_slow_pulsar_writer::init_real_time_state(): 'output_devices' is an empty pointer, or uninitialized");
+    if (!rt_state_.chime_stream)
+	throw runtime_error("rf_pipelines::chime_slow_pulsar_writer::init_real_time_state(): 'chime_stream' is an empty pointer, or uninitialized");
 
     this->rt_state = rt_state_;
-
-
 }
 
 
 void chime_slow_pulsar_writer::set_params(const ssize_t beam_id, const ssize_t nfreq_out, 
-                const ssize_t ntime_out, const ssize_t nbins, std::shared_ptr<std::string> base_path,
-                const uint64_t frame0_nano)
+					  const ssize_t ntime_out, const ssize_t nbins, std::shared_ptr<std::string> base_path)
 { 
     // FIXME add more asserts here
     rf_assert(beam_id == this->beam_id);
@@ -113,14 +112,11 @@ void chime_slow_pulsar_writer::set_params(const ssize_t beam_id, const ssize_t n
         // see if we require a new chunk
         if (!chunk || (chunk->file_header.nbins != nbins)) {
             std::lock_guard<std::mutex> lg_chunk(this->chunk_mutex);
-            this->_get_new_chunk_with_locks(nbins, frame0_nano);
+            this->_get_new_chunk_with_locks(nbins);
         }
         
         // forgo checks on path validity for now
         pstate->base_path = base_path;
-
-        // std::shared_ptr<ch_frb_io::assembled_chunk> achunk = stream->get_assembled_chunk();
-        pstate->frame0_nano = frame0_nano;
 
         pstate->nfreq_out = nfreq_out;
         pstate->ntime_out = ntime_out;
@@ -252,7 +248,7 @@ void store_with_lock(chime_slow_pulsar_writer* spw,
         // double tend = spw->chunk->file_header.end;
         // // TODO: address hackey constant below; not in the spirit of rf_pipelines
         // double tstart = tend - 2560 * 1024 * spw->fpga_counts_per_sample * 1e-9;
-        spw->_get_new_chunk_with_locks(pstate->nbins, pstate->frame0_nano);
+        spw->_get_new_chunk_with_locks(pstate->nbins);
         // TODO: investigate suspicious nbins in file header
         // spw->chunk->file_header.start = tstart;
         // spw->chunk->file_header.end = tend;
@@ -331,40 +327,26 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
     // do not proceed or block until chunk is initialized
     if(pstate && chunk){
 
-        // redundant copy to the chunk header; old way of tracking state
+        // Redundant copy to the chunk header; old way of tracking state
         sph->ntime = pstate->ntime_out;
         sph->nfreq = pstate->nfreq_out;
+        sph->fpga0 = this->initial_fpga_count + pos * this->fpga_counts_per_sample;
+        sph->fpgaN = nt_chunk * this->fpga_counts_per_sample;
+
+	// Some hackery needed to get 'frame0_nano'.
+	// The need for this hackery is a symptom of deeper problems!
+	// The last argument in find_assembled_chunk() is 'toplevel'.
+
+	auto sp = this->rt_state.chime_stream;
+	rf_assert(sp);
+	auto ac = sp->find_assembled_chunk(this->beam_id, sph->fpga0, true);
+	rf_assert(ac);
+	sph->frame0_nano = ac->frame0_nano;
+
+	// Note: there used to be logic to here set file_header.{start,end}.
+	// This has now been moved to ch_frb_io::slow_pulsar_chunk::commit_chunk().
 
         n5_encoder enc(get_ptr<uint8_t>(this->tmp_ibuf));
-
-        sph->fpgaN = fpga_counts_per_sample;
-        sph->fpga0 = this->initial_fpga_count + pos * this->fpga_counts_per_sample;
-        sph->frame0_nano = pstate->frame0_nano;
-        uint64_t fpga_counts_per_sample = this->fpga_counts_per_sample;
-        uint64_t nsamp_chunk = this->nt_chunk;
-
-        const ssize_t fpga_nano = 2560;
-
-        // const double tnow = get_time_sec();
-        // std::cout << "new frame0_nano ";
-        const double tnow = (sph->fpga0 * fpga_nano + pstate->frame0_nano) * 1e-9;
-        // std::cout << tnow << std::endl;
-        const double tend = tnow + 1e-9 * fpga_nano * (nt_chunk * fpga_counts_per_sample);
-
-        // make less rigid?
-        if(nt_chunk != 1024){
-            throw new runtime_error("chime_slow_pulsar_writer: expects nt_chunk = 1024");
-        }
-
-        {
-            std::lock_guard<std::mutex> lg_chunk0(this->chunk_mutex);
-            if(!wrote_start){
-                chunk->file_header.start = tnow;
-                wrote_start = true;
-            }
-
-            chunk->file_header.end = tend;
-        }
 
         bit0 = 0;
         i0 = 0;

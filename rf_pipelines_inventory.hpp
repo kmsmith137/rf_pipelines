@@ -719,6 +719,10 @@ struct chime_slow_pulsar_writer : public wi_transform
 	
 	// Use this to queue a write_request, for writing to disk by the L1 server I/O threads.
 	std::shared_ptr<ch_frb_io::output_device_pool> output_devices;
+
+	// Used to get per-chunk frame0_nano values.
+	// (The code paths here are convoluted, but improving them would require deep changes!)
+	std::shared_ptr<ch_frb_io::intensity_network_stream> chime_stream;
     };
 
     struct param_state{
@@ -730,8 +734,6 @@ struct chime_slow_pulsar_writer : public wi_transform
         ssize_t nbins = -1;
         ssize_t nfreq_out = -1;
         ssize_t ntime_out = -1;
-
-        uint64_t frame0_nano = -1; // derived at stream assignment
 
         // derived parameters
         // TODO: compute inside constructor/switch to all-const model?
@@ -798,8 +800,7 @@ struct chime_slow_pulsar_writer : public wi_transform
     //                 const ssize_t ntime, const ssize_t nbins, std::shared_ptr<std::string> base_path
     //                 std::shared_ptr<ch_frb_io::intensity_network_stream> stream);
     void set_params(const ssize_t beam_id, const ssize_t nfreq_out, 
-                const ssize_t ntime_out, const ssize_t nbins, std::shared_ptr<std::string> base_path,
-                const uint64_t frame0_nano);
+		    const ssize_t ntime_out, const ssize_t nbins, std::shared_ptr<std::string> base_path);
 
     // Called interally to populate and write an sp_file_header to tmp_buf
     void _update_file_header_with_lock();
@@ -814,7 +815,7 @@ struct chime_slow_pulsar_writer : public wi_transform
 
     // must leave these public for quantize_store hack
     // otherwise should be protected or private
-    void _get_new_chunk_with_locks(const ssize_t nbins, const uint64_t frame0_nano);
+    void _get_new_chunk_with_locks(const ssize_t nbins);
     sp_chunk_t chunk = nullptr;
 
 // private:
@@ -823,6 +824,9 @@ struct chime_slow_pulsar_writer : public wi_transform
     // verify and ensure that memory is allocated
 };
 
+
+// -------------------------------------------------------------------------------------------------
+//
 // pipeline_spool
 // 
 // This utility class is intended for debugging!  It can be placed anywhere in a pipeline, 
