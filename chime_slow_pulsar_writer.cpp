@@ -47,6 +47,7 @@ chime_slow_pulsar_writer::chime_slow_pulsar_writer(ssize_t nt_chunk_) :
     this->tmp_intrin = std::shared_ptr<uint32_t>(aligned_alloc<uint32_t>(8, 32, false), free);
     this->tmp_intrinf1 = std::shared_ptr<float>(aligned_alloc<float>(8, 32, false), free);
     this->tmp_intrinf2 = std::shared_ptr<float>(aligned_alloc<float>(8, 32, false), free);
+    this->tmp_intrinf3 = std::shared_ptr<float>(aligned_alloc<float>(8, 32, false), free);
 
     this->tmp_i = std::shared_ptr<float>(aligned_alloc<float>(nsamp_max, 32, false), free);
     this->tmp_w = std::shared_ptr<float>(aligned_alloc<float>(nsamp_max, 32, false), free);
@@ -410,6 +411,7 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
         uint32_t* tmp0 = get_ptr<uint32_t>(tmp_intrin);
         float* tmp1 = get_ptr<float>(tmp_intrinf1);
         float* tmp2 = get_ptr<float>(tmp_intrinf2);
+        float* tmp3 = get_ptr<float>(tmp_intrinf3);
         float fnorm;
 
         // estimate channel mean and var, compute mask
@@ -436,6 +438,7 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
 
             float s1 = 0.;
             float s2 = 0.;
+
             ssize_t ibyte_w = 0;
             ssize_t ibit_w = 0;
             uint8_t* mask_tmp_ar = get_ptr<uint8_t>(tmp_mask);
@@ -480,21 +483,29 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
             // }
             __m256 ms1 = _mm256_set1_ps(0.);
             __m256 ms2 = _mm256_set1_ps(0.);
-            // const __m128i shift0 = _mm_set_epi32(1,1,1,1);
-            const __m256i shift_ds = _mm256_set_epi32(log_nds_tot, log_nds_tot, log_nds_tot, log_nds_tot,
-                                                      log_nds_tot, log_nds_tot, log_nds_tot, log_nds_tot);
-            const __m256i shift0 = _mm256_set_epi32(1,1,1,1,1,1,1,1);
-            const __m256i shift1 = _mm256_set_epi32(2,2,2,2,2,2,2,2);
-            const __m256i shift2 = _mm256_set_epi32(4,4,4,4,4,4,4,4);
+            __m256 mn_eff = _mm256_set1_ps(0.);
+
+            const __m256i shift_ds = _mm256_set1_epi32(log_nds_tot);
+            const __m256i shift0 = _mm256_set1_epi32(1);
+            const __m256i shift1 = _mm256_set1_epi32(2);
+            const __m256i shift2 = _mm256_set1_epi32(4);
             for(ssize_t iframe_o = 0; iframe_o < ntime_out/8; iframe_o+=1){
                 const ssize_t itime_o = iframe_o * 8;
-                const __m256 mvari = _mm256_load_ps(ds_ic + itime_o);
-                ms1 = _mm256_add_ps(mvari, ms1);
-                ms2 = _mm256_fmadd_ps(mvari, mvari, ms2);
-
+                
                 // compute mask
                 __m256i mvarw = _mm256_cvtps_epi32(_mm256_load_ps(ds_wc + itime_o));
                 mvarw = _mm256_srlv_epi32(mvarw, shift_ds); // divide by downsampling factor
+                // convert correct mask to float for running sum computation
+                const __m256 mask_ps = _mm256_cvtepi32_ps(mvarw);
+
+                // apply mask in computation of sums
+                const __m256 mvari = _mm256_mul_ps(mask_ps, _mm256_load_ps(ds_ic + itime_o));
+                ms1 = _mm256_add_ps(mvari, ms1);
+                ms2 = _mm256_fmadd_ps(mvari, mvari, ms2);
+
+                // sum the mask value in each lane
+                mn_eff = _mm256_add_ps(mn_eff, mask_ps);
+
                 mvarw = _mm256_add_epi32(mvarw, _mm256_shuffle_epi32(_mm256_sllv_epi32(mvarw, shift0), 177));
                 mvarw = _mm256_add_epi32(mvarw, _mm256_shuffle_epi32(_mm256_sllv_epi32(mvarw, shift1), 2));
                 mvarw = _mm256_add_epi32(mvarw, _mm256_sllv_epi32(_mm256_permute2f128_si256(mvarw, mvarw, 1), shift2));
@@ -517,11 +528,15 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
 
             _mm256_store_ps(tmp1, ms1);
             _mm256_store_ps(tmp2, ms2);
+            _mm256_store_ps(tmp3, mn_eff);
 
+            float fn_eff = 0.;
             for(ssize_t i = 0; i < 8; i++){
                 s1 += tmp1[i];
                 s2 += tmp2[i];
+                fn_eff += tmp3[i];
             }
+            fn_eff = max(fn_eff, 1.);
 
             // auto t22 = std::chrono::high_resolution_clock::now();
 
@@ -529,9 +544,9 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
             // wdur += tmp1.count();
 
             // compute the relevant statistics
-            const float fmean = s1 / float(pstate->ntime_out);
-            const float f2mean = s2 / float(pstate->ntime_out);
-            const float fvar = (float(pstate->ntime_out) / float(pstate->ntime_out -1)) * (f2mean - fmean * fmean);
+            const float fmean = s1 / fn_eff;
+            const float f2mean = s2 / fn_eff;
+            const float fvar = fn_eff / (fn_eff - 1) * (f2mean - fmean * fmean);
 
             (*tmp_mean)[ifreq]= fmean;
             (*tmp_var)[ifreq] = fvar;

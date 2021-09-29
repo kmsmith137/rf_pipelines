@@ -765,6 +765,7 @@ struct chime_slow_pulsar_writer : public wi_transform
     std::shared_ptr<uint32_t> tmp_intrin;
     std::shared_ptr<float> tmp_intrinf1;
     std::shared_ptr<float> tmp_intrinf2;
+    std::shared_ptr<float> tmp_intrinf3;
 
     // huffman state variables associated with ibuf
     ssize_t i0 = 0;
