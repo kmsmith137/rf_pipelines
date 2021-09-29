@@ -536,7 +536,7 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
                 s2 += tmp2[i];
                 fn_eff += tmp3[i];
             }
-            fn_eff = max(fn_eff, 1.);
+            fn_eff = std::max<float>(fn_eff, 2.);
 
             // auto t22 = std::chrono::high_resolution_clock::now();
 
