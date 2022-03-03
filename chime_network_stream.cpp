@@ -44,6 +44,11 @@ struct chime_network_stream : public wi_stream
     shared_ptr<ch_frb_io::intensity_network_stream> stream;
     const float prescale;
     const int assembler_id;
+    
+    // Initialized in start_pipeline().
+    int beam_id = -1;
+    uint64_t fpga0 = 0;
+    int fpga_counts_per_sample = 0;
 
     chime_network_stream(const shared_ptr<ch_frb_io::intensity_network_stream> &stream_, int assembler_index_, float prescale_);
     virtual ~chime_network_stream() { }
@@ -90,16 +95,16 @@ void chime_network_stream::_start_pipeline(Json::Value &j)
     stream->wait_for_first_packet();
     cout << "chime_network_stream::start_pipeline, got first packet" << endl;
 
-    uint64_t fpga0 = stream->get_first_fpgacount();
-
     vector<int> beams = stream->get_beam_ids();
-
     assert(assembler_id >= 0 && assembler_id < beams.size());
-    int beam = beams[assembler_id];
 
-    j["beam_id"] = Json::Int(beam);
+    this->beam_id = beams[assembler_id];
+    this->fpga0 = stream->get_first_fpgacount();
+    this->fpga_counts_per_sample = stream->ini_params.fpga_counts_per_sample;
+
+    j["beam_id"] = beam_id;
     j["initial_fpga_count"] = Json::UInt64(fpga0);
-    j["fpga_counts_per_sample"] = stream->ini_params.fpga_counts_per_sample;
+    j["fpga_counts_per_sample"] = fpga_counts_per_sample;
 }
 
 
@@ -110,8 +115,12 @@ bool chime_network_stream::_fill_chunk(float *intensity, ssize_t istride, float 
         return false;
     }
 
-    rf_assert(this->nfreq == ch_frb_io::constants::nfreq_coarse_tot * chunk->nupfreq);
+    rf_assert(chunk->beam_id == this->beam_id);
+    rf_assert(chunk->nupfreq * ch_frb_io::constants::nfreq_coarse_tot == this->nfreq);
+    rf_assert(chunk->fpga_begin == this->fpga0 + pos * fpga_counts_per_sample);
+
     chunk->decode(intensity, weights, istride, wstride, prescale);
+
     return true;
 }
 

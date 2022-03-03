@@ -70,9 +70,21 @@
 #include <rf_kernels/core.hpp>          // enum axis_type (used in several places)
 #include <rf_kernels/mask_counter.hpp>  // used in mask_counter_transform
 
+#include <rf_kernels/downsample.hpp>
+
 // A little hack so that all definitions still compile if optional dependencies are absent.
 namespace bonsai { class dedisperser; }
-namespace ch_frb_io { class intensity_network_stream; }
+
+namespace ch_frb_io {
+    class memory_slab_pool;
+    class intensity_network_stream;
+    class output_device_pool;
+    class ch_chunk;
+    class slow_pulsar_chunk;
+    struct sp_chunk_header;
+    struct sp_file_header;
+}
+// using namespace ch_frb_io;
 
 namespace rf_pipelines {
 #if 0
@@ -535,7 +547,7 @@ extern std::shared_ptr<wi_transform> make_spectrum_analyzer(ssize_t Dt1=16, ssiz
 
 std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename, bool clobber=false, int bitshuffle=2, ssize_t nt_chunk=0);
 
-// chime_assembled_chunk_file_writen.
+// chime_assembled_chunk_file_writer.
 //
 // This is a pseudo-transform which doesn't actually modify the data, it just writes it to a file in
 // CHIME assembled-chunk msgpack format.
@@ -548,8 +560,12 @@ std::shared_ptr<wi_transform> make_chime_file_writer(const std::string &filename
 //   (CHUNK)   -> %08i ichunk
 //   (FPGA0)   -> %012i start FPGA-counts
 //   (FPGAN)   -> %08i  FPGA-counts size
-std::shared_ptr<wi_transform> make_chime_assembled_chunk_file_writer(const std::string &filename_pattern, bool clobber);
+// If 'beams' is empty, all beams are written; otherwise, only the matching beams are written out.
+std::shared_ptr<wi_transform> make_chime_assembled_chunk_file_writer(const std::string &filename_pattern, bool clobber,
+                                                                     const std::vector<int> &beams = std::vector<int>());
 
+
+std::shared_ptr<wi_transform> make_chime_checksummer(const std::vector<int> &beams = std::vector<int>());
 
 // chime_packetizer.
 //
@@ -690,6 +706,127 @@ std::shared_ptr<wi_transform> make_mask_counter(int nt_chunk, std::string where)
 
 // -------------------------------------------------------------------------------------------------
 //
+// chime_slow_pulsar_writer
+
+typedef std::shared_ptr<std::vector<float>> fvec_t;
+typedef std::shared_ptr<ch_frb_io::slow_pulsar_chunk> sp_chunk_t;
+
+struct chime_slow_pulsar_writer : public wi_transform
+{
+    struct real_time_state {
+	// Use this to request memory from inside the CHIMEFRB L1 server (see ch_frb_io/ch_frb_io.hpp)
+	std::shared_ptr<ch_frb_io::memory_slab_pool> memory_pool;
+	
+	// Use this to queue a write_request, for writing to disk by the L1 server I/O threads.
+	std::shared_ptr<ch_frb_io::output_device_pool> output_devices;
+
+	// Used to get per-chunk frame0_nano values.
+	// (The code paths here are convoluted, but improving them would require deep changes!)
+	std::shared_ptr<ch_frb_io::intensity_network_stream> chime_stream;
+    };
+
+    struct param_state{
+        std::shared_ptr<std::string> base_path;
+        std::shared_ptr<rf_kernels::wi_downsampler> downsampler;
+        // std::shared_ptr<ch_frb_io::intensity_network_stream> stream;
+        ssize_t beam_id = -1;
+        // ssize_t ibeam = -1; // beam index for retrieving assembled_chunk
+        ssize_t nbins = -1;
+        ssize_t nfreq_out = -1;
+        ssize_t ntime_out = -1;
+
+        // derived parameters
+        // TODO: compute inside constructor/switch to all-const model?
+        ssize_t nds_freq = -1;
+        ssize_t nds_time = -1;
+        ssize_t nsamp = -1;
+    };
+
+    std::mutex param_mutex;
+    std::shared_ptr<param_state> pstate = nullptr;
+
+    // TODO: add chunk data struct to better organize lock-protected fields
+    std::mutex chunk_mutex;
+
+    // strategically removed from output_file_params
+    // buffer for downsampling (weights) - not actually used
+    std::shared_ptr<float> tmp_w;
+    // buffer for downsampling (intensity)
+    std::shared_ptr<float> tmp_i;
+    // buffer for unit-variance normalized intensity
+    std::shared_ptr<float> tmp_inorm;
+    // buffer for quantization
+    std::shared_ptr<uint8_t> tmp_qbuf;
+
+    // buffer for compression
+    std::shared_ptr<std::vector<uint8_t>> tmp_ibuf;
+
+    // tmp intrinsics arrays
+    std::shared_ptr<uint32_t> tmp_intrin;
+    std::shared_ptr<float> tmp_intrinf1;
+    std::shared_ptr<float> tmp_intrinf2;
+
+    // huffman state variables associated with ibuf
+    ssize_t i0 = 0;
+    ssize_t bit0 = 0;
+    ssize_t compressed_data_len = 0;
+
+    // buffer for mask storage (not sized properly)
+    std::shared_ptr<std::vector<uint8_t>> tmp_mask;
+    // buffer for channel means
+    std::shared_ptr<std::vector<float>> tmp_mean;
+    // buffer for channel variance
+    std::shared_ptr<std::vector<float>> tmp_var;
+    ssize_t nbytes_charbuf = 0;
+    
+    // Initialized in _start_pipeline()
+    int beam_id = -1;
+    uint64_t fpga_counts_per_sample = 1;
+    uint64_t initial_fpga_count = 0;
+
+    uint64_t ichunk = 0;
+
+    bool wrote_start = false;
+    
+    real_time_state rt_state;
+
+    chime_slow_pulsar_writer(ssize_t nt_chunk);
+
+    // Called by RPC thread, once during initialization.
+    void init_real_time_state(const real_time_state &rt_state);
+
+    // Called by RPC thread, intermittently while pipeline is running.
+    // void set_params(const ssize_t beam_id, const ssize_t ibeam, const ssize_t nfreq, 
+    //                 const ssize_t ntime, const ssize_t nbins, std::shared_ptr<std::string> base_path
+    //                 std::shared_ptr<ch_frb_io::intensity_network_stream> stream);
+    void set_params(const ssize_t beam_id, const ssize_t nfreq_out, 
+		    const ssize_t ntime_out, const ssize_t nbins, std::shared_ptr<std::string> base_path);
+
+    // Called interally to populate and write an sp_file_header to tmp_buf
+    void _update_file_header_with_lock();
+
+    // Called by rf_pipelines thread.
+    virtual void _start_pipeline(Json::Value &json_attrs) override;
+    virtual void _process_chunk(float *intensity, ssize_t istride, float *weights, ssize_t wstride, ssize_t pos) override;
+    virtual void _end_pipeline(Json::Value &json_output) override;
+
+    virtual Json::Value jsonize() const override;
+    static std::shared_ptr<chime_slow_pulsar_writer> from_json(const Json::Value &j);
+
+    // must leave these public for quantize_store hack
+    // otherwise should be protected or private
+    void _get_new_chunk_with_locks(const ssize_t nbins);
+    sp_chunk_t chunk = nullptr;
+
+// private:
+    // quantize to nbit depth and store the store the result in a memory slab
+    // void quantize_store(fvec_t in, const ssize_t istride, fvec_t weights, const ssize_t wstride, const int nbits_out, sp_header& sph);
+    // verify and ensure that memory is allocated
+};
+
+
+// -------------------------------------------------------------------------------------------------
+//
 // pipeline_spool
 // 
 // This utility class is intended for debugging!  It can be placed anywhere in a pipeline, 
@@ -748,7 +885,6 @@ protected:
     std::vector<std::shared_ptr<spooled_buffer>> spooled_buffers;
 };
 
-
-}  // namespace rf_pipelines
+};  // namespace rf_pipelines
 
 #endif // _RF_PIPELINES_INVENTORY_HPP

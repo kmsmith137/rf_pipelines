@@ -27,8 +27,11 @@ OFILES = badchannel_mask.o \
 	chime_file_stream_base.o \
 	chime_file_writer.o \
 	chime_assembled_chunk_file_writer.o \
+	chime_checksummer.o \
+	md5.o \
 	chime_frb_file_stream.o \
 	chime_network_stream.o \
+	chime_slow_pulsar_writer.o \
 	chime_packetizer.o \
 	chunked_pipeline_object.o \
 	file_utils.o \
@@ -152,6 +155,12 @@ ifeq ($(HAVE_PNG),y)
 	LIBS += -lpng
 endif
 
+ifeq ($(HAVE_SPSHUFF),y)
+	CPP += -DHAVE_SPSHUFF
+else
+	$(error Fatal: Must have spshuff to compile this branch)
+endif
+
 #To be uncommented when C++ pulse_adder transform is resurrected.
 #
 #ifeq ($(HAVE_SIMPULSE),y)
@@ -187,6 +196,8 @@ clean:
 	for d in $(CLEANDIRS); do rm -f $$d/*~ $$d/*.o $$d/*.so $$d/*.pyc; done
 
 %.o: %.cpp $(INCFILES)
+	$(CPP) -c -o $@ $<
+%.o: %.c $(INCFILES)
 	$(CPP) -c -o $@ $<
 
 librf_pipelines.so: $(OFILES)
