@@ -45,9 +45,9 @@ struct chime_assembled_chunk_file_writer : public wi_transform {
     
     virtual void _start_pipeline(Json::Value &j) override
     {
-        // FIXME --
         chunk_ini.beam_id = j["beam_id"].asInt();
         chunk_ini.nupfreq = this->nfreq / constants::nfreq_coarse_tot;
+        // FIXME?
         chunk_ini.nrfifreq = 0; // ??
         chunk_ini.nt_per_packet = 16; // ??
         chunk_ini.fpga_counts_per_sample = j["fpga_counts_per_sample"].asInt();
