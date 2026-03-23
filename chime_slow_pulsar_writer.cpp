@@ -599,14 +599,14 @@ void chime_slow_pulsar_writer::_process_chunk(float *intensity, ssize_t istride,
         std::chrono::duration<double> tdownsample = t1 - t0;
         std::chrono::duration<double> tloop = t3 - t2;
         std::chrono::duration<double> twrite = t4 - t3;
-        std::cout << "time per exec: " << this->time_spent_in_transform / ichunk << std::endl;
-        std::cout << "\tdownsample: " << tdownsample.count() << std::endl;
-        std::cout << "\tloop: " << tloop.count() << std::endl;
+        // std::cout << "time per exec: " << this->time_spent_in_transform / ichunk << std::endl;
+        // std::cout << "\tdownsample: " << tdownsample.count() << std::endl;
+        // std::cout << "\tloop: " << tloop.count() << std::endl;
         // std::cout << "\t\tweight_loop: " << wdur << std::endl;
         // std::cout << "\t\tnorm_loop: " << ndur << std::endl;
         // std::cout << "\t\tquantize_loop: " << qdur << std::endl;
         // std::cout << "\t\tcompress_loop: " << cdur << std::endl;
-        std::cout << "\twrite: " << twrite.count() << std::endl;
+        // std::cout << "\twrite: " << twrite.count() << std::endl;
     }
 
 
